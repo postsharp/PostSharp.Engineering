@@ -31,6 +31,12 @@ project {
     buildType(Build)
     buildType(PublishInternally)
     buildType(PublishToNuGetOrg)
+    
+    params {
+        add {
+            param("env.INTERNAL_NUGET_PUSH_URL", "https://nuget.postsharp.net/nuget/caravela/")
+        }
+    }
 }
 
 object Build : BuildType({
