@@ -1,0 +1,4 @@
+[*.cs]
+
+# File header
+file_header_template = Copyright (c) SharpCrafters s.r.o. All rights reserved. Released under the MIT license.

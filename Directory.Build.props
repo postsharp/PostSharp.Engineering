@@ -1,0 +1,15 @@
+<Project>
+
+    <PropertyGroup>
+        <RepoDirectory>$(MSBuildThisFileDirectory)</RepoDirectory>
+    </PropertyGroup>
+
+    <Import Project="eng\Versions.props"/>
+    <Import Project="eng\Packaging.props"/>
+
+    <Import Project="src\PostSharp.Engineering.Sdk\BuildOptions.props"/>
+    <Import Project="src\PostSharp.Engineering.Sdk\SourceLink.props"/>
+    <Import Project="src\PostSharp.Engineering.Sdk\CodeQuality.props"/>
+
+
+</Project>

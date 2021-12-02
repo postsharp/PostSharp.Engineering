@@ -1,0 +1,37 @@
+﻿using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Utilities;
+using System.IO;
+
+namespace PostSharp.Engineering.BuildTools.CodeStyle
+{
+    internal class PushCodeStyleCommand : BaseCodeStyleCommand<CodeStyleSettings>
+    {
+        protected override bool ExecuteCore( BuildContext context, CodeStyleSettings options )
+        {
+            context.Console.WriteHeading( "Pushing code style." );
+
+            var sharedRepo = GetCodeStyleRepo( context, options );
+
+            if ( sharedRepo == null )
+            {
+                return false;
+            }
+
+            // Copy the files (removing the previous content).
+            context.Console.WriteImportantMessage( $"Copying '{context.Product.EngineeringDirectory}' to '{sharedRepo}'." );
+
+            CopyDirectory(
+                Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "style" ),
+                sharedRepo );
+
+            // Stage all changes to the commit, but does not commit.
+            ToolInvocationHelper.InvokeTool( context.Console, "git", $"add --all", sharedRepo );
+
+            ToolInvocationHelper.InvokeTool( context.Console, "git", $"status", sharedRepo );
+
+            context.Console.WriteSuccess( "Pushing code style was successful. You now need to commit and push manually." );
+
+            return true;
+        }
+    }
+}

@@ -1,0 +1,6 @@
+obj
+bin
+artifacts
+.vs
+.suo
+eng/tools
