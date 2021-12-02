@@ -55,6 +55,10 @@ object Build : BuildType({
         vcs {
         }
     }
+
+    requirements {
+        equals("env.BuildAgentType", "caravela02")
+    }
 })
 
 object PublishInternally : BuildType({
