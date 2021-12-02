@@ -73,4 +73,9 @@ object PublishInternally : BuildType({
             param("jetbrains_powershell_scriptArguments", "publish")
         }
     }
+
+    dependencies {
+        snapshot(Build) {
+        }
+    }
 })
