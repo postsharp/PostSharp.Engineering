@@ -29,6 +29,7 @@ version = "2019.2"
 project {
 
     buildType(Build)
+    buildType(PublishInternally)
 }
 
 object Build : BuildType({
@@ -54,4 +55,8 @@ object Build : BuildType({
         vcs {
         }
     }
+})
+
+object PublishInternally : BuildType({
+    name = "Publish Internally"
 })
