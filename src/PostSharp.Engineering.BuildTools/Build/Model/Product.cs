@@ -528,6 +528,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 <Project>
     <PropertyGroup>";
 
+            var versionWithPath = patchNumber == 0 ? versionPrefix : versionPrefix + "." + patchNumber;
+
             if ( this.GenerateArcadeProperties )
             {
                 // Caravela.Compiler, because of Arcade, requires the version number to be decomposed in a prefix, patch number, and suffix.
@@ -561,16 +563,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         <{this.ProductNameWithoutDot}VersionPrefix>{versionPrefix}</{this.ProductNameWithoutDot}VersionPrefix>
         <{this.ProductNameWithoutDot}VersionSuffix>{arcadeSuffix}</{this.ProductNameWithoutDot}VersionSuffix>
         <{this.ProductNameWithoutDot}VersionPatchNumber>{patchNumber}</{this.ProductNameWithoutDot}VersionPatchNumber>
-        <{this.ProductNameWithoutDot}Version>{versionPrefix}{packageSuffix}</{this.ProductNameWithoutDot}Version>
-        <{this.ProductNameWithoutDot}AssemblyVersion>{versionPrefix}.{patchNumber}</{this.ProductNameWithoutDot}AssemblyVersion>";
+        <{this.ProductNameWithoutDot}Version>{versionWithPath}</{this.ProductNameWithoutDot}Version>
+        <{this.ProductNameWithoutDot}AssemblyVersion>{versionWithPath}</{this.ProductNameWithoutDot}AssemblyVersion>";
             }
             else
             {
                 var packageSuffix = string.IsNullOrEmpty( versionSuffix ) ? "" : "-" + versionSuffix;
 
                 props += $@"
-        <{this.ProductNameWithoutDot}Version>{versionPrefix}.{patchNumber}{packageSuffix}</{this.ProductNameWithoutDot}Version>
-        <{this.ProductNameWithoutDot}AssemblyVersion>{versionPrefix}.{patchNumber}</{this.ProductNameWithoutDot}AssemblyVersion>";
+        <{this.ProductNameWithoutDot}Version>{versionWithPath}{packageSuffix}</{this.ProductNameWithoutDot}Version>
+        <{this.ProductNameWithoutDot}AssemblyVersion>{versionWithPath}</{this.ProductNameWithoutDot}AssemblyVersion>";
             }
 
             props += $@"

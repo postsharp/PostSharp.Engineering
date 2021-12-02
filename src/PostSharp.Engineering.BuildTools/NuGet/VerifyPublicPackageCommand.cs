@@ -7,6 +7,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
@@ -17,8 +18,6 @@ namespace PostSharp.Engineering.BuildTools.NuGet
 {
     internal class VerifyPublicPackageCommand : Command<VerifyPackageSettings>
     {
-        private static readonly Dictionary<string, bool> _cache = new();
-
         public override int Execute( CommandContext context, VerifyPackageSettings settings )
         {
             var console = new ConsoleHelper();
@@ -37,12 +36,24 @@ namespace PostSharp.Engineering.BuildTools.NuGet
                 return true;
             }
 
-            console.WriteHeading( "Verifying public packages." );
+            console.WriteHeading( "Verifying public packages" );
             var success = true;
+
+            Dictionary<string, Task<HttpResponseMessage>> remotePackageTasks = new();
 
             foreach ( var file in files )
             {
-                success &= ProcessPackage( console, directory.FullName, file );
+                success &= ProcessPackage( console, directory.FullName, file, remotePackageTasks);
+            }
+
+            console.WriteMessage( $"Waiting for {remotePackageTasks.Count} requests to complete." );
+            
+            Task.WhenAll( remotePackageTasks.Values ).Wait();
+
+            foreach ( var invalidDependency in remotePackageTasks.Where( p => !p.Value.IsCompletedSuccessfully ) )
+            {
+                console.WriteError( $"The package {invalidDependency.Key} could not be found." );
+                success = false;
             }
 
             if ( success )
@@ -53,7 +64,7 @@ namespace PostSharp.Engineering.BuildTools.NuGet
             return success;
         }
 
-        private static bool ProcessPackage( ConsoleHelper console, string directory, string inputPath )
+        private static bool ProcessPackage( ConsoleHelper console, string directory, string inputPath, Dictionary<string, Task<HttpResponseMessage>> remotePackageTasks )
         {
             var inputShortPath = Path.GetFileName( inputPath );
 
@@ -112,26 +123,16 @@ namespace PostSharp.Engineering.BuildTools.NuGet
                 {
                     // Check if the dependency is present on nuget.org.
                     var uri =
-                        $"https://www.nuget.org/packages/{dependentId}/{versionRange.MinVersion.ToNormalizedString()}";
+                        $"https://www.nuget.org/api/v2/package/{dependentId}/{versionRange.MinVersion.ToNormalizedString()}";
 
-                    if ( !_cache.TryGetValue( uri, out var packageFound ) )
-                    {
-                        var httpResult = httpClient.SendAsync( new HttpRequestMessage( HttpMethod.Get, uri ) ).Result;
-                        packageFound = httpResult.IsSuccessStatusCode;
-                        _cache.Add( uri, packageFound );
-                    }
+                    console.WriteMessage( $"Verifying {uri}" );
 
-                    if ( !packageFound )
+                    if ( !remotePackageTasks.TryGetValue( uri, out var packageFound ) )
                     {
-                        console.WriteError( $"{inputShortPath}: {dependentId} {versionRangeString} is not public." );
-                        success = false;
+                        var task = httpClient.SendAsync( new HttpRequestMessage( HttpMethod.Get, uri ) );
+                        remotePackageTasks.Add( uri, task );
                     }
                 }
-            }
-
-            if ( success )
-            {
-                console.WriteMessage( inputShortPath + ": correct" );
             }
 
             return success;
