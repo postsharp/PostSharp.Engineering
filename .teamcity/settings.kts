@@ -105,7 +105,7 @@ object PublishToNuGetOrg : BuildType({
                     path = "Build.ps1"
                 }
                 noProfile = false
-                param("jetbrains_powershell_scriptArguments", "build --public --configuration Release")
+                param("jetbrains_powershell_scriptArguments", "build --public --configuration Release --sign")
             }
             
         powerShell {
