@@ -35,7 +35,7 @@ project {
 object Build : BuildType({
     name = "Build"
 
-    artifactRules = "+artifacts/publish/private/*=>artifacts/publish/private"
+    artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -85,7 +85,45 @@ object PublishInternally : BuildType({
 
             artifacts {
                 cleanDestination = true
-                artifactRules = "+artifacts/publish/private/*=>artifacts/publish/private"
+                artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
+            }
+        }
+    }
+})
+
+object PublishToNuGetOrg : BuildType({
+    name = "Publish to nuget.org"
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+
+    steps {
+        powerShell {
+                scriptMode = file {
+                    path = "Build.ps1"
+                }
+                noProfile = false
+                param("jetbrains_powershell_scriptArguments", "build --public")
+            }
+            
+        powerShell {
+            scriptMode = file {
+                path = "Build.ps1"
+            }
+            noProfile = false
+            param("jetbrains_powershell_scriptArguments", "publish")
+        }
+    }
+
+    dependencies {
+        dependency(Build) {
+            snapshot {
+            }
+
+            artifacts {
+                cleanDestination = true
+                artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
             }
         }
     }
