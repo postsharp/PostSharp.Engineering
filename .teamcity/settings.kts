@@ -117,15 +117,4 @@ object PublishToNuGetOrg : BuildType({
         }
     }
 
-    dependencies {
-        dependency(Build) {
-            snapshot {
-            }
-
-            artifacts {
-                cleanDestination = true
-                artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
-            }
-        }
-    }
 })
