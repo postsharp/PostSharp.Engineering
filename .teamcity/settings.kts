@@ -44,10 +44,7 @@ object Build : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", """
-                build
-                --numbered %build.number%
-            """.trimIndent())
+            param("jetbrains_powershell_scriptArguments", "build --numbered %build.number%")
         }
     }
 
