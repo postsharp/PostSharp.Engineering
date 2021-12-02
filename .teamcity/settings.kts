@@ -59,4 +59,8 @@ object Build : BuildType({
 
 object PublishInternally : BuildType({
     name = "Publish Internally"
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
 })
