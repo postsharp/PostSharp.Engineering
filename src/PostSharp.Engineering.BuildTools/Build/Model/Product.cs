@@ -22,9 +22,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string ProductNameWithoutDot => this.ProductName.Replace( ".", "", StringComparison.OrdinalIgnoreCase );
 
-        public ParametricString PrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "private" );
+        public ParametricString PrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "private" );
 
-        public ParametricString PublicArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "public" );
+        public ParametricString PublicArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "public" );
 
         public bool GenerateArcadeProperties { get; init; }
 

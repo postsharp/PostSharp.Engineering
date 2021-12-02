@@ -2,6 +2,7 @@
 
     <PropertyGroup>
         <RepoDirectory>$(MSBuildThisFileDirectory)</RepoDirectory>
+        <RepoKind>GitHub</RepoKind>
     </PropertyGroup>
 
     <Import Project="eng\Versions.props"/>

@@ -8,7 +8,7 @@
 
     <!-- Output path -->
     <PropertyGroup>
-        <PackageOutputPath>$([MSBuild]::NormalizeDirectory(`$(RepoDirectory)\artifacts\private`))</PackageOutputPath>
+        <PackageOutputPath>$([MSBuild]::NormalizeDirectory(`$(RepoDirectory)\artifacts\publish\private`))</PackageOutputPath>
     </PropertyGroup>
 
     <!-- Obfuscation -->

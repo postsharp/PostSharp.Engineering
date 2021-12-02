@@ -156,7 +156,7 @@ Create `eng\Versions.props` file. The content should look like:
     </PropertyGroup>
 
     <!-- Overrides by local settings -->
-    <Import Project="../artifacts/private/[Product]Version.props" Condition="Exists('../artifacts/private/[Product]Version.props')" />
+    <Import Project="../artifacts/publish/private/[Product]Version.props" Condition="Exists('../artifacts/publish/private/[Product]Version.props')" />
     <Import Project="Dependencies.props" Condition="Exists('Dependencies.props')" />
 
     <!-- Other properties depending on the versions set above -->
