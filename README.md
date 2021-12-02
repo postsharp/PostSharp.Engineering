@@ -4,55 +4,98 @@
 
 - [PostSharp Engineering](#postsharp-engineering)
   - [Table of contents](#table-of-contents)
-  - [Introduction](#introduction)
-  - [PostSharp.Engineering.Sdk](#postsharpengineeringsdk)
-    - [Content](#content)
-    - [Installation](#installation)
-      - [Step 1. Edit global.json](#step-1-edit-globaljson)
+  - [Content](#content)
+  - [Concepts](#concepts)
+    - [Terminology](#terminology)
+    - [Build and testing locally](#build-and-testing-locally)
+    - [Versioning](#versioning)
+      - [Objectives](#objectives)
+      - [Configuring the version of the current product](#configuring-the-version-of-the-current-product)
+    - [Configuring the version of dependent products or packages.](#configuring-the-version-of-dependent-products-or-packages)
+    - [Using a local build of a referenced product](#using-a-local-build-of-a-referenced-product)
+  - [Installation](#installation)
+    - [Step 1. Edit global.json](#step-1-edit-globaljson)
     - [Step 2. Packaging.props](#step-2-packagingprops)
     - [Step 3. MainVersion.props](#step-3-mainversionprops)
     - [Step 4. Versions.props](#step-4-versionsprops)
     - [Step 5. Directory.Build.props](#step-5-directorybuildprops)
-      - [Step 6. Directory.Build.targets](#step-6-directorybuildtargets)
-      - [Step 7. Create the front-end build project](#step-7-create-the-front-end-build-project)
-      - [Step 7. Create Build.ps1, the front-end build script](#step-7-create-buildps1-the-front-end-build-script)
-    - [Step 8. Editing .gitignore](#step-8-editing-gitignore)
-    - [Usage](#usage)
-      - [Product package version and package version suffix configuration](#product-package-version-and-package-version-suffix-configuration)
-      - [Package dependencies versions configuration](#package-dependencies-versions-configuration)
-      - [Build and testing locally](#build-and-testing-locally)
-      - [Referencing a package in another repository](#referencing-a-package-in-another-repository)
+    - [Step 6. Directory.Build.targets](#step-6-directorybuildtargets)
+    - [Step 7. Create the front-end build project](#step-7-create-the-front-end-build-project)
+    - [Step 8. Create Build.ps1, the front-end build script](#step-8-create-buildps1-the-front-end-build-script)
+    - [Step 9. Editing .gitignore](#step-9-editing-gitignore)
   - [Continuous integration](#continuous-integration)
     - [Artifacts](#artifacts)
     - [Commands](#commands)
     - [Required environment variables](#required-environment-variables)
 
-## Introduction
+## Content
 
 This repository contains common development, build and publishing scripts. It produces two NuGet packages:
  
 * _PostSharp.Engineering.BuildTools_ is meant to be added as a package reference from the facade C# build program.
+  
 * _PostSharp.Engineering.Sdk_ is meant to be used as an SDK project.
+
+  * `AssemblyMetadata.targets`: Adds package versions to assembly metadata.
+  * `BuildOptions.props`: Sets the compiler options like language version, nullability and other build options like output path.
+  * `TeamCity.targets`: Enables build and tests reporting to TeamCity.
+  * `SourceLink.props`: Enables SourceLink support.
+  * `Coverage.props`:
+    Enabled code coverage. This script should be imported in test projects only (not in projects being tested). This script
+    adds a package to _coverlet_ so there is no need to have in in test projects (and these references should be removed).
 
 Both packages must be used at the same time.
 
-## PostSharp.Engineering.Sdk
 
-### Content
+## Concepts
 
-* `AssemblyMetadata.targets`: Adds package versions to assembly metadata.
-* `BuildOptions.props`: Sets the compiler options like language version, nullability and other build options like output path.
-* `TeamCity.targets`: Enables build and tests reporting to TeamCity.
-* `SourceLink.props`: Enables SourceLink support.
-* `Coverage.props`: 
-Enabled code coverage. This script should be imported in test projects only (not in projects being tested). This script
-adds a package to _coverlet_ so there is no need to have in in test projects (and these references should be removed).
+### Terminology
+
+A _product_ is almost synonym for _repository_. There is a single product per repository, and the product name must be the same as the repository name. A product can contain several C# solutions.
+
+### Build and testing locally
+
+For details, do `Build.ps1` in PowerShell and read the help.
+
+### Versioning
+
+#### Objectives
+
+A major goal of this SDK is to allow to build and test repositories that have references to other repositories _without_ having to publish the nuget package.
+That is, it is possible and quite easy, with this SDK, to perform builds that reference local clones of repositories. All solutions or projects in the same product share have the same version.
+
+#### Configuring the version of the current product
+
+The product package version and package version suffix configuration is centralized in the `eng\MainVersion.props`
+script via the `MainVersion` and `PackageVersionSuffix` properties, respectively. For RTM products, leave
+the `PackageVersionSuffix` property value empty.
+
+### Configuring the version of dependent products or packages.
+
+Package dependencies versions configuration is centralized in the `eng\Versions.props` script. Each dependency version
+is configured in a property named `<[DependencyName]Version>`, eg. `<SystemCollectionsImmutableVersion>`.
+
+This property value is then available in all MSBuild project files in the repository and can be used in
+the `PackageReference` items. For example:
+
+```
+<ItemGroup>
+    <PackageReference Include="System.Collections.Immutable" Version="$(SystemCollectionsImmutableVersion)" />
+</ItemGroup>
+```
+
+### Using a local build of a referenced product
+
+Dependencies must be checked out under the same root directory (typically `c:\src`) under their canonic name.
+
+Then, use `Build.ps1 dependencies local` to specify which dependencies should be run locally.
+
+This will generate `eng/Dependencies.props`, which you should have imported in `eng/Versions.props`.
 
 
-### Installation
+## Installation
 
-
-#### Step 1. Edit global.json
+### Step 1. Edit global.json
 
 Add or update the reference to `PostSharp.Engineering.Sdk` in `global.json`.
 
@@ -169,7 +212,7 @@ Add the following content to `Directory.Build.props`:
 </Project>
 ```
 
-#### Step 6. Directory.Build.targets
+### Step 6. Directory.Build.targets
 
 Add the following content to `Directory.Build.targets`:
 
@@ -182,7 +225,7 @@ Add the following content to `Directory.Build.targets`:
 </Project>
 ```
 
-#### Step 7. Create the front-end build project
+### Step 7. Create the front-end build project
 
 Create a file `eng\src\Build.csproj` with the following content:
 
@@ -254,7 +297,7 @@ namespace BuildCaravela
 }
 ```
 
-#### Step 7. Create Build.ps1, the front-end build script
+### Step 8. Create Build.ps1, the front-end build script
 
 Create `Build.ps1` file in the repo root directory. The content should look like:
 
@@ -268,7 +311,7 @@ if ( $env:VisualStudioVersion -eq $null ) {
 exit $LASTEXITCODE
 ```
 
-### Step 8. Editing .gitignore
+### Step 9. Editing .gitignore
 
 Exclude this:
 
@@ -276,40 +319,6 @@ Exclude this:
 artifacts
 eng/tools
 ```
-
-### Usage
-
-#### Product package version and package version suffix configuration
-
-The product package version and package version suffix configuration is centralized in the `eng\MainVersion.props`
-script via the `MainVersion` and `PackageVersionSuffix` properties, respectively. For RTM products, leave
-the `PackageVersionSuffix` property value empty.
-
-#### Package dependencies versions configuration
-
-Package dependencies versions configuration is centralized in the `eng\Versions.props` script. Each dependency version
-is configured in a property named `<[DependencyName]Version>`, eg. `<SystemCollectionsImmutableVersion>`.
-
-This property value is then available in all MSBuild project files in the repository and can be used in
-the `PackageReference` items. For example:
-
-```
-<ItemGroup>
-    <PackageReference Include="System.Collections.Immutable" Version="$(SystemCollectionsImmutableVersion)" />
-</ItemGroup>
-```
-
-#### Build and testing locally
-
-For details, do `Build.ps1` in PowerShell.
-
-#### Referencing a package in another repository
-
-Dependencies must be checked out under the same root directory (typically `c:\src`) under their canonic name.
-
-Then, use `Build.ps1 dependencies local` to specify which dependencies should be run locally.
-
-This will generate `eng/Dependencies.props`, which you should have imported in `eng/Versions.props`.
 
 ## Continuous integration
 
