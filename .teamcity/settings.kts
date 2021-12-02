@@ -75,7 +75,14 @@ object PublishInternally : BuildType({
     }
 
     dependencies {
-        snapshot(Build) {
+        dependency(Build) {
+            snapshot {
+            }
+
+            artifacts {
+                cleanDestination = true
+                artifactRules = "+artifacts/publish=>artifacts/publish"
+            }
         }
     }
 })
