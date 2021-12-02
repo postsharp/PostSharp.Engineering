@@ -35,7 +35,7 @@ project {
 object Build : BuildType({
     name = "Build"
 
-    artifactRules = "+artifacts/publish=>artifacts/publish"
+    artifactRules = "+artifacts/publish/**/*=>artifacts/publish"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -85,7 +85,7 @@ object PublishInternally : BuildType({
 
             artifacts {
                 cleanDestination = true
-                artifactRules = "+artifacts/publish=>artifacts/publish"
+                artifactRules = "+artifacts/publish/**/*=>artifacts/publish"
             }
         }
     }
