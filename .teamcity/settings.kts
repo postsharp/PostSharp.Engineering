@@ -30,6 +30,7 @@ project {
 
     buildType(Build)
     buildType(PublishInternally)
+    buildType(PublishToNuGetOrg)
 }
 
 object Build : BuildType({
