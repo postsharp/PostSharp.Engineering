@@ -1,4 +1,5 @@
-﻿using PostSharp.Engineering.BuildTools.Build;
+﻿using Microsoft.VisualBasic;
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle
@@ -18,9 +19,14 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
             {
                 if ( solution.CanFormatCode )
                 {
-                    if ( !DotNetTool.Resharper.Invoke(
-                        context,
-                        $"cleanupcode --profile:Custom {solution.SolutionPath} --disable-settings-layers:\"GlobalAll;GlobalPerProduct;SolutionPersonal;ProjectPersonal\"" ) )
+                    var command = $"cleanupcode --profile:Custom {solution.SolutionPath} --disable-settings-layers:\"GlobalAll;GlobalPerProduct;SolutionPersonal;ProjectPersonal\"";
+
+                    if ( !solution.FormatExclusions.IsDefaultOrEmpty )
+                    {
+                        command += $" --exclude:\"{string.Join( ';', solution.FormatExclusions )}\"";
+                    }
+
+                    if ( !DotNetTool.Resharper.Invoke( context, command ) )
                     {
                         return false;
                     }
