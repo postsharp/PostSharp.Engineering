@@ -52,7 +52,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             foreach ( var resourceName in assembly.GetManifestResourceNames() )
             {
-                const string prefix = "PostSharp.EngineeringTool.BuildTools.ToolsResources.";
+                const string prefix = "PostSharp.Engineering.BuildTools.ToolsResources.";
 
                 if ( resourceName.StartsWith( prefix, StringComparison.Ordinal ) )
                 {
