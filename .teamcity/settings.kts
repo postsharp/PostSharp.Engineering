@@ -70,6 +70,7 @@ object PublishInternally : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
+            param("jetbrains_powershell_scriptArguments", "publish")
         }
     }
 })
