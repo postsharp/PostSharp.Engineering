@@ -63,4 +63,13 @@ object PublishInternally : BuildType({
     vcs {
         root(DslContext.settingsRoot)
     }
+
+    steps {
+        powerShell {
+            scriptMode = file {
+                path = "Build.ps1"
+            }
+            noProfile = false
+        }
+    }
 })
