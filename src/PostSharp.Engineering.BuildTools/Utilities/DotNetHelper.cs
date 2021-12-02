@@ -1,6 +1,7 @@
 ﻿using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using System;
+using System.Globalization;
 using System.Text;
 
 namespace PostSharp.Engineering.BuildTools.Utilities
@@ -16,7 +17,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         {
             var argsBuilder = new StringBuilder();
 
-            argsBuilder.Append( $"{command} -p:Configuration={options.BuildConfiguration} \"{solution}\" -v:{options.Verbosity.ToAlias()} --nologo" );
+            argsBuilder.Append( CultureInfo.InvariantCulture, $"{command} -p:Configuration={options.BuildConfiguration} \"{solution}\" -v:{options.Verbosity.ToAlias()} --nologo" );
 
             if ( options.NoConcurrency )
             {
@@ -25,7 +26,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             foreach ( var property in options.Properties )
             {
-                argsBuilder.Append( $" -p:{property.Key}={property.Value}" );
+                argsBuilder.Append( CultureInfo.InvariantCulture, $" -p:{property.Key}={property.Value}" );
             }
 
             if ( !string.IsNullOrWhiteSpace( arguments ) )

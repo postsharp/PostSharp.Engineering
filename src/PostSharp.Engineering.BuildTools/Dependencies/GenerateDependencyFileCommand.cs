@@ -1,6 +1,7 @@
 ﻿using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -95,7 +96,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         return false;
                     }
 
-                    stringBuilder.AppendLine( $"   <Import Project=\"{importProjectFile}\"/>" );
+                    stringBuilder.AppendLine( CultureInfo.InvariantCulture, $"   <Import Project=\"{importProjectFile}\"/>" );
                 }
 
                 stringBuilder.AppendLine( "</Project>" );
