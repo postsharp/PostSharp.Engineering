@@ -4,3 +4,4 @@ artifacts
 .vs
 .suo
 eng/tools
+*.Import.props

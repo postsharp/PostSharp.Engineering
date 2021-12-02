@@ -318,6 +318,7 @@ Exclude this:
 ```
 artifacts
 eng/tools
+*.Import.props
 ```
 
 ## Continuous integration
