@@ -132,7 +132,7 @@ object DebugInternalPublish : BuildType({
 })
 
 // Publish the release build internally
-object DebugInternalPublish : BuildType({
+object ReleaseInternalPublish : BuildType({
     name = "Publish Internally [Release]"
 
     vcs {
