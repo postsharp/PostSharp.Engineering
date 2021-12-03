@@ -28,13 +28,16 @@ version = "2019.2"
 
 project {
 
-    buildType(Build)
-    buildType(PublishInternally)
-    buildType(PublishToNuGetOrg)
+    buildType(DebugBuild)
+    buildType(DebugInternalPublish)
+    buildType(ReleaseBuild)
+    buildType(ReleaseInternalPublish)
+    buildType(ReleasePublicRelease)
 }
 
-object Build : BuildType({
-    name = "Build"
+// Debug build (a numbered build)
+object DebugBuild : BuildType({
+    name = "Build [Debug]"
 
     artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
 
@@ -62,8 +65,39 @@ object Build : BuildType({
     }
 })
 
-object PublishInternally : BuildType({
-    name = "Publish Internally"
+// Release build (with unsuffixed version number)
+object ReleaseBuild : BuildType({
+    name = "Build [Release]"
+
+    artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+
+    steps {
+        powerShell {
+            scriptMode = file {
+                path = "Build.ps1"
+            }
+            noProfile = false
+            param("jetbrains_powershell_scriptArguments", "build --public")
+        }
+    }
+
+    triggers {
+        vcs {
+        }
+    }
+
+    requirements {
+        equals("env.BuildAgentType", "caravela02")
+    }
+})
+
+// Publish the internal build
+object DebugInternalPublish : BuildType({
+    name = "Publish Internally [Debug]"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -80,7 +114,7 @@ object PublishInternally : BuildType({
     }
 
     dependencies {
-        dependency(Build) {
+        dependency(DebugBuild) {
             snapshot {
             }
 
@@ -90,10 +124,53 @@ object PublishInternally : BuildType({
             }
         }
     }
+    
+    
+    requirements {
+        equals("env.BuildAgentType", "caravela02")
+    }
 })
 
-object PublishToNuGetOrg : BuildType({
-    name = "Publish to nuget.org"
+// Publish the release build internally
+object DebugInternalPublish : BuildType({
+    name = "Publish Internally [Release]"
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+
+    steps {
+        powerShell {
+            scriptMode = file {
+                path = "Build.ps1"
+            }
+            noProfile = false
+            param("jetbrains_powershell_scriptArguments", "publish")
+        }
+    }
+
+    dependencies {
+        dependency(ReleaseBuild) {
+            snapshot {
+            }
+
+            artifacts {
+                cleanDestination = true
+                artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
+            }
+        }
+    }
+    
+    
+    requirements {
+        equals("env.BuildAgentType", "caravela02")
+    }
+})
+
+
+// Publish the release build to public feeds
+object ReleasePublicRelease : BuildType({
+    name = "Publish Externally [Release]"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -115,6 +192,11 @@ object PublishToNuGetOrg : BuildType({
             noProfile = false
             param("jetbrains_powershell_scriptArguments", "publish --public")
         }
+    }
+    
+    
+    requirements {
+        equals("env.BuildAgentType", "caravela02")
     }
 
 })
