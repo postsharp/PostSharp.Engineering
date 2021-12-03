@@ -40,6 +40,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public ImmutableDictionary<string, string> SupportedProperties { get; init; } =
             ImmutableDictionary<string, string>.Empty;
 
+        public bool RequiresEngineeringSdk { get; init; } = true;
+
         public bool Build( BuildContext context, BuildOptions options )
         {
             // Validate options.

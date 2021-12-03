@@ -4,7 +4,10 @@ using Spectre.Console;
 using Spectre.Console.Cli;
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text.Json;
 
 #pragma warning disable 8765
 
@@ -25,6 +28,7 @@ namespace PostSharp.Engineering.BuildTools
                 }
                 else
                 {
+                    // Validate custom properties.
                     if ( settings.ListProperties )
                     {
                         if ( buildContext.Product.SupportedProperties.Count > 0 )
@@ -57,11 +61,46 @@ namespace PostSharp.Engineering.BuildTools
                         return 1;
                     }
 
+                    // Display the logo.
                     buildContext.Console.Out.Write(
                         new FigletText( buildContext.Product.ProductName )
                             .LeftAligned()
                             .Color( Color.Purple ) );
 
+                    buildContext.Console.Out.WriteLine();
+                    var myVersion = this.GetMyVersion();
+                    buildContext.Console.WriteMessage( $"Using PostSharp.Engineering v{myVersion}" );
+                    buildContext.Console.Out.WriteLine();
+
+                    // Validate the sdk version in global.sdk.
+                    if ( buildContext.Product.RequiresEngineeringSdk )
+                    {
+                        var globalJsonPath = Path.Combine( buildContext.RepoDirectory, "global.json" );
+
+                        if ( !File.Exists( globalJsonPath ) )
+                        {
+                            buildContext.Console.WriteWarning( "global.json does not exist." );
+                        }
+
+                        var globalJson = JsonDocument.Parse( File.ReadAllText( globalJsonPath ) );
+
+                        if ( !globalJson.RootElement.TryGetProperty( "msbuild-sdks", out var sdks ) ||
+                             !sdks.TryGetProperty( "PostSharp.Engineering.Sdk", out var sdk ) ||
+                             sdk.GetString() == null )
+                        {
+                            buildContext.Console.WriteWarning( "global.json does not import the PostSharp.Engineering.Sdk." );
+                        }
+                        else
+                        {
+                            if ( sdk.GetString() != myVersion )
+                            {
+                                buildContext.Console.WriteWarning(
+                                    $"global.json imports PostSharp.Engineering.Sdk version {sdk.GetString()}, but the BuildTools version is {myVersion}." );
+                            }
+                        }
+                    }
+
+                    // Execute the command itself.
                     var success = this.ExecuteCore( buildContext, settings );
 
                     buildContext.Console.WriteMessage( $"Finished at {DateTime.Now} after {stopwatch.Elapsed}." );
@@ -106,5 +145,8 @@ namespace PostSharp.Engineering.BuildTools
 
             return true;
         }
+
+        private string? GetMyVersion()
+            => typeof(BaseCommand<>).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().SingleOrDefault( a => a.Key == "PackageVersion" )?.Value;
     }
 }

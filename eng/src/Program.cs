@@ -22,7 +22,8 @@ var product = new Product
     ProductName = "PostSharp.Engineering",
     Solutions = ImmutableArray.Create<Solution>( new DotNetSolution( "PostSharp.Engineering.sln" ) { SupportsTestCoverage = true, CanFormatCode = true } ),
     PublishingTargets = ImmutableArray.Create<PublishingTarget>( publicPublishing ),
-    Dependencies = ImmutableArray.Create( new ProductDependency( "Caravela.Compiler" ) )
+    Dependencies = ImmutableArray.Create( new ProductDependency( "Caravela.Compiler" ) ),
+    RequiresEngineeringSdk = false
 };
 
 var commandApp = new CommandApp();
