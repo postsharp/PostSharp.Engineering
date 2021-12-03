@@ -98,6 +98,7 @@ object ReleaseBuild : BuildType({
 // Publish the internal build
 object DebugInternalPublish : BuildType({
     name = "Publish Internally [Debug]"
+    type = BuildTypeSettings.Type.DEPLOYMENT
 
     vcs {
         root(DslContext.settingsRoot)
@@ -134,6 +135,7 @@ object DebugInternalPublish : BuildType({
 // Publish the release build internally
 object ReleaseInternalPublish : BuildType({
     name = "Publish Internally [Release]"
+    type = BuildTypeSettings.Type.DEPLOYMENT
 
     vcs {
         root(DslContext.settingsRoot)
@@ -171,6 +173,7 @@ object ReleaseInternalPublish : BuildType({
 // Publish the release build to public feeds
 object ReleasePublicRelease : BuildType({
     name = "Publish Externally [Release]"
+    type = BuildTypeSettings.Type.DEPLOYMENT
 
     vcs {
         root(DslContext.settingsRoot)
