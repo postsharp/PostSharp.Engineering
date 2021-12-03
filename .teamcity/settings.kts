@@ -81,7 +81,7 @@ object ReleaseBuild : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "build --public")
+            param("jetbrains_powershell_scriptArguments", "build --public --configuration Release --sign")
         }
     }
 
@@ -178,14 +178,6 @@ object ReleasePublicRelease : BuildType({
 
     steps {
         powerShell {
-                scriptMode = file {
-                    path = "Build.ps1"
-                }
-                noProfile = false
-                param("jetbrains_powershell_scriptArguments", "build --public --configuration Release --sign")
-            }
-            
-        powerShell {
             scriptMode = file {
                 path = "Build.ps1"
             }
@@ -193,6 +185,20 @@ object ReleasePublicRelease : BuildType({
             param("jetbrains_powershell_scriptArguments", "publish --public")
         }
     }
+    
+  dependencies {
+        dependency(ReleaseBuild) {
+            snapshot {
+            }
+
+            artifacts {
+                cleanDestination = true
+                artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
+            }
+        }
+    }
+        
+        
     
     
     requirements {
