@@ -7,7 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <None Include="*.targets;*.props" Pack="True" PackagePath="sdk" />
+        <None Include="*.targets;*.props;*.snk" Pack="True" PackagePath="sdk" />
         <None Include="icons/*" Pack="True"  PackagePath="sdk/icons" />
     </ItemGroup>
 
