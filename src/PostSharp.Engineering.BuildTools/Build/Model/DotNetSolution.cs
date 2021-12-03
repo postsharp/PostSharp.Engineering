@@ -13,7 +13,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public override bool Test( BuildContext context, BuildOptions options ) => this.RunDotNet( context, options, "test", "--no-restore" );
 
-        public override bool Restore( BuildContext context, BaseBuildSettings options ) => this.RunDotNet( context, options, "restore" );
+        public override bool Restore( BuildContext context, BaseBuildSettings options ) => this.RunDotNet( context, options, "restore", "--no-cache" );
 
         private bool RunDotNet( BuildContext context, BaseBuildSettings options, string command, string arguments = "" )
             => DotNetHelper.Run(

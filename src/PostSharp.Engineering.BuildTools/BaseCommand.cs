@@ -69,7 +69,7 @@ namespace PostSharp.Engineering.BuildTools
 
                     buildContext.Console.Out.WriteLine();
                     var myVersion = GetMyVersion();
-                    buildContext.Console.WriteMessage( $"Using PostSharp.Engineering v{myVersion}" );
+                    buildContext.Console.WriteMessage( $"Using PostSharp.Engineering v{myVersion}." );
                     buildContext.Console.Out.WriteLine();
 
                     // Validate the sdk version in global.sdk.
