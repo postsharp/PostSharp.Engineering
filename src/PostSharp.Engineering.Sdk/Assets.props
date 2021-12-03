@@ -1,6 +1,6 @@
 <Project>
     <!-- Defines a property AssetsDirectory that can be used to include common assets in a project -->
     <PropertyGroup>
-        <AssetsDirectory>$($(MSBuildThisFileDirectory)\assets</AssetsDirectory>
+        <AssetsDirectory>$(MSBuildThisFileDirectory)\assets</AssetsDirectory>
     </PropertyGroup>
 </Project>
