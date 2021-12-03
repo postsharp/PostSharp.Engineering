@@ -1,13 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net5.0</TargetFramework>
+        <TargetFramework>net6.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
         <None Include="*.targets;*.props" Pack="True" PackagePath="sdk" />
+        <None Include="icons/*" Pack="True"  PackagePath="sdk/icons" />
     </ItemGroup>
 
 </Project>

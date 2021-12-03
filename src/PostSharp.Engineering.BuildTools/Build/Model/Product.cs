@@ -557,8 +557,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     arcadeSuffix += patchNumber;
                 }
 
-                var packageSuffix = string.IsNullOrEmpty( arcadeSuffix ) ? "" : "-" + arcadeSuffix;
-
                 props += $@"
         <{this.ProductNameWithoutDot}VersionPrefix>{versionPrefix}</{this.ProductNameWithoutDot}VersionPrefix>
         <{this.ProductNameWithoutDot}VersionSuffix>{arcadeSuffix}</{this.ProductNameWithoutDot}VersionSuffix>

@@ -43,7 +43,7 @@ namespace PostSharp.Engineering.BuildTools.NuGet
 
             foreach ( var file in files )
             {
-                success &= ProcessPackage( console, directory.FullName, file, remotePackageTasks);
+                success &= ProcessPackage( console, directory.FullName, file, remotePackageTasks );
             }
 
             console.WriteMessage( $"Waiting for {remotePackageTasks.Count} requests to complete." );
@@ -127,7 +127,7 @@ namespace PostSharp.Engineering.BuildTools.NuGet
 
                     console.WriteMessage( $"Verifying {uri}" );
 
-                    if ( !remotePackageTasks.TryGetValue( uri, out var packageFound ) )
+                    if ( !remotePackageTasks.ContainsKey( uri ) )
                     {
                         var task = httpClient.SendAsync( new HttpRequestMessage( HttpMethod.Get, uri ) );
                         remotePackageTasks.Add( uri, task );

@@ -79,6 +79,10 @@ namespace PostSharp.Engineering.BuildTools
                             "tools",
                             tools =>
                             {
+                                tools.AddCommand<KillCommand>( "kill" )
+                                    .WithData( product )
+                                    .WithDescription( "Kill all compiler processes" );
+                                
                                 tools.AddBranch(
                                     "csproj",
                                     csproj => csproj.AddCommand<AddProjectReferenceCommand>( "add-project-reference" )

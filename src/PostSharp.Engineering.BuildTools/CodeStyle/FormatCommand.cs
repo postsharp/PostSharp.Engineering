@@ -1,5 +1,4 @@
-﻿using Microsoft.VisualBasic;
-using PostSharp.Engineering.BuildTools.Build;
+﻿using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle
