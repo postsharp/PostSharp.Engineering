@@ -3,6 +3,7 @@
   <component name="UserContentModel">
     <attachedFolders>
       <Path>.teamcity</Path>
+      <Path>eng</Path>
     </attachedFolders>
     <explicitIncludes />
     <explicitExcludes />

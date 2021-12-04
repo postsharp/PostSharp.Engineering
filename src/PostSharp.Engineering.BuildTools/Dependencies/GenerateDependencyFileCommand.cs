@@ -1,10 +1,13 @@
 ﻿using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Utilities;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
 {
@@ -21,9 +24,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return false;
             }
 
-            var stringBuilder = new StringBuilder();
-            stringBuilder.AppendLine( "<Project>" );
-
             if ( options.Repos.Length == 0 && !(options.All || options.None) )
             {
                 context.Console.WriteError( "No dependency was specified. Use --all or --none." );
@@ -31,21 +31,43 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return false;
             }
 
-            var path = Path.Combine(
+            var versionsOverridePath = Path.Combine(
                 context.RepoDirectory,
                 context.Product.EngineeringDirectory,
-                "Dependencies.props" );
+                "Versions.g.props" );
+
+            XDocument versionsOverrideDocument;
+            List<(XElement XElement, string? Project)> imports;
+
+            if ( File.Exists( versionsOverridePath ) )
+            {
+                versionsOverrideDocument = XDocument.Load( versionsOverridePath );
+
+                imports = versionsOverrideDocument.Root!.Elements( "Import" )
+                    .Select( i => (XElement: i, Project: i.Attribute( "Project" )?.Value) )
+                    .Where( i => i.Project != null )
+                    .Where( i => i.Project!.EndsWith( ".Import.props" ) && !i.Project.EndsWith( context.Product.ProductNameWithoutDot + ".Import.props" ) )
+                    .ToList();
+
+                // Remove all imports. We will put them back later.
+                foreach ( var import in imports )
+                {
+                    import.XElement.Remove();
+                }
+            }
+            else
+            {
+                versionsOverrideDocument = new XDocument( new XElement( "Project" ) );
+                imports = new List<(XElement XElement, string? Project)>();
+            }
 
             if ( options.None )
             {
-                if ( File.Exists( path ) )
-                {
-                    context.Console.WriteMessage( $"Deleting '{path}'." );
-                    File.Delete( path );
-                }
-                else
+                if ( imports.Count == 0 )
                 {
                     context.Console.WriteMessage( "Nothing to do." );
+
+                    return true;
                 }
             }
             else
@@ -96,13 +118,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         return false;
                     }
 
-                    stringBuilder.AppendLine( CultureInfo.InvariantCulture, $"   <Import Project=\"{importProjectFile}\"/>" );
+                    versionsOverrideDocument.Root!.Add( new XElement( "Import", new XAttribute( "Project", importProjectFile ) ) );
                 }
 
-                stringBuilder.AppendLine( "</Project>" );
-
-                context.Console.WriteMessage( $"Generating '{path}'" );
-                File.WriteAllText( path, stringBuilder.ToString() );
+                context.Console.WriteImportantMessage( $"Writing '{versionsOverridePath}'" );
+                context.Console.WriteMessage( versionsOverrideDocument.ToString() );
+                versionsOverrideDocument.Save( versionsOverridePath );
             }
 
             context.Console.WriteSuccess( "Setting local dependencies was successful." );

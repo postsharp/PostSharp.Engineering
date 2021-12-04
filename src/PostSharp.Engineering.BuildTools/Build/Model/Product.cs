@@ -11,6 +11,8 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Xml.Linq;
+using XDocument = System.Xml.Linq.XDocument;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
@@ -509,12 +511,51 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 </Project>
 ";
 
+            var importFilePath = Path.Combine( context.RepoDirectory, this.ProductName + ".Import.props" );
+
             File.WriteAllText(
-                Path.Combine( context.RepoDirectory, this.ProductName + ".Import.props" ),
+                importFilePath,
                 importFileContent );
+
+            // Update Versions.g.props.
+            var versionsOverridePath = Path.Combine(
+                context.RepoDirectory,
+                context.Product.EngineeringDirectory,
+                "Versions.g.props" );
+
+            context.Console.WriteMessage( $"Writing '{versionsOverridePath}'." );
+
+            XDocument versionsOverrideDocument;
+
+            if ( File.Exists( versionsOverridePath ) )
+            {
+                versionsOverrideDocument = XDocument.Load( versionsOverridePath );
+                
+                // To avoid duplicates, remove the imports that we will adding back.
+                var imports = versionsOverrideDocument.Root!.Elements( "Import" )
+                    .Select( i => (XElement: i, Project: i.Attribute( "Project" )?.Value) )
+                    .Where( i => i.Project != null )
+                    .Where( i => i.Project!.EndsWith( this.ProductName + ".Import.props" ) || i.Project.EndsWith( "*.Import.props" ) )
+                    .ToList();
+
+                foreach ( var import in imports )
+                {
+                    import.XElement.Remove();
+                }
+            }
+            else
+            {
+                versionsOverrideDocument = new XDocument( new XElement( "Project" ) );
+            }
+            
+            versionsOverrideDocument.Root!.AddFirst( new XElement( "Import", new XAttribute("Project", importFilePath) ) );
+            versionsOverrideDocument.Root!.Add( new XElement( "Import", new XAttribute( "Project", Path.Combine( context.RepoDirectory, "artifacts", "dependencies", "*.Import.props" ) ) ) );
+
+            versionsOverrideDocument.Save( versionsOverridePath );
 
             context.Console.WriteSuccess(
                 $"Preparing the version file was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetVersionFilePath( options.BuildConfiguration ) ).PackageVersion}" );
+
 
             return true;
         }

@@ -5,3 +5,4 @@ artifacts
 .suo
 eng/tools
 *.Import.props
+*.g.props

@@ -46,7 +46,7 @@ namespace PostSharp.Engineering.BuildTools
 
                                 dependencies.AddCommand<GenerateDependencyFileCommand>( "local" )
                                     .WithData( product )
-                                    .WithDescription( "Generates the Dependencies.props to consume local repos." );
+                                    .WithDescription( "Generates the Versions.g.props to consume local repos." );
 
                                 dependencies.AddCommand<PrintDependenciesCommand>( "print" )
                                     .WithData( product )
