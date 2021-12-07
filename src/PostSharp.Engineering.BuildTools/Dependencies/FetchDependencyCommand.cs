@@ -16,6 +16,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             context.Console.WriteHeading( "Fetching build artefacts" );
 
             var versionsOverrideFile = VersionsOverrideFile.Load( context );
+
+            return FetchDependencies( context, versionsOverrideFile );
+        }
+
+        public static bool FetchDependencies( BuildContext context, VersionsOverrideFile versionsOverrideFile )
+        {
             var buildServerDependencies = versionsOverrideFile.Dependencies.Where( d => d.Value.SourceKind == DependencySourceKind.BuildServer ).ToList();
 
             if ( buildServerDependencies.Count == 0 )
@@ -68,7 +74,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     return false;
                 }
 
-                var restoreDirectory = Path.Combine( context.RepoDirectory, "artifacts", "dependencies", dependency.Key );
+                var restoreDirectory = Path.Combine( context.RepoDirectory, context.Product.DependenciesDirectory, dependency.Key );
 
                 var versionFile = Path.Combine( restoreDirectory, ".version" );
 

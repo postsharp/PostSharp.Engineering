@@ -17,7 +17,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool SupportsTestCoverage { get; init; }
 
         public bool CanFormatCode { get; init; }
-        
+
         public ImmutableArray<string> FormatExclusions { get; init; }
 
         [Obsolete( "Use BuildMethod=Build" )]

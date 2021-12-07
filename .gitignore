@@ -7,3 +7,4 @@ eng/tools
 *.Import.props
 *.g.props
 *.user
+.teamcity/.idea

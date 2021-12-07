@@ -16,8 +16,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public VcsProvider Provider { get; }
 
-        public string RestoredArtifactsDirectory { get; init; } = "artifacts/publish/private";
-
         public DependencyDefinition( string name, VcsProvider provider, string vcsProjectName, string? ciBuildTypeId = null )
         {
             this.Name = name;

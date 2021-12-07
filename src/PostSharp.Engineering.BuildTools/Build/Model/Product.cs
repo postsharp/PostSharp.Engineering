@@ -21,6 +21,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     {
         public string EngineeringDirectory { get; init; } = "eng";
 
+        public string DependenciesDirectory { get; init; } = "dependencies";
+
         public string ProductName { get; init; } = "Unnamed";
 
         public string ProductNameWithoutDot => this.ProductName.Replace( ".", "", StringComparison.OrdinalIgnoreCase );

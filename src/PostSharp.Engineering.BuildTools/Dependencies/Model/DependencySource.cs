@@ -4,6 +4,8 @@
     {
         public string? Branch { get; }
 
+        internal string? VersionFile { get; set; }
+
         public DependencySourceKind SourceKind { get; }
 
         public DependencySource( DependencySourceKind sourceKind, string? branch = null )

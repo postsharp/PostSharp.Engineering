@@ -35,7 +35,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             {
                 var document = XDocument.Load( versionsOverridePath );
                 var project = document.Root!;
-                var localImport = project.Elements( "Import" ).SingleOrDefault( i => i.Attribute( "Label" )?.Value?.Equals( "Current", StringComparison.OrdinalIgnoreCase ) ?? false );
+
+                var localImport = project.Elements( "Import" )
+                    .SingleOrDefault( i => i.Attribute( "Label" )?.Value?.Equals( "Current", StringComparison.OrdinalIgnoreCase ) ?? false );
+
                 file.LocalBuildFile = localImport?.Attribute( "Project" )?.Value;
 
                 var itemGroup = project.Element( "ItemGroup" );
@@ -66,7 +69,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                             case DependencySourceKind.BuildServer:
                                 var branch = item.Element( "Branch" )?.Value;
-                                file.Dependencies.Add( name, new DependencySource( kind, branch ) );
+                                var versionFile = item.Element( "VersionFile" )?.Value;
+                                file.Dependencies.Add( name, new DependencySource( kind, branch ) { VersionFile = versionFile } );
 
                                 break;
 
@@ -128,16 +132,20 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                 return false;
                             }
 
+                            if ( dependency.Value.VersionFile == null )
+                            {
+                                throw new InvalidOperationException( "The VersionFile property of dependencies should be set." );
+                            }
+
                             item.Add( new XElement( "Branch", dependency.Value.Branch ) );
+                            item.Add( new XElement( "VersionFile", dependency.Value.VersionFile ) );
 
                             var importProjectFile = Path.GetFullPath(
                                 Path.Combine(
                                     context.RepoDirectory,
-                                    "artifacts",
-                                    "dependencies",
+                                    context.Product.DependenciesDirectory,
                                     dependency.Key,
-                                    dependencyDefinition.RestoredArtifactsDirectory,
-                                    dependency.Key + ".version.props" ) );
+                                    dependency.Value.VersionFile ) );
 
                             requiredFiles.Add( importProjectFile );
                             project.Add( new XElement( "Import", new XAttribute( "Project", importProjectFile ), CreateCondition( importProjectFile ) ) );
@@ -188,7 +196,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             return true;
         }
-        
+
         public void Print( BuildContext context )
         {
             var table = new Table();

@@ -4,10 +4,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
     public static class Dependencies
     {
-        public static DependencyDefinition CaravelaCompiler { get; } = new( "Caravela.Compiler", VcsProvider.AzureRepos, "Caravela", "Caravela_CaravelaCompiler" )
-        {
-            RestoredArtifactsDirectory = "artifacts/packages/release/Shipping"
-        };
+        public static DependencyDefinition CaravelaCompiler { get; } = new(
+            "Caravela.Compiler",
+            VcsProvider.AzureRepos,
+            "Caravela",
+            "Caravela_CaravelaCompiler" );
 
         public static DependencyDefinition Caravela { get; } = new( "Caravela", VcsProvider.AzureRepos, "Caravela", "Caravela_Caravela" );
 
@@ -23,7 +24,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "postsharp",
             "PostSharpEngineering_DebugBuild" );
 
-        public static DependencyDefinition PostSharpBackstageSettings { get; } = new DependencyDefinition(
+        public static DependencyDefinition PostSharpBackstageSettings { get; } = new(
             "PostSharp.Backstage.Settings",
             VcsProvider.AzureRepos,
             "Caravela",
