@@ -9,7 +9,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
         {
             context.Console.WriteHeading( "Reformatting the code" );
 
-            if ( !CheckNoChange( context, options, context.RepoDirectory ) )
+            if ( !VcsHelper.CheckNoChange( context, options, context.RepoDirectory ) )
             {
                 return false;
             }
@@ -18,7 +18,8 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
             {
                 if ( solution.CanFormatCode )
                 {
-                    var command = $"cleanupcode --profile:Custom {solution.SolutionPath} --disable-settings-layers:\"GlobalAll;GlobalPerProduct;SolutionPersonal;ProjectPersonal\"";
+                    var command =
+                        $"cleanupcode --profile:Custom {solution.SolutionPath} --disable-settings-layers:\"GlobalAll;GlobalPerProduct;SolutionPersonal;ProjectPersonal\"";
 
                     if ( !solution.FormatExclusions.IsDefaultOrEmpty )
                     {

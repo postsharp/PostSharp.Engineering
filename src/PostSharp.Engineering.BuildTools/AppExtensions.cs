@@ -44,13 +44,17 @@ namespace PostSharp.Engineering.BuildTools
                                     .WithData( product )
                                     .WithDescription( "Lists the dependencies of this product" );
 
-                                dependencies.AddCommand<GenerateDependencyFileCommand>( "local" )
+                                dependencies.AddCommand<ConfigureDependenciesCommand>( "configure" )
                                     .WithData( product )
-                                    .WithDescription( "Generates the Versions.g.props to consume local repos." );
+                                    .WithDescription( "Configures how dependencies should be consumed." );
 
                                 dependencies.AddCommand<PrintDependenciesCommand>( "print" )
                                     .WithData( product )
                                     .WithDescription( "Prints the dependency file." );
+
+                                dependencies.AddCommand<FetchDependencyCommand>( "fetch" )
+                                    .WithData( product )
+                                    .WithDescription( "Fetch build dependencies from TeamCity." );
                             } );
 
                         root.AddBranch(
@@ -82,7 +86,7 @@ namespace PostSharp.Engineering.BuildTools
                                 tools.AddCommand<KillCommand>( "kill" )
                                     .WithData( product )
                                     .WithDescription( "Kill all compiler processes" );
-                                
+
                                 tools.AddBranch(
                                     "csproj",
                                     csproj => csproj.AddCommand<AddProjectReferenceCommand>( "add-project-reference" )

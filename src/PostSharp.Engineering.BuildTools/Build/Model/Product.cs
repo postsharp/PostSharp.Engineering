@@ -2,6 +2,7 @@
 using Microsoft.Build.Evaluation;
 using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Coverage;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.NuGet;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -37,7 +38,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public ImmutableArray<PublishingTarget> PublishingTargets { get; init; } =
             ImmutableArray<PublishingTarget>.Empty;
 
-        public ImmutableArray<ProductDependency> Dependencies { get; init; } = ImmutableArray<ProductDependency>.Empty;
+        /// <summary>
+        /// Set of dependencies of this product. Some commands expect the dependency to exist in <see cref="ProductVcsInfo.All"/>
+        /// </summary>
+        public ImmutableArray<ProductVcsInfo> Dependencies { get; init; } = ImmutableArray<ProductVcsInfo>.Empty;
 
         public ImmutableDictionary<string, string> SupportedProperties { get; init; } =
             ImmutableDictionary<string, string>.Empty;
@@ -518,44 +522,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 importFileContent );
 
             // Update Versions.g.props.
-            var versionsOverridePath = Path.Combine(
-                context.RepoDirectory,
-                context.Product.EngineeringDirectory,
-                "Versions.g.props" );
+            var versionsOverrideFile = VersionsOverrideFile.Load( context );
 
-            context.Console.WriteMessage( $"Writing '{versionsOverridePath}'." );
-
-            XDocument versionsOverrideDocument;
-
-            if ( File.Exists( versionsOverridePath ) )
+            if ( versionsOverrideFile.LocalBuildFile != importFilePath )
             {
-                versionsOverrideDocument = XDocument.Load( versionsOverridePath );
-                
-                // To avoid duplicates, remove the imports that we will adding back.
-                var imports = versionsOverrideDocument.Root!.Elements( "Import" )
-                    .Select( i => (XElement: i, Project: i.Attribute( "Project" )?.Value) )
-                    .Where( i => i.Project != null )
-                    .Where( i => i.Project!.EndsWith( this.ProductName + ".Import.props" ) || i.Project.EndsWith( "*.Import.props" ) )
-                    .ToList();
-
-                foreach ( var import in imports )
-                {
-                    import.XElement.Remove();
-                }
+                versionsOverrideFile.LocalBuildFile = importFilePath;
+                context.Console.WriteMessage( $"Updating '{versionsOverrideFile.FilePath}'." );
             }
-            else
+
+            if ( !versionsOverrideFile.TrySave( context ) )
             {
-                versionsOverrideDocument = new XDocument( new XElement( "Project" ) );
+                return false;
             }
-            
-            versionsOverrideDocument.Root!.AddFirst( new XElement( "Import", new XAttribute("Project", importFilePath) ) );
-            versionsOverrideDocument.Root!.Add( new XElement( "Import", new XAttribute( "Project", Path.Combine( context.RepoDirectory, "artifacts", "dependencies", "*.Import.props" ) ) ) );
-
-            versionsOverrideDocument.Save( versionsOverridePath );
 
             context.Console.WriteSuccess(
                 $"Preparing the version file was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetVersionFilePath( options.BuildConfiguration ) ).PackageVersion}" );
-
 
             return true;
         }

@@ -29,7 +29,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
             }
 
             // Check that there is no uncommitted change in the target repo.
-            if ( !CheckNoChange( context, options, sharedRepo ) )
+            if ( !VcsHelper.CheckNoChange( context, options, sharedRepo ) )
             {
                 return null;
             }

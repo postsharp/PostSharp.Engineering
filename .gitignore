@@ -6,3 +6,4 @@ artifacts
 eng/tools
 *.Import.props
 *.g.props
+*.user

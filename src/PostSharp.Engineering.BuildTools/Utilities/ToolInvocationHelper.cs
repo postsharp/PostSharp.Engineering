@@ -12,30 +12,16 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 {
     public static class ToolInvocationHelper
     {
-        private static readonly CancellationTokenSource _cancellationTokenSource = new();
-
-        static ToolInvocationHelper()
-        {
-            Console.CancelKeyPress += OnCancel;
-        }
-
-        private static void OnCancel( object? sender, ConsoleCancelEventArgs e )
-        {
-            _cancellationTokenSource.Cancel();
-        }
-
         public static bool InvokePowershell(
             ConsoleHelper console,
             string fileName,
             string commandLine,
             string workingDirectory )
-        {
-            return InvokeTool(
+            => InvokeTool(
                 console,
                 "powershell",
                 $"-NonInteractive -File {fileName} {commandLine}",
                 workingDirectory );
-        }
 
         public static bool InvokeTool(
             ConsoleHelper console,
@@ -73,52 +59,49 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string workingDirectory,
             out int exitCode,
             params (string Key, string Value)[] environmentVariables )
-        {
-            return
-                InvokeTool(
-                    console,
-                    fileName,
-                    commandLine,
-                    workingDirectory,
-                    _cancellationTokenSource.Token,
-                    out exitCode,
-                    s =>
+            => InvokeTool(
+                console,
+                fileName,
+                commandLine,
+                workingDirectory,
+                ConsoleHelper.CancellationToken,
+                out exitCode,
+                s =>
+                {
+                    if ( !string.IsNullOrWhiteSpace( s ) )
                     {
-                        if ( !string.IsNullOrWhiteSpace( s ) )
+                        console.WriteMessage( s );
+                    }
+                },
+                s =>
+                {
+                    if ( !string.IsNullOrWhiteSpace( s ) )
+                    {
+                        if ( s.Contains( ": warning ", StringComparison.Ordinal ) ||
+                             s.Contains( "]Warning:[", StringComparison.Ordinal ) /*docfx*/ )
+                        {
+                            console.WriteWarning( s );
+                        }
+                        else if ( s.Contains( ": error ", StringComparison.Ordinal ) ||
+                                  s.Contains( "]error:[", StringComparison.Ordinal ) /*docfx*/ )
+                        {
+                            console.WriteError( s );
+                        }
+                        else if ( s.StartsWith( "Passed! ", StringComparison.Ordinal ) )
+                        {
+                            console.WriteSuccess( s );
+                        }
+                        else if ( s.StartsWith( "Test run for ", StringComparison.Ordinal ) )
+                        {
+                            console.WriteImportantMessage( s );
+                        }
+                        else
                         {
                             console.WriteMessage( s );
                         }
-                    },
-                    s =>
-                    {
-                        if ( !string.IsNullOrWhiteSpace( s ) )
-                        {
-                            if ( s.Contains( ": warning ", StringComparison.Ordinal ) ||
-                                 s.Contains( "]Warning:[", StringComparison.Ordinal ) /*docfx*/ )
-                            {
-                                console.WriteWarning( s );
-                            }
-                            else if ( s.Contains( ": error ", StringComparison.Ordinal ) ||
-                                      s.Contains( "]error:[", StringComparison.Ordinal ) /*docfx*/ )
-                            {
-                                console.WriteError( s );
-                            }
-                            else if ( s.StartsWith( "Passed! ", StringComparison.Ordinal ) )
-                            {
-                                console.WriteSuccess( s );
-                            }
-                            else if ( s.StartsWith( "Test run for ", StringComparison.Ordinal ) )
-                            {
-                                console.WriteImportantMessage( s );
-                            }
-                            else
-                            {
-                                console.WriteMessage( s );
-                            }
-                        }
-                    },
-                    environmentVariables );
-        }
+                    }
+                },
+                environmentVariables );
 
         // #16205 We don't allow cancellation here because there's no other working way to wait for a process exit
         // than Process.WaitForExit() on .NET Core when capturing process output.

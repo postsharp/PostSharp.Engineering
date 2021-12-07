@@ -118,34 +118,6 @@ namespace PostSharp.Engineering.BuildTools
 
         protected abstract bool ExecuteCore( BuildContext context, T options );
 
-        protected static bool CheckNoChange( BuildContext context, BaseCommandSettings options, string repo )
-        {
-            if ( !options.Force )
-            {
-                if ( !ToolInvocationHelper.InvokeTool(
-                         context.Console,
-                         "git",
-                         $"status --porcelain",
-                         repo,
-                         out var exitCode,
-                         out var statusOutput )
-                     || exitCode != 0 )
-                {
-                    return false;
-                }
-
-                if ( !string.IsNullOrWhiteSpace( statusOutput ) )
-                {
-                    context.Console.WriteError( $"There are non-committed changes in '{repo}' Use --force." );
-                    context.Console.WriteImportantMessage( statusOutput );
-
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
         private static string? GetMyVersion()
             => typeof(BaseCommand<>).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().SingleOrDefault( a => a.Key == "PackageVersion" )?.Value;
     }
