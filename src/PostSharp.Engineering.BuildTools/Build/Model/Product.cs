@@ -39,9 +39,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             ImmutableArray<PublishingTarget>.Empty;
 
         /// <summary>
-        /// Set of dependencies of this product. Some commands expect the dependency to exist in <see cref="ProductVcsInfo.All"/>
+        /// Set of dependencies of this product. Some commands expect the dependency to exist in <see cref="DependencyDefinition.All"/>
         /// </summary>
-        public ImmutableArray<ProductVcsInfo> Dependencies { get; init; } = ImmutableArray<ProductVcsInfo>.Empty;
+        public ImmutableArray<DependencyDefinition> Dependencies { get; init; } = ImmutableArray<DependencyDefinition>.Empty;
 
         public ImmutableDictionary<string, string> SupportedProperties { get; init; } =
             ImmutableDictionary<string, string>.Empty;

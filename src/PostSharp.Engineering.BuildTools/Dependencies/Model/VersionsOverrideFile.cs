@@ -119,9 +119,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 {
                     case DependencySourceKind.BuildServer:
                         {
-                            var vcsInfo = context.Product.Dependencies.SingleOrDefault( p => p.Name == dependency.Key );
+                            var dependencyDefinition = context.Product.Dependencies.SingleOrDefault( p => p.Name == dependency.Key );
 
-                            if ( vcsInfo == null )
+                            if ( dependencyDefinition == null )
                             {
                                 context.Console.WriteError( $"The dependency '{dependency.Key}' is not added to the product." );
 
@@ -136,7 +136,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                     "artifacts",
                                     "dependencies",
                                     dependency.Key,
-                                    vcsInfo.RestoredArtifactsDirectory,
+                                    dependencyDefinition.RestoredArtifactsDirectory,
                                     dependency.Key + ".version.props" ) );
 
                             requiredFiles.Add( importProjectFile );

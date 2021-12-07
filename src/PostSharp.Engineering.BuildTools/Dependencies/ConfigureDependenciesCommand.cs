@@ -40,7 +40,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             foreach ( var dependency in dependencies )
             {
-                ProductVcsInfo? dependencyDefinition;
+                DependencyDefinition? dependencyDefinition;
 
                 if ( int.TryParse( dependency, out var index ) )
                 {

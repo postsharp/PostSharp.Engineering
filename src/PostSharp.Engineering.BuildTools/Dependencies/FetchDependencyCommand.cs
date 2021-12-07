@@ -38,18 +38,18 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             foreach ( var dependency in buildServerDependencies )
             {
-                var vcsInfo = context.Product.Dependencies.SingleOrDefault( p => p.Name == dependency.Key );
+                var dependencyDefinition = context.Product.Dependencies.SingleOrDefault( p => p.Name == dependency.Key );
 
-                if ( vcsInfo == null )
+                if ( dependencyDefinition == null )
                 {
                     context.Console.WriteError( $"The dependency '{dependency.Key}' is not added to the product." );
 
                     return false;
                 }
 
-                var branch = dependency.Value.Branch ?? vcsInfo.DefaultBranch;
+                var branch = dependency.Value.Branch ?? dependencyDefinition.DefaultBranch;
 
-                if ( vcsInfo.CiBuildTypeId == null )
+                if ( dependencyDefinition.CiBuildTypeId == null )
                 {
                     context.Console.WriteError( $"The dependency '{dependency.Key}' does not have a Teamcity configuration." );
 
@@ -57,7 +57,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 }
 
                 var buildNumber = teamcity.GetLatestBuildNumber(
-                    vcsInfo.CiBuildTypeId,
+                    dependencyDefinition.CiBuildTypeId,
                     branch,
                     ConsoleHelper.CancellationToken );
 
@@ -91,7 +91,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                 Directory.CreateDirectory( restoreDirectory );
                 context.Console.WriteMessage( $"Downloading {dependency.Key} build {buildNumber}" );
-                teamcity.DownloadArtifacts( vcsInfo.CiBuildTypeId, buildNumber.Value, restoreDirectory, ConsoleHelper.CancellationToken );
+                teamcity.DownloadArtifacts( dependencyDefinition.CiBuildTypeId, buildNumber.Value, restoreDirectory, ConsoleHelper.CancellationToken );
 
                 File.WriteAllText( versionFile, buildNumber.ToString() );
             }
