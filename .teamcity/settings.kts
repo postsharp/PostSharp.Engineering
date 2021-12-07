@@ -1,6 +1,3 @@
-// This is the standard TeamCity script for all projects. Our objective is that this script should not contain
-// per-repo customizations. All customizations should go to patches.
-
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.powerShell
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
@@ -8,8 +5,8 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
 version = "2019.2"
 
 // All values that can differ between repos and branches should be here so the rest is easier to merge.
-internal val buildAgentType = "caravela02"
-internal val artifactsPath = "artifacts/publish"
+val buildAgentType = "caravela02"
+val artifactsPath = "artifacts/publish"
 
 project {
     buildType(DebugBuild)
@@ -111,7 +108,7 @@ object PublicBuild : BuildType({
 // Publish the release build to public feeds
 object Deploy : BuildType({
     name = "Deploy [Public]"
-    type = BuildTypeSettings.Type.DEPLOYMENT
+    type = Type.DEPLOYMENT
 
     vcs {
         root(DslContext.settingsRoot)
