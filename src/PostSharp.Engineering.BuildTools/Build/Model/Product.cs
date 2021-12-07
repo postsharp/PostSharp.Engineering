@@ -613,7 +613,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
 
                 // Fetch dependencies and reads the location of the version file.
-                FetchDependencyCommand.FetchDependencies( context, versionsOverrideFile );
+                if ( !FetchDependencyCommand.FetchDependencies( context, versionsOverrideFile ) )
+                {
+                    return false;
+                }
 
                 context.Console.WriteImportantMessage( "Local dependencies changed like this:" );
                 versionsOverrideFile.Print( context );

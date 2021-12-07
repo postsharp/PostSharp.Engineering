@@ -76,7 +76,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             {
                 // We need to fetch dependencies, otherwise we cannot find the version file.
                 context.Console.WriteImportantMessage( "Fetching dependencies" );
-                FetchDependencyCommand.FetchDependencies( context, versionsOverrideFile );
+
+                if ( !FetchDependencyCommand.FetchDependencies( context, versionsOverrideFile ) )
+                {
+                    return false;
+                }
             }
 
             // Writing the version file.
