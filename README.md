@@ -96,6 +96,8 @@ This will generate `eng/Dependencies.props`, which you should have imported in `
 
 ## Installation
 
+The easiest way to get started is from this repo template: https://github.com/postsharp/PostSharp.Engineering.ProductTemplate.
+
 ### Step 1. Edit global.json
 
 Add or update the reference to `PostSharp.Engineering.Sdk` in `global.json`.
