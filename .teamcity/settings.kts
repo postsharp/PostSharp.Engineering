@@ -4,10 +4,6 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
 
 version = "2019.2"
 
-// All values that can differ between repos and branches should be here so the rest is easier to merge.
-val buildAgentType = "caravela02"
-val artifactsPath = "artifacts/publish"
-
 project {
     buildType(DebugBuild)
     buildType(ReleaseBuild)
@@ -19,7 +15,7 @@ project {
 object DebugBuild : BuildType({
     name = "Build [Debug]"
 
-    artifactRules = "+:$artifactsPath/**/*=>$artifactsPath"
+    artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -41,7 +37,7 @@ object DebugBuild : BuildType({
     }
 
     requirements {
-        equals("env.BuildAgentType", buildAgentType)
+        equals("env.BuildAgentType", "caravela02")
     }
 })
 
@@ -49,7 +45,7 @@ object DebugBuild : BuildType({
 object ReleaseBuild : BuildType({
     name = "Build [Release]"
 
-    artifactRules = "+:$artifactsPath/**/*=>$artifactsPath"
+    artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -71,7 +67,7 @@ object ReleaseBuild : BuildType({
     }
 
     requirements {
-        equals("env.BuildAgentType", buildAgentType)
+        equals("env.BuildAgentType", "caravela02")
     }
 })
 
@@ -79,7 +75,7 @@ object ReleaseBuild : BuildType({
 object PublicBuild : BuildType({
     name = "Build [Public]"
 
-    artifactRules = "+:$artifactsPath/**/*=>$artifactsPath"
+    artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -101,7 +97,7 @@ object PublicBuild : BuildType({
     }
     
    requirements {
-        equals("env.BuildAgentType", buildAgentType)
+        equals("env.BuildAgentType", "caravela02")
     }
 })
 
@@ -131,12 +127,12 @@ object Deploy : BuildType({
 
             artifacts {
                 cleanDestination = true
-                artifactRules = "+:$artifactsPath/**/*=>$artifactsPath"
+                artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
             }
         }
     }
     
    requirements {
-        equals("env.BuildAgentType", buildAgentType)
+        equals("env.BuildAgentType", "caravela02")
     }
 })
