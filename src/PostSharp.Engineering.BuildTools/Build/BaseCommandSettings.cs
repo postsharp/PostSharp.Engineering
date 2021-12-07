@@ -18,6 +18,10 @@ namespace PostSharp.Engineering.BuildTools.Build
         [Description( "Lists the additional properties supported by the command" )]
         [CommandOption( "--list-properties" )]
         public bool ListProperties { get; protected set; }
+        
+        [Description("Attach the debugger to the process before executing the command")]
+        [CommandOption("--debug")]
+        public bool Debug { get; protected set; }
 
         [Description( "Properties in form Name=Value" )]
         [CommandOption( "-p|--property" )]

@@ -44,9 +44,9 @@ namespace PostSharp.Engineering.BuildTools
                                     .WithData( product )
                                     .WithDescription( "Lists the dependencies of this product" );
 
-                                dependencies.AddCommand<ConfigureDependenciesCommand>( "configure" )
+                                dependencies.AddCommand<ConfigureDependenciesCommand>( "set" )
                                     .WithData( product )
-                                    .WithDescription( "Configures how dependencies should be consumed." );
+                                    .WithDescription( "Sets how dependencies should be consumed." );
 
                                 dependencies.AddCommand<PrintDependenciesCommand>( "print" )
                                     .WithData( product )

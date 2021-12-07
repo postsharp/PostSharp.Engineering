@@ -14,9 +14,9 @@
 
         public override string ToString()
         {
-            if ( this.Branch != null )
+            if ( this.SourceKind == DependencySourceKind.BuildServer )
             {
-                return this.SourceKind + ", Branch=" + this.Branch;
+                return $"{this.SourceKind}, Branch='{this.Branch}'";
             }
             else
             {

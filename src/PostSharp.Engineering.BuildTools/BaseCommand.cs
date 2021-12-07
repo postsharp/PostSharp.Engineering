@@ -22,6 +22,11 @@ namespace PostSharp.Engineering.BuildTools
             {
                 var stopwatch = Stopwatch.StartNew();
 
+                if ( settings.Debug )
+                {
+                    Debugger.Launch();
+                }
+
                 if ( !BuildContext.TryCreate( context, out var buildContext ) )
                 {
                     return 1;

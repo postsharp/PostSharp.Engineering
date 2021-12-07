@@ -33,7 +33,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             if ( File.Exists( versionsOverridePath ) )
             {
-                var project = XDocument.Load( versionsOverridePath );
+                var document = XDocument.Load( versionsOverridePath );
+                var project = document.Root!;
                 var localImport = project.Elements( "Import" ).SingleOrDefault( i => i.Attribute( "Label" )?.Value?.Equals( "Current", StringComparison.OrdinalIgnoreCase ) ?? false );
                 file.LocalBuildFile = localImport?.Attribute( "Project" )?.Value;
 
@@ -187,17 +188,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             return true;
         }
-
+        
         public void Print( BuildContext context )
         {
             var table = new Table();
 
-// Add some columns
             table.AddColumn( "Id" );
             table.AddColumn( "Name" );
             table.AddColumn( "Source" );
-
-// Add some rows
 
             for ( var i = 0; i < context.Product.Dependencies.Length; i++ )
             {
