@@ -7,6 +7,10 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
 
 version = "2019.2"
 
+// All values that can differ between repos and branches should be here so the rest is easier to merge.
+val buildAgentType = "caravela02"
+val artifactsPath = "artifacts/publish"
+
 project {
     buildType(DebugBuild)
     buildType(ReleaseBuild)
@@ -18,7 +22,7 @@ project {
 object DebugBuild : BuildType({
     name = "Build [Debug]"
 
-    artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
+    artifactRules = "+:$artifactsPath/**/*=>$artifactsPath"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -40,7 +44,7 @@ object DebugBuild : BuildType({
     }
 
     requirements {
-        equals("env.BuildAgentType", "caravela02")
+        equals("env.BuildAgentType", buildAgentType)
     }
 })
 
@@ -48,7 +52,7 @@ object DebugBuild : BuildType({
 object ReleaseBuild : BuildType({
     name = "Build [Release]"
 
-    artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
+    artifactRules = "+:$artifactsPath/**/*=>$artifactsPath"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -70,7 +74,7 @@ object ReleaseBuild : BuildType({
     }
 
     requirements {
-        equals("env.BuildAgentType", "caravela02")
+        equals("env.BuildAgentType", buildAgentType)
     }
 })
 
@@ -78,7 +82,7 @@ object ReleaseBuild : BuildType({
 object PublicBuild : BuildType({
     name = "Build [Public]"
 
-    artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
+    artifactRules = "+:$artifactsPath/**/*=>$artifactsPath"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -97,6 +101,10 @@ object PublicBuild : BuildType({
     triggers {
         vcs {
         }
+    }
+    
+   requirements {
+        equals("env.BuildAgentType", buildAgentType)
     }
 })
 
@@ -126,8 +134,12 @@ object Deploy : BuildType({
 
             artifacts {
                 cleanDestination = true
-                artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
+                artifactRules = "+:$artifactsPath/**/*=>$artifactsPath"
             }
         }
+    }
+    
+   requirements {
+        equals("env.BuildAgentType", buildAgentType)
     }
 })
