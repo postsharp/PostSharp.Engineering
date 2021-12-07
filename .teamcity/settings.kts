@@ -8,8 +8,8 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
 version = "2019.2"
 
 // All values that can differ between repos and branches should be here so the rest is easier to merge.
-val buildAgentType = "caravela02"
-val artifactsPath = "artifacts/publish"
+internal val buildAgentType = "caravela02"
+internal val artifactsPath = "artifacts/publish"
 
 project {
     buildType(DebugBuild)
