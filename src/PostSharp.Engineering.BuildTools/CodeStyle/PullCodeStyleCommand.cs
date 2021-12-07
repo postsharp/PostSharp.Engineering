@@ -40,17 +40,20 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
             CopyDirectory( sharedRepo, targetDirectory );
 
             // Create a symbolic link for .editorconfig.
-            var editorConfigPath = Path.Combine( context.RepoDirectory, ".editorconfig" );
-            var sharedEditorConfigPath = Path.Combine( context.Product.EngineeringDirectory, "style", ".editorconfig" );
-
-            context.Console.WriteMessage( $"Creating link '{editorConfigPath}' => '{sharedEditorConfigPath}'." );
-
-            if ( File.Exists( editorConfigPath ) )
+            if ( !context.Product.KeepEditorConfig )
             {
-                File.Delete( editorConfigPath );
-            }
+                var editorConfigPath = Path.Combine( context.RepoDirectory, ".editorconfig" );
+                var sharedEditorConfigPath = Path.Combine( context.Product.EngineeringDirectory, "style", ".editorconfig" );
 
-            File.CreateSymbolicLink( editorConfigPath, sharedEditorConfigPath );
+                context.Console.WriteMessage( $"Creating link '{editorConfigPath}' => '{sharedEditorConfigPath}'." );
+
+                if ( File.Exists( editorConfigPath ) )
+                {
+                    File.Delete( editorConfigPath );
+                }
+
+                File.CreateSymbolicLink( editorConfigPath, sharedEditorConfigPath );
+            }
 
             context.Console.WriteSuccess( "Pulling code style was successful." );
 

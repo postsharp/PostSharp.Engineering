@@ -48,6 +48,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ImmutableArray<PublishingTarget> PublishingTargets { get; init; } =
             ImmutableArray<PublishingTarget>.Empty;
+        
+        public bool KeepEditorConfig { get; init; }
 
         /// <summary>
         /// Set of dependencies of this product. Some commands expect the dependency to exist in <see cref="DependencyDefinition.All"/>
