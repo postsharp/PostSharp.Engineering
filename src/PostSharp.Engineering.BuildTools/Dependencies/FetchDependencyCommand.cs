@@ -102,9 +102,52 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 File.WriteAllText( versionFile, buildNumber.ToString() );
             }
 
+            // Find version files.
+            foreach ( var dependency in versionsOverrideFile.Dependencies )
+            {
+                if ( dependency.Value.SourceKind == DependencySourceKind.BuildServer )
+                {
+                    // Find the version file.
+                    var versionFile = FindVersionFile(
+                        dependency.Key,
+                        Path.Combine( context.RepoDirectory, context.Product.DependenciesDirectory, dependency.Key ) );
+
+                    if ( versionFile == null )
+                    {
+                        context.Console.WriteError( $"Could not find {dependency.Key}.version.props." );
+
+                        return false;
+                    }
+
+                    dependency.Value.VersionFile = versionFile;
+                }
+            }
+
             context.Console.WriteSuccess( "Fetching build artefacts was successful" );
 
             return true;
+        }
+        
+        private static string? FindVersionFile( string productName, string directory )
+        {
+            var path = Path.Combine( directory, productName + ".version.props" );
+
+            if ( File.Exists( path ) )
+            {
+                return path;
+            }
+
+            foreach ( var subdirectory in Directory.GetDirectories( directory ) )
+            {
+                path = FindVersionFile( productName, subdirectory );
+
+                if ( path != null )
+                {
+                    return path;
+                }
+            }
+
+            return null;
         }
     }
 }

@@ -2,6 +2,7 @@
 using Microsoft.Build.Evaluation;
 using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Coverage;
+using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.NuGet;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -19,9 +20,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     public class Product
     {
+        private readonly string? _versionsFile;
+
         public string EngineeringDirectory { get; init; } = "eng";
 
         public string DependenciesDirectory { get; init; } = "dependencies";
+
+        public string VersionsFile
+        {
+            get => this._versionsFile ?? Path.Combine( this.EngineeringDirectory, "Versions.props" );
+            init => this._versionsFile = value;
+        }
 
         public string ProductName { get; init; } = "Unnamed";
 
@@ -92,7 +101,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 if ( !publishingTarget.Artifacts.TryGetFiles( privateArtifactsDir, versionInfo, artifacts ) )
                 {
-                    context.Console.WriteError( $"The build did not generate the artifacts '{publishingTarget.Artifacts}' in '{privateArtifactsDir}'." );
+                    context.Console.WriteError(
+                        $"The build did not generate the artifacts '{publishingTarget.Artifacts}' in '{privateArtifactsDir}'. $(PackageVersion)={versionInfo.PackageVersion}, $(Configuration)={versionInfo.Configuration}" );
 
                     return false;
                 }
@@ -216,7 +226,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            context.Console.WriteSuccess( $"Building the whole {this.ProductName} product was successful." );
+            context.Console.WriteSuccess( $"Building the whole {this.ProductName} product was successful. Package version: {versionInfo.PackageVersion}." );
 
             return true;
         }
@@ -226,10 +236,31 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var versionFilePath = path;
             var versionFile = Project.FromFile( versionFilePath, new ProjectOptions() );
 
-            var packageVersion = versionFile
-                .Properties
-                .Single( p => p.Name == this.ProductNameWithoutDot + "Version" )
-                .EvaluatedValue;
+            string packageVersion;
+
+            if ( this.GenerateArcadeProperties )
+            {
+                packageVersion = versionFile.Properties
+                    .Single( p => p.Name == this.ProductNameWithoutDot + "VersionPrefix" )
+                    .EvaluatedValue;
+
+                var suffix = versionFile
+                    .Properties
+                    .Single( p => p.Name == this.ProductNameWithoutDot + "VersionSuffix" )
+                    .EvaluatedValue;
+
+                if ( !string.IsNullOrWhiteSpace( suffix ) )
+                {
+                    packageVersion = packageVersion + "-" + suffix;
+                }
+            }
+            else
+            {
+                packageVersion = versionFile
+                    .Properties
+                    .Single( p => p.Name == this.ProductNameWithoutDot + "Version" )
+                    .EvaluatedValue;
+            }
 
             if ( string.IsNullOrEmpty( packageVersion ) )
             {
@@ -277,6 +308,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
             return (mainVersion, suffix);
+        }
+
+        private Dictionary<string, string?> ReadVersionFile( string path )
+        {
+            var versionFile = Project.FromFile( path, new ProjectOptions() );
+
+            var properties = this.Dependencies
+                .ToDictionary(
+                    d => d.Name,
+                    d => versionFile.Properties.SingleOrDefault( p => p.Name == d.Name.Replace( ".", "", StringComparison.OrdinalIgnoreCase ) + "Version" )
+                        ?.EvaluatedValue );
+
+            ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
+
+            return properties;
         }
 
         /// <summary>
@@ -530,6 +576,47 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 versionsOverrideFile.LocalBuildFile = importFilePath;
                 context.Console.WriteMessage( $"Updating '{versionsOverrideFile.FilePath}'." );
+            }
+
+            // Validate default versions. If there are not set to a public version, we need to fetch from the build server.
+            // This scenario is important when building on a build server.
+            Dictionary<string, string?>? defaultDependencyProperties = null;
+            Dictionary<string, DependencySource> changedDependencies = new();
+
+            foreach ( var dependency in versionsOverrideFile.Dependencies )
+            {
+                if ( dependency.Value.SourceKind == DependencySourceKind.Default )
+                {
+                    defaultDependencyProperties ??= this.ReadVersionFile( Path.Combine( context.RepoDirectory, this.VersionsFile ) );
+
+                    if ( !defaultDependencyProperties.TryGetValue( dependency.Key, out var dependencyVersion ) || string.IsNullOrEmpty( dependencyVersion ) )
+                    {
+                        context.Console.WriteError( $"The default version for dependency {dependency.Key} is not set." );
+
+                        break;
+                    }
+                    else if ( dependencyVersion.StartsWith( "branch:", StringComparison.OrdinalIgnoreCase ) )
+                    {
+                        var branch = dependencyVersion.Substring( "branch:".Length );
+                        context.Console.WriteWarning( $"Fetching {dependency.Key} from build server, branch {branch}." );
+                        changedDependencies[dependency.Key] = new DependencySource( DependencySourceKind.BuildServer, branch );
+                    }
+                }
+            }
+
+            // If we changed local dependency settings, we have to fetch.
+            if ( changedDependencies.Count > 0 )
+            {
+                foreach ( var changedDependency in changedDependencies )
+                {
+                    versionsOverrideFile.Dependencies[changedDependency.Key] = changedDependency.Value;
+                }
+
+                // Fetch dependencies and reads the location of the version file.
+                FetchDependencyCommand.FetchDependencies( context, versionsOverrideFile );
+
+                context.Console.WriteImportantMessage( "Local dependencies changed like this:" );
+                versionsOverrideFile.Print( context );
             }
 
             if ( !versionsOverrideFile.TrySave( context ) )

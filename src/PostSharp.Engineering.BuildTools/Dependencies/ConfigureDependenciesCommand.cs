@@ -77,26 +77,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 // We need to fetch dependencies, otherwise we cannot find the version file.
                 context.Console.WriteImportantMessage( "Fetching dependencies" );
                 FetchDependencyCommand.FetchDependencies( context, versionsOverrideFile );
-
-                foreach ( var dependency in versionsOverrideFile.Dependencies )
-                {
-                    if ( dependency.Value.SourceKind == DependencySourceKind.BuildServer )
-                    {
-                        // Find the version file.
-                        var versionFile = FindVersionFile(
-                            dependency.Key,
-                            Path.Combine( context.RepoDirectory, context.Product.DependenciesDirectory, dependency.Key ) );
-
-                        if ( versionFile == null )
-                        {
-                            context.Console.WriteError( $"Could not find {dependency.Key}.version.props." );
-
-                            return false;
-                        }
-
-                        dependency.Value.VersionFile = versionFile;
-                    }
-                }
             }
 
             // Writing the version file.
@@ -113,28 +93,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             context.Console.WriteSuccess( "Setting  dependencies was successful." );
 
             return true;
-        }
-
-        private static string? FindVersionFile( string productName, string directory )
-        {
-            var path = Path.Combine( directory, productName + ".version.props" );
-
-            if ( File.Exists( path ) )
-            {
-                return path;
-            }
-
-            foreach ( var subdirectory in Directory.GetDirectories( directory ) )
-            {
-                path = FindVersionFile( productName, subdirectory );
-
-                if ( path != null )
-                {
-                    return path;
-                }
-            }
-
-            return null;
         }
     }
 }

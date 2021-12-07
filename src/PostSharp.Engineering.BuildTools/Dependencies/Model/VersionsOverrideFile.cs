@@ -31,6 +31,13 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             VersionsOverrideFile file = new( versionsOverridePath );
 
+            // By default, all dependencies source from the public feeds.
+            foreach ( var dependency in context.Product.Dependencies )
+            {
+                file.Dependencies[dependency.Name] = new DependencySource( DependencySourceKind.Default );
+            }
+
+            // Override defaults from the version file.
             if ( File.Exists( versionsOverridePath ) )
             {
                 var document = XDocument.Load( versionsOverridePath );
@@ -63,14 +70,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         {
                             case DependencySourceKind.Default:
                             case DependencySourceKind.Local:
-                                file.Dependencies.Add( name, new DependencySource( kind ) );
+                                file.Dependencies[name] = new DependencySource( kind );
 
                                 break;
 
                             case DependencySourceKind.BuildServer:
                                 var branch = item.Element( "Branch" )?.Value;
                                 var versionFile = item.Element( "VersionFile" )?.Value;
-                                file.Dependencies.Add( name, new DependencySource( kind, branch ) { VersionFile = versionFile } );
+                                file.Dependencies[name] = new DependencySource( kind, branch ) { VersionFile = versionFile };
 
                                 break;
 
