@@ -85,6 +85,7 @@ namespace PostSharp.Engineering.BuildTools
                         if ( !File.Exists( globalJsonPath ) )
                         {
                             buildContext.Console.WriteWarning( "global.json does not exist." );
+                            buildContext.Console.Out.WriteLine();
                         }
 
                         var globalJson = JsonDocument.Parse( File.ReadAllText( globalJsonPath ) );
@@ -94,6 +95,7 @@ namespace PostSharp.Engineering.BuildTools
                              sdk.GetString() == null )
                         {
                             buildContext.Console.WriteWarning( "global.json does not import the PostSharp.Engineering.Sdk." );
+                            buildContext.Console.Out.WriteLine();
                         }
                         else
                         {
@@ -101,6 +103,7 @@ namespace PostSharp.Engineering.BuildTools
                             {
                                 buildContext.Console.WriteWarning(
                                     $"global.json imports PostSharp.Engineering.Sdk version {sdk.GetString()}, but the BuildTools version is {myVersion}." );
+                                buildContext.Console.Out.WriteLine();
                             }
                         }
                     }

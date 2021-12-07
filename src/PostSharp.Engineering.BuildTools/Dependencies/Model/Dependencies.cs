@@ -23,12 +23,19 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "postsharp",
             "PostSharpEngineering_DebugBuild" );
 
+        public static DependencyDefinition PostSharpBackstageSettings { get; } = new DependencyDefinition(
+            "PostSharp.Backstage.Settings",
+            VcsProvider.AzureRepos,
+            "Caravela",
+            "Caravela_PostSharpBackstageSettings_DebugBuildAndTest" );
+
         public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
             CaravelaCompiler,
             Caravela,
             CaravelaDocumentation,
             CaravelaSamples,
             CaravelaTry,
-            PostSharpEngineering );
+            PostSharpEngineering,
+            PostSharpBackstageSettings );
     }
 }
