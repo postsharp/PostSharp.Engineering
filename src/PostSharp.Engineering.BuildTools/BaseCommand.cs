@@ -6,7 +6,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 
 #pragma warning disable 8765
@@ -103,6 +102,7 @@ namespace PostSharp.Engineering.BuildTools
                             {
                                 buildContext.Console.WriteWarning(
                                     $"global.json imports PostSharp.Engineering.Sdk version {sdk.GetString()}, but the BuildTools version is {myVersion}." );
+
                                 buildContext.Console.Out.WriteLine();
                             }
                         }
@@ -125,6 +125,5 @@ namespace PostSharp.Engineering.BuildTools
         }
 
         protected abstract bool ExecuteCore( BuildContext context, T options );
-        
     }
 }
