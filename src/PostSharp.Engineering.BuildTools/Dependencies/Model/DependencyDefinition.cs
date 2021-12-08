@@ -1,5 +1,6 @@
 ﻿using PostSharp.Engineering.BuildTools.Build.Model;
 using System;
+using System.Globalization;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model
@@ -33,6 +34,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 ".build-artifacts",
                 this.RepoName,
                 this.CiBuildTypeId!,
-                buildNumber.ToString() );
+                buildNumber.ToString( CultureInfo.InvariantCulture ) );
     }
 }

@@ -21,7 +21,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private readonly string? _versionsFile;
 
         public string EngineeringDirectory { get; init; } = "eng";
-        
+
         public string VersionsFile
         {
             get => this._versionsFile ?? Path.Combine( this.EngineeringDirectory, "Versions.props" );
@@ -76,7 +76,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
-            
+
             // Delete the root import file in the repo because the presence of this file means a successful build.
             this.DeleteImportFile( context, settings.BuildConfiguration );
 
@@ -97,16 +97,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.BuildCompleted?.Invoke( (context, settings, privateArtifactsDir) );
 
             // Check that the build produced the expected artifacts.
-            // TODO: this will only fail if there is NO artifacts. It does not check that every item in the pattern actually matched something.
-            var artifacts = new List<FilePatternMatch>();
-
             var allFilesPattern = this.PublicArtifacts.Add( this.PrivateArtifacts );
 
             if ( !allFilesPattern.Verify( context, privateArtifactsDir, versionInfo ) )
             {
                 return false;
             }
-        
+
             // Zipping internal artifacts.
             void CreateZip( string directory )
             {
@@ -213,7 +210,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 return false;
             }
-            
+
             // Writing the import file at the end of the build so it gets only written if the build was successful.
             this.WriteImportFile( context, settings.BuildConfiguration );
 
@@ -247,8 +244,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var importFilePath = Path.Combine( context.RepoDirectory, this.ProductName + ".Import.props" );
 
             File.WriteAllText( importFilePath, importFileContent );
-
-
         }
 
         private VersionInfo ReadGeneratedVersionFile( string path )
@@ -353,7 +348,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// An event raised when the Prepare phase is complete.
         /// </summary>
-        public event Func<(BuildContext Context, BaseBuildSettings Settings), bool>? PrepareCompleted; 
+        public event Func<(BuildContext Context, BaseBuildSettings Settings), bool>? PrepareCompleted;
 
         protected virtual bool BuildCore( BuildContext context, BuildSettings settings )
         {
