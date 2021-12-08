@@ -21,9 +21,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private readonly string? _versionsFile;
 
         public string EngineeringDirectory { get; init; } = "eng";
-
-        public string DependenciesDirectory { get; init; } = "dependencies";
-
+        
         public string VersionsFile
         {
             get => this._versionsFile ?? Path.Combine( this.EngineeringDirectory, "Versions.props" );
@@ -78,9 +76,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
+            
+            // Delete the root import file in the repo because the presence of this file means a successful build.
+            this.DeleteImportFile( context, options.BuildConfiguration );
 
             // We have to read the version from the file we have generated - using MSBuild, because it contains properties.
-            var versionInfo = this.ReadGeneratedVersionFile( context.GetVersionFilePath( options.BuildConfiguration ) );
+            var versionInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( options.BuildConfiguration ) );
 
             var privateArtifactsDir = Path.Combine(
                 context.RepoDirectory,
@@ -101,11 +102,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             var allFilesPattern = this.PublicArtifacts.Add( this.PrivateArtifacts );
 
-            if ( !allFilesPattern.TryGetFiles( privateArtifactsDir, versionInfo, artifacts ) )
+            if ( !allFilesPattern.Verify( context, privateArtifactsDir, versionInfo ) )
             {
-                context.Console.WriteError(
-                    $"The build did not generate the artifacts '{allFilesPattern}' in '{privateArtifactsDir}'. $(PackageVersion)={versionInfo.PackageVersion}, $(Configuration)={versionInfo.Configuration}" );
-
                 return false;
             }
         
@@ -215,10 +213,42 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 return false;
             }
+            
+            // Writing the import file at the end of the build so it gets only written if the build was successful.
+            this.WriteImportFile( context, options.BuildConfiguration );
 
             context.Console.WriteSuccess( $"Building the whole {this.ProductName} product was successful. Package version: {versionInfo.PackageVersion}." );
 
             return true;
+        }
+
+        private void DeleteImportFile( BuildContext context, BuildConfiguration configuration )
+        {
+            var importFilePath = Path.Combine( context.RepoDirectory, this.ProductName + ".Import.props" );
+
+            if ( File.Exists( importFilePath ) )
+            {
+                File.Delete( importFilePath );
+            }
+        }
+
+        private void WriteImportFile( BuildContext context, BuildConfiguration configuration )
+        {
+            // Write a link to this file in the root file of the repo. This file is the interface of the repo, which can be imported by other repos.
+            var importFileContent = $@"
+<Project>
+    <!-- This file must not be added to source control and must not be uploaded as a build artifact.
+         It must be imported by other repos as a dependency. 
+         Dependent projects should not directly reference the artifacts path, which is considered an implementation detail. -->
+    <Import Project=""{context.GetManifestFilePath( configuration )}""/>
+</Project>
+";
+
+            var importFilePath = Path.Combine( context.RepoDirectory, this.ProductName + ".Import.props" );
+
+            File.WriteAllText( importFilePath, importFileContent );
+
+
         }
 
         private VersionInfo ReadGeneratedVersionFile( string path )
@@ -543,28 +573,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             context.Console.WriteMessage( $"Writing '{propsFilePath}'." );
             File.WriteAllText( propsFilePath, props );
 
-            // Write a link to this file in the root file of the repo. This file is the interface of the repo, which can be imported by other repos.
-            var importFileContent = $@"
-<Project>
-    <!-- This file must not be added to source control and must not be uploaded as a build artifact.
-         It must be imported by other repos as a dependency. 
-         Dependent projects should not directly reference the artifacts path, which is considered an implementation detail. -->
-    <Import Project=""{Path.Combine( privateArtifactsRelativeDir, propsFileName )}""/>
-</Project>
-";
-
-            var importFilePath = Path.Combine( context.RepoDirectory, this.ProductName + ".Import.props" );
-
-            File.WriteAllText(
-                importFilePath,
-                importFileContent );
-
             // Update Versions.g.props.
             var versionsOverrideFile = VersionsOverrideFile.Load( context );
 
-            if ( versionsOverrideFile.LocalBuildFile != importFilePath )
+            if ( versionsOverrideFile.LocalBuildFile != propsFilePath )
             {
-                versionsOverrideFile.LocalBuildFile = importFilePath;
+                versionsOverrideFile.LocalBuildFile = propsFilePath;
                 context.Console.WriteMessage( $"Updating '{versionsOverrideFile.FilePath}'." );
             }
 
@@ -618,7 +632,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             context.Console.WriteSuccess(
-                $"Preparing the version file was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetVersionFilePath( options.BuildConfiguration ) ).PackageVersion}" );
+                $"Preparing the version file was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetManifestFilePath( options.BuildConfiguration ) ).PackageVersion}" );
 
             return true;
         }
@@ -748,7 +762,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             context.Console.WriteHeading( "Publishing files" );
 
-            var versionFile = this.ReadGeneratedVersionFile( context.GetVersionFilePath( options.BuildConfiguration ) );
+            var versionFile = this.ReadGeneratedVersionFile( context.GetManifestFilePath( options.BuildConfiguration ) );
 
             var stringParameters = new VersionInfo( versionFile.PackageVersion, versionFile.Configuration );
 

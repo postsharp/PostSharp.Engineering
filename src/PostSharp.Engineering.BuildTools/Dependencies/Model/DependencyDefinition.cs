@@ -1,4 +1,6 @@
 ﻿using PostSharp.Engineering.BuildTools.Build.Model;
+using System;
+using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
@@ -24,5 +26,13 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             this.RepoName = name;
             this.CiBuildTypeId = ciBuildTypeId;
         }
+
+        public string GetLocalDirectory( int buildNumber )
+            => Path.Combine(
+                Environment.GetEnvironmentVariable( "USERPROFILE" ) ?? Path.GetTempPath(),
+                ".build-artifacts",
+                this.RepoName,
+                this.CiBuildTypeId!,
+                buildNumber.ToString() );
     }
 }

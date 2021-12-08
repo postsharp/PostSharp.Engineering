@@ -2,10 +2,8 @@
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
 {
@@ -74,53 +72,40 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     return false;
                 }
 
-                var restoreDirectory = Path.Combine( context.RepoDirectory, context.Product.DependenciesDirectory, dependency.Key );
+                var restoreDirectory = dependencyDefinition.GetLocalDirectory( buildNumber.Value );
 
-                var versionFile = Path.Combine( restoreDirectory, ".version" );
+                var completedFile = Path.Combine( restoreDirectory, ".completed" );
 
-                if ( File.Exists( versionFile ) )
+                if ( !File.Exists( completedFile ) )
                 {
-                    var version = int.Parse( File.ReadAllText( versionFile ).Trim(), CultureInfo.InvariantCulture );
 
-                    if ( version >= buildNumber )
+                    if ( Directory.Exists( restoreDirectory ) )
                     {
-                        context.Console.WriteMessage( $"{dependency.Key} is up to date." );
-
-                        continue;
-                    }
-                }
-
-                if ( Directory.Exists( restoreDirectory ) )
-                {
-                    Directory.Delete( restoreDirectory, true );
-                }
-
-                Directory.CreateDirectory( restoreDirectory );
-                context.Console.WriteMessage( $"Downloading {dependency.Key} build {buildNumber}" );
-                teamcity.DownloadArtifacts( dependencyDefinition.CiBuildTypeId, buildNumber.Value, restoreDirectory, ConsoleHelper.CancellationToken );
-
-                File.WriteAllText( versionFile, buildNumber.ToString() );
-            }
-
-            // Find version files.
-            foreach ( var dependency in versionsOverrideFile.Dependencies )
-            {
-                if ( dependency.Value.SourceKind == DependencySourceKind.BuildServer )
-                {
-                    // Find the version file.
-                    var versionFile = FindVersionFile(
-                        dependency.Key,
-                        Path.Combine( context.RepoDirectory, context.Product.DependenciesDirectory, dependency.Key ) );
-
-                    if ( versionFile == null )
-                    {
-                        context.Console.WriteError( $"Could not find {dependency.Key}.version.props." );
-
-                        return false;
+                        Directory.Delete( restoreDirectory, true );
                     }
 
-                    dependency.Value.VersionFile = versionFile;
+                    Directory.CreateDirectory( restoreDirectory );
+                    context.Console.WriteMessage( $"Downloading {dependency.Key} build {buildNumber}" );
+                    teamcity.DownloadArtifacts( dependencyDefinition.CiBuildTypeId, buildNumber.Value, restoreDirectory, ConsoleHelper.CancellationToken );
+
+                    File.WriteAllText( completedFile, "Completed" );
                 }
+                else
+                {
+                    context.Console.WriteMessage( $"{dependency.Key} is up to date." );
+                }
+
+                // Find the version file.
+                var versionFile = FindVersionFile( dependency.Key, restoreDirectory );
+
+                if ( versionFile == null )
+                {
+                    context.Console.WriteError( $"Could not find {dependency.Key}.version.props under '{restoreDirectory}'." );
+
+                    return false;
+                }
+
+                dependency.Value.VersionFile = versionFile;
             }
 
             context.Console.WriteSuccess( "Fetching build artefacts was successful" );

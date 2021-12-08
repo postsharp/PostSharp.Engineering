@@ -1,5 +1,4 @@
-﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.Extensions.FileSystemGlobbing;
+﻿using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 using System;
 using System.Collections.Generic;
@@ -26,9 +25,36 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public Pattern Remove( params ParametricString[] patterns ) => new( this.Items.AddRange( patterns.Select( p => (p, true) ) ) );
 
-        public static Pattern Create( params ParametricString[] patterns ) => Pattern.Empty.Add( patterns );
+        public static Pattern Create( params ParametricString[] patterns ) => Empty.Add( patterns );
 
-        internal bool TryGetFiles( string directory, VersionInfo versionInfo, List<FilePatternMatch> files )
+        public bool Verify( BuildContext context, string directory, VersionInfo versionInfo )
+        {
+            var success = true;
+
+            foreach ( var pattern in this.Items )
+            {
+                if ( pattern.IsExclude )
+                {
+                    continue;
+                }
+
+                var matcher = new Matcher( StringComparison.OrdinalIgnoreCase );
+                matcher.AddInclude( pattern.Pattern.ToString( versionInfo ) );
+
+                var matchingResult =
+                    matcher.Execute( new DirectoryInfoWrapper( new DirectoryInfo( directory ) ) );
+
+                if ( !matchingResult.HasMatches )
+                {
+                    context.Console.WriteError( $"The pattern '{directory}\\{pattern.Pattern}' does not match any file." );
+                    success = false;
+                }
+            }
+
+            return success;
+        }
+
+        public bool TryGetFiles( string directory, VersionInfo versionInfo, List<FilePatternMatch> files )
         {
             var matcher = new Matcher( StringComparison.OrdinalIgnoreCase );
 

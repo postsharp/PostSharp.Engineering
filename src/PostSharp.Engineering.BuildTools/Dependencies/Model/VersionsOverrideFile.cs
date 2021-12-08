@@ -139,23 +139,18 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                 return false;
                             }
 
-                            if ( dependency.Value.VersionFile == null )
+                            var versionFile = dependency.Value.VersionFile;
+
+                            if ( versionFile == null )
                             {
                                 throw new InvalidOperationException( "The VersionFile property of dependencies should be set." );
                             }
 
                             item.Add( new XElement( "Branch", dependency.Value.Branch ) );
-                            item.Add( new XElement( "VersionFile", dependency.Value.VersionFile ) );
+                            item.Add( new XElement( "VersionFile", versionFile ) );
 
-                            var importProjectFile = Path.GetFullPath(
-                                Path.Combine(
-                                    context.RepoDirectory,
-                                    context.Product.DependenciesDirectory,
-                                    dependency.Key,
-                                    dependency.Value.VersionFile ) );
-
-                            requiredFiles.Add( importProjectFile );
-                            project.Add( new XElement( "Import", new XAttribute( "Project", importProjectFile ), CreateCondition( importProjectFile ) ) );
+                            requiredFiles.Add( versionFile );
+                            project.Add( new XElement( "Import", new XAttribute( "Project", versionFile ), CreateCondition( versionFile ) ) );
                         }
 
                         break;

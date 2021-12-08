@@ -15,7 +15,7 @@ namespace PostSharp.Engineering.BuildTools.Build
 
         public Product Product { get; }
 
-        public string GetVersionFilePath( BuildConfiguration configuration )
+        public string GetManifestFilePath( BuildConfiguration configuration )
         {
             return Path.Combine(
                 this.RepoDirectory,
