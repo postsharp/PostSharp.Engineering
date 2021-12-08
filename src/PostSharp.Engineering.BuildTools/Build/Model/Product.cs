@@ -100,6 +100,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var artifacts = new List<FilePatternMatch>();
 
             var allFilesPattern = this.PublicArtifacts.Add( this.PrivateArtifacts );
+
             if ( !allFilesPattern.TryGetFiles( privateArtifactsDir, versionInfo, artifacts ) )
             {
                 context.Console.WriteError(
@@ -681,7 +682,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             props += $@"
         <{this.ProductNameWithoutDot}BuildConfiguration>{configuration}</{this.ProductNameWithoutDot}BuildConfiguration>
         <{this.ProductNameWithoutDot}Dependencies>{string.Join( ";", this.Dependencies.Select( x => x.Name ) )}</{this.ProductNameWithoutDot}Dependencies>
-        <!-- Adds the local output directories as nuget sources for referencing projects. -->
+        <{this.ProductNameWithoutDot}PublicArtifactsDirectory>{this.PublicArtifactsDirectory}</{this.ProductNameWithoutDot}PublicArtifactsDirectory>
+        <{this.ProductNameWithoutDot}PrivateArtifactsDirectory>{this.PrivateArtifactsDirectory}</{this.ProductNameWithoutDot}PrivateArtifactsDirectory>
+        <{this.ProductNameWithoutDot}EngineeringVersion>{typeof(Product).Assembly.GetName().Version}</{this.ProductNameWithoutDot}EngineeringVersion>
         <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);$(MSBuildThisFileDirectory)</RestoreAdditionalProjectSources>
     </PropertyGroup>
 </Project>
