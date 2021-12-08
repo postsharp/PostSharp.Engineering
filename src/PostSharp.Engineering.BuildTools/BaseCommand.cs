@@ -73,7 +73,7 @@ namespace PostSharp.Engineering.BuildTools
                             .Color( Color.Purple ) );
 
                     buildContext.Console.Out.WriteLine();
-                    var myVersion = GetMyVersion();
+                    var myVersion = VersionHelper.EngineeringVersion;
                     buildContext.Console.WriteMessage( $"Using PostSharp.Engineering v{myVersion}." );
                     buildContext.Console.Out.WriteLine();
 
@@ -125,8 +125,6 @@ namespace PostSharp.Engineering.BuildTools
         }
 
         protected abstract bool ExecuteCore( BuildContext context, T options );
-
-        private static string? GetMyVersion()
-            => typeof(BaseCommand<>).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().SingleOrDefault( a => a.Key == "PackageVersion" )?.Value;
+        
     }
 }
