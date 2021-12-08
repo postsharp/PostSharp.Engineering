@@ -7,16 +7,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     public abstract class Publisher
     {
         /// <summary>
-        /// Gets a value indicating whether the target support public publishing, i.e. if it should be included
-        /// when the <see cref="PublishSettings.Public"/> option is specified.
+        /// Gets a value indicating whether the current publisher shall publish public artifacts (when <c>true</c>) or
+        /// private artifacts (when <c>false</c>).
         /// </summary>
-        public abstract bool SupportsPublicPublishing { get; }
-
-        /// <summary>
-        /// Gets a value indicating whether the target support private publishing, i.e. if it should be included
-        /// when the <see cref="PublishSettings.Public"/> option is not specified.
-        /// </summary>
-        public abstract bool SupportsPrivatePublishing { get; }
+        public abstract bool IsPublic { get; }
 
         /// <summary>
         /// Gets the extension of the principal artifacts of this target (e.g. <c>.nupkg</c> for a package).
@@ -43,6 +37,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             foreach ( var publishingTarget in DefaultCollection )
             {
+                if ( publishingTarget.IsPublic != isPublic )
+                {
+                    continue;
+                }
+                
                 foreach ( var file in Directory.EnumerateFiles( directory ) )
                 {
                     if ( file.Contains( "-local-", StringComparison.OrdinalIgnoreCase ) )

@@ -7,18 +7,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     {
         private readonly string _source;
         private readonly string _apiKey;
-        private readonly bool _isPublic;
 
         public NugetPublisher( string source, string apiKey, bool isPublic )
         {
             this._source = source;
             this._apiKey = apiKey;
-            this._isPublic = isPublic;
+            this.IsPublic = isPublic;
         }
 
-        public override bool SupportsPublicPublishing => this._isPublic;
-
-        public override bool SupportsPrivatePublishing => !this._isPublic;
+        public override bool IsPublic { get; }
 
         public override string Extension => ".nupkg";
 

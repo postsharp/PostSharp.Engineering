@@ -5,9 +5,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     public class VsixPublisher : Publisher
     {
-        public override bool SupportsPublicPublishing => true;
-
-        public override bool SupportsPrivatePublishing => false;
+        public override bool IsPublic => true;
 
         public override string Extension => ".vsix";
 
