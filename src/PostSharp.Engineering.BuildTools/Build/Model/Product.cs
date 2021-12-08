@@ -13,8 +13,6 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Xml.Linq;
-using XDocument = System.Xml.Linq.XDocument;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
@@ -46,9 +44,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ImmutableArray<Solution> Solutions { get; init; } = ImmutableArray<Solution>.Empty;
 
-        public ImmutableArray<PublishingTarget> PublishingTargets { get; init; } =
-            ImmutableArray<PublishingTarget>.Empty;
-        
+        public Pattern PrivateArtifacts { get; init; } = Pattern.Empty;
+
+        public Pattern PublicArtifacts { get; init; } = Pattern.Empty;
+
         public bool KeepEditorConfig { get; init; }
 
         /// <summary>
@@ -97,19 +96,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.BuildCompleted?.Invoke( (context, options, privateArtifactsDir) );
 
             // Check that the build produced the expected artifacts.
+            // TODO: this will only fail if there is NO artifacts. It does not check that every item in the pattern actually matched something.
             var artifacts = new List<FilePatternMatch>();
 
-            foreach ( var publishingTarget in this.PublishingTargets )
+            var allFilesPattern = this.PublicArtifacts.Add( this.PrivateArtifacts );
+            if ( !allFilesPattern.TryGetFiles( privateArtifactsDir, versionInfo, artifacts ) )
             {
-                if ( !publishingTarget.Artifacts.TryGetFiles( privateArtifactsDir, versionInfo, artifacts ) )
-                {
-                    context.Console.WriteError(
-                        $"The build did not generate the artifacts '{publishingTarget.Artifacts}' in '{privateArtifactsDir}'. $(PackageVersion)={versionInfo.PackageVersion}, $(Configuration)={versionInfo.Configuration}" );
+                context.Console.WriteError(
+                    $"The build did not generate the artifacts '{allFilesPattern}' in '{privateArtifactsDir}'. $(PackageVersion)={versionInfo.PackageVersion}, $(Configuration)={versionInfo.Configuration}" );
 
-                    return false;
-                }
+                return false;
             }
-
+        
             // Zipping internal artifacts.
             void CreateZip( string directory )
             {
@@ -139,18 +137,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteHeading( "Copying public artifacts" );
                 var files = new List<FilePatternMatch>();
 
-                foreach ( var publishingTarget in this.PublishingTargets )
-                {
-                    if ( publishingTarget.SupportsPublicPublishing )
-                    {
-                        if ( !publishingTarget.Artifacts.TryGetFiles( privateArtifactsDir, versionInfo, files ) )
-                        {
-                            context.Console.WriteError( $"The pattern '{publishingTarget.Artifacts}' in '{privateArtifactsDir}' did not generate any output." );
-
-                            return false;
-                        }
-                    }
-                }
+                this.PublicArtifacts.TryGetFiles( privateArtifactsDir, versionInfo, files );
 
                 var publicArtifactsDirectory = Path.Combine(
                     context.RepoDirectory,
@@ -763,26 +750,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             var hasTarget = false;
 
-            if ( !this.PublishDirectory(
+            if ( !Publisher.PublishDirectory(
                 context,
                 options,
-                versionFile,
                 Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( stringParameters ) ),
-                false,
-                ref hasTarget ) )
+                false ) )
             {
                 return false;
             }
 
             if ( options.Public )
             {
-                if ( !this.PublishDirectory(
+                if ( !Publisher.PublishDirectory(
                     context,
                     options,
-                    versionFile,
                     Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) ),
-                    true,
-                    ref hasTarget ) )
+                    true ) )
                 {
                     return false;
                 }
@@ -798,76 +781,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             return true;
-        }
-
-        private bool PublishDirectory(
-            BuildContext context,
-            PublishOptions options,
-            VersionInfo versionFile,
-            string directory,
-            bool isPublic,
-            ref bool hasTarget )
-        {
-            var success = true;
-
-            foreach ( var publishingTarget in this.PublishingTargets )
-            {
-                var files = new List<FilePatternMatch>();
-
-                if ( (publishingTarget.SupportsPrivatePublishing && !isPublic) ||
-                     (publishingTarget.SupportsPublicPublishing && isPublic) )
-                {
-                    hasTarget = true;
-
-                    if ( !publishingTarget.Artifacts.TryGetFiles( directory, versionFile, files ) )
-                    {
-                        context.Console.WriteError( $"The pattern '{publishingTarget.Artifacts}' in '{directory}' did not generate any file match." );
-
-                        return false;
-                    }
-                }
-
-                foreach ( var file in files )
-                {
-                    if ( Path.GetExtension( file.Path )
-                        .Equals(
-                            publishingTarget.MainExtension,
-                            StringComparison.OrdinalIgnoreCase ) )
-                    {
-                        if ( file.Path.Contains( "-local-", StringComparison.OrdinalIgnoreCase ) )
-                        {
-                            context.Console.WriteError( "Cannot publish a local build." );
-
-                            return false;
-                        }
-
-                        switch ( publishingTarget.Execute(
-                            context,
-                            options,
-                            Path.Combine( directory, file.Path ),
-                            isPublic ) )
-                        {
-                            case SuccessCode.Success:
-                                break;
-
-                            case SuccessCode.Error:
-                                success = false;
-
-                                break;
-
-                            case SuccessCode.Fatal:
-                                return false;
-                        }
-                    }
-                }
-            }
-
-            if ( !success )
-            {
-                context.Console.WriteError( "Publishing has failed." );
-            }
-
-            return success;
         }
     }
 }

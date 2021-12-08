@@ -3,20 +3,13 @@ using System;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
-    public class VsixPublishTarget : PublishingTarget
+    public class VsixPublisher : Publisher
     {
-        public VsixPublishTarget( Pattern artifacts )
-        {
-            this.Artifacts = artifacts;
-        }
-
         public override bool SupportsPublicPublishing => true;
 
         public override bool SupportsPrivatePublishing => false;
 
-        public override string MainExtension => ".vsix";
-
-        public override Pattern Artifacts { get; }
+        public override string Extension => ".vsix";
 
         public override SuccessCode Execute( BuildContext context, PublishOptions options, string file, bool isPublic )
         {

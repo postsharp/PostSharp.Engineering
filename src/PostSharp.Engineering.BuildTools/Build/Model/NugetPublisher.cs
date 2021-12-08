@@ -3,54 +3,45 @@ using System;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
-    public class NugetPublishTarget : PublishingTarget
+    public class NugetPublisher : Publisher
     {
-        public NugetSource PrivateSource { get; }
+        private readonly string _source;
+        private readonly string _apiKey;
+        private readonly bool _isPublic;
 
-        public NugetSource? PublicSource { get; }
-
-        public NugetPublishTarget( Pattern packages, NugetSource privateSource, NugetSource? publicSource = null )
+        public NugetPublisher( string source, string apiKey, bool isPublic )
         {
-            this.Artifacts = packages;
-            this.PrivateSource = privateSource;
-            this.PublicSource = publicSource;
+            this._source = source;
+            this._apiKey = apiKey;
+            this._isPublic = isPublic;
         }
 
-        public override bool SupportsPublicPublishing => this.PublicSource != null;
+        public override bool SupportsPublicPublishing => this._isPublic;
 
-        public override bool SupportsPrivatePublishing => true;
+        public override bool SupportsPrivatePublishing => !this._isPublic;
 
-        public override string MainExtension => ".nupkg";
-
-        public override Pattern Artifacts { get; }
+        public override string Extension => ".nupkg";
 
         public override SuccessCode Execute( BuildContext context, PublishOptions options, string file, bool isPublic )
         {
-            var source = isPublic ? this.PublicSource : this.PrivateSource;
-
-            if ( source == null )
-            {
-                throw new InvalidOperationException();
-            }
-
             var hasEnvironmentError = false;
 
             context.Console.WriteMessage( $"Publishing {file}." );
 
-            var server = Environment.ExpandEnvironmentVariables( source.Source );
+            var server = Environment.ExpandEnvironmentVariables( this._source );
 
             // Check if environment variables have been defined.
             if ( string.IsNullOrEmpty( server ) )
             {
-                context.Console.WriteError( $"The {source.Source} environment variable is not defined." );
+                context.Console.WriteError( $"The {this._source} environment variable is not defined." );
                 hasEnvironmentError = true;
             }
 
-            var apiKey = Environment.ExpandEnvironmentVariables( source.ApiKey );
+            var apiKey = Environment.ExpandEnvironmentVariables( this._apiKey );
 
             if ( string.IsNullOrEmpty( apiKey ) )
             {
-                context.Console.WriteError( $"The {source.ApiKey} environment variable is not defined." );
+                context.Console.WriteError( $"The {this._apiKey} environment variable is not defined." );
                 hasEnvironmentError = true;
             }
 
@@ -61,7 +52,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             // Note that we don't expand the ApiKey environment variable so we don't expose passwords to logs.
             var arguments =
-                $"nuget push {file} --source {server} --api-key {source.ApiKey} --skip-duplicate";
+                $"nuget push {file} --source {server} --api-key {this._apiKey} --skip-duplicate";
 
             if ( options.Dry )
             {
