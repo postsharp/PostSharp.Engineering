@@ -1,10 +1,10 @@
 ﻿namespace PostSharp.Engineering.BuildTools.Build
 {
-    public class TestCommand : BaseCommand<BuildOptions>
+    public class TestCommand : BaseCommand<BuildSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, BuildOptions options )
+        protected override bool ExecuteCore( BuildContext context, BuildSettings settings )
         {
-            return context.Product.Test( context, options );
+            return context.Product.Test( context, settings );
         }
     }
 }

@@ -31,13 +31,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public BuildMethod GetBuildMethod() => this.BuildMethod ?? (this.IsTestOnly ? Model.BuildMethod.Build : Model.BuildMethod.Pack);
 
-        public abstract bool Build( BuildContext context, BuildOptions options );
+        public abstract bool Build( BuildContext context, BuildSettings settings );
 
-        public abstract bool Pack( BuildContext context, BuildOptions options );
+        public abstract bool Pack( BuildContext context, BuildSettings settings );
 
-        public abstract bool Test( BuildContext context, BuildOptions options );
+        public abstract bool Test( BuildContext context, BuildSettings settings );
 
-        public abstract bool Restore( BuildContext context, BaseBuildSettings options );
+        public abstract bool Restore( BuildContext context, BaseBuildSettings settings );
 
         protected Solution( string solutionPath )
         {

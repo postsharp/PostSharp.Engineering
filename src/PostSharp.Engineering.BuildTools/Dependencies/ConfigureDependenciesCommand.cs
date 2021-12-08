@@ -16,7 +16,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 {
     public class ConfigureDependenciesCommand : BaseCommand<ConfigureDependenciesCommandSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, ConfigureDependenciesCommandSettings options )
+        protected override bool ExecuteCore( BuildContext context, ConfigureDependenciesCommandSettings settings )
         {
             context.Console.WriteHeading( "Setting the local dependencies" );
 
@@ -27,7 +27,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return false;
             }
 
-            if ( options.Dependencies.Length == 0 && !options.All )
+            if ( settings.Dependencies.Length == 0 && !settings.All )
             {
                 context.Console.WriteError( "No dependency was specified. Specify a dependency or use --all." );
 
@@ -36,7 +36,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             var versionsOverrideFile = VersionsOverrideFile.Load( context );
 
-            var dependencies = options.All ? context.Product.Dependencies.Select( x => x.Name ) : options.Dependencies;
+            var dependencies = settings.All ? context.Product.Dependencies.Select( x => x.Name ) : settings.Dependencies;
 
             foreach ( var dependency in dependencies )
             {
@@ -67,12 +67,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     }
                 }
 
-                var dependencySource = new DependencySource( options.Source, options.Branch ?? dependencyDefinition.DefaultBranch );
+                var dependencySource = new DependencySource( settings.Source, settings.Branch ?? dependencyDefinition.DefaultBranch );
                 versionsOverrideFile.Dependencies[dependencyDefinition.Name] = dependencySource;
             }
 
             // Fetching dependencies.
-            if ( options.Source == DependencySourceKind.BuildServer )
+            if ( settings.Source == DependencySourceKind.BuildServer )
             {
                 // We need to fetch dependencies, otherwise we cannot find the version file.
                 context.Console.WriteImportantMessage( "Fetching dependencies" );

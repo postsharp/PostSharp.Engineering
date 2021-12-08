@@ -9,7 +9,7 @@ namespace PostSharp.Engineering.BuildTools.Build
 {
     public class KillCommand : BaseCommand<KillCommandSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, KillCommandSettings options )
+        protected override bool ExecuteCore( BuildContext context, KillCommandSettings settings )
         {
             context.Console.WriteHeading( "Killing compiler processes" );
 
@@ -49,7 +49,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                 {
                     context.Console.WriteMessage( $"Killing process {process.Id}: {GetCommandLine( process )}" );
 
-                    if ( !options.Dry )
+                    if ( !settings.Dry )
                     {
                         try
                         {

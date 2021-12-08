@@ -5,11 +5,11 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
 {
     public class FormatCommand : BaseCommand<BaseCommandSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, BaseCommandSettings options )
+        protected override bool ExecuteCore( BuildContext context, BaseCommandSettings settings )
         {
             context.Console.WriteHeading( "Reformatting the code" );
 
-            if ( !VcsHelper.CheckNoChange( context, options, context.RepoDirectory ) )
+            if ( !VcsHelper.CheckNoChange( context, settings, context.RepoDirectory ) )
             {
                 return false;
             }

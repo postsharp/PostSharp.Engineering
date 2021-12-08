@@ -7,14 +7,14 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
     internal abstract class BaseCodeStyleCommand<T> : BaseCommand<T>
         where T : CodeStyleSettings
     {
-        protected static string? GetCodeStyleRepo( BuildContext context, CodeStyleSettings options )
+        protected static string? GetCodeStyleRepo( BuildContext context, CodeStyleSettings settings )
         {
             var sharedRepo = Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", "PostSharp.Engineering.CodeStyle" ) );
 
             // Check if the repo exists.
             if ( !Directory.Exists( sharedRepo ) )
             {
-                if ( !options.Create )
+                if ( !settings.Create )
                 {
                     context.Console.WriteError( $"The directory '{sharedRepo} does not exist. Use --create'" );
 
@@ -24,12 +24,12 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
                 {
                     var baseDir = Path.GetDirectoryName( sharedRepo )!;
 
-                    ToolInvocationHelper.InvokeTool( context.Console, "git", $"clone {options.Url}", baseDir );
+                    ToolInvocationHelper.InvokeTool( context.Console, "git", $"clone {settings.Url}", baseDir );
                 }
             }
 
             // Check that there is no uncommitted change in the target repo.
-            if ( !VcsHelper.CheckNoChange( context, options, sharedRepo ) )
+            if ( !VcsHelper.CheckNoChange( context, settings, sharedRepo ) )
             {
                 return null;
             }

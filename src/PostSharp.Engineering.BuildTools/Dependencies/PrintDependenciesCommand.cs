@@ -5,7 +5,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 {
     public class PrintDependenciesCommand : BaseCommand<BaseCommandSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, BaseCommandSettings options )
+        protected override bool ExecuteCore( BuildContext context, BaseCommandSettings settings )
         {
             var path = Path.Combine(
                 context.RepoDirectory,

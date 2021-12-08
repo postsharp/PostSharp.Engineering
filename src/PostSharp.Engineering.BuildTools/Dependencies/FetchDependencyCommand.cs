@@ -9,7 +9,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 {
     public class FetchDependencyCommand : BaseCommand<FetchDependenciesCommandSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, FetchDependenciesCommandSettings options )
+        protected override bool ExecuteCore( BuildContext context, FetchDependenciesCommandSettings settings )
         {
             context.Console.WriteHeading( "Fetching build artefacts" );
 

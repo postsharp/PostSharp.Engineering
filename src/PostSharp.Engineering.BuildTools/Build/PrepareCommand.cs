@@ -2,9 +2,9 @@
 {
     public class PrepareCommand : BaseCommand<BaseBuildSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, BaseBuildSettings options )
+        protected override bool ExecuteCore( BuildContext context, BaseBuildSettings settings )
         {
-            return context.Product.Prepare( context, options );
+            return context.Product.Prepare( context, settings );
         }
     }
 }

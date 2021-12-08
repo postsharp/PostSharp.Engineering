@@ -124,6 +124,6 @@ namespace PostSharp.Engineering.BuildTools
             }
         }
 
-        protected abstract bool ExecuteCore( BuildContext context, T options );
+        protected abstract bool ExecuteCore( BuildContext context, T settings );
     }
 }

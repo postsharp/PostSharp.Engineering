@@ -8,13 +8,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     {
         /// <summary>
         /// Gets a value indicating whether the target support public publishing, i.e. if it should be included
-        /// when the <see cref="PublishOptions.Public"/> option is specified.
+        /// when the <see cref="PublishSettings.Public"/> option is specified.
         /// </summary>
         public abstract bool SupportsPublicPublishing { get; }
 
         /// <summary>
         /// Gets a value indicating whether the target support private publishing, i.e. if it should be included
-        /// when the <see cref="PublishOptions.Public"/> option is not specified.
+        /// when the <see cref="PublishSettings.Public"/> option is not specified.
         /// </summary>
         public abstract bool SupportsPrivatePublishing { get; }
 
@@ -26,7 +26,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Executes the target for a specified artefact.
         /// </summary>
-        public abstract SuccessCode Execute( BuildContext context, PublishOptions options, string file, bool isPublic );
+        public abstract SuccessCode Execute( BuildContext context, PublishSettings settings, string file, bool isPublic );
 
         public static ImmutableArray<Publisher> DefaultCollection
             => ImmutableArray.Create<Publisher>(
@@ -35,7 +35,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public static bool PublishDirectory(
             BuildContext context,
-            PublishOptions options,
+            PublishSettings settings,
             string directory,
             bool isPublic )
         {
@@ -55,7 +55,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     if ( Path.GetExtension( file )
                         .Equals( publishingTarget.Extension, StringComparison.OrdinalIgnoreCase ) )
                     {
-                        switch ( publishingTarget.Execute( context, options, Path.Combine( directory, file ), isPublic ) )
+                        switch ( publishingTarget.Execute( context, settings, Path.Combine( directory, file ), isPublic ) )
                         {
                             case SuccessCode.Success:
                                 break;

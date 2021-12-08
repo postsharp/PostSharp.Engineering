@@ -3,7 +3,7 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Build
 {
-    public class BuildOptions : BaseBuildSettings
+    public class BuildSettings : BaseBuildSettings
     {
         [Description( "Signs the assemblies and packages" )]
         [CommandOption( "--sign" )]

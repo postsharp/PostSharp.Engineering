@@ -8,7 +8,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 {
     public class ListDependenciesCommand : BaseCommand<BaseCommandSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, BaseCommandSettings options )
+        protected override bool ExecuteCore( BuildContext context, BaseCommandSettings settings )
         {
             var productDependencies = context.Product.Dependencies;
 

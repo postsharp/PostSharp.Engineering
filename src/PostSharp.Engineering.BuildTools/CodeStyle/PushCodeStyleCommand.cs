@@ -6,11 +6,11 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
 {
     internal class PushCodeStyleCommand : BaseCodeStyleCommand<CodeStyleSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, CodeStyleSettings options )
+        protected override bool ExecuteCore( BuildContext context, CodeStyleSettings settings )
         {
             context.Console.WriteHeading( "Pushing code style." );
 
-            var sharedRepo = GetCodeStyleRepo( context, options );
+            var sharedRepo = GetCodeStyleRepo( context, settings );
 
             if ( sharedRepo == null )
             {

@@ -2,9 +2,9 @@
 {
     public class CleanCommand : BaseCommand<BaseBuildSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, BaseBuildSettings options )
+        protected override bool ExecuteCore( BuildContext context, BaseBuildSettings settings )
         {
-            context.Product.Clean( context, options );
+            context.Product.Clean( context, settings );
 
             return true;
         }

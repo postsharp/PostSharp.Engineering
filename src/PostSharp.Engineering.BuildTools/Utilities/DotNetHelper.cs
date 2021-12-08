@@ -10,21 +10,21 @@ namespace PostSharp.Engineering.BuildTools.Utilities
     {
         public static bool Run(
             BuildContext context,
-            BaseBuildSettings options,
+            BaseBuildSettings settings,
             string solution,
             string command,
             string arguments = "" )
         {
             var argsBuilder = new StringBuilder();
 
-            argsBuilder.Append( CultureInfo.InvariantCulture, $"{command} -p:Configuration={options.BuildConfiguration} \"{solution}\" -v:{options.Verbosity.ToAlias()} --nologo" );
+            argsBuilder.Append( CultureInfo.InvariantCulture, $"{command} -p:Configuration={settings.BuildConfiguration} \"{solution}\" -v:{settings.Verbosity.ToAlias()} --nologo" );
 
-            if ( options.NoConcurrency )
+            if ( settings.NoConcurrency )
             {
                 argsBuilder.Append( " -m:1" );
             }
 
-            foreach ( var property in options.Properties )
+            foreach ( var property in settings.Properties )
             {
                 argsBuilder.Append( CultureInfo.InvariantCulture, $" -p:{property.Key}={property.Value}" );
             }

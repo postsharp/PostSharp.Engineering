@@ -6,18 +6,18 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
 {
     internal class PullCodeStyleCommand : BaseCodeStyleCommand<PullCodeStyleSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, PullCodeStyleSettings options )
+        protected override bool ExecuteCore( BuildContext context, PullCodeStyleSettings settings )
         {
             context.Console.WriteHeading( "Pulling code style" );
 
-            var sharedRepo = GetCodeStyleRepo( context, options );
+            var sharedRepo = GetCodeStyleRepo( context, settings );
 
             if ( sharedRepo == null )
             {
                 return false;
             }
 
-            var branch = options.Branch ?? "master";
+            var branch = settings.Branch ?? "master";
 
             // Check out master and pull.
             if ( !ToolInvocationHelper.InvokeTool( context.Console, "git", $"checkout {branch}", sharedRepo ) )
@@ -30,7 +30,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
                 return false;
             }
 
-            if ( !VcsHelper.CheckNoChange( context, options, context.RepoDirectory ) )
+            if ( !VcsHelper.CheckNoChange( context, settings, context.RepoDirectory ) )
             {
                 return false;
             }

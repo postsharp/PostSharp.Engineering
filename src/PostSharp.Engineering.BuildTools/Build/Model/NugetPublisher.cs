@@ -22,7 +22,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public override string Extension => ".nupkg";
 
-        public override SuccessCode Execute( BuildContext context, PublishOptions options, string file, bool isPublic )
+        public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, bool isPublic )
         {
             var hasEnvironmentError = false;
 
@@ -54,7 +54,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var arguments =
                 $"nuget push {file} --source {server} --api-key {this._apiKey} --skip-duplicate";
 
-            if ( options.Dry )
+            if ( settings.Dry )
             {
                 context.Console.WriteImportantMessage( "Dry run: dotnet " + arguments );
 
