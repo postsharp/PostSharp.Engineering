@@ -33,6 +33,8 @@ object DebugBuild : BuildType({
 
     triggers {
         vcs {
+            quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
+            branchFilter = "+:<default>"
         }
     }
 
@@ -61,11 +63,6 @@ object ReleaseBuild : BuildType({
         }
     }
 
-    triggers {
-        vcs {
-        }
-    }
-
     requirements {
         equals("env.BuildAgentType", "caravela02")
     }
@@ -88,11 +85,6 @@ object PublicBuild : BuildType({
             }
             noProfile = false
             param("jetbrains_powershell_scriptArguments", "test --public --configuration Release --sign")
-        }
-    }
-
-    triggers {
-        vcs {
         }
     }
     
