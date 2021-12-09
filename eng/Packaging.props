@@ -6,10 +6,12 @@
         <PackageProjectUrl>https://github.com/postsharp/PostSharp.Engineering</PackageProjectUrl>
         <PackageTags>PostSharp build engineering</PackageTags>
         <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+        <PackageIcon>postsharp.png</PackageIcon>
     </PropertyGroup>
 
     <!-- Additional content of NuGet packages -->
     <ItemGroup>
+        <None Include="$(MSBuildThisFileDirectory)\..\src\PostSharp.Engineering.Sdk\assets\postsharp.png" Visible="false" Pack="true" PackagePath="" />
         <None Include="$(MSBuildThisFileDirectory)..\LICENSE.md" Visible="false" Pack="true" PackagePath="" />
     </ItemGroup>
 
