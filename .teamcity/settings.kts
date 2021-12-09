@@ -43,7 +43,7 @@ object DebugBuild : BuildType({
     }
 })
 
-// Release build (with unsuffixed version number)
+// Release build (with unsuffixed version number, unsigned)
 object ReleaseBuild : BuildType({
     name = "Build [Release]"
 
@@ -59,7 +59,7 @@ object ReleaseBuild : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "test  --numbered %build.number% --configuration Release --sign")
+            param("jetbrains_powershell_scriptArguments", "test  --numbered %build.number% --configuration Release")
         }
     }
 
