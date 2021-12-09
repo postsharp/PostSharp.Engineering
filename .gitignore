@@ -8,3 +8,4 @@ eng/tools
 *.g.props
 *.user
 .teamcity/.idea
+.teamcity/target

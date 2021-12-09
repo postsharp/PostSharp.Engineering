@@ -40,7 +40,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 if ( !ToolInvocationHelper.InvokeTool(
                     context.Console,
                     "dotnet",
-                    $"tool install {this.PackageId} --version {this.Version} --tool-path \"{toolsDirectory}\" --add-source \"https://nuget.postsharp.net/nuget/caravela/\" --add-source \"https://api.nuget.org/v3/index.json\"",
+                    $"tool install {this.PackageId} --version {this.Version} --tool-path \"{toolsDirectory}\" --add-source \"https://nuget.postsharp.net/nuget/Metalama/\" --add-source \"https://api.nuget.org/v3/index.json\"",
                     directory ?? context.RepoDirectory ) )
                 {
                     return false;

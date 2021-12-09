@@ -49,7 +49,7 @@ namespace PostSharp.Engineering.BuildTools.NuGet
             var outputPath = Path.Combine(
                 Path.GetDirectoryName( inputPath )!,
                 Path.GetFileName( inputPath )
-                    .Replace( "Microsoft", "Caravela.Roslyn", StringComparison.OrdinalIgnoreCase ) );
+                    .Replace( "Microsoft", "Metalama.Roslyn", StringComparison.OrdinalIgnoreCase ) );
 
             File.Copy( inputPath, outputPath, true );
 
@@ -84,7 +84,7 @@ namespace PostSharp.Engineering.BuildTools.NuGet
             var oldPackageId = packageIdElement.Value;
 
             var newPackageId =
-                oldPackageId.Replace( "Microsoft", "Caravela.Roslyn", StringComparison.OrdinalIgnoreCase );
+                oldPackageId.Replace( "Microsoft", "Metalama.Roslyn", StringComparison.OrdinalIgnoreCase );
 
             var packageVersion = nuspecXml.Root.Element( XName.Get( "metadata", ns ) )!
                 .Element( XName.Get( "version", ns ) )!.Value;
@@ -107,7 +107,7 @@ namespace PostSharp.Engineering.BuildTools.NuGet
                     {
                         dependency.Attribute( "id" )!.Value = dependentId.Replace(
                             "Microsoft",
-                            "Caravela.Roslyn",
+                            "Metalama.Roslyn",
                             StringComparison.OrdinalIgnoreCase );
                     }
                     else

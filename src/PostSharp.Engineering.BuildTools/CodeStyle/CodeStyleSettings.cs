@@ -13,6 +13,6 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
         [Description( "Remote URL of the repo." )]
         [CommandOption( "-u|--url" )]
         public string Url { get; init; } =
-            "https://postsharp@dev.azure.com/postsharp/Caravela/_git/Caravela.Engineering";
+            "https://github.com/postsharp/PostSharp.Engineering.CodeStyle.git";
     }
 }
