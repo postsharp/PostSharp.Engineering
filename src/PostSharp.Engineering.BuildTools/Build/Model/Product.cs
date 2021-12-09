@@ -692,7 +692,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         <{this.ProductNameWithoutDot}VersionSuffix>{arcadeSuffix}</{this.ProductNameWithoutDot}VersionSuffix>
         <{this.ProductNameWithoutDot}VersionPatchNumber>{patchNumber}</{this.ProductNameWithoutDot}VersionPatchNumber>
         <{this.ProductNameWithoutDot}VersionWithoutSuffix>{versionWithPatch}</{this.ProductNameWithoutDot}VersionWithoutSuffix>
-        <{this.ProductNameWithoutDot}Version>{versionWithPatch}{packageSuffixWithDash}</{this.ProductNameWithoutDot}Version>
+        <{this.ProductNameWithoutDot}Version>{versionPrefix}{packageSuffixWithDash}</{this.ProductNameWithoutDot}Version>
         <{this.ProductNameWithoutDot}AssemblyVersion>{versionWithPatch}</{this.ProductNameWithoutDot}AssemblyVersion>";
             }
             else
