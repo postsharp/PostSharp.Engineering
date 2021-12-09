@@ -14,7 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         public static DotNetTool SignClient { get; } = new( "SignClient", "1.3.155", "SignClient" );
 
-        public static DotNetTool Resharper { get; } = new( "JetBrains.Resharper.GlobalTools", "2021.2.1", "jb" );
+        public static DotNetTool Resharper { get; } = new( "JetBrains.Resharper.GlobalTools", "2021.3.0", "jb" );
 
         public DotNetTool( string packageId, string version, string command )
         {
@@ -26,22 +26,25 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         public bool Invoke( BuildContext context, string command, string? directory = null )
         {
             var toolsDirectory = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "tools" );
-            var thisToolDirectory = Path.Combine( toolsDirectory, $".store\\{this.PackageId}\\{this.Version}" );
+            var thisToolDirectory = Path.Combine( toolsDirectory, $".store\\{this.PackageId}" );
+            var thisToolVersionDirectory = Path.Combine( thisToolDirectory, this.Version );
 
             // 1. Restore the tool.
 
-            if ( !Directory.Exists( thisToolDirectory ) )
+            if ( !Directory.Exists( thisToolVersionDirectory ) )
             {
                 if ( !Directory.Exists( toolsDirectory ) )
                 {
                     Directory.CreateDirectory( toolsDirectory );
                 }
 
+                var verb = Directory.Exists( thisToolDirectory ) ? "update" : "install";
+
                 if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "dotnet",
-                    $"tool install {this.PackageId} --version {this.Version} --tool-path \"{toolsDirectory}\" --add-source \"https://nuget.postsharp.net/nuget/Metalama/\" --add-source \"https://api.nuget.org/v3/index.json\"",
-                    directory ?? context.RepoDirectory ) )
+                        context.Console,
+                        "dotnet",
+                        $"tool {verb} {this.PackageId} --version {this.Version} --tool-path \"{toolsDirectory}\" --add-source \"https://nuget.postsharp.net/nuget/Metalama/\" --add-source \"https://api.nuget.org/v3/index.json\"",
+                        directory ?? context.RepoDirectory ) )
                 {
                     return false;
                 }

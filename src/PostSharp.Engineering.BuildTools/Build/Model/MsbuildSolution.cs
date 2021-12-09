@@ -22,7 +22,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             var argsBuilder = new StringBuilder();
             var path = Path.Combine( context.RepoDirectory, this.SolutionPath );
-            argsBuilder.Append( CultureInfo.InvariantCulture, $"-t:{target} -p:Configuration={settings.BuildConfiguration} \"{path}\" -v:{settings.Verbosity.ToAlias()} -NoLogo" );
+
+            argsBuilder.Append(
+                CultureInfo.InvariantCulture,
+                $"-t:{target} -p:Configuration={settings.BuildConfiguration} \"{path}\" -v:{settings.Verbosity.ToAlias()} -NoLogo" );
 
             if ( settings.NoConcurrency )
             {

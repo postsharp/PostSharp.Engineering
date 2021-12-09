@@ -17,7 +17,9 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         {
             var argsBuilder = new StringBuilder();
 
-            argsBuilder.Append( CultureInfo.InvariantCulture, $"{command} -p:Configuration={settings.BuildConfiguration} \"{solution}\" -v:{settings.Verbosity.ToAlias()} --nologo" );
+            argsBuilder.Append(
+                CultureInfo.InvariantCulture,
+                $"{command} -p:Configuration={settings.BuildConfiguration} \"{solution}\" -v:{settings.Verbosity.ToAlias()} --nologo" );
 
             if ( settings.NoConcurrency )
             {

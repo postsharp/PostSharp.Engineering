@@ -1,5 +1,4 @@
-﻿using PostSharp.Engineering.BuildTools.Build.Model;
-using System;
+﻿using System;
 using System.Globalization;
 using System.IO;
 

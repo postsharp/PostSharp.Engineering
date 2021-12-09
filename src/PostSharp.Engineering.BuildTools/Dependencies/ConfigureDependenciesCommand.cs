@@ -1,16 +1,8 @@
 ﻿using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Management;
-using System.Text;
-using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
 {

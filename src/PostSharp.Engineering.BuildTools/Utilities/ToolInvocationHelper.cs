@@ -31,12 +31,12 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             params (string Key, string Value)[] environmentVariables )
         {
             if ( !InvokeTool(
-                console,
-                fileName,
-                commandLine,
-                workingDirectory,
-                out var exitCode,
-                environmentVariables ) )
+                    console,
+                    fileName,
+                    commandLine,
+                    workingDirectory,
+                    out var exitCode,
+                    environmentVariables ) )
             {
                 return false;
             }

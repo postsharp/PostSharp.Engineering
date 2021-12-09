@@ -41,7 +41,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     continue;
                 }
-                
+
                 foreach ( var file in Directory.EnumerateFiles( directory ) )
                 {
                     if ( file.Contains( "-local-", StringComparison.OrdinalIgnoreCase ) )

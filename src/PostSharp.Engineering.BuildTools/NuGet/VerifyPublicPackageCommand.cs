@@ -47,7 +47,7 @@ namespace PostSharp.Engineering.BuildTools.NuGet
             }
 
             console.WriteMessage( $"Waiting for {remotePackageTasks.Count} requests to complete." );
-            
+
             Task.WhenAll( remotePackageTasks.Values ).Wait();
 
             foreach ( var invalidDependency in remotePackageTasks.Where( p => !p.Value.IsCompletedSuccessfully ) )
@@ -64,7 +64,11 @@ namespace PostSharp.Engineering.BuildTools.NuGet
             return success;
         }
 
-        private static bool ProcessPackage( ConsoleHelper console, string directory, string inputPath, Dictionary<string, Task<HttpResponseMessage>> remotePackageTasks )
+        private static bool ProcessPackage(
+            ConsoleHelper console,
+            string directory,
+            string inputPath,
+            Dictionary<string, Task<HttpResponseMessage>> remotePackageTasks )
         {
             var inputShortPath = Path.GetFileName( inputPath );
 

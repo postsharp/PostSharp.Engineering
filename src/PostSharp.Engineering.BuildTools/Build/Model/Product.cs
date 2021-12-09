@@ -154,8 +154,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 // Verify that public packages have no private dependencies.
                 if ( !VerifyPublicPackageCommand.Execute(
-                    context.Console,
-                    new VerifyPackageSettings { Directory = publicArtifactsDirectory } ) )
+                        context.Console,
+                        new VerifyPackageSettings { Directory = publicArtifactsDirectory } ) )
                 {
                     return false;
                 }
@@ -460,8 +460,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( settings.AnalyzeCoverage )
             {
                 if ( !AnalyzeCoverageCommand.Execute(
-                    context.Console,
-                    new AnalyzeCoverageSettings { Path = Path.Combine( testResultsDir, "coverage.net5.0.json" ) } ) )
+                        context.Console,
+                        new AnalyzeCoverageSettings { Path = Path.Combine( testResultsDir, "coverage.net5.0.json" ) } ) )
                 {
                     return false;
                 }
@@ -777,10 +777,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var hasTarget = false;
 
             if ( !Publisher.PublishDirectory(
-                context,
-                settings,
-                Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( stringParameters ) ),
-                false ) )
+                    context,
+                    settings,
+                    Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( stringParameters ) ),
+                    false ) )
             {
                 return false;
             }
@@ -788,10 +788,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( settings.Public )
             {
                 if ( !Publisher.PublishDirectory(
-                    context,
-                    settings,
-                    Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) ),
-                    true ) )
+                        context,
+                        settings,
+                        Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) ),
+                        true ) )
                 {
                     return false;
                 }

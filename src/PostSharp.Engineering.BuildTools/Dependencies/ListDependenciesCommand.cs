@@ -1,8 +1,5 @@
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using Spectre.Console;
-using System.IO;
-using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
 {

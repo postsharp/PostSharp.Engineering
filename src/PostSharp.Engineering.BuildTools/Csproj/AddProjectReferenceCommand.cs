@@ -16,9 +16,9 @@ namespace PostSharp.Engineering.BuildTools.Csproj
             var console = new ConsoleHelper();
 
             foreach ( var project in Directory.EnumerateFiles(
-                Directory.GetCurrentDirectory(),
-                $"*{settings.Filter}*.csproj",
-                SearchOption.AllDirectories ) )
+                         Directory.GetCurrentDirectory(),
+                         $"*{settings.Filter}*.csproj",
+                         SearchOption.AllDirectories ) )
             {
                 AddReference( console, project, settings.PreviousReference, settings.NewReference );
             }
