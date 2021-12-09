@@ -10,7 +10,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "Metalama",
             "Caravela_CaravelaCompiler" );
 
-        public static DependencyDefinition Metalama { get; } = new( "Metalama", VcsProvider.AzureRepos, "Metalama", "Metalama_Metalama" );
+        public static DependencyDefinition Metalama { get; } = new( "Metalama", VcsProvider.AzureRepos, "Metalama", "Caravela_Caravela" );
 
         public static DependencyDefinition MetalamaSamples { get; } = new( "Metalama.Samples", VcsProvider.GitHub, "postsharp" );
 
