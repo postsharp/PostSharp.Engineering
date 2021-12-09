@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Xml.Linq;
 
@@ -16,7 +17,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         public TeamcityClient( string token )
         {
             this._httpClient = new HttpClient();
-            this._httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue( "Bearer", token );
+            this._httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Bearer", token );
         }
 
         public int? GetLatestBuildNumber( string buildTypeId, string branch, CancellationToken cancellationToken )
@@ -24,8 +25,15 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             var url =
                 $"https://tc.postsharp.net/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId},branch:refs/heads/{branch}";
 
-            var result = this._httpClient.GetAsync( url, cancellationToken ).Result.Content.ReadAsStringAsync( cancellationToken ).Result;
-            var xmlResult = XDocument.Parse( result );
+            var result = this._httpClient.GetAsync( url, cancellationToken ).Result;
+
+            if ( !result.IsSuccessStatusCode )
+            {
+                return null;
+            }
+
+            var content = result.Content.ReadAsStringAsync( cancellationToken ).Result;
+            var xmlResult = XDocument.Parse( content );
             var build = xmlResult.Root?.Elements( "build" ).FirstOrDefault();
 
             if ( build == null )

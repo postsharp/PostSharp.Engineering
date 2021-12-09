@@ -119,12 +119,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             foreach ( var dependency in this.Dependencies.OrderBy( d => d.Key ) )
             {
+                var ignoreDependency = false;
+
                 var item = new XElement(
                     "LocalDependencySource",
                     new XAttribute( "Include", dependency.Key ),
                     new XElement( "Kind", dependency.Value.SourceKind ) );
-
-                itemGroup.Add( item );
 
                 switch ( dependency.Value.SourceKind )
                 {
@@ -134,23 +134,24 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                             if ( dependencyDefinition == null )
                             {
-                                context.Console.WriteError( $"The dependency '{dependency.Key}' is not added to the product." );
-
-                                return false;
+                                context.Console.WriteWarning( $"The dependency '{dependency.Key}' is not configured. Ignoring." );
+                                ignoreDependency = true;
                             }
-
-                            var versionFile = dependency.Value.VersionFile;
-
-                            if ( versionFile == null )
+                            else
                             {
-                                throw new InvalidOperationException( "The VersionFile property of dependencies should be set." );
+                                var versionFile = dependency.Value.VersionFile;
+
+                                if ( versionFile == null )
+                                {
+                                    throw new InvalidOperationException( "The VersionFile property of dependencies should be set." );
+                                }
+
+                                item.Add( new XElement( "Branch", dependency.Value.Branch ) );
+                                item.Add( new XElement( "VersionFile", versionFile ) );
+
+                                requiredFiles.Add( versionFile );
+                                project.Add( new XElement( "Import", new XAttribute( "Project", versionFile ), CreateCondition( versionFile ) ) );
                             }
-
-                            item.Add( new XElement( "Branch", dependency.Value.Branch ) );
-                            item.Add( new XElement( "VersionFile", versionFile ) );
-
-                            requiredFiles.Add( versionFile );
-                            project.Add( new XElement( "Import", new XAttribute( "Project", versionFile ), CreateCondition( versionFile ) ) );
                         }
 
                         break;
@@ -175,6 +176,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                     default:
                         throw new InvalidVersionFileException();
+                }
+
+                if ( !ignoreDependency )
+                {
+                    itemGroup.Add( item );
                 }
             }
 

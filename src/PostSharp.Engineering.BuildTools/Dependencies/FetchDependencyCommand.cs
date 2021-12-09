@@ -46,9 +46,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                 if ( dependencyDefinition == null )
                 {
-                    context.Console.WriteError( $"The dependency '{dependency.Key}' is not added to the product." );
+                    context.Console.WriteWarning( $"The dependency '{dependency.Key}' is not configured. Ignoring." );
 
-                    return false;
+                    continue;
                 }
 
                 var branch = dependency.Value.Branch ?? dependencyDefinition.DefaultBranch;
@@ -67,7 +67,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                 if ( buildNumber == null )
                 {
-                    context.Console.WriteError( $"No successful build for {dependency.Key} on branch {branch}." );
+                    context.Console.WriteError(
+                        $"No successful build for {dependency.Key} on branch {branch} (BuildTypeId={dependencyDefinition.CiBuildTypeId}." );
 
                     return false;
                 }
@@ -78,7 +79,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                 if ( !File.Exists( completedFile ) )
                 {
-
                     if ( Directory.Exists( restoreDirectory ) )
                     {
                         Directory.Delete( restoreDirectory, true );
@@ -112,7 +112,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             return true;
         }
-        
+
         private static string? FindVersionFile( string productName, string directory )
         {
             var path = Path.Combine( directory, productName + ".version.props" );

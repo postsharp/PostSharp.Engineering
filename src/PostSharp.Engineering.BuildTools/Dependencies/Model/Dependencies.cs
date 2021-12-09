@@ -28,7 +28,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "PostSharp.Backstage.Settings",
             VcsProvider.AzureRepos,
             "Metalama",
-            "Metalama_PostSharpBackstageSettings_DebugBuildAndTest" );
+            "Caravela_PostSharpBackstageSettings_DebugBuildAndTest" );
 
         public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
             MetalamaCompiler,
