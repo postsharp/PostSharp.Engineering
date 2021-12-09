@@ -1,0 +1,9 @@
+<Project>
+    <PropertyGroup>
+        <PackageIcon>metalama.png</PackageIcon>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="$(MSBuildThisFileDirectory)\assets\metalama.png" Visible="false" Pack="true" PackagePath="" />
+    </ItemGroup>
+</Project>

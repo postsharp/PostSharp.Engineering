@@ -43,7 +43,7 @@ This repository contains common development, build and publishing scripts. It pr
   * `Coverage.props`:
     Enabled code coverage. This script should be imported in test projects only (not in projects being tested). This script
     adds a package to _coverlet_ so there is no need to have in in test projects (and these references should be removed).
-  * `Assets.props`: defines an `AssetsDirectory` property. Icons (and in the future similar assets) are found under this directory.
+  * `MetalamaBranding.props` and `PostSharpBranding.props`: Configure the proper icon for the nuget package.
 
 Both packages must be used at the same time.
 

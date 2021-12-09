@@ -1,0 +1,9 @@
+<Project>
+    <PropertyGroup>
+        <PackageIcon>postsharp.png</PackageIcon>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="$(MSBuildThisFileDirectory)\assets\postsharp.png" Visible="false" Pack="true" PackagePath="" />
+    </ItemGroup>
+</Project>
