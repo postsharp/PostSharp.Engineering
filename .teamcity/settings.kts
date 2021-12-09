@@ -9,6 +9,13 @@ project {
     buildType(ReleaseBuild)
     buildType(PublicBuild)
     buildType(Deploy)
+
+    expectBuildTypesOrder()
+    buildTypesOrderIds = arrayListOf(
+        RelativeId("DebugBuild"),
+        RelativeId("ReleaseBuild"),
+        RelativeId("PublicBuild"),
+        RelativeId("Deploy"))
 }
 
 // Debug build (a numbered build)
