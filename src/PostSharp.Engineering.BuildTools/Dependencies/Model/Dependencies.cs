@@ -8,9 +8,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "Metalama.Compiler",
             VcsProvider.AzureRepos,
             "Metalama",
-            "Caravela_CaravelaCompiler" );
+            "Metalama_MetalamaCompiler_ReleaseBuild" );
 
-        public static DependencyDefinition Metalama { get; } = new( "Metalama", VcsProvider.AzureRepos, "Metalama", "Caravela_Caravela" );
+        public static DependencyDefinition Metalama { get; } = new( "Metalama", VcsProvider.AzureRepos, "Metalama", "Metalama_Metalama_DebugBuild" );
 
         public static DependencyDefinition MetalamaSamples { get; } = new( "Metalama.Samples", VcsProvider.GitHub, "postsharp" );
 
@@ -28,7 +28,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "PostSharp.Backstage.Settings",
             VcsProvider.AzureRepos,
             "Metalama",
-            "Caravela_PostSharpBackstageSettings_DebugBuildAndTest" );
+            "Metalama_PostSharpBackstageSettings_DebugBuild" );
 
         public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
             MetalamaCompiler,
