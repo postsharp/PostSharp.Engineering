@@ -4,7 +4,6 @@
     {
         Default,
         Local,
-        BuildServer,
-        Transitive
+        BuildServer
     }
 }

@@ -34,7 +34,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             // By default, all dependencies source from the public feeds.
             foreach ( var dependency in context.Product.Dependencies )
             {
-                file.Dependencies[dependency.Name] = new DependencySource( DependencySourceKind.Default );
+                file.Dependencies[dependency.Name] = DependencySource.CreateOfKind( "default", DependencySourceKind.Default );
             }
 
             // Override defaults from the version file.
@@ -70,7 +70,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         {
                             case DependencySourceKind.Default:
                             case DependencySourceKind.Local:
-                                file.Dependencies[name] = new DependencySource( kind );
+                                file.Dependencies[name] = DependencySource.CreateOfKind( "version file", kind );
 
                                 break;
 
@@ -84,11 +84,15 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                                 if ( buildNumber != null )
                                 {
-                                    dependencySource = new DependencySource( kind, int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId, branch );
+                                    dependencySource = DependencySource.CreateBuildServerSource( "version file", int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId, branch );
+                                }
+                                else if ( branch != null )
+                                {
+                                    dependencySource = DependencySource.CreateBuildServerSource( "version file", branch, ciBuildTypeId );
                                 }
                                 else
                                 {
-                                    dependencySource = new DependencySource( kind, branch );
+                                    throw new InvalidVersionFileException();
                                 }
 
                                 dependencySource.VersionFile = versionFile;
@@ -244,7 +248,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                 if ( !this.Dependencies.TryGetValue( name, out var source ) )
                 {
-                    source = new DependencySource( DependencySourceKind.Default );
+                    source = DependencySource.CreateOfKind( "print", DependencySourceKind.Default );
                 }
 
                 table.AddRow( (i + 1).ToString( CultureInfo.InvariantCulture ), name, source.ToString()! );

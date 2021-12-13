@@ -1,8 +1,11 @@
-﻿using PostSharp.Engineering.BuildTools.Build;
+﻿using Microsoft.Build.Definition;
+using Microsoft.Build.Evaluation;
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -34,17 +37,13 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return dependencyDefinition;
             }
 
-            List<(DependencySource Source, DependencyDefinition Definition)> GetDependencies( bool requireBuildNumber )
-                => versionsOverrideFile
+            List<(DependencySource Source, DependencyDefinition Definition)> dependencies = versionsOverrideFile
                 .Dependencies
-                .Where( d => d.Value.SourceKind == DependencySourceKind.BuildServer && d.Value.BuildNumber.HasValue == requireBuildNumber )
-                .Select( d => (d.Value, GetDependencyDefinition( d )) )
+                .Where( d => d.Value.SourceKind == DependencySourceKind.BuildServer )
+                .Select( d => (d.Value, GetDependencyDefinition( d ) ) )
                 .Where( d => d.Item2 != null ).ToList()!;
 
-            var buildServerBranchDependencies = GetDependencies( requireBuildNumber: false );
-            var buildServerBuildDependencies = GetDependencies( requireBuildNumber: true );
-
-            if ( buildServerBranchDependencies.Count + buildServerBuildDependencies.Count == 0 )
+            if ( dependencies.Count == 0 )
             {
                 context.Console.WriteWarning( "No dependencies to fetch." );
 
@@ -62,12 +61,27 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             var teamcity = new TeamcityClient( token );
 
-            if ( !FetchBuildServerBuildDependencies( context, teamcity, buildServerBuildDependencies ) )
+            if ( !FetchBuildNumbersFromBranches( context, teamcity, dependencies ) )
             {
                 return false;
             }
 
-            if ( !FetchBuildServerBranchDependencies( context, teamcity, buildServerBranchDependencies ) )
+            if ( !FetchArtifacts( context, teamcity, dependencies ) )
+            {
+                return false;
+            }
+
+            if ( !FetchTransitive( context, teamcity, dependencies, versionsOverrideFile ) )
+            {
+                return false;
+            }
+
+            if ( !FetchBuildNumbersFromBranches( context, teamcity, dependencies ) )
+            {
+                return false;
+            }
+
+            if ( !FetchArtifacts( context, teamcity, dependencies ) )
             {
                 return false;
             }
@@ -77,18 +91,60 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
-        private static bool FetchBuildServerBuildDependencies( BuildContext context, TeamcityClient teamcity, List<(DependencySource Source, DependencyDefinition Definition)> dependencies )
+        private static bool FetchBuildNumbersFromBranches( BuildContext context, TeamcityClient teamcity, List<(DependencySource Source, DependencyDefinition Definition)> dependencies )
         {
             foreach ( var dependency in dependencies )
             {
-                // Nullability checked by the colection filter above.
-                var buildNumber = (int) dependency.Source.BuildNumber!;
+                if ( dependency.Source.BuildNumber != null || dependency.Source.VersionDefiningDependencyName != null )
+                {
+                    continue;
+                }
+
+                var branch = dependency.Source.Branch ?? dependency.Definition.DefaultBranch;
+
+                if ( dependency.Definition.DefaultCiBuildTypeId == null )
+                {
+                    context.Console.WriteError( $"The dependency '{dependency.Definition.Name}' does not have a Teamcity build type ID set." );
+
+                    return false;
+                }
+
+                var buildNumber = teamcity.GetLatestBuildNumber(
+                    dependency.Definition.DefaultCiBuildTypeId,
+                    branch,
+                    ConsoleHelper.CancellationToken );
+
+                if ( buildNumber == null )
+                {
+                    context.Console.WriteError(
+                        $"No successful build for {dependency.Definition.Name} on branch {branch} (BuildTypeId={dependency.Definition.DefaultCiBuildTypeId}." );
+
+                    return false;
+                }
+
+                dependency.Source.BuildNumber = buildNumber;
+                dependency.Source.CiBuildTypeId = dependency.Definition.DefaultCiBuildTypeId;
+            }
+
+            return true;
+        }
+
+        private static bool FetchArtifacts( BuildContext context, TeamcityClient teamcity, List<(DependencySource Source, DependencyDefinition Definition)> dependencies )
+        {
+            foreach ( var dependency in dependencies )
+            {
+                if ( dependency.Source.BuildNumber == null )
+                {
+                    continue;
+                }
+
+                var buildNumber = (int) dependency.Source.BuildNumber;
 
                 var ciBuildTypeId = dependency.Source.CiBuildTypeId;
 
                 if ( ciBuildTypeId == null )
                 {
-                    ciBuildTypeId = dependency.Definition.CiBuildTypeId;
+                    ciBuildTypeId = dependency.Definition.DefaultCiBuildTypeId;
                 }
 
                 if ( ciBuildTypeId == null )
@@ -107,35 +163,123 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
-        private static bool FetchBuildServerBranchDependencies( BuildContext context, TeamcityClient teamcity, List<(DependencySource Source, DependencyDefinition Definition)> dependencies )
+        private static bool FetchTransitive( BuildContext context, TeamcityClient teamcity, List<(DependencySource Source, DependencyDefinition Definition)> dependencies, VersionsOverrideFile versionsOverrideFile )
         {
             foreach ( var dependency in dependencies )
-            { 
-                var branch = dependency.Source.Branch ?? dependency.Definition.DefaultBranch;
-
-                if ( dependency.Definition.CiBuildTypeId == null )
+            {
+                if ( dependency.Source.BuildNumber != null || dependency.Source.Branch != null )
                 {
-                    context.Console.WriteError( $"The dependency '{dependency.Definition.Name}' does not have a Teamcity build type ID set." );
+                    continue;
+                }
+
+                var dependencyName = dependency.Definition.Name;
+
+                if ( dependency.Source.VersionDefiningDependencyName == null )
+                {
+                    context.Console.WriteError( $"The dependency '{dependencyName}' does not have a version defining dependency name set." );
 
                     return false;
                 }
 
-                var buildNumber = teamcity.GetLatestBuildNumber(
-                    dependency.Definition.CiBuildTypeId,
-                    branch,
-                    ConsoleHelper.CancellationToken );
+                var versionDefiningDependencyName = dependency.Source.VersionDefiningDependencyName;
 
-                if ( buildNumber == null )
+                if ( !versionsOverrideFile.Dependencies.TryGetValue( versionDefiningDependencyName, out var versionDefiningDependency ) )
                 {
-                    context.Console.WriteError(
-                        $"No successful build for {dependency.Definition.Name} on branch {branch} (BuildTypeId={dependency.Definition.CiBuildTypeId}." );
+                    context.Console.WriteError( $"Version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' not found." );
 
                     return false;
                 }
 
-                if ( !FetchBuild( context, teamcity, dependency.Source, dependency.Definition.Name, dependency.Definition.RepoName, dependency.Definition.CiBuildTypeId, buildNumber.Value ) )
+                if ( versionDefiningDependency.VersionFile == null && versionDefiningDependency.SourceKind == DependencySourceKind.Local )
+                {
+                    var versionDefiningDependencyDefinition = context.Product.Dependencies.SingleOrDefault( d => d.Name == versionDefiningDependencyName );
+
+                    if ( versionDefiningDependencyDefinition == null )
+                    {
+                        context.Console.WriteError( $"Version defining dependency definition '{versionDefiningDependencyName}' of the dependency '{dependencyName}' not found." );
+
+                        return false;
+                    }
+
+                    var versionDefiningDependencyLocalImportProjectPath = Path.Combine(
+                        context.RepoDirectory,
+                        "..",
+                        versionDefiningDependencyDefinition.RepoName,
+                        $"{versionDefiningDependencyName}.Import.props" );
+
+                    var versionDefiningDependencyLocalImportProject = Project.FromFile( versionDefiningDependencyLocalImportProjectPath, new ProjectOptions() );
+
+                    var versionDefiningDependencyVersionFileName = $"{versionDefiningDependencyName}.version.props";
+
+                    var versionDefiningDependencyVersionFilePath = versionDefiningDependencyLocalImportProject.Imports
+                        .Select( i => i.ImportedProject.FullPath )
+                        .SingleOrDefault( p => Path.GetFileName( p ) == versionDefiningDependencyVersionFileName );
+
+                    versionDefiningDependency.VersionFile = versionDefiningDependencyVersionFilePath;
+                }
+
+                if ( versionDefiningDependency.VersionFile == null )
+                {
+                    context.Console.WriteError( $"The version file of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' is unknown." );
+
+                    return false;
+                }
+
+                var versionDefiningDependencyVersionFile = Project.FromFile( versionDefiningDependency.VersionFile, new ProjectOptions() );
+
+                var dependencyVersionItem = versionDefiningDependencyVersionFile.GetItemsByEvaluatedInclude( "PostSharp.Backstage.Settings" ).SingleOrDefault();
+
+                if ( dependencyVersionItem == null )
+                {
+                    context.Console.WriteError( $"The version file of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' doesn't contain the corresponding dependency item." );
+
+                    return false;
+                }
+
+                var dependencySettings = dependencyVersionItem.DirectMetadata.ToDictionary( m => m.Name, m => m.EvaluatedValue );
+
+                bool TryGetSettingsValue(string name, [NotNullWhen(true)] out string? value)
+                {
+                    if ( !dependencySettings!.TryGetValue( name, out value ) || string.IsNullOrWhiteSpace( value ) )
+                    {
+                        context.Console.WriteError( $"The dependency item of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' doesn't contain metadata '{name}'." );
+
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                if ( !TryGetSettingsValue( "SourceKind", out var sourceKind ) )
                 {
                     return false;
+                }
+
+                if ( sourceKind != "BuildServer" )
+                {
+                    context.Console.WriteError( $"The dependency item of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' contains invalid source kind '{sourceKind}'." );
+
+                    return false;
+                }
+
+                if ( !TryGetSettingsValue( "BuildNumber", out var buildNumberString ) )
+                {
+                    return false;
+                }
+
+                var buildNumber = int.Parse( buildNumberString, CultureInfo.InvariantCulture );
+                dependency.Source.BuildNumber = buildNumber;
+
+                if ( !TryGetSettingsValue( "CiBuildTypeId", out var ciBuildTypeId ) )
+                {
+                    return false;
+                }
+
+                dependency.Source.CiBuildTypeId = ciBuildTypeId;
+
+                if ( dependencySettings.TryGetValue( "Branch", out var branch ) && !string.IsNullOrWhiteSpace( branch ) )
+                {
+                    dependency.Source.Branch = branch;
                 }
             }
 
@@ -155,7 +299,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 Environment.GetEnvironmentVariable( "USERPROFILE" ) ?? Path.GetTempPath(),
                 ".build-artifacts",
                 repoName,
-                ciBuildTypeId!,
+                ciBuildTypeId,
                 buildNumber.ToString( CultureInfo.InvariantCulture ) );
 
             var completedFile = Path.Combine( restoreDirectory, ".completed" );
