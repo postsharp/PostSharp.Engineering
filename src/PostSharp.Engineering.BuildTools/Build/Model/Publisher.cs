@@ -18,7 +18,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public abstract string Extension { get; }
 
         /// <summary>
-        /// Executes the target for a specified artefact.
+        /// Executes the target for a specified artifact.
         /// </summary>
         public abstract SuccessCode Execute( BuildContext context, PublishSettings settings, string file, bool isPublic );
 

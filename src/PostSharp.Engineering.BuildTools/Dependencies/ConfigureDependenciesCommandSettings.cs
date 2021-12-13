@@ -20,7 +20,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         [CommandOption( "--all" )]
         public bool All { get; protected set; }
 
-        [Description( "Specifies the branch from which the build servers artefacts should be downloaded, when the source is set to BuildServer." )]
+        [Description( "Specifies the branch from which the build servers artifacts should be downloaded, when the source is set to BuildServer." )]
         [CommandOption( "--branch" )]
         public string? Branch { get; protected set; }
     }

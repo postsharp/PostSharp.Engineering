@@ -76,8 +76,23 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                             case DependencySourceKind.BuildServer:
                                 var branch = item.Element( "Branch" )?.Value;
+                                var buildNumber = item.Element( "BuildNumber" )?.Value;
+                                var ciBuildTypeId = item.Element( "CiBuildTypeId" )?.Value;
                                 var versionFile = item.Element( "VersionFile" )?.Value;
-                                file.Dependencies[name] = new DependencySource( kind, branch ) { VersionFile = versionFile };
+
+                                DependencySource dependencySource;
+
+                                if ( buildNumber != null )
+                                {
+                                    dependencySource = new DependencySource( kind, int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId, branch );
+                                }
+                                else
+                                {
+                                    dependencySource = new DependencySource( kind, branch );
+                                }
+
+                                dependencySource.VersionFile = versionFile;
+                                file.Dependencies[name] = dependencySource;
 
                                 break;
 
@@ -146,8 +161,18 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                     throw new InvalidOperationException( "The VersionFile property of dependencies should be set." );
                                 }
 
-                                item.Add( new XElement( "Branch", dependency.Value.Branch ) );
-                                item.Add( new XElement( "VersionFile", versionFile ) );
+                                void AddIfNotNull(string name, string? value)
+                                {
+                                    if ( value != null )
+                                    {
+                                        item!.Add( new XElement( name, value ) );
+                                    }
+                                }
+
+                                AddIfNotNull( "Branch", dependency.Value.Branch );
+                                AddIfNotNull( "BuildNumber", dependency.Value.BuildNumber?.ToString( CultureInfo.InvariantCulture ) );
+                                AddIfNotNull( "CiBuildTypeId", dependency.Value.CiBuildTypeId );
+                                AddIfNotNull( "VersionFile", versionFile );
 
                                 requiredFiles.Add( versionFile );
                                 project.Add( new XElement( "Import", new XAttribute( "Project", versionFile ), CreateCondition( versionFile ) ) );

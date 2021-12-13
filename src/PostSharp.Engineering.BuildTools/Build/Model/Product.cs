@@ -13,6 +13,7 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
@@ -587,6 +588,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             Dictionary<string, string?>? defaultDependencyProperties = null;
             Dictionary<string, DependencySource> changedDependencies = new();
 
+            Regex dependencyVersionRegex = new( "^(?<Kind>[^:]+):(?<Arguments>.+)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant );
+            Regex buildSettingsRegex = new( @"^Number=(?<Number>\d+)(;TypeId=(?<TypeId>[^;]+))?(;TypeId=(?<Branch>[^;]+))?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant );
+
             foreach ( var dependency in versionsOverrideFile.Dependencies )
             {
                 if ( dependency.Value.SourceKind == DependencySourceKind.Default )
@@ -596,14 +600,58 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     if ( !defaultDependencyProperties.TryGetValue( dependency.Key, out var dependencyVersion ) || string.IsNullOrEmpty( dependencyVersion ) )
                     {
                         context.Console.WriteError( $"The default version for dependency {dependency.Key} is not set." );
-
                         break;
                     }
-                    else if ( dependencyVersion.StartsWith( "branch:", StringComparison.OrdinalIgnoreCase ) )
+
+                    var dependencyVersionMatch = dependencyVersionRegex.Match( dependencyVersion );
+
+                    if ( dependencyVersionMatch.Success )
                     {
-                        var branch = dependencyVersion.Substring( "branch:".Length );
-                        context.Console.WriteWarning( $"Fetching {dependency.Key} from build server, branch {branch}." );
-                        changedDependencies[dependency.Key] = new DependencySource( DependencySourceKind.BuildServer, branch );
+                        switch ( dependencyVersionMatch.Groups["Kind"].Value.ToLowerInvariant() )
+                        {
+                            case "branch":
+                                {
+                                    var branch = dependencyVersionMatch.Groups["Arguments"].Value;
+                                    changedDependencies[dependency.Key] = new DependencySource( DependencySourceKind.BuildServer, branch );
+                                    break;
+                                }
+
+                            case "build":
+                                {
+                                    var arguments = dependencyVersionMatch.Groups["Arguments"].Value;
+
+                                    var buildSettingsMatch = buildSettingsRegex.Match( arguments );
+
+                                    if ( !buildSettingsMatch.Success )
+                                    {
+                                        context.Console.WriteError( $"The TeamCity build configuration '{arguments}' of dependency '{dependency.Key}' does not have a correct format." );
+
+                                        return false;
+                                    }
+
+                                    var buildNumber = int.Parse( buildSettingsMatch.Groups["Number"].Value, CultureInfo.InvariantCulture );
+
+                                    var ciBuildTypeId = buildSettingsMatch.Groups.GetValueOrDefault( "TypeId" )?.Value;
+
+                                    if ( string.IsNullOrEmpty( ciBuildTypeId ) )
+                                    {
+                                        ciBuildTypeId = null;
+                                    }
+
+                                    var branch = buildSettingsMatch.Groups.GetValueOrDefault( "Branch" )?.Value;
+
+                                    if ( string.IsNullOrEmpty( branch ) )
+                                    {
+                                        branch = null;
+                                    }
+
+                                    changedDependencies[dependency.Key] = new DependencySource( DependencySourceKind.BuildServer, buildNumber, ciBuildTypeId, branch );
+                                    break;
+                                }
+
+                            case "transitive":
+                                throw new NotImplementedException();
+                        }
                     }
                 }
             }
@@ -616,7 +664,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     versionsOverrideFile.Dependencies[changedDependency.Key] = changedDependency.Value;
                 }
 
-                // Fetch dependencies and reads the location of the version file.
+                // Fetch dependencies and read the location of the version file.
                 if ( !FetchDependencyCommand.FetchDependencies( context, versionsOverrideFile ) )
                 {
                     return false;
