@@ -57,11 +57,11 @@
         {
             if (this.BuildNumber != null)
             {
-                return $"{this.SourceKind}, BuildNumber='{this.BuildNumber}', CiBuildTypeId='{this.CiBuildTypeId}', Branch='{this.Branch}', Origin='{this.Origin}'";
+                return $"{this.SourceKind}, BuildNumber='{this.BuildNumber}', CiBuildTypeId='{this.CiBuildTypeId}', Branch='{this.Branch}', DefaultVersion='{this.DefaultVersion}', Origin='{this.Origin}'";
             }
             else if ( this.Branch != null )
             {
-                return $"{this.SourceKind}, Branch='{this.Branch}', CiBuildTypeId='{this.CiBuildTypeId}', Origin='{this.Origin}'";
+                return $"{this.SourceKind}, Branch='{this.Branch}', CiBuildTypeId='{this.CiBuildTypeId}', DefaultVersion='{this.DefaultVersion}', Origin='{this.Origin}'";
             }
             else if (this.VersionDefiningDependencyName != null)
             {
@@ -69,7 +69,7 @@
             }
             else
             {
-                return $"{this.SourceKind}, Origin='{this.Origin}'";
+                return $"{this.SourceKind}, DefaultVersion='{this.DefaultVersion}', Origin='{this.Origin}'";
             }
         }
     }

@@ -135,6 +135,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             var itemGroup = new XElement( "ItemGroup" );
             project.Add( itemGroup );
             var requiredFiles = new List<string>();
+            var transitiveVersions = new List<(string PropertyName, string Version)>();
 
             foreach ( var dependency in this.Dependencies.OrderBy( d => d.Key ) )
             {
@@ -203,6 +204,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     case DependencySourceKind.Default:
                         break;
 
+                    case DependencySourceKind.Transitive:
+                        {
+                            var versionPropertyName = dependency.Key.Replace( ".", "", StringComparison.OrdinalIgnoreCase ) + "Version";
+                            transitiveVersions.Add( (versionPropertyName, dependency.Value.DefaultVersion!) );
+                        }
+
+                        break;
+
                     default:
                         throw new InvalidVersionFileException();
                 }
@@ -210,6 +219,17 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 if ( !ignoreDependency )
                 {
                     itemGroup.Add( item );
+                }
+            }
+
+            if (transitiveVersions.Count > 0)
+            {
+                var transitiveVersionsPropertyGroup = new XElement( "PropertyGroup" );
+                project.Add( itemGroup );
+
+                foreach ( var transitiveVersion in transitiveVersions )
+                {
+                    transitiveVersionsPropertyGroup.Add( new XElement( transitiveVersion.PropertyName, transitiveVersion.Version ) );
                 }
             }
 
