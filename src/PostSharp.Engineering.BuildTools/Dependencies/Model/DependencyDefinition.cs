@@ -1,8 +1,4 @@
-﻿using System;
-using System.Globalization;
-using System.IO;
-
-namespace PostSharp.Engineering.BuildTools.Dependencies.Model
+﻿namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
     public class DependencyDefinition
     {

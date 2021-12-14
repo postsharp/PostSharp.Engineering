@@ -2,6 +2,8 @@
 {
     public sealed class DependencySource
     {
+        public string? DefaultVersion { get; internal set; }
+
         public string? Branch { get; internal set; }
 
         public int? BuildNumber { get; internal set; }
@@ -63,7 +65,7 @@
             }
             else if (this.VersionDefiningDependencyName != null)
             {
-                return $"{this.SourceKind}, VersionDefiningDependencyName='{this.VersionDefiningDependencyName}', Origin='{this.Origin}'";
+                return $"{this.SourceKind}, VersionDefiningDependencyName='{this.VersionDefiningDependencyName}', DefaultVersion='{this.DefaultVersion}', Origin='{this.Origin}'";
             }
             else
             {

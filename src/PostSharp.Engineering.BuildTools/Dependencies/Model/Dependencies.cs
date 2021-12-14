@@ -4,6 +4,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
     public static class Dependencies
     {
+        public static DependencyDefinition Roslyn { get; } = new(
+            "Roslyn",
+            VcsProvider.GitHub,
+            "Roslyn" );
+
         public static DependencyDefinition MetalamaCompiler { get; } = new(
             "Metalama.Compiler",
             VcsProvider.AzureRepos,

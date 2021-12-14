@@ -599,6 +599,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         break;
                     }
 
+                    versionsOverrideFile.Dependencies[dependency.Key].DefaultVersion = dependencyVersion;
+
                     var dependencyVersionMatch = dependencyVersionRegex.Match( dependencyVersion );
 
                     if ( dependencyVersionMatch.Success )
@@ -773,6 +775,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 props += $@"
         <{this.ProductNameWithoutDot}Dependencies Include=""{dependency.Key}"">
             <SourceKind>{dependency.Value.SourceKind}</SourceKind>
+            <DefaultVersion>{dependency.Value.DefaultVersion}</DefaultVersion>
             <BuildNumber>{dependency.Value.BuildNumber}</BuildNumber>
             <CiBuildTypeId>{dependency.Value.CiBuildTypeId}</CiBuildTypeId>
             <Branch>{dependency.Value.Branch}</Branch>

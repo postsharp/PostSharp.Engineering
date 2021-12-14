@@ -263,6 +263,18 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         dependency.Source.SourceKind = DependencySourceKind.Local;
                         break;
 
+                    case DependencySourceKind.Default:
+                        dependency.Source.SourceKind = DependencySourceKind.Transitive;
+
+                        if ( !TryGetSettingsValue( "DefaultVersion", out var defaultVersion ) )
+                        {
+                            return false;
+                        }
+
+                        dependency.Source.DefaultVersion = defaultVersion;
+
+                        break;
+
                     case DependencySourceKind.BuildServer:
 
                         dependency.Source.SourceKind = DependencySourceKind.BuildServer;
