@@ -88,7 +88,7 @@ object PublicBuild : BuildType({
         }
     }
     
-   requirements {
+    requirements {
         equals("env.BuildAgentType", "caravela02")
     }
 })
@@ -112,7 +112,7 @@ object Deploy : BuildType({
         }
     }
     
-  dependencies {
+    dependencies {
         dependency(PublicBuild) {
             snapshot {
             }
@@ -124,7 +124,7 @@ object Deploy : BuildType({
         }
     }
     
-   requirements {
+    requirements {
         equals("env.BuildAgentType", "caravela02")
     }
 })
