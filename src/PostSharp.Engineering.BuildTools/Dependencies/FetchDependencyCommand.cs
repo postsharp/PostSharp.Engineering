@@ -215,6 +215,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         .Select( i => i.ImportedProject.FullPath )
                         .SingleOrDefault( p => Path.GetFileName( p ) == versionDefiningDependencyVersionFileName );
 
+                    ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
+
                     versionDefiningDependency.VersionFile = versionDefiningDependencyVersionFilePath;
                 }
 
@@ -227,7 +229,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                 var versionDefiningDependencyVersionFile = Project.FromFile( versionDefiningDependency.VersionFile, new ProjectOptions() );
 
-                var dependencyVersionItem = versionDefiningDependencyVersionFile.GetItemsByEvaluatedInclude( "PostSharp.Backstage.Settings" ).SingleOrDefault();
+                var dependencyVersionItem = versionDefiningDependencyVersionFile.GetItemsByEvaluatedInclude( dependencyName ).SingleOrDefault();
 
                 if ( dependencyVersionItem == null )
                 {
@@ -237,6 +239,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 }
 
                 var dependencySettings = dependencyVersionItem.DirectMetadata.ToDictionary( m => m.Name, m => m.EvaluatedValue );
+
+                ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
                 bool TryGetSettingsValue( string name, [NotNullWhen( true )] out string? value )
                 {
@@ -264,6 +268,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         break;
 
                     case DependencySourceKind.Default:
+                    case DependencySourceKind.Transitive:
                         dependency.Source.SourceKind = DependencySourceKind.Transitive;
 
                         if ( !TryGetSettingsValue( "DefaultVersion", out var defaultVersion ) )

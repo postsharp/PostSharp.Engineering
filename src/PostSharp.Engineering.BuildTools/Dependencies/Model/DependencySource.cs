@@ -45,12 +45,13 @@
                 Branch = branch
             };
 
-        public static DependencySource CreateTransitiveBuildServerSource( string origin, string versionDefiningDependencyName )
+        public static DependencySource CreateTransitiveBuildServerSource( string origin, string versionDefiningDependencyName, string? defaultVersion = null )
             => new()
             {
                 Origin = origin,
                 SourceKind = DependencySourceKind.Transitive,
-                VersionDefiningDependencyName = versionDefiningDependencyName
+                VersionDefiningDependencyName = versionDefiningDependencyName,
+                DefaultVersion = defaultVersion
             };
 
         public override string ToString()

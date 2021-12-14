@@ -66,11 +66,26 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                         var kind = Enum.Parse<DependencySourceKind>( kindString );
 
+                        var origin = item.Element( "Origin" )?.Value ?? "version file";
+
                         switch ( kind )
                         {
                             case DependencySourceKind.Default:
                             case DependencySourceKind.Local:
-                                file.Dependencies[name] = DependencySource.CreateOfKind( "version file", kind );
+                                file.Dependencies[name] = DependencySource.CreateOfKind( origin, kind );
+
+                                break;
+
+                            case DependencySourceKind.Transitive:
+                                var versionDefiningDependencyName = item.Element( "VersionDefiningDependencyName" )?.Value;
+                                var defaultVersion = item.Element( "DefaultVersion" )?.Value;
+
+                                if ( versionDefiningDependencyName == null || defaultVersion == null )
+                                {
+                                    throw new InvalidVersionFileException();
+                                }
+
+                                file.Dependencies[name] = DependencySource.CreateTransitiveBuildServerSource( origin, versionDefiningDependencyName, defaultVersion );
 
                                 break;
 
@@ -84,11 +99,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                                 if ( buildNumber != null )
                                 {
-                                    dependencySource = DependencySource.CreateBuildServerSource( "version file", int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId, branch );
+                                    dependencySource = DependencySource.CreateBuildServerSource( origin, int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId, branch );
                                 }
                                 else if ( branch != null )
                                 {
-                                    dependencySource = DependencySource.CreateBuildServerSource( "version file", branch, ciBuildTypeId );
+                                    dependencySource = DependencySource.CreateBuildServerSource( origin, branch, ciBuildTypeId );
                                 }
                                 else
                                 {
@@ -206,6 +221,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                     case DependencySourceKind.Transitive:
                         {
+                            item.Add( new XElement( "VersionDefiningDependencyName", dependency.Value.VersionDefiningDependencyName ) );
+                            item.Add( new XElement( "DefaultVersion", dependency.Value.DefaultVersion ) );
+
                             var versionPropertyName = dependency.Key.Replace( ".", "", StringComparison.OrdinalIgnoreCase ) + "Version";
                             transitiveVersions.Add( (versionPropertyName, dependency.Value.DefaultVersion!) );
                         }
@@ -216,6 +234,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         throw new InvalidVersionFileException();
                 }
 
+                item.Add( new XElement( "Origin", dependency.Value.Origin ) );
+
                 if ( !ignoreDependency )
                 {
                     itemGroup.Add( item );
@@ -225,7 +245,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             if (transitiveVersions.Count > 0)
             {
                 var transitiveVersionsPropertyGroup = new XElement( "PropertyGroup" );
-                project.Add( itemGroup );
+                project.Add( transitiveVersionsPropertyGroup );
 
                 foreach ( var transitiveVersion in transitiveVersions )
                 {

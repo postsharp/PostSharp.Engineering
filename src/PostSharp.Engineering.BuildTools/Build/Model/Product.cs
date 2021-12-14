@@ -674,11 +674,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 context.Console.WriteImportantMessage( "Local dependencies changed like this:" );
                 versionsOverrideFile.Print( context );
+            }
 
-                if ( !versionsOverrideFile.TrySave( context ) )
-                {
-                    return false;
-                }
+            if ( !versionsOverrideFile.TrySave( context ) )
+            {
+                return false;
             }
 
             var props = this.GenerateVersionFile( versionPrefix, patchNumber, versionSuffix, configuration, versionsOverrideFile.Dependencies );
