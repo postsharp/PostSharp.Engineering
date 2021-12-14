@@ -39,7 +39,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             List<(DependencySource Source, DependencyDefinition Definition)> dependencies = versionsOverrideFile
                 .Dependencies
-                .Where( d => d.Value.SourceKind == DependencySourceKind.BuildServer )
+                .Where( d => d.Value.SourceKind == DependencySourceKind.BuildServer || d.Value.SourceKind == DependencySourceKind.Transitive )
                 .Select( d => (d.Value, GetDependencyDefinition( d ) ) )
                 .Where( d => d.Item2 != null ).ToList()!;
 
@@ -95,7 +95,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         {
             foreach ( var dependency in dependencies )
             {
-                if ( dependency.Source.BuildNumber != null || dependency.Source.VersionDefiningDependencyName != null )
+                if ( dependency.Source.SourceKind != DependencySourceKind.BuildServer || dependency.Source.BuildNumber != null )
                 {
                     continue;
                 }
@@ -133,7 +133,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         {
             foreach ( var dependency in dependencies )
             {
-                if ( dependency.Source.BuildNumber == null )
+                if ( dependency.Source.SourceKind != DependencySourceKind.BuildServer || dependency.Source.BuildNumber == null )
                 {
                     continue;
                 }
@@ -167,7 +167,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         {
             foreach ( var dependency in dependencies )
             {
-                if ( dependency.Source.BuildNumber != null || dependency.Source.Branch != null )
+                if ( dependency.Source.SourceKind != DependencySourceKind.Transitive )
                 {
                     continue;
                 }
@@ -238,7 +238,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                 var dependencySettings = dependencyVersionItem.DirectMetadata.ToDictionary( m => m.Name, m => m.EvaluatedValue );
 
-                bool TryGetSettingsValue(string name, [NotNullWhen(true)] out string? value)
+                bool TryGetSettingsValue( string name, [NotNullWhen( true )] out string? value )
                 {
                     if ( !dependencySettings!.TryGetValue( name, out value ) || string.IsNullOrWhiteSpace( value ) )
                     {
@@ -250,36 +250,49 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     return true;
                 }
 
-                if ( !TryGetSettingsValue( "SourceKind", out var sourceKind ) )
+                if ( !TryGetSettingsValue( "SourceKind", out var sourceKindString ) )
                 {
                     return false;
                 }
 
-                if ( sourceKind != "BuildServer" )
+                var sourceKind = Enum.Parse<DependencySourceKind>( sourceKindString );
+
+                switch ( sourceKind )
                 {
-                    context.Console.WriteError( $"The dependency item of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' contains invalid source kind '{sourceKind}'." );
+                    case DependencySourceKind.Local:
+                        dependency.Source.SourceKind = DependencySourceKind.Local;
+                        break;
 
-                    return false;
-                }
+                    case DependencySourceKind.BuildServer:
 
-                if ( !TryGetSettingsValue( "BuildNumber", out var buildNumberString ) )
-                {
-                    return false;
-                }
+                        dependency.Source.SourceKind = DependencySourceKind.BuildServer;
 
-                var buildNumber = int.Parse( buildNumberString, CultureInfo.InvariantCulture );
-                dependency.Source.BuildNumber = buildNumber;
+                        if ( !TryGetSettingsValue( "BuildNumber", out var buildNumberString ) )
+                        {
+                            return false;
+                        }
 
-                if ( !TryGetSettingsValue( "CiBuildTypeId", out var ciBuildTypeId ) )
-                {
-                    return false;
-                }
+                        var buildNumber = int.Parse( buildNumberString, CultureInfo.InvariantCulture );
+                        dependency.Source.BuildNumber = buildNumber;
 
-                dependency.Source.CiBuildTypeId = ciBuildTypeId;
+                        if ( !TryGetSettingsValue( "CiBuildTypeId", out var ciBuildTypeId ) )
+                        {
+                            return false;
+                        }
 
-                if ( dependencySettings.TryGetValue( "Branch", out var branch ) && !string.IsNullOrWhiteSpace( branch ) )
-                {
-                    dependency.Source.Branch = branch;
+                        dependency.Source.CiBuildTypeId = ciBuildTypeId;
+
+                        if ( dependencySettings.TryGetValue( "Branch", out var branch ) && !string.IsNullOrWhiteSpace( branch ) )
+                        {
+                            dependency.Source.Branch = branch;
+                        }
+
+                        break;
+
+                    default:
+                        context.Console.WriteError( $"The dependency item of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' contains invalid source kind '{sourceKind}'." );
+
+                        return false;
                 }
             }
 

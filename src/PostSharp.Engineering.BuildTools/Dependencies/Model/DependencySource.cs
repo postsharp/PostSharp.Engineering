@@ -12,7 +12,7 @@
 
         internal string? VersionFile { get; set; }
 
-        public DependencySourceKind SourceKind { get; private init; }
+        public DependencySourceKind SourceKind { get; internal set; }
 
         public string Origin { get; private init; } = "unknown";
 
@@ -47,7 +47,7 @@
             => new()
             {
                 Origin = origin,
-                SourceKind = DependencySourceKind.BuildServer,
+                SourceKind = DependencySourceKind.Transitive,
                 VersionDefiningDependencyName = versionDefiningDependencyName
             };
 
