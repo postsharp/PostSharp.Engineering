@@ -59,7 +59,34 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     }
                 }
 
-                var dependencySource = new DependencySource( settings.Source, settings.Branch ?? dependencyDefinition.DefaultBranch );
+                DependencySource dependencySource;
+
+                if ( settings.Source != DependencySourceKind.BuildServer )
+                {
+                    dependencySource = DependencySource.CreateOfKind( "command", settings.Source );
+                }
+                else if ( settings.BuildNumber != null )
+                {
+                    var ciBuildTypeId = settings.CiBuildTypeId ?? dependencyDefinition.DefaultCiBuildTypeId;
+                    dependencySource = DependencySource.CreateBuildServerSource( "command", settings.BuildNumber.Value, ciBuildTypeId );
+                }
+                else if ( settings.Branch != null )
+                {
+                    var branch = settings.Branch;
+                    var ciBuildTypeId = settings.CiBuildTypeId ?? dependencyDefinition.DefaultCiBuildTypeId;
+                    dependencySource = DependencySource.CreateBuildServerSource( "command", branch, ciBuildTypeId );
+                }
+                else if ( settings.VersionDefiningDependencyName != null )
+                {
+                    dependencySource = DependencySource.CreateTransitiveBuildServerSource( "command", settings.VersionDefiningDependencyName );
+                }
+                else
+                {
+                    var branch = dependencyDefinition.DefaultBranch;
+                    var ciBuildTypeId = settings.CiBuildTypeId ?? dependencyDefinition.DefaultCiBuildTypeId;
+                    dependencySource = DependencySource.CreateBuildServerSource( "command", branch, ciBuildTypeId );
+                }
+
                 versionsOverrideFile.Dependencies[dependencyDefinition.Name] = dependencySource;
             }
 

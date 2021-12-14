@@ -1,8 +1,4 @@
-﻿using System;
-using System.Globalization;
-using System.IO;
-
-namespace PostSharp.Engineering.BuildTools.Dependencies.Model
+﻿namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
     public class DependencyDefinition
     {
@@ -12,9 +8,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public string DefaultBranch { get; init; } = "master";
 
-        public string VcsProjectName { get; }
+        public string? DefaultCiBuildTypeId { get; }
 
-        public string? CiBuildTypeId { get; }
+        public string VcsProjectName { get; }
 
         public VcsProvider Provider { get; }
 
@@ -24,15 +20,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             this.Provider = provider;
             this.VcsProjectName = vcsProjectName;
             this.RepoName = name;
-            this.CiBuildTypeId = ciBuildTypeId;
+            this.DefaultCiBuildTypeId = ciBuildTypeId;
         }
-
-        public string GetLocalDirectory( int buildNumber )
-            => Path.Combine(
-                Environment.GetEnvironmentVariable( "USERPROFILE" ) ?? Path.GetTempPath(),
-                ".build-artifacts",
-                this.RepoName,
-                this.CiBuildTypeId!,
-                buildNumber.ToString( CultureInfo.InvariantCulture ) );
     }
 }
