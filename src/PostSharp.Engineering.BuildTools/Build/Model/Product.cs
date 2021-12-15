@@ -601,6 +601,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     versionsOverrideFile.Dependencies[dependency.Key].DefaultVersion = dependencyVersion;
 
+                    if ( string.Compare( dependencyVersion, "local", StringComparison.OrdinalIgnoreCase ) == 0 )
+                    {
+                        changedDependencies[dependency.Key] = DependencySource.CreateOfKind( dependencyVersion, DependencySourceKind.Local );
+
+                        continue;
+                    }
+
                     var dependencyVersionMatch = dependencyVersionRegex.Match( dependencyVersion );
 
                     if ( dependencyVersionMatch.Success )
