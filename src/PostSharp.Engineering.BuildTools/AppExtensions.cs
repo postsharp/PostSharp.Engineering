@@ -3,6 +3,7 @@ using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.CodeStyle;
 using PostSharp.Engineering.BuildTools.Csproj;
 using PostSharp.Engineering.BuildTools.Dependencies;
+using PostSharp.Engineering.BuildTools.Git;
 using PostSharp.Engineering.BuildTools.NuGet;
 using Spectre.Console.Cli;
 using System.Linq;
@@ -103,6 +104,12 @@ namespace PostSharp.Engineering.BuildTools
                                             .WithDescription(
                                                 "Verifies that all packages in a directory have only references to packages published on nuget.org." );
                                     } );
+
+                                tools.AddBranch(
+                                    "git",
+                                    git => git.AddCommand<GitBulkRenameCommand>( "rename" )
+                                        .WithDescription( "Renames all files and directories recursively preserving GIT history." )
+                                        .WithExample( new[] { @"""C:\src\Caravela.Compiler""", @"""Caravela""", @"""Metalama""" } ) );
                             } );
                     } );
             }
