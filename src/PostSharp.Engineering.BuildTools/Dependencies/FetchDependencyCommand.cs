@@ -20,11 +20,23 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             var versionsOverrideFile = VersionsOverrideFile.Load( context );
 
-            return FetchDependencies( context, versionsOverrideFile );
+            if ( !FetchDependencies( context, versionsOverrideFile, settings ) )
+            {
+                return false;
+            }
+
+            if ( !versionsOverrideFile.TrySave( context ) )
+            {
+                return false;
+            }
+
+            return true;
         }
 
-        public static bool FetchDependencies( BuildContext context, VersionsOverrideFile versionsOverrideFile )
+        public static bool FetchDependencies( BuildContext context, VersionsOverrideFile versionsOverrideFile, FetchDependenciesCommandSettings? settings = null )
         {
+            settings ??= new FetchDependenciesCommandSettings();
+            
             DependencyDefinition? GetDependencyDefinition(KeyValuePair<string, DependencySource> dependency)
             {
                 var dependencyDefinition = context.Product.Dependencies.SingleOrDefault( d => d.Name == dependency.Key );
@@ -61,7 +73,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             var teamcity = new TeamcityClient( token );
 
-            if ( !FetchBuildNumbersFromBranches( context, teamcity, dependencies ) )
+            if ( !FetchBuildNumbersFromBranches( context, teamcity, dependencies, settings.Update ) )
             {
                 return false;
             }
@@ -76,7 +88,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return false;
             }
 
-            if ( !FetchBuildNumbersFromBranches( context, teamcity, dependencies ) )
+            if ( !FetchBuildNumbersFromBranches( context, teamcity, dependencies, false ) )
             {
                 return false;
             }
@@ -91,11 +103,15 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
-        private static bool FetchBuildNumbersFromBranches( BuildContext context, TeamcityClient teamcity, List<(DependencySource Source, DependencyDefinition Definition)> dependencies )
+        private static bool FetchBuildNumbersFromBranches(
+            BuildContext context,
+            TeamcityClient teamcity,
+            List<(DependencySource Source, DependencyDefinition Definition)> dependencies,
+            bool update )
         {
             foreach ( var dependency in dependencies )
             {
-                if ( dependency.Source.SourceKind != DependencySourceKind.BuildServer || dependency.Source.BuildNumber != null )
+                if ( dependency.Source.SourceKind != DependencySourceKind.BuildServer || ( !update && dependency.Source.BuildNumber != null ) )
                 {
                     continue;
                 }
