@@ -10,7 +10,7 @@ namespace PostSharp.Engineering.BuildTools.Csproj
         public string PreviousReference { get; init; } = null!;
 
         [Description( "New reference path" )]
-        [CommandArgument( 0, "<previous>" )]
+        [CommandArgument( 0, "<new>" )]
         public string NewReference { get; init; } = null!;
 
         [Description( "Project name filter (a string that may contain *)" )]
