@@ -77,27 +77,31 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             var teamcity = new TeamcityClient( token );
 
-            if ( !FetchBuildNumbersFromBranches( context, teamcity, dependencies, settings.Update ) )
+            // Download artefacts that are not transitive dependencies.
+            if ( !ResolveBuildNumbersFromBranches( context, teamcity, dependencies, settings.Update ) )
             {
                 return false;
             }
 
-            if ( !FetchArtifacts( context, teamcity, dependencies ) )
+            if ( !DownloadArtifacts( context, teamcity, dependencies ) )
             {
                 return false;
             }
 
-            if ( !FetchTransitive( context, teamcity, dependencies, versionsOverrideFile ) )
+            // Resolve transitive dependencies from artefacts that have been downloaded.
+            // (We currently only support a single level of dependencies. To support several levels, this process should be iterative). 
+            if ( !ResolveTransitiveDependencies( context, teamcity, dependencies, versionsOverrideFile ) )
             {
                 return false;
             }
 
-            if ( !FetchBuildNumbersFromBranches( context, teamcity, dependencies, false ) )
+            // Download transitive dependencies.
+            if ( !ResolveBuildNumbersFromBranches( context, teamcity, dependencies, false ) )
             {
                 return false;
             }
 
-            if ( !FetchArtifacts( context, teamcity, dependencies ) )
+            if ( !DownloadArtifacts( context, teamcity, dependencies ) )
             {
                 return false;
             }
@@ -107,7 +111,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
-        private static bool FetchBuildNumbersFromBranches(
+        private static bool ResolveBuildNumbersFromBranches(
             BuildContext context,
             TeamcityClient teamcity,
             List<(DependencySource Source, DependencyDefinition Definition)> dependencies,
@@ -149,7 +153,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
-        private static bool FetchArtifacts(
+        private static bool DownloadArtifacts(
             BuildContext context,
             TeamcityClient teamcity,
             List<(DependencySource Source, DependencyDefinition Definition)> dependencies )
@@ -177,7 +181,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     return false;
                 }
 
-                if ( !FetchBuild(
+                if ( !DownloadBuild(
                         context,
                         teamcity,
                         dependency.Source,
@@ -193,7 +197,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
-        private static bool FetchTransitive(
+        private static bool ResolveTransitiveDependencies(
             BuildContext context,
             TeamcityClient teamcity,
             List<(DependencySource Source, DependencyDefinition Definition)> dependencies,
@@ -357,7 +361,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
-        private static bool FetchBuild(
+        private static bool DownloadBuild(
             BuildContext context,
             TeamcityClient teamcity,
             DependencySource dependencySource,
@@ -390,7 +394,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             }
             else
             {
-                context.Console.WriteMessage( $"{dependencyName} is up to date." );
+                context.Console.WriteMessage( $"Dependency '{dependencyName}' is up to date." );
             }
 
             // Find the version file.
