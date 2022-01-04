@@ -18,21 +18,10 @@
 
         public string Origin { get; private init; } = "unknown";
 
-        public static DependencySource CreateOfKind( string origin, DependencySourceKind kind )
-            => new()
-            {
-                Origin = origin,
-                SourceKind = kind,
-            };
+        public static DependencySource CreateOfKind( string origin, DependencySourceKind kind ) => new() { Origin = origin, SourceKind = kind };
 
         public static DependencySource CreateBuildServerSource( string origin, string branch, string? ciBuildTypeId = null )
-            => new()
-            {
-                Origin = origin,
-                SourceKind = DependencySourceKind.BuildServer,
-                Branch = branch,
-                CiBuildTypeId = ciBuildTypeId
-            };
+            => new() { Origin = origin, SourceKind = DependencySourceKind.BuildServer, Branch = branch, CiBuildTypeId = ciBuildTypeId };
 
         // The branch here is just informative. It is not used to resolve the dependency.
         public static DependencySource CreateBuildServerSource( string origin, int buildNumber, string? ciBuildTypeId = null, string? branch = null )
@@ -56,17 +45,20 @@
 
         public override string ToString()
         {
-            if (this.BuildNumber != null)
+            if ( this.BuildNumber != null )
             {
-                return $"{this.SourceKind}, BuildNumber='{this.BuildNumber}', CiBuildTypeId='{this.CiBuildTypeId}', Branch='{this.Branch}', DefaultVersion='{this.DefaultVersion}', Origin='{this.Origin}'";
+                return
+                    $"{this.SourceKind}, BuildNumber='{this.BuildNumber}', CiBuildTypeId='{this.CiBuildTypeId}', Branch='{this.Branch}', DefaultVersion='{this.DefaultVersion}', Origin='{this.Origin}'";
             }
             else if ( this.Branch != null )
             {
-                return $"{this.SourceKind}, Branch='{this.Branch}', CiBuildTypeId='{this.CiBuildTypeId}', DefaultVersion='{this.DefaultVersion}', Origin='{this.Origin}'";
+                return
+                    $"{this.SourceKind}, Branch='{this.Branch}', CiBuildTypeId='{this.CiBuildTypeId}', DefaultVersion='{this.DefaultVersion}', Origin='{this.Origin}'";
             }
-            else if (this.VersionDefiningDependencyName != null)
+            else if ( this.VersionDefiningDependencyName != null )
             {
-                return $"{this.SourceKind}, VersionDefiningDependencyName='{this.VersionDefiningDependencyName}', DefaultVersion='{this.DefaultVersion}', Origin='{this.Origin}'";
+                return
+                    $"{this.SourceKind}, VersionDefiningDependencyName='{this.VersionDefiningDependencyName}', DefaultVersion='{this.DefaultVersion}', Origin='{this.Origin}'";
             }
             else
             {

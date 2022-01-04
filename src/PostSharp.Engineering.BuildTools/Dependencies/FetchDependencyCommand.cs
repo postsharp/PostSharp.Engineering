@@ -33,11 +33,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
-        public static bool FetchDependencies( BuildContext context, VersionsOverrideFile versionsOverrideFile, FetchDependenciesCommandSettings? settings = null )
+        public static bool FetchDependencies(
+            BuildContext context,
+            VersionsOverrideFile versionsOverrideFile,
+            FetchDependenciesCommandSettings? settings = null )
         {
             settings ??= new FetchDependenciesCommandSettings();
-            
-            DependencyDefinition? GetDependencyDefinition(KeyValuePair<string, DependencySource> dependency)
+
+            DependencyDefinition? GetDependencyDefinition( KeyValuePair<string, DependencySource> dependency )
             {
                 var dependencyDefinition = context.Product.Dependencies.SingleOrDefault( d => d.Name == dependency.Key );
 
@@ -52,8 +55,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             List<(DependencySource Source, DependencyDefinition Definition)> dependencies = versionsOverrideFile
                 .Dependencies
                 .Where( d => d.Value.SourceKind == DependencySourceKind.BuildServer || d.Value.SourceKind == DependencySourceKind.Transitive )
-                .Select( d => (d.Value, GetDependencyDefinition( d ) ) )
-                .Where( d => d.Item2 != null ).ToList()!;
+                .Select( d => (d.Value, GetDependencyDefinition( d )) )
+                .Where( d => d.Item2 != null )
+                .ToList()!;
 
             if ( dependencies.Count == 0 )
             {
@@ -111,7 +115,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         {
             foreach ( var dependency in dependencies )
             {
-                if ( dependency.Source.SourceKind != DependencySourceKind.BuildServer || ( !update && dependency.Source.BuildNumber != null ) )
+                if ( dependency.Source.SourceKind != DependencySourceKind.BuildServer || (!update && dependency.Source.BuildNumber != null) )
                 {
                     continue;
                 }
@@ -145,7 +149,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
-        private static bool FetchArtifacts( BuildContext context, TeamcityClient teamcity, List<(DependencySource Source, DependencyDefinition Definition)> dependencies )
+        private static bool FetchArtifacts(
+            BuildContext context,
+            TeamcityClient teamcity,
+            List<(DependencySource Source, DependencyDefinition Definition)> dependencies )
         {
             foreach ( var dependency in dependencies )
             {
@@ -170,7 +177,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     return false;
                 }
 
-                if ( !FetchBuild( context, teamcity, dependency.Source, dependency.Definition.Name, dependency.Definition.RepoName, ciBuildTypeId, buildNumber ) )
+                if ( !FetchBuild(
+                        context,
+                        teamcity,
+                        dependency.Source,
+                        dependency.Definition.Name,
+                        dependency.Definition.RepoName,
+                        ciBuildTypeId,
+                        buildNumber ) )
                 {
                     return false;
                 }
@@ -179,7 +193,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
-        private static bool FetchTransitive( BuildContext context, TeamcityClient teamcity, List<(DependencySource Source, DependencyDefinition Definition)> dependencies, VersionsOverrideFile versionsOverrideFile )
+        private static bool FetchTransitive(
+            BuildContext context,
+            TeamcityClient teamcity,
+            List<(DependencySource Source, DependencyDefinition Definition)> dependencies,
+            VersionsOverrideFile versionsOverrideFile )
         {
             foreach ( var dependency in dependencies )
             {
@@ -201,7 +219,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                 if ( !versionsOverrideFile.Dependencies.TryGetValue( versionDefiningDependencyName, out var versionDefiningDependency ) )
                 {
-                    context.Console.WriteError( $"Version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' not found." );
+                    context.Console.WriteError(
+                        $"Version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' not found." );
 
                     return false;
                 }
@@ -212,7 +231,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                     if ( versionDefiningDependencyDefinition == null )
                     {
-                        context.Console.WriteError( $"Version defining dependency definition '{versionDefiningDependencyName}' of the dependency '{dependencyName}' not found." );
+                        context.Console.WriteError(
+                            $"Version defining dependency definition '{versionDefiningDependencyName}' of the dependency '{dependencyName}' not found." );
 
                         return false;
                     }
@@ -238,7 +258,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                 if ( versionDefiningDependency.VersionFile == null )
                 {
-                    context.Console.WriteError( $"The version file of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' is unknown." );
+                    context.Console.WriteError(
+                        $"The version file of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' is unknown." );
 
                     return false;
                 }
@@ -249,7 +270,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                 if ( dependencyVersionItem == null )
                 {
-                    context.Console.WriteError( $"The version file of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' doesn't contain the corresponding dependency item." );
+                    context.Console.WriteError(
+                        $"The version file of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' doesn't contain the corresponding dependency item." );
 
                     return false;
                 }
@@ -262,7 +284,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 {
                     if ( !dependencySettings!.TryGetValue( name, out value ) || string.IsNullOrWhiteSpace( value ) )
                     {
-                        context.Console.WriteError( $"The dependency item of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' doesn't contain metadata '{name}'." );
+                        context.Console.WriteError(
+                            $"The dependency item of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' doesn't contain metadata '{name}'." );
 
                         return false;
                     }
@@ -281,6 +304,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 {
                     case DependencySourceKind.Local:
                         dependency.Source.SourceKind = DependencySourceKind.Local;
+
                         break;
 
                     case DependencySourceKind.Default:
@@ -323,7 +347,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         break;
 
                     default:
-                        context.Console.WriteError( $"The dependency item of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' contains invalid source kind '{sourceKind}'." );
+                        context.Console.WriteError(
+                            $"The dependency item of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' contains invalid source kind '{sourceKind}'." );
 
                         return false;
                 }

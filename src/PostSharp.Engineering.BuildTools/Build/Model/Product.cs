@@ -585,7 +585,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             Dictionary<string, DependencySource> changedDependencies = new();
 
             Regex dependencyVersionRegex = new( "^(?<Kind>[^:]+):(?<Arguments>.+)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant );
-            Regex buildSettingsRegex = new( @"^Number=(?<Number>\d+)(;TypeId=(?<TypeId>[^;]+))?(;TypeId=(?<Branch>[^;]+))?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant );
+
+            Regex buildSettingsRegex = new(
+                @"^Number=(?<Number>\d+)(;TypeId=(?<TypeId>[^;]+))?(;TypeId=(?<Branch>[^;]+))?$",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant );
 
             foreach ( var dependency in versionsOverrideFile.Dependencies )
             {
@@ -596,6 +599,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     if ( !defaultDependencyProperties.TryGetValue( dependency.Key, out var dependencyVersion ) || string.IsNullOrEmpty( dependencyVersion ) )
                     {
                         context.Console.WriteError( $"The default version for dependency {dependency.Key} is not set." );
+
                         break;
                     }
 
@@ -618,6 +622,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                 {
                                     var branch = dependencyVersionMatch.Groups["Arguments"].Value;
                                     changedDependencies[dependency.Key] = DependencySource.CreateBuildServerSource( dependencyVersion, branch );
+
                                     break;
                                 }
 
@@ -629,7 +634,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                                     if ( !buildSettingsMatch.Success )
                                     {
-                                        context.Console.WriteError( $"The TeamCity build configuration '{arguments}' of dependency '{dependency.Key}' does not have a correct format." );
+                                        context.Console.WriteError(
+                                            $"The TeamCity build configuration '{arguments}' of dependency '{dependency.Key}' does not have a correct format." );
 
                                         return false;
                                     }
@@ -650,14 +656,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                         branch = null;
                                     }
 
-                                    changedDependencies[dependency.Key] = DependencySource.CreateBuildServerSource( dependencyVersion, buildNumber, ciBuildTypeId, branch );
+                                    changedDependencies[dependency.Key] = DependencySource.CreateBuildServerSource(
+                                        dependencyVersion,
+                                        buildNumber,
+                                        ciBuildTypeId,
+                                        branch );
+
                                     break;
                                 }
 
                             case "transitive":
                                 {
                                     var versionDefiningDependencyName = dependencyVersionMatch.Groups["Arguments"].Value;
-                                    changedDependencies[dependency.Key] = DependencySource.CreateTransitiveBuildServerSource( dependencyVersion, versionDefiningDependencyName );
+
+                                    changedDependencies[dependency.Key] = DependencySource.CreateTransitiveBuildServerSource(
+                                        dependencyVersion,
+                                        versionDefiningDependencyName );
+
                                     break;
                                 }
                         }

@@ -85,7 +85,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                     throw new InvalidVersionFileException();
                                 }
 
-                                file.Dependencies[name] = DependencySource.CreateTransitiveBuildServerSource( origin, versionDefiningDependencyName, defaultVersion );
+                                file.Dependencies[name] = DependencySource.CreateTransitiveBuildServerSource(
+                                    origin,
+                                    versionDefiningDependencyName,
+                                    defaultVersion );
 
                                 break;
 
@@ -99,7 +102,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                                 if ( buildNumber != null )
                                 {
-                                    dependencySource = DependencySource.CreateBuildServerSource( origin, int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId, branch );
+                                    dependencySource = DependencySource.CreateBuildServerSource(
+                                        origin,
+                                        int.Parse( buildNumber, CultureInfo.InvariantCulture ),
+                                        ciBuildTypeId,
+                                        branch );
                                 }
                                 else if ( branch != null )
                                 {
@@ -181,7 +188,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                     throw new InvalidOperationException( "The VersionFile property of dependencies should be set." );
                                 }
 
-                                void AddIfNotNull(string name, string? value)
+                                void AddIfNotNull( string name, string? value )
                                 {
                                     if ( value != null )
                                     {
@@ -242,7 +249,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 }
             }
 
-            if (transitiveVersions.Count > 0)
+            if ( transitiveVersions.Count > 0 )
             {
                 var transitiveVersionsPropertyGroup = new XElement( "PropertyGroup" );
                 project.Add( transitiveVersionsPropertyGroup );
