@@ -1,7 +1,6 @@
 ﻿using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using Spectre.Console;
-using System;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
@@ -28,7 +27,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             var versionsOverrideFile = VersionsOverrideFile.Load( context );
 
-            var dependencies = settings.All ? Model.Dependencies.All.Select( x => x.Name ) : settings.Dependencies;
+            var dependencies = settings.All ? context.Product.Dependencies.Select( x => x.Name ) : settings.Dependencies;
 
             foreach ( var dependency in dependencies )
             {
@@ -47,9 +46,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 }
                 else
                 {
-                    dependencyDefinition = context.Product.Dependencies.FirstOrDefault(
-                        d =>
-                            d.Name.Equals( dependency, StringComparison.OrdinalIgnoreCase ) );
+                    dependencyDefinition = context.Product.GetDependency( dependency );
 
                     if ( dependencyDefinition == null )
                     {
