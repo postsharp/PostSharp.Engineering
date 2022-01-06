@@ -34,7 +34,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             // By default, all dependencies source from the public feeds.
             foreach ( var dependency in context.Product.Dependencies )
             {
-                file.Dependencies[dependency.Name] = DependencySource.CreateOfKind( "default", DependencySourceKind.Default );
+                file.Dependencies[dependency.Name] = DependencySource.CreateOfKind( DependencySourceKind.Default, "default" );
             }
 
             // Override defaults from the version file.
@@ -72,7 +72,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         {
                             case DependencySourceKind.Default:
                             case DependencySourceKind.Local:
-                                file.Dependencies[name] = DependencySource.CreateOfKind( origin, kind );
+                                file.Dependencies[name] = DependencySource.CreateOfKind( kind, origin );
 
                                 break;
 
@@ -86,9 +86,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                 }
 
                                 file.Dependencies[name] = DependencySource.CreateTransitiveBuildServerSource(
-                                    origin,
                                     versionDefiningDependencyName,
-                                    defaultVersion );
+                                    defaultVersion,
+                                    origin );
 
                                 break;
 
@@ -103,14 +103,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                 if ( buildNumber != null )
                                 {
                                     dependencySource = DependencySource.CreateBuildServerSource(
-                                        origin,
                                         int.Parse( buildNumber, CultureInfo.InvariantCulture ),
                                         ciBuildTypeId,
-                                        branch );
+                                        branch,
+                                        origin );
                                 }
                                 else if ( branch != null )
                                 {
-                                    dependencySource = DependencySource.CreateBuildServerSource( origin, branch, ciBuildTypeId );
+                                    dependencySource = DependencySource.CreateBuildServerSource( branch, ciBuildTypeId, origin );
                                 }
                                 else
                                 {
@@ -172,7 +172,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 {
                     case DependencySourceKind.BuildServer:
                         {
-                            var dependencyDefinition = context.Product.Dependencies.SingleOrDefault( p => p.Name == dependency.Key );
+                            var dependencyDefinition = context.Product.Dependencies.SingleOrDefault( p => p.Name == dependency.Key )
+                                                       ?? Model.Dependencies.All.SingleOrDefault( d => d.Name == dependency.Key );
 
                             if ( dependencyDefinition == null )
                             {
@@ -289,16 +290,28 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             table.AddColumn( "Name" );
             table.AddColumn( "Source" );
 
+            // Add direct dependencies.
             for ( var i = 0; i < context.Product.Dependencies.Length; i++ )
             {
                 var name = context.Product.Dependencies[i].Name;
 
                 if ( !this.Dependencies.TryGetValue( name, out var source ) )
                 {
-                    source = DependencySource.CreateOfKind( "print", DependencySourceKind.Default );
+                    source = DependencySource.CreateOfKind( DependencySourceKind.Default, "print" );
                 }
 
                 table.AddRow( (i + 1).ToString( CultureInfo.InvariantCulture ), name, source.ToString()! );
+            }
+
+            // Add implicit dependencies (if previously fetched).
+            foreach ( var dependency in this.Dependencies )
+            {
+                if ( context.Product.Dependencies.Any( d => d.Name == dependency.Key ) )
+                {
+                    continue;
+                }
+
+                table.AddRow( "*", dependency.Key, dependency.Value.ToString() );
             }
 
             context.Console.Out.Write( table );

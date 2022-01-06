@@ -42,7 +42,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             DependencyDefinition? GetDependencyDefinition( KeyValuePair<string, DependencySource> dependency )
             {
-                var dependencyDefinition = context.Product.Dependencies.SingleOrDefault( d => d.Name == dependency.Key );
+                var dependencyDefinition = context.Product.GetDependency( dependency.Key );
 
                 if ( dependencyDefinition == null )
                 {
@@ -52,11 +52,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return dependencyDefinition;
             }
 
-            List<(DependencySource Source, DependencyDefinition Definition)> dependencies = versionsOverrideFile
+            var dependencies = versionsOverrideFile
                 .Dependencies
-                .Where( d => d.Value.SourceKind == DependencySourceKind.BuildServer || d.Value.SourceKind == DependencySourceKind.Transitive )
                 .Select( d => (d.Value, GetDependencyDefinition( d )) )
                 .Where( d => d.Item2 != null )
+                .Select( d => new Dependency( d.Value, d.Item2! ) )
                 .ToList()!;
 
             if ( dependencies.Count == 0 )
@@ -77,33 +77,36 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             var teamcity = new TeamcityClient( token );
 
-            // Download artefacts that are not transitive dependencies.
-            if ( !ResolveBuildNumbersFromBranches( context, teamcity, dependencies, settings.Update ) )
-            {
-                return false;
-            }
+            var iterationDependencies = dependencies;
 
-            if ( !DownloadArtifacts( context, teamcity, dependencies ) )
+            while ( iterationDependencies.Count > 0 )
             {
-                return false;
-            }
+                // Download artefacts that are not transitive dependencies.
+                if ( !ResolveBuildNumbersFromBranches( context, teamcity, iterationDependencies, settings.Update ) ||
+                     !ResolveLocalDependencies( context, iterationDependencies ) )
+                {
+                    return false;
+                }
 
-            // Resolve transitive dependencies from artefacts that have been downloaded.
-            // (We currently only support a single level of dependencies. To support several levels, this process should be iterative). 
-            if ( !ResolveTransitiveDependencies( context, teamcity, dependencies, versionsOverrideFile ) )
-            {
-                return false;
-            }
+                if ( !DownloadArtifacts( context, teamcity, iterationDependencies ) )
+                {
+                    return false;
+                }
 
-            // Download transitive dependencies.
-            if ( !ResolveBuildNumbersFromBranches( context, teamcity, dependencies, false ) )
-            {
-                return false;
-            }
+                // Find implicit transitive dependencies.
+                if ( !TryGetTransitiveDependencies( context, iterationDependencies, versionsOverrideFile, out var allDependencies ) )
+                {
+                    return false;
+                }
 
-            if ( !DownloadArtifacts( context, teamcity, dependencies ) )
-            {
-                return false;
+                // Resolve transitive dependencies from artefacts that have been downloaded.
+                // (We currently only support a single level of dependencies. To support several levels, this process should be iterative). 
+                if ( !ResolveTransitiveDependencies( context, allDependencies, versionsOverrideFile, out var resolvedDependencies ) )
+                {
+                    return false;
+                }
+
+                iterationDependencies = resolvedDependencies;
             }
 
             context.Console.WriteSuccess( "Fetching build artifacts was successful" );
@@ -111,10 +114,103 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
+        private static bool TryGetTransitiveDependencies(
+            BuildContext context,
+            List<Dependency> directDependencies,
+            VersionsOverrideFile versionsOverrideFile,
+            [NotNullWhen( true )] out List<Dependency>? allDependencies )
+        {
+            var dependencies = directDependencies.ToDictionary( d => d.Definition.Name, d => d );
+
+            foreach ( var directDependency in directDependencies )
+            {
+                if ( directDependency.Source.SourceKind == DependencySourceKind.Transitive )
+                {
+                    // Defining transitive dependencies explicitly is now obsolete, but we can still get here 
+                    // because of a previous iteration.
+                    continue;
+                }
+
+                if ( directDependency.Source.SourceKind == DependencySourceKind.Default )
+                {
+                    // There is no need to resolve dependencies deployed to a public source because nuget does it.
+                    continue;
+                }
+
+                var versionFile = Project.FromFile( directDependency.Source.VersionFile!, new ProjectOptions() );
+
+                var transitiveDependencies = versionFile.Items.Where( i => i.ItemType == "MetalamaDependencies" );
+
+                foreach ( var transitiveDependency in transitiveDependencies )
+                {
+                    var name = transitiveDependency.EvaluatedInclude;
+                    var sourceKind = Enum.Parse<DependencySourceKind>( transitiveDependency.GetMetadata( "SourceKind" )!.EvaluatedValue );
+
+                    var version = transitiveDependency.GetMetadata( "DefaultVersion" )?.EvaluatedValue;
+
+                    if ( dependencies.TryGetValue( name, out _ ) )
+                    {
+                        // We don't expect conflicts, neither try to resolve them.   
+                    }
+                    else
+                    {
+                        // Get the DependencyDefinition.
+                        var dependencyDefinition = Model.Dependencies.All.SingleOrDefault( d => d.Name == name );
+
+                        if ( dependencyDefinition == null )
+                        {
+                            context.Console.WriteError(
+                                $"Cannot find the dependency definition for '{name}' referenced by '{directDependency.Definition.Name}'. The dependency should be defined in PostSharp.Engineering." );
+
+                            allDependencies = null;
+
+                            return false;
+                        }
+
+                        // Create a DependencySource.
+                        DependencySource dependencySource;
+
+                        switch ( sourceKind )
+                        {
+                            case DependencySourceKind.BuildServer:
+                            case DependencySourceKind.Transitive:
+                                dependencySource = DependencySource.CreateTransitiveBuildServerSource(
+                                    directDependency.Definition.Name,
+                                    version,
+                                    directDependency.Definition.Name );
+
+                                break;
+
+                            case DependencySourceKind.Local:
+                                dependencySource = DependencySource.CreateOfKind( DependencySourceKind.Local, directDependency.Definition.Name );
+
+                                break;
+
+                            case DependencySourceKind.Default:
+                                // Nothing to do because the dependency is published on a public nuget source.
+                                continue;
+
+                            default:
+                                throw new InvalidOperationException();
+                        }
+
+                        dependencies[name] = new Dependency( dependencySource, dependencyDefinition );
+                        versionsOverrideFile.Dependencies[name] = dependencySource;
+                    }
+                }
+
+                ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
+            }
+
+            allDependencies = dependencies.Values.ToList();
+
+            return true;
+        }
+
         private static bool ResolveBuildNumbersFromBranches(
             BuildContext context,
             TeamcityClient teamcity,
-            List<(DependencySource Source, DependencyDefinition Definition)> dependencies,
+            List<Dependency> dependencies,
             bool update )
         {
             foreach ( var dependency in dependencies )
@@ -156,7 +252,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         private static bool DownloadArtifacts(
             BuildContext context,
             TeamcityClient teamcity,
-            List<(DependencySource Source, DependencyDefinition Definition)> dependencies )
+            List<Dependency> dependencies )
         {
             foreach ( var dependency in dependencies )
             {
@@ -197,12 +293,38 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
+        private static bool ResolveLocalDependencies( BuildContext context, List<Dependency> dependencies )
+        {
+            foreach ( var dependency in dependencies.Where( d => d.Source.SourceKind == DependencySourceKind.Local ) )
+            {
+                var importsFile = Path.GetFullPath(
+                    Path.Combine(
+                        context.RepoDirectory,
+                        "..",
+                        dependency.Definition.Name,
+                        dependency.Definition.Name + ".Import.props" ) );
+
+                if ( !File.Exists( importsFile ) )
+                {
+                    context.Console.WriteError( $"The file '{importsFile}' does not exist. Check that the product has been built." );
+
+                    return false;
+                }
+
+                dependency.Source.VersionFile = importsFile;
+            }
+
+            return true;
+        }
+
         private static bool ResolveTransitiveDependencies(
             BuildContext context,
-            TeamcityClient teamcity,
-            List<(DependencySource Source, DependencyDefinition Definition)> dependencies,
-            VersionsOverrideFile versionsOverrideFile )
+            List<Dependency> dependencies,
+            VersionsOverrideFile versionsOverrideFile,
+            [NotNullWhen(true)]  out List<Dependency>? resolvedDependencies )
         {
+            resolvedDependencies = new List<Dependency>();
+            
             foreach ( var dependency in dependencies )
             {
                 if ( dependency.Source.SourceKind != DependencySourceKind.Transitive )
@@ -231,7 +353,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                 if ( versionDefiningDependency.VersionFile == null && versionDefiningDependency.SourceKind == DependencySourceKind.Local )
                 {
-                    var versionDefiningDependencyDefinition = context.Product.Dependencies.SingleOrDefault( d => d.Name == versionDefiningDependencyName );
+                    var versionDefiningDependencyDefinition = context.Product.GetDependency( versionDefiningDependencyName );
 
                     if ( versionDefiningDependencyDefinition == null )
                     {
@@ -308,6 +430,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 {
                     case DependencySourceKind.Local:
                         dependency.Source.SourceKind = DependencySourceKind.Local;
+                        
+                        resolvedDependencies.Add( dependency );
 
                         break;
 
@@ -325,6 +449,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         break;
 
                     case DependencySourceKind.BuildServer:
+                        
+                        resolvedDependencies.Add( dependency );
 
                         dependency.Source.SourceKind = DependencySourceKind.BuildServer;
 
@@ -433,5 +559,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             return null;
         }
+
+        private record Dependency( DependencySource Source, DependencyDefinition Definition );
     }
 }
