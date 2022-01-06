@@ -15,7 +15,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             }
             else
             {
-                context.Console.WriteImportantMessage( $"{context.Product.ProductName} has {productDependencies.Length} dependencies:" );
+                context.Console.WriteImportantMessage( $"{context.Product.ProductName} has {productDependencies.Length} explicit dependencies:" );
 
                 var versionsOverrideFile = VersionsOverrideFile.Load( context );
 

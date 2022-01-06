@@ -36,6 +36,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "Metalama_PostSharpBackstageSettings_DebugBuild" );
 
         public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
+            Roslyn,
             MetalamaCompiler,
             Metalama,
             MetalamaDocumentation,

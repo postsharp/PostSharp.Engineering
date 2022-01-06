@@ -16,15 +16,15 @@
 
         public DependencySourceKind SourceKind { get; internal set; }
 
-        public string Origin { get; private init; } = "unknown";
+        public string Origin { get; internal init; } = "unknown";
 
-        public static DependencySource CreateOfKind( string origin, DependencySourceKind kind ) => new() { Origin = origin, SourceKind = kind };
+        public static DependencySource CreateOfKind( DependencySourceKind kind, string origin ) => new() { Origin = origin, SourceKind = kind };
 
-        public static DependencySource CreateBuildServerSource( string origin, string branch, string? ciBuildTypeId = null )
+        public static DependencySource CreateBuildServerSource( string branch, string? ciBuildTypeId, string origin )
             => new() { Origin = origin, SourceKind = DependencySourceKind.BuildServer, Branch = branch, CiBuildTypeId = ciBuildTypeId };
 
         // The branch here is just informative. It is not used to resolve the dependency.
-        public static DependencySource CreateBuildServerSource( string origin, int buildNumber, string? ciBuildTypeId = null, string? branch = null )
+        public static DependencySource CreateBuildServerSource( int buildNumber, string? ciBuildTypeId, string? branch, string origin )
             => new()
             {
                 Origin = origin,
@@ -34,7 +34,7 @@
                 Branch = branch
             };
 
-        public static DependencySource CreateTransitiveBuildServerSource( string origin, string versionDefiningDependencyName, string? defaultVersion = null )
+        public static DependencySource CreateTransitiveBuildServerSource( string versionDefiningDependencyName, string? defaultVersion, string origin )
             => new()
             {
                 Origin = origin,

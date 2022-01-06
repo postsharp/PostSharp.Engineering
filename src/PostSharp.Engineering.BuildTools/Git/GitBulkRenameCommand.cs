@@ -19,6 +19,7 @@ namespace PostSharp.Engineering.BuildTools.Git
             if ( root.GetDirectories( ".git" ).Length == 0 )
             {
                 console.WriteError( $"'{settings.RepositoryRoot}' is not a repository root." );
+
                 return 1;
             }
 
@@ -58,7 +59,13 @@ namespace PostSharp.Engineering.BuildTools.Git
             return GitRename( console, directory, directory.Parent!, originalSubstring, newSubstring, rootPath );
         }
 
-        private static bool GitRename( ConsoleHelper console, FileSystemInfo renamedNode, DirectoryInfo containingDirectory, string originalSubstring, string newSubstring, string rootPath )
+        private static bool GitRename(
+            ConsoleHelper console,
+            FileSystemInfo renamedNode,
+            DirectoryInfo containingDirectory,
+            string originalSubstring,
+            string newSubstring,
+            string rootPath )
         {
             var newName = renamedNode.Name;
 
@@ -76,10 +83,10 @@ namespace PostSharp.Engineering.BuildTools.Git
                 else
                 {
                     if ( !ToolInvocationHelper.InvokeTool(
-                        console,
-                        "git",
-                        $"mv \"{pathFrom}\" \"{pathTo}\"",
-                        rootPath ) )
+                            console,
+                            "git",
+                            $"mv \"{pathFrom}\" \"{pathTo}\"",
+                            rootPath ) )
                     {
                         return false;
                     }

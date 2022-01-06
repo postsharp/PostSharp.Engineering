@@ -54,6 +54,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// </summary>
         public ImmutableArray<DependencyDefinition> Dependencies { get; init; } = ImmutableArray<DependencyDefinition>.Empty;
 
+        public DependencyDefinition? GetDependency( string name )
+            => this.Dependencies.SingleOrDefault( d => d.Name == name )
+               ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name );
+
         public ImmutableDictionary<string, string> SupportedProperties { get; init; } =
             ImmutableDictionary<string, string>.Empty;
 
@@ -607,7 +611,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     if ( string.Compare( dependencyVersion, "local", StringComparison.OrdinalIgnoreCase ) == 0 )
                     {
-                        changedDependencies[dependency.Key] = DependencySource.CreateOfKind( dependencyVersion, DependencySourceKind.Local );
+                        changedDependencies[dependency.Key] = DependencySource.CreateOfKind( DependencySourceKind.Local, dependencyVersion );
 
                         continue;
                     }
@@ -621,7 +625,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             case "branch":
                                 {
                                     var branch = dependencyVersionMatch.Groups["Arguments"].Value;
-                                    changedDependencies[dependency.Key] = DependencySource.CreateBuildServerSource( dependencyVersion, branch );
+                                    changedDependencies[dependency.Key] = DependencySource.CreateBuildServerSource( branch, null, dependencyVersion );
 
                                     break;
                                 }
@@ -657,10 +661,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                     }
 
                                     changedDependencies[dependency.Key] = DependencySource.CreateBuildServerSource(
-                                        dependencyVersion,
                                         buildNumber,
                                         ciBuildTypeId,
-                                        branch );
+                                        branch,
+                                        dependencyVersion );
 
                                     break;
                                 }
@@ -671,6 +675,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                                     changedDependencies[dependency.Key] = DependencySource.CreateTransitiveBuildServerSource(
                                         dependencyVersion,
+                                        null,
                                         versionDefiningDependencyName );
 
                                     break;

@@ -22,5 +22,7 @@
             this.RepoName = name;
             this.DefaultCiBuildTypeId = ciBuildTypeId;
         }
+
+        public override string ToString() => this.Name;
     }
 }

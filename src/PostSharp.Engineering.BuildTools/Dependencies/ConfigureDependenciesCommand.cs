@@ -1,7 +1,6 @@
 ﻿using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using Spectre.Console;
-using System;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
@@ -47,9 +46,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 }
                 else
                 {
-                    dependencyDefinition = context.Product.Dependencies.FirstOrDefault(
-                        d =>
-                            d.Name.Equals( dependency, StringComparison.OrdinalIgnoreCase ) );
+                    dependencyDefinition = context.Product.GetDependency( dependency );
 
                     if ( dependencyDefinition == null )
                     {
@@ -63,28 +60,28 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                 if ( settings.Source != DependencySourceKind.BuildServer )
                 {
-                    dependencySource = DependencySource.CreateOfKind( "command", settings.Source );
+                    dependencySource = DependencySource.CreateOfKind( settings.Source, "command" );
                 }
                 else if ( settings.BuildNumber != null )
                 {
                     var ciBuildTypeId = settings.CiBuildTypeId ?? dependencyDefinition.DefaultCiBuildTypeId;
-                    dependencySource = DependencySource.CreateBuildServerSource( "command", settings.BuildNumber.Value, ciBuildTypeId );
+                    dependencySource = DependencySource.CreateBuildServerSource( settings.BuildNumber.Value, ciBuildTypeId, null, "command" );
                 }
                 else if ( settings.Branch != null )
                 {
                     var branch = settings.Branch;
                     var ciBuildTypeId = settings.CiBuildTypeId ?? dependencyDefinition.DefaultCiBuildTypeId;
-                    dependencySource = DependencySource.CreateBuildServerSource( "command", branch, ciBuildTypeId );
+                    dependencySource = DependencySource.CreateBuildServerSource( branch, ciBuildTypeId, "command" );
                 }
                 else if ( settings.VersionDefiningDependencyName != null )
                 {
-                    dependencySource = DependencySource.CreateTransitiveBuildServerSource( "command", settings.VersionDefiningDependencyName );
+                    dependencySource = DependencySource.CreateTransitiveBuildServerSource( settings.VersionDefiningDependencyName, null, "command" );
                 }
                 else
                 {
                     var branch = dependencyDefinition.DefaultBranch;
                     var ciBuildTypeId = settings.CiBuildTypeId ?? dependencyDefinition.DefaultCiBuildTypeId;
-                    dependencySource = DependencySource.CreateBuildServerSource( "command", branch, ciBuildTypeId );
+                    dependencySource = DependencySource.CreateBuildServerSource( branch, ciBuildTypeId, "command" );
                 }
 
                 versionsOverrideFile.Dependencies[dependencyDefinition.Name] = dependencySource;
