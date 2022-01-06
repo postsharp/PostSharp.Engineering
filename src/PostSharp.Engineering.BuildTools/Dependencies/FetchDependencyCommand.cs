@@ -100,7 +100,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 }
 
                 // Resolve transitive dependencies from artefacts that have been downloaded.
-                // (We currently only support a single level of dependencies. To support several levels, this process should be iterative). 
                 if ( !ResolveTransitiveDependencies( context, allDependencies, versionsOverrideFile, out var resolvedDependencies ) )
                 {
                     return false;
@@ -124,22 +123,21 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             foreach ( var directDependency in directDependencies )
             {
-                if ( directDependency.Source.SourceKind == DependencySourceKind.Transitive )
+                switch ( directDependency.Source.SourceKind )
                 {
-                    // Defining transitive dependencies explicitly is now obsolete, but we can still get here 
-                    // because of a previous iteration.
-                    continue;
-                }
+                    case DependencySourceKind.Transitive:
+                        // There is no need to resolve dependencies deployed to a public source because nuget does it.
+                        continue;
 
-                if ( directDependency.Source.SourceKind == DependencySourceKind.Default )
-                {
-                    // There is no need to resolve dependencies deployed to a public source because nuget does it.
-                    continue;
+                    case DependencySourceKind.Default:
+                        // Defining transitive dependencies explicitly is now obsolete, but we can still get here 
+                        // because of a previous iteration.
+                        continue;
                 }
 
                 var versionFile = Project.FromFile( directDependency.Source.VersionFile!, new ProjectOptions() );
 
-                var transitiveDependencies = versionFile.Items.Where( i => i.ItemType == "MetalamaDependencies" );
+                var transitiveDependencies = versionFile.Items.Where( i => i.ItemType == directDependency.Definition.Name + "Dependencies" );
 
                 foreach ( var transitiveDependency in transitiveDependencies )
                 {
