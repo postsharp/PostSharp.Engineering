@@ -321,10 +321,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             BuildContext context,
             List<Dependency> dependencies,
             VersionsOverrideFile versionsOverrideFile,
-            [NotNullWhen(true)]  out List<Dependency>? resolvedDependencies )
+            [NotNullWhen( true )] out List<Dependency>? resolvedDependencies )
         {
             resolvedDependencies = new List<Dependency>();
-            
+
             foreach ( var dependency in dependencies )
             {
                 if ( dependency.Source.SourceKind != DependencySourceKind.Transitive )
@@ -430,7 +430,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 {
                     case DependencySourceKind.Local:
                         dependency.Source.SourceKind = DependencySourceKind.Local;
-                        
+
                         resolvedDependencies.Add( dependency );
 
                         break;
@@ -449,7 +449,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         break;
 
                     case DependencySourceKind.BuildServer:
-                        
+
                         resolvedDependencies.Add( dependency );
 
                         dependency.Source.SourceKind = DependencySourceKind.BuildServer;
