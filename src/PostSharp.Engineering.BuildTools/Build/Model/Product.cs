@@ -770,7 +770,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     context,
                     settings,
                     Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( stringParameters ) ),
-                    false ) )
+                    false,
+                    ref hasTarget) )
             {
                 return false;
             }
@@ -781,7 +782,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         context,
                         settings,
                         Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) ),
-                        true ) )
+                        true,
+                        ref hasTarget) )
                 {
                     return false;
                 }
