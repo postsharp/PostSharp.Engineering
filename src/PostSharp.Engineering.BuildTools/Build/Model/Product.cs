@@ -485,8 +485,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var propsFileName = $"{this.ProductName}.version.props";
             var propsFilePath = Path.Combine( artifactsDir, propsFileName );
 
-            // If we don't hav
-
             // Load Versions.g.props.
             if ( !VersionsOverrideFile.TryLoad( context, out var versionsOverrideFile ) )
             {
@@ -507,6 +505,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
+            // Generate Versions.g.props.
             var props = this.GenerateVersionFile( versionPrefix, patchNumber, versionSuffix, configuration, versionsOverrideFile );
             context.Console.WriteMessage( $"Writing '{propsFilePath}'." );
             File.WriteAllText( propsFilePath, props );
