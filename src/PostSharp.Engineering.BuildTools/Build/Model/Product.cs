@@ -13,7 +13,6 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
@@ -50,7 +49,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool KeepEditorConfig { get; init; }
 
         /// <summary>
-        /// Set of dependencies of this product. Some commands expect the dependency to exist in <see cref="DependencyDefinition.All"/>
+        /// Set of dependencies of this product. Some commands expect the dependency to exist in <see cref="PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.All"/>.
         /// </summary>
         public ImmutableArray<DependencyDefinition> Dependencies { get; init; } = ImmutableArray<DependencyDefinition>.Empty;
 
@@ -83,7 +82,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Delete the root import file in the repo because the presence of this file means a successful build.
-            this.DeleteImportFile( context, settings.BuildConfiguration );
+            this.DeleteImportFile( context );
 
             // We have to read the version from the file we have generated - using MSBuild, because it contains properties.
             var versionInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
@@ -224,7 +223,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private void DeleteImportFile( BuildContext context, BuildConfiguration configuration )
+        private void DeleteImportFile( BuildContext context )
         {
             var importFilePath = Path.Combine( context.RepoDirectory, this.ProductName + ".Import.props" );
 
@@ -328,21 +327,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
             return (mainVersion, suffix);
-        }
-
-        private Dictionary<string, string?> ReadVersionFile( string path )
-        {
-            var versionFile = Project.FromFile( path, new ProjectOptions() );
-
-            var properties = this.Dependencies
-                .ToDictionary(
-                    d => d.Name,
-                    d => versionFile.Properties.SingleOrDefault( p => p.Name == d.Name.Replace( ".", "", StringComparison.OrdinalIgnoreCase ) + "Version" )
-                        ?.EvaluatedValue );
-
-            ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
-
-            return properties;
         }
 
         /// <summary>
@@ -484,6 +468,65 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 this.Clean( context, settings );
             }
 
+            var configuration = settings.BuildConfiguration.ToString().ToLowerInvariant();
+
+            var versionPrefix = this.ComputeVersion( context, settings, configuration, out var patchNumber, out var versionSuffix );
+
+            var privateArtifactsRelativeDir =
+                this.PrivateArtifactsDirectory.ToString( new VersionInfo( null!, settings.BuildConfiguration.ToString() ) );
+
+            var artifactsDir = Path.Combine( context.RepoDirectory, privateArtifactsRelativeDir );
+
+            if ( !Directory.Exists( artifactsDir ) )
+            {
+                Directory.CreateDirectory( artifactsDir );
+            }
+
+            var propsFileName = $"{this.ProductName}.version.props";
+            var propsFilePath = Path.Combine( artifactsDir, propsFileName );
+
+            // If we don't hav
+
+            // Load Versions.g.props.
+            if ( !VersionsOverrideFile.TryLoad( context, out var versionsOverrideFile ) )
+            {
+                return false;
+            }
+
+            // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 
+            if ( versionsOverrideFile.Dependencies.Any( d => d.Value.SourceKind != DependencySourceKind.Feed && d.Value.VersionFile == null ) )
+            {
+                FetchDependencyCommand.FetchDependencies( context, versionsOverrideFile );
+
+                versionsOverrideFile.LocalBuildFile = propsFilePath;
+                context.Console.WriteMessage( $"Updating '{versionsOverrideFile.FilePath}'." );
+
+                if ( !versionsOverrideFile.TrySave( context ) )
+                {
+                    return false;
+                }
+            }
+
+            var props = this.GenerateVersionFile( versionPrefix, patchNumber, versionSuffix, configuration, versionsOverrideFile );
+            context.Console.WriteMessage( $"Writing '{propsFilePath}'." );
+            File.WriteAllText( propsFilePath, props );
+
+            if ( this.PrepareCompleted != null )
+            {
+                if ( !this.PrepareCompleted.Invoke( (context, settings) ) )
+                {
+                    return false;
+                }
+            }
+
+            context.Console.WriteSuccess(
+                $"Preparing the version file was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) ).PackageVersion}" );
+
+            return true;
+        }
+
+        private string ComputeVersion( BuildContext context, BaseBuildSettings settings, string configuration, out int patchNumber, out string versionSuffix )
+        {
             var (mainVersion, mainPackageVersionSuffix) =
                 ReadMainVersionFile(
                     Path.Combine(
@@ -493,11 +536,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteHeading( "Preparing the version file" );
 
-            var configuration = settings.BuildConfiguration.ToString().ToLowerInvariant();
-
             var versionPrefix = mainVersion;
-            int patchNumber;
-            string versionSuffix;
 
             switch ( settings.VersionSpec.Kind )
             {
@@ -561,169 +600,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     throw new InvalidOperationException();
             }
 
-            var privateArtifactsRelativeDir =
-                this.PrivateArtifactsDirectory.ToString( new VersionInfo( null!, settings.BuildConfiguration.ToString() ) );
-
-            var artifactsDir = Path.Combine( context.RepoDirectory, privateArtifactsRelativeDir );
-
-            if ( !Directory.Exists( artifactsDir ) )
-            {
-                Directory.CreateDirectory( artifactsDir );
-            }
-
-            var propsFileName = $"{this.ProductName}.version.props";
-            var propsFilePath = Path.Combine( artifactsDir, propsFileName );
-
-            // Update Versions.g.props.
-            var versionsOverrideFile = VersionsOverrideFile.Load( context );
-
-            if ( versionsOverrideFile.LocalBuildFile != propsFilePath )
-            {
-                versionsOverrideFile.LocalBuildFile = propsFilePath;
-                context.Console.WriteMessage( $"Updating '{versionsOverrideFile.FilePath}'." );
-            }
-
-            // Validate default versions. If there are not set to a public version, we need to fetch from the build server.
-            // This scenario is important when building on a build server.
-            Dictionary<string, string?>? defaultDependencyProperties = null;
-            Dictionary<string, DependencySource> changedDependencies = new();
-
-            Regex dependencyVersionRegex = new( "^(?<Kind>[^:]+):(?<Arguments>.+)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant );
-
-            Regex buildSettingsRegex = new(
-                @"^Number=(?<Number>\d+)(;TypeId=(?<TypeId>[^;]+))?(;TypeId=(?<Branch>[^;]+))?$",
-                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant );
-
-            foreach ( var dependency in versionsOverrideFile.Dependencies )
-            {
-                if ( dependency.Value.SourceKind == DependencySourceKind.Default )
-                {
-                    defaultDependencyProperties ??= this.ReadVersionFile( Path.Combine( context.RepoDirectory, this.VersionsFile ) );
-
-                    if ( !defaultDependencyProperties.TryGetValue( dependency.Key, out var dependencyVersion ) || string.IsNullOrEmpty( dependencyVersion ) )
-                    {
-                        context.Console.WriteError( $"The default version for dependency {dependency.Key} is not set." );
-
-                        break;
-                    }
-
-                    versionsOverrideFile.Dependencies[dependency.Key].DefaultVersion = dependencyVersion;
-
-                    if ( string.Compare( dependencyVersion, "local", StringComparison.OrdinalIgnoreCase ) == 0 )
-                    {
-                        changedDependencies[dependency.Key] = DependencySource.CreateOfKind( DependencySourceKind.Local, dependencyVersion );
-
-                        continue;
-                    }
-
-                    var dependencyVersionMatch = dependencyVersionRegex.Match( dependencyVersion );
-
-                    if ( dependencyVersionMatch.Success )
-                    {
-                        switch ( dependencyVersionMatch.Groups["Kind"].Value.ToLowerInvariant() )
-                        {
-                            case "branch":
-                                {
-                                    var branch = dependencyVersionMatch.Groups["Arguments"].Value;
-                                    changedDependencies[dependency.Key] = DependencySource.CreateBuildServerSource( branch, null, dependencyVersion );
-
-                                    break;
-                                }
-
-                            case "build":
-                                {
-                                    var arguments = dependencyVersionMatch.Groups["Arguments"].Value;
-
-                                    var buildSettingsMatch = buildSettingsRegex.Match( arguments );
-
-                                    if ( !buildSettingsMatch.Success )
-                                    {
-                                        context.Console.WriteError(
-                                            $"The TeamCity build configuration '{arguments}' of dependency '{dependency.Key}' does not have a correct format." );
-
-                                        return false;
-                                    }
-
-                                    var buildNumber = int.Parse( buildSettingsMatch.Groups["Number"].Value, CultureInfo.InvariantCulture );
-
-                                    var ciBuildTypeId = buildSettingsMatch.Groups.GetValueOrDefault( "TypeId" )?.Value;
-
-                                    if ( string.IsNullOrEmpty( ciBuildTypeId ) )
-                                    {
-                                        ciBuildTypeId = null;
-                                    }
-
-                                    var branch = buildSettingsMatch.Groups.GetValueOrDefault( "Branch" )?.Value;
-
-                                    if ( string.IsNullOrEmpty( branch ) )
-                                    {
-                                        branch = null;
-                                    }
-
-                                    changedDependencies[dependency.Key] = DependencySource.CreateBuildServerSource(
-                                        buildNumber,
-                                        ciBuildTypeId,
-                                        branch,
-                                        dependencyVersion );
-
-                                    break;
-                                }
-
-                            case "transitive":
-                                {
-                                    var versionDefiningDependencyName = dependencyVersionMatch.Groups["Arguments"].Value;
-
-                                    changedDependencies[dependency.Key] = DependencySource.CreateTransitiveBuildServerSource(
-                                        dependencyVersion,
-                                        null,
-                                        versionDefiningDependencyName );
-
-                                    break;
-                                }
-                        }
-                    }
-                }
-            }
-
-            // If we changed local dependency settings, we have to fetch.
-            if ( changedDependencies.Count > 0 )
-            {
-                foreach ( var changedDependency in changedDependencies )
-                {
-                    versionsOverrideFile.Dependencies[changedDependency.Key] = changedDependency.Value;
-                }
-
-                // Fetch dependencies and read the location of the version file.
-                if ( !FetchDependencyCommand.FetchDependencies( context, versionsOverrideFile ) )
-                {
-                    return false;
-                }
-
-                context.Console.WriteImportantMessage( "Local dependencies changed like this:" );
-                versionsOverrideFile.Print( context );
-            }
-
-            if ( !versionsOverrideFile.TrySave( context ) )
-            {
-                return false;
-            }
-
-            var props = this.GenerateVersionFile( versionPrefix, patchNumber, versionSuffix, configuration, versionsOverrideFile.Dependencies );
-            context.Console.WriteMessage( $"Writing '{propsFilePath}'." );
-            File.WriteAllText( propsFilePath, props );
-
-            if ( this.PrepareCompleted != null )
-            {
-                if ( !this.PrepareCompleted.Invoke( (context, settings) ) )
-                {
-                    return false;
-                }
-            }
-
-            context.Console.WriteSuccess(
-                $"Preparing the version file was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) ).PackageVersion}" );
-
-            return true;
+            return versionPrefix;
         }
 
         protected virtual string GenerateVersionFile(
@@ -731,7 +608,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             int patchNumber,
             string versionSuffix,
             string configuration,
-            IEnumerable<KeyValuePair<string, DependencySource>> fetchedDependencies )
+            VersionsOverrideFile versionsOverrideFile )
         {
             var props = $@"
 <!-- This file is generated by the engineering tooling -->
@@ -797,12 +674,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     </PropertyGroup>
     <ItemGroup>";
 
-            foreach ( var dependency in fetchedDependencies )
+            foreach ( var dependency in versionsOverrideFile.Dependencies )
             {
                 props += $@"
         <{this.ProductNameWithoutDot}Dependencies Include=""{dependency.Key}"">
             <SourceKind>{dependency.Value.SourceKind}</SourceKind>
-            <DefaultVersion>{dependency.Value.DefaultVersion}</DefaultVersion>
+            <Version>{dependency.Value.Version}</Version>
             <BuildNumber>{dependency.Value.BuildNumber}</BuildNumber>
             <CiBuildTypeId>{dependency.Value.CiBuildTypeId}</CiBuildTypeId>
             <Branch>{dependency.Value.Branch}</Branch>
@@ -811,6 +688,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             props += @"
     </ItemGroup>
+    <PropertyGroup>
+";
+
+            foreach ( var dependency in versionsOverrideFile.Dependencies.Where( d => d.Value.SourceKind == DependencySourceKind.Feed ) )
+            {
+                var nameWithoutDot = dependency.Key.Replace( ".", "", StringComparison.OrdinalIgnoreCase );
+
+                props += $@"
+        <{nameWithoutDot}Version>{dependency.Value.Version}</{nameWithoutDot}Version>";
+            }
+
+            props += @"
+    </PropertyGroup>
 </Project>
 ";
 

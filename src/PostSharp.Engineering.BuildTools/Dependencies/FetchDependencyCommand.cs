@@ -5,7 +5,7 @@ using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -18,7 +18,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         {
             context.Console.WriteHeading( "Fetching build artifacts" );
 
-            var versionsOverrideFile = VersionsOverrideFile.Load( context );
+            if ( !VersionsOverrideFile.TryLoad( context, out var versionsOverrideFile ) )
+            {
+                return false;
+            }
 
             if ( !FetchDependencies( context, versionsOverrideFile, settings ) )
             {
@@ -54,10 +57,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             var dependencies = versionsOverrideFile
                 .Dependencies
+                .Where( d => d.Value.Origin != DependencyConfigurationOrigin.Transitive )
                 .Select( d => (d.Value, GetDependencyDefinition( d )) )
                 .Where( d => d.Item2 != null )
                 .Select( d => new Dependency( d.Value, d.Item2! ) )
-                .ToList()!;
+                .ToList();
 
             if ( dependencies.Count == 0 )
             {
@@ -77,9 +81,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             var teamcity = new TeamcityClient( token );
 
-            var iterationDependencies = dependencies;
+            var iterationDependencies = dependencies.ToImmutableArray();
+            var dependencyDictionary = dependencies.ToImmutableDictionary( d => d.Definition.Name, d => d );
 
-            while ( iterationDependencies.Count > 0 )
+            while ( iterationDependencies.Length > 0 )
             {
                 // Download artefacts that are not transitive dependencies.
                 if ( !ResolveBuildNumbersFromBranches( context, teamcity, iterationDependencies, settings.Update ) ||
@@ -94,18 +99,15 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 }
 
                 // Find implicit transitive dependencies.
-                if ( !TryGetTransitiveDependencies( context, iterationDependencies, versionsOverrideFile, out var allDependencies ) )
+                if ( !TryGetTransitiveDependencies( context, dependencyDictionary, iterationDependencies, versionsOverrideFile, out var newDependencies ) )
                 {
                     return false;
                 }
 
-                // Resolve transitive dependencies from artefacts that have been downloaded.
-                if ( !ResolveTransitiveDependencies( context, allDependencies, versionsOverrideFile, out var resolvedDependencies ) )
-                {
-                    return false;
-                }
+                iterationDependencies = newDependencies;
 
-                iterationDependencies = resolvedDependencies;
+                dependencyDictionary =
+                    dependencyDictionary.AddRange( newDependencies.Select( d => new KeyValuePair<string, Dependency>( d.Definition.Name, d ) ) );
             }
 
             context.Console.WriteSuccess( "Fetching build artifacts was successful" );
@@ -115,92 +117,102 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
         private static bool TryGetTransitiveDependencies(
             BuildContext context,
-            List<Dependency> directDependencies,
+            ImmutableDictionary<string, Dependency> allDependencies,
+            ImmutableArray<Dependency> directDependencies,
             VersionsOverrideFile versionsOverrideFile,
-            [NotNullWhen( true )] out List<Dependency>? allDependencies )
+            out ImmutableArray<Dependency> newDependencies )
         {
-            var dependencies = directDependencies.ToDictionary( d => d.Definition.Name, d => d );
+            var newDependenciesBuilder = ImmutableArray.CreateBuilder<Dependency>();
+
+            newDependencies = default;
 
             foreach ( var directDependency in directDependencies )
             {
-                switch ( directDependency.Source.SourceKind )
+                if ( directDependency.Source.SourceKind == DependencySourceKind.Feed )
                 {
-                    case DependencySourceKind.Transitive:
-                        // There is no need to resolve dependencies deployed to a public source because nuget does it.
-                        continue;
-
-                    case DependencySourceKind.Default:
-                        // Defining transitive dependencies explicitly is now obsolete, but we can still get here 
-                        // because of a previous iteration.
-                        continue;
+                    // The dependency is managed by NuGet.
+                    // Currency, we don't support retrieving transitive dependencies from NuGet packages.
+                    continue;
                 }
 
                 var versionFile = Project.FromFile( directDependency.Source.VersionFile!, new ProjectOptions() );
 
-                var transitiveDependencies = versionFile.Items.Where( i => i.ItemType == directDependency.Definition.Name + "Dependencies" );
+                var transitiveDependencies = versionFile.Items.Where( i => i.ItemType == directDependency.Definition.NameWithoutDot + "Dependencies" );
 
                 foreach ( var transitiveDependency in transitiveDependencies )
                 {
                     var name = transitiveDependency.EvaluatedInclude;
-                    var sourceKind = Enum.Parse<DependencySourceKind>( transitiveDependency.GetMetadata( "SourceKind" )!.EvaluatedValue );
 
-                    var version = transitiveDependency.GetMetadata( "DefaultVersion" )?.EvaluatedValue;
+                    var sourceKindString = transitiveDependency.GetMetadata( "SourceKind" )?.EvaluatedValue;
 
-                    if ( dependencies.TryGetValue( name, out _ ) )
+                    if ( sourceKindString == null || !Enum.TryParse<DependencySourceKind>( sourceKindString, out var sourceKind ) )
                     {
-                        // We don't expect conflicts, neither try to resolve them.   
+                        context.Console.WriteWarning( $"Cannot parse the source kind '{sourceKindString}' in '{directDependency.Source.VersionFile}'." );
+
+                        continue;
                     }
-                    else
+
+                    if ( allDependencies.TryGetValue( name, out _ ) )
                     {
-                        // Get the DependencyDefinition.
-                        var dependencyDefinition = Model.Dependencies.All.SingleOrDefault( d => d.Name == name );
-
-                        if ( dependencyDefinition == null )
-                        {
-                            context.Console.WriteError(
-                                $"Cannot find the dependency definition for '{name}' referenced by '{directDependency.Definition.Name}'. The dependency should be defined in PostSharp.Engineering." );
-
-                            allDependencies = null;
-
-                            return false;
-                        }
-
-                        // Create a DependencySource.
-                        DependencySource dependencySource;
-
-                        switch ( sourceKind )
-                        {
-                            case DependencySourceKind.BuildServer:
-                            case DependencySourceKind.Transitive:
-                                dependencySource = DependencySource.CreateTransitiveBuildServerSource(
-                                    directDependency.Definition.Name,
-                                    version,
-                                    directDependency.Definition.Name );
-
-                                break;
-
-                            case DependencySourceKind.Local:
-                                dependencySource = DependencySource.CreateOfKind( DependencySourceKind.Local, directDependency.Definition.Name );
-
-                                break;
-
-                            case DependencySourceKind.Default:
-                                // Nothing to do because the dependency is published on a public nuget source.
-                                continue;
-
-                            default:
-                                throw new InvalidOperationException();
-                        }
-
-                        dependencies[name] = new Dependency( dependencySource, dependencyDefinition );
-                        versionsOverrideFile.Dependencies[name] = dependencySource;
+                        continue;
                     }
+
+                    // Get the DependencyDefinition.
+                    var dependencyDefinition = Model.Dependencies.All.SingleOrDefault( d => d.Name == name );
+
+                    if ( dependencyDefinition == null )
+                    {
+                        context.Console.WriteError(
+                            $"Cannot find the dependency definition for '{name}' referenced by '{directDependency.Definition.Name}'. The dependency must be defined in PostSharp.Engineering." );
+
+                        return false;
+                    }
+
+                    // Create a DependencySource.
+                    DependencySource dependencySource;
+
+                    switch ( sourceKind )
+                    {
+                        case DependencySourceKind.BuildServer:
+                            dependencySource = DependencySource.CreateBuildServerSource(
+                                directDependency.Source.Branch!,
+                                directDependency.Source.CiBuildTypeId,
+                                DependencyConfigurationOrigin.Transitive );
+
+                            break;
+
+                        case DependencySourceKind.Local:
+                            dependencySource = DependencySource.CreateLocal( DependencyConfigurationOrigin.Transitive );
+
+                            break;
+
+                        case DependencySourceKind.Feed:
+                            var version = transitiveDependency.GetMetadata( "Version" )?.EvaluatedValue;
+
+                            if ( string.IsNullOrEmpty( version ) )
+                            {
+                                context.Console.WriteError( $"The dependency '{name}' must have a Version property in {directDependency.Source.VersionFile}." );
+
+                                return false;
+                            }
+
+                            dependencySource = DependencySource.CreateFeed( version, DependencyConfigurationOrigin.Transitive );
+
+                            break;
+
+                        default:
+                            throw new InvalidOperationException();
+                    }
+
+                    var newDependency = new Dependency( dependencySource, dependencyDefinition );
+                    newDependenciesBuilder.Add( newDependency );
+                    versionsOverrideFile.Dependencies[name] = dependencySource;
                 }
 
                 ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
             }
 
-            allDependencies = dependencies.Values.ToList();
+            newDependencies = newDependenciesBuilder.ToImmutable();
 
             return true;
         }
@@ -208,7 +220,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         private static bool ResolveBuildNumbersFromBranches(
             BuildContext context,
             TeamcityClient teamcity,
-            List<Dependency> dependencies,
+            ImmutableArray<Dependency> dependencies,
             bool update )
         {
             foreach ( var dependency in dependencies )
@@ -250,7 +262,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         private static bool DownloadArtifacts(
             BuildContext context,
             TeamcityClient teamcity,
-            List<Dependency> dependencies )
+            ImmutableArray<Dependency> dependencies )
         {
             foreach ( var dependency in dependencies )
             {
@@ -291,7 +303,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
-        private static bool ResolveLocalDependencies( BuildContext context, List<Dependency> dependencies )
+        private static bool ResolveLocalDependencies( BuildContext context, ImmutableArray<Dependency> dependencies )
         {
             foreach ( var dependency in dependencies.Where( d => d.Source.SourceKind == DependencySourceKind.Local ) )
             {
@@ -310,176 +322,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 }
 
                 dependency.Source.VersionFile = importsFile;
-            }
-
-            return true;
-        }
-
-        private static bool ResolveTransitiveDependencies(
-            BuildContext context,
-            List<Dependency> dependencies,
-            VersionsOverrideFile versionsOverrideFile,
-            [NotNullWhen( true )] out List<Dependency>? resolvedDependencies )
-        {
-            resolvedDependencies = new List<Dependency>();
-
-            foreach ( var dependency in dependencies )
-            {
-                if ( dependency.Source.SourceKind != DependencySourceKind.Transitive )
-                {
-                    continue;
-                }
-
-                var dependencyName = dependency.Definition.Name;
-
-                if ( dependency.Source.VersionDefiningDependencyName == null )
-                {
-                    context.Console.WriteError( $"The dependency '{dependencyName}' does not have a version defining dependency name set." );
-
-                    return false;
-                }
-
-                var versionDefiningDependencyName = dependency.Source.VersionDefiningDependencyName;
-
-                if ( !versionsOverrideFile.Dependencies.TryGetValue( versionDefiningDependencyName, out var versionDefiningDependency ) )
-                {
-                    context.Console.WriteError(
-                        $"Version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' not found." );
-
-                    return false;
-                }
-
-                if ( versionDefiningDependency.VersionFile == null && versionDefiningDependency.SourceKind == DependencySourceKind.Local )
-                {
-                    var versionDefiningDependencyDefinition = context.Product.GetDependency( versionDefiningDependencyName );
-
-                    if ( versionDefiningDependencyDefinition == null )
-                    {
-                        context.Console.WriteError(
-                            $"Version defining dependency definition '{versionDefiningDependencyName}' of the dependency '{dependencyName}' not found." );
-
-                        return false;
-                    }
-
-                    var versionDefiningDependencyLocalImportProjectPath = Path.Combine(
-                        context.RepoDirectory,
-                        "..",
-                        versionDefiningDependencyDefinition.RepoName,
-                        $"{versionDefiningDependencyName}.Import.props" );
-
-                    var versionDefiningDependencyLocalImportProject = Project.FromFile( versionDefiningDependencyLocalImportProjectPath, new ProjectOptions() );
-
-                    var versionDefiningDependencyVersionFileName = $"{versionDefiningDependencyName}.version.props";
-
-                    var versionDefiningDependencyVersionFilePath = versionDefiningDependencyLocalImportProject.Imports
-                        .Select( i => i.ImportedProject.FullPath )
-                        .SingleOrDefault( p => Path.GetFileName( p ) == versionDefiningDependencyVersionFileName );
-
-                    ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
-
-                    versionDefiningDependency.VersionFile = versionDefiningDependencyVersionFilePath;
-                }
-
-                if ( versionDefiningDependency.VersionFile == null )
-                {
-                    context.Console.WriteError(
-                        $"The version file of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' is unknown." );
-
-                    return false;
-                }
-
-                var versionDefiningDependencyVersionFile = Project.FromFile( versionDefiningDependency.VersionFile, new ProjectOptions() );
-
-                var dependencyVersionItem = versionDefiningDependencyVersionFile.GetItemsByEvaluatedInclude( dependencyName ).SingleOrDefault();
-
-                if ( dependencyVersionItem == null )
-                {
-                    context.Console.WriteError(
-                        $"The version file of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' doesn't contain the corresponding dependency item." );
-
-                    return false;
-                }
-
-                var dependencySettings = dependencyVersionItem.DirectMetadata.ToDictionary( m => m.Name, m => m.EvaluatedValue );
-
-                ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
-
-                bool TryGetSettingsValue( string name, [NotNullWhen( true )] out string? value )
-                {
-                    if ( !dependencySettings!.TryGetValue( name, out value ) || string.IsNullOrWhiteSpace( value ) )
-                    {
-                        context.Console.WriteError(
-                            $"The dependency item of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' doesn't contain metadata '{name}'." );
-
-                        return false;
-                    }
-
-                    return true;
-                }
-
-                if ( !TryGetSettingsValue( "SourceKind", out var sourceKindString ) )
-                {
-                    return false;
-                }
-
-                var sourceKind = Enum.Parse<DependencySourceKind>( sourceKindString );
-
-                switch ( sourceKind )
-                {
-                    case DependencySourceKind.Local:
-                        dependency.Source.SourceKind = DependencySourceKind.Local;
-
-                        resolvedDependencies.Add( dependency );
-
-                        break;
-
-                    case DependencySourceKind.Default:
-                    case DependencySourceKind.Transitive:
-                        dependency.Source.SourceKind = DependencySourceKind.Transitive;
-
-                        if ( !TryGetSettingsValue( "DefaultVersion", out var defaultVersion ) )
-                        {
-                            return false;
-                        }
-
-                        dependency.Source.DefaultVersion = defaultVersion;
-
-                        break;
-
-                    case DependencySourceKind.BuildServer:
-
-                        resolvedDependencies.Add( dependency );
-
-                        dependency.Source.SourceKind = DependencySourceKind.BuildServer;
-
-                        if ( !TryGetSettingsValue( "BuildNumber", out var buildNumberString ) )
-                        {
-                            return false;
-                        }
-
-                        var buildNumber = int.Parse( buildNumberString, CultureInfo.InvariantCulture );
-                        dependency.Source.BuildNumber = buildNumber;
-
-                        if ( !TryGetSettingsValue( "CiBuildTypeId", out var ciBuildTypeId ) )
-                        {
-                            return false;
-                        }
-
-                        dependency.Source.CiBuildTypeId = ciBuildTypeId;
-
-                        if ( dependencySettings.TryGetValue( "Branch", out var branch ) && !string.IsNullOrWhiteSpace( branch ) )
-                        {
-                            dependency.Source.Branch = branch;
-                        }
-
-                        break;
-
-                    default:
-                        context.Console.WriteError(
-                            $"The dependency item of the version defining dependency '{versionDefiningDependencyName}' of the dependency '{dependencyName}' contains invalid source kind '{sourceKind}'." );
-
-                        return false;
-                }
             }
 
             return true;
