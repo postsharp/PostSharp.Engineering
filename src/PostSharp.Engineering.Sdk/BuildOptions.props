@@ -3,7 +3,7 @@
     <PropertyGroup>
         <LangVersion>latest</LangVersion>
         <Nullable>enable</Nullable>
-        <WarningsAsErrors>$(WarningsAsErrors);NU1603;NU1605</WarningsAsErrors>
+        <WarningsAsErrors>$(WarningsAsErrors);NU1603;NU1605;NU1604</WarningsAsErrors>
     </PropertyGroup>
 
     <!-- Output path -->
@@ -18,8 +18,8 @@
 
     <Target Name="VerifyRepoDirectory">
         <Error
-            Text="The RepoDirectory property has not been set. it must be set to %24(MSBuildThisFileDirectory) in Directory.Build.props "
-            Condition="'$(RepoDirectory)'==''" />
+                Text="The RepoDirectory property has not been set. it must be set to %24(MSBuildThisFileDirectory) in Directory.Build.props "
+                Condition="'$(RepoDirectory)'==''"/>
     </Target>
 
 </Project>

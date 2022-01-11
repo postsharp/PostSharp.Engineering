@@ -31,7 +31,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             BuildContext context,
             PublishSettings settings,
             string directory,
-            bool isPublic )
+            bool isPublic,
+            ref bool hasTarget )
         {
             var success = true;
 
@@ -54,6 +55,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     if ( Path.GetExtension( file )
                         .Equals( publishingTarget.Extension, StringComparison.OrdinalIgnoreCase ) )
                     {
+                        hasTarget = true;
+                        
                         switch ( publishingTarget.Execute( context, settings, Path.Combine( directory, file ), isPublic ) )
                         {
                             case SuccessCode.Success:

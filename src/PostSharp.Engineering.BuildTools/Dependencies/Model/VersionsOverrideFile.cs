@@ -1,40 +1,181 @@
-﻿using PostSharp.Engineering.BuildTools.Build;
+﻿using Microsoft.Build.Definition;
+using Microsoft.Build.Evaluation;
+using PostSharp.Engineering.BuildTools.Build;
 using Spectre.Console;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
     public class VersionsOverrideFile
     {
+        private static readonly Regex _dependencyVersionRegex = new(
+            "^(?<Kind>[^:]+):(?<Arguments>.+)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant );
+
+        private static readonly Regex _buildSettingsRegex = new(
+            @"^Number=(?<Number>\d+)(;TypeId=(?<TypeId>[^;]+))?(;TypeId=(?<Branch>[^;]+))?$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant );
+
         public Dictionary<string, DependencySource> Dependencies { get; } = new();
 
         public string? LocalBuildFile { get; set; }
 
         public string FilePath { get; }
 
-        public VersionsOverrideFile( string path )
+        private VersionsOverrideFile( string path )
         {
             this.FilePath = path;
         }
 
-        public static VersionsOverrideFile Load( BuildContext context )
+        private bool TryLoadDefaultVersions( BuildContext context )
+        {
+            var versionsPath = Path.Combine( context.RepoDirectory, context.Product.VersionsFile );
+
+            if ( !File.Exists( versionsPath ) )
+            {
+                context.Console.WriteError( $"The file '{versionsPath}' does not exist." );
+
+                return false;
+            }
+
+            var versionFile = Project.FromFile( versionsPath, new ProjectOptions() );
+
+            var defaultDependencyProperties = context.Product.Dependencies
+                .ToDictionary(
+                    d => d.Name,
+                    d => versionFile.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" )
+                        ?.EvaluatedValue );
+
+            ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
+
+            foreach ( var dependencyDefinition in context.Product.Dependencies )
+            {
+                var dependencyVersion = defaultDependencyProperties[dependencyDefinition.Name];
+
+                if ( string.IsNullOrEmpty( dependencyVersion ) )
+                {
+                    context.Console.WriteError( $"There is no {dependencyDefinition.NameWithoutDot}Version property in '{versionsPath}'." );
+
+                    return false;
+                }
+
+                DependencySource dependencySource;
+
+                if ( string.Compare( dependencyVersion, "local", StringComparison.OrdinalIgnoreCase ) == 0 )
+                {
+                    dependencySource = DependencySource.CreateLocal( DependencyConfigurationOrigin.Default );
+                }
+                else
+                {
+                    var dependencyVersionMatch = _dependencyVersionRegex.Match( dependencyVersion );
+
+                    if ( dependencyVersionMatch.Success )
+                    {
+                        switch ( dependencyVersionMatch.Groups["Kind"].Value.ToLowerInvariant() )
+                        {
+                            case "branch":
+                                {
+                                    var branch = dependencyVersionMatch.Groups["Arguments"].Value;
+                                    dependencySource = DependencySource.CreateBuildServerSource( branch, null, DependencyConfigurationOrigin.Default );
+
+                                    break;
+                                }
+
+                            case "build":
+                                {
+                                    var arguments = dependencyVersionMatch.Groups["Arguments"].Value;
+
+                                    var buildSettingsMatch = _buildSettingsRegex.Match( arguments );
+
+                                    if ( !buildSettingsMatch.Success )
+                                    {
+                                        context.Console.WriteError(
+                                            $"The TeamCity build configuration '{arguments}' of dependency '{dependencyDefinition.Name}' does not have a correct format." );
+
+                                        return false;
+                                    }
+
+                                    var buildNumber = int.Parse( buildSettingsMatch.Groups["Number"].Value, CultureInfo.InvariantCulture );
+
+                                    var ciBuildTypeId = buildSettingsMatch.Groups.GetValueOrDefault( "TypeId" )?.Value;
+
+                                    if ( string.IsNullOrEmpty( ciBuildTypeId ) )
+                                    {
+                                        ciBuildTypeId = null;
+                                    }
+
+                                    var branch = buildSettingsMatch.Groups.GetValueOrDefault( "Branch" )?.Value;
+
+                                    if ( string.IsNullOrEmpty( branch ) )
+                                    {
+                                        branch = null;
+                                    }
+
+                                    dependencySource = DependencySource.CreateBuildServerSource(
+                                        buildNumber,
+                                        ciBuildTypeId,
+                                        branch,
+                                        DependencyConfigurationOrigin.Default );
+
+                                    break;
+                                }
+
+                            case "transitive":
+                                {
+                                    context.Console.WriteError( $"Error in '{versionsPath}': explicit transitive dependencies are no longer supported." );
+
+                                    return false;
+                                }
+
+                            default:
+                                {
+                                    context.Console.WriteError(
+                                        $"Error in '{versionsPath}': cannot parse the value '{dependencyVersion}' for dependency '{dependencyDefinition.Name}' in '{versionsPath}'." );
+
+                                    return false;
+                                }
+                        }
+                    }
+                    else if ( char.IsDigit( dependencyVersion[0] ) )
+                    {
+                        dependencySource = DependencySource.CreateFeed( dependencyVersion, DependencyConfigurationOrigin.Default );
+                    }
+                    else
+                    {
+                        context.Console.WriteError(
+                            $"Error in '{versionsPath}': cannot parse the dependency '{dependencyDefinition.Name}' from '{versionsPath}'." );
+
+                        return false;
+                    }
+                }
+
+                this.Dependencies[dependencyDefinition.Name] = dependencySource;
+            }
+
+            return true;
+        }
+
+        public static bool TryLoad( BuildContext context, [NotNullWhen( true )] out VersionsOverrideFile? file )
         {
             var versionsOverridePath = Path.Combine(
                 context.RepoDirectory,
                 context.Product.EngineeringDirectory,
                 "Versions.g.props" );
 
-            VersionsOverrideFile file = new( versionsOverridePath );
+            file = new VersionsOverrideFile( versionsOverridePath );
 
-            // By default, all dependencies source from the public feeds.
-            foreach ( var dependency in context.Product.Dependencies )
+            if ( !file.TryLoadDefaultVersions( context ) )
             {
-                file.Dependencies[dependency.Name] = DependencySource.CreateOfKind( DependencySourceKind.Default, "default" );
+                file = null;
+
+                return false;
             }
 
             // Override defaults from the version file.
@@ -44,7 +185,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 var project = document.Root!;
 
                 var localImport = project.Elements( "Import" )
-                    .SingleOrDefault( i => i.Attribute( "Label" )?.Value?.Equals( "Current", StringComparison.OrdinalIgnoreCase ) ?? false );
+                    .SingleOrDefault( i => i.Attribute( "Label" )?.Value.Equals( "Current", StringComparison.OrdinalIgnoreCase ) ?? false );
 
                 file.LocalBuildFile = localImport?.Attribute( "Project" )?.Value;
 
@@ -64,31 +205,34 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                             continue;
                         }
 
-                        var kind = Enum.Parse<DependencySourceKind>( kindString );
+                        if ( !Enum.TryParse<DependencySourceKind>( kindString, out var kind ) )
+                        {
+                            context.Console.WriteWarning(
+                                $"The dependency kind '{kindString}' defined in '{versionsOverridePath}' is not supported. Skipping the parsing of this dependency." );
 
-                        var origin = item.Element( "Origin" )?.Value ?? "version file";
+                            continue;
+                        }
+
+                        var originString = item.Element( "Origin" )?.Value;
+
+                        if ( originString == null || !Enum.TryParse( originString, out DependencyConfigurationOrigin origin ) )
+                        {
+                            origin = DependencyConfigurationOrigin.Unknown;
+                        }
 
                         switch ( kind )
                         {
-                            case DependencySourceKind.Default:
-                            case DependencySourceKind.Local:
-                                file.Dependencies[name] = DependencySource.CreateOfKind( kind, origin );
+                            case DependencySourceKind.Feed:
+                                var version = item.Element( "Version" )?.Value;
+
+                                // Note that the version can be null here. It means that the version should default to the version defined in Versions.props.
+
+                                file.Dependencies[name] = DependencySource.CreateFeed( version, origin );
 
                                 break;
 
-                            case DependencySourceKind.Transitive:
-                                var versionDefiningDependencyName = item.Element( "VersionDefiningDependencyName" )?.Value;
-                                var defaultVersion = item.Element( "DefaultVersion" )?.Value;
-
-                                if ( versionDefiningDependencyName == null || defaultVersion == null )
-                                {
-                                    throw new InvalidVersionFileException();
-                                }
-
-                                file.Dependencies[name] = DependencySource.CreateTransitiveBuildServerSource(
-                                    versionDefiningDependencyName,
-                                    defaultVersion,
-                                    origin );
+                            case DependencySourceKind.Local:
+                                file.Dependencies[name] = DependencySource.CreateLocal( origin );
 
                                 break;
 
@@ -129,7 +273,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 }
             }
 
-            return file;
+            return true;
         }
 
         public bool TrySave( BuildContext context )
@@ -157,7 +301,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             var itemGroup = new XElement( "ItemGroup" );
             project.Add( itemGroup );
             var requiredFiles = new List<string>();
-            var transitiveVersions = new List<(string PropertyName, string Version)>();
 
             foreach ( var dependency in this.Dependencies.OrderBy( d => d.Key ) )
             {
@@ -167,6 +310,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     "LocalDependencySource",
                     new XAttribute( "Include", dependency.Key ),
                     new XElement( "Kind", dependency.Value.SourceKind ) );
+
+                void AddIfNotNull( string name, string? value )
+                {
+                    if ( value != null )
+                    {
+                        item.Add( new XElement( name, value ) );
+                    }
+                }
 
                 switch ( dependency.Value.SourceKind )
                 {
@@ -187,14 +338,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                 if ( versionFile == null )
                                 {
                                     throw new InvalidOperationException( "The VersionFile property of dependencies should be set." );
-                                }
-
-                                void AddIfNotNull( string name, string? value )
-                                {
-                                    if ( value != null )
-                                    {
-                                        item!.Add( new XElement( name, value ) );
-                                    }
                                 }
 
                                 AddIfNotNull( "Branch", dependency.Value.Branch );
@@ -224,16 +367,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                         break;
 
-                    case DependencySourceKind.Default:
-                        break;
-
-                    case DependencySourceKind.Transitive:
+                    case DependencySourceKind.Feed:
                         {
-                            item.Add( new XElement( "VersionDefiningDependencyName", dependency.Value.VersionDefiningDependencyName ) );
-                            item.Add( new XElement( "DefaultVersion", dependency.Value.DefaultVersion ) );
-
-                            var versionPropertyName = dependency.Key.Replace( ".", "", StringComparison.OrdinalIgnoreCase ) + "Version";
-                            transitiveVersions.Add( (versionPropertyName, dependency.Value.DefaultVersion!) );
+                            AddIfNotNull( "Version", dependency.Value.Version );
                         }
 
                         break;
@@ -247,17 +383,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 if ( !ignoreDependency )
                 {
                     itemGroup.Add( item );
-                }
-            }
-
-            if ( transitiveVersions.Count > 0 )
-            {
-                var transitiveVersionsPropertyGroup = new XElement( "PropertyGroup" );
-                project.Add( transitiveVersionsPropertyGroup );
-
-                foreach ( var transitiveVersion in transitiveVersions )
-                {
-                    transitiveVersionsPropertyGroup.Add( new XElement( transitiveVersion.PropertyName, transitiveVersion.Version ) );
                 }
             }
 
@@ -295,12 +420,16 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             {
                 var name = context.Product.Dependencies[i].Name;
 
+                var rowNumber = (i + 1).ToString( CultureInfo.InvariantCulture );
+
                 if ( !this.Dependencies.TryGetValue( name, out var source ) )
                 {
-                    source = DependencySource.CreateOfKind( DependencySourceKind.Default, "print" );
+                    table.AddRow( rowNumber, name, "?" );
                 }
-
-                table.AddRow( (i + 1).ToString( CultureInfo.InvariantCulture ), name, source.ToString()! );
+                else
+                {
+                    table.AddRow( rowNumber, name, source.ToString() );
+                }
             }
 
             // Add implicit dependencies (if previously fetched).

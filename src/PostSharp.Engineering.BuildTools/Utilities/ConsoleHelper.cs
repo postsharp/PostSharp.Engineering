@@ -17,7 +17,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         private static void OnCancel( object? sender, ConsoleCancelEventArgs e ) => _cancellationTokenSource.Cancel();
 
-        public static CancellationToken CancellationToken { get; }
+        public static CancellationToken CancellationToken => _cancellationTokenSource.Token;
 
         public IAnsiConsole Out { get; }
 
