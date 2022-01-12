@@ -29,7 +29,7 @@
             switch ( this.SourceKind )
             {
                 case DependencySourceKind.BuildServer:
-                    return $"BuildServer, " + this.BuildServerSource;
+                    return $"BuildServer, {this.BuildServerSource}, Origin={this.Origin}";
 
                 case DependencySourceKind.Local:
                     {

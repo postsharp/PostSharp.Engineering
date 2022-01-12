@@ -198,8 +198,18 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     switch ( sourceKind )
                     {
                         case DependencySourceKind.BuildServer:
+                            var buildNumber = transitiveDependency.GetMetadataValue( "BuildNumber" );
+                            var ciBuildTypeId = transitiveDependency.GetMetadataValue( "CiBuildTypeId" );
+
+                            if ( string.IsNullOrEmpty( buildNumber ) || string.IsNullOrEmpty( ciBuildTypeId ) )
+                            {
+                                context.Console.WriteError( $"The dependency '{name}' must have both BuildNumber and CiBuildTypeId properties in {directDependency.Source.VersionFile}." );
+
+                                return false;
+                            }
+                            
                             dependencySource = DependencySource.CreateBuildServerSource(
-                                directDependency.Source.BuildServerSource!,
+                                new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId ),
                                 DependencyConfigurationOrigin.Transitive );
 
                             break;
