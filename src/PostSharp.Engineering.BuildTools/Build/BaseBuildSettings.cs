@@ -9,15 +9,15 @@ namespace PostSharp.Engineering.BuildTools.Build
     {
         [Description( "Sets the build configuration (Debug or Release)" )]
         [CommandOption( "-c|--configuration" )]
-        public BuildConfiguration BuildConfiguration { get; set; }
+        public BuildConfiguration BuildConfiguration
+        {
+            get;
+            set;
+        }
 
         [Description( "Creates a numbered build (typically for an internal CI build)" )]
-        [CommandOption( "--numbered" )]
+        [CommandOption( "--buildNumber" )]
         public int BuildNumber { get; set; }
-
-        [Description( "Creates a public build (typically to publish to nuget.org)" )]
-        [CommandOption( "--public" )]
-        public bool PublicBuild { get; set; }
 
         [Description( "Sets the verbosity" )]
         [CommandOption( "-v|--verbosity" )]
@@ -68,7 +68,7 @@ namespace PostSharp.Engineering.BuildTools.Build
         public VersionSpec VersionSpec
             => this.BuildNumber > 0
                 ? new VersionSpec( VersionKind.Numbered, this.BuildNumber )
-                : this.PublicBuild
+                : this.BuildConfiguration == BuildConfiguration.Public
                     ? new VersionSpec( VersionKind.Public )
                     : new VersionSpec( VersionKind.Local );
     }

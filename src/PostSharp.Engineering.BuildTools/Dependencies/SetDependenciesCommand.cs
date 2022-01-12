@@ -27,28 +27,26 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     break;
 
                 case DependencySourceKind.BuildServer:
-                    if ( settings.BuildNumber != null )
-                    {
-                        var ciBuildTypeId = settings.CiBuildTypeId ?? dependencyDefinition.DefaultCiBuildTypeId;
+                    ICiBuildSpec buildSpec;
 
-                        dependencySource = DependencySource.CreateBuildServerSource(
-                            settings.BuildNumber.Value,
-                            ciBuildTypeId,
-                            null,
-                            DependencyConfigurationOrigin.Override );
-                    }
-                    else if ( settings.Branch != null )
+                    if ( settings.Branch != null )
                     {
-                        var branch = settings.Branch;
-                        var ciBuildTypeId = settings.CiBuildTypeId ?? dependencyDefinition.DefaultCiBuildTypeId;
-                        dependencySource = DependencySource.CreateBuildServerSource( branch, ciBuildTypeId, DependencyConfigurationOrigin.Override );
+                        buildSpec = new CiBranch( settings.Branch );
+                    }
+                    else if ( settings.BuildNumber != null )
+                    {
+                        buildSpec = new CiBuildId( settings.BuildNumber.Value, settings.CiBuildTypeId );
                     }
                     else
                     {
-                        var branch = dependencyDefinition.DefaultBranch;
-                        var ciBuildTypeId = settings.CiBuildTypeId ?? dependencyDefinition.DefaultCiBuildTypeId;
-                        dependencySource = DependencySource.CreateBuildServerSource( branch, ciBuildTypeId, DependencyConfigurationOrigin.Override );
+                        context.Console.WriteError( "Either the --branch or --buildNumber parameter should be specified." );
+
+                        return false;
                     }
+
+                    dependencySource = DependencySource.CreateBuildServerSource(
+                        buildSpec,
+                        DependencyConfigurationOrigin.Override );
 
                     break;
 

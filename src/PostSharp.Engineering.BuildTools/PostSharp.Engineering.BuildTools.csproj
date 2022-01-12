@@ -28,9 +28,5 @@
         <EmbeddedResource Include="ToolsResources\*.*"/>
     </ItemGroup>
 
-    <ItemGroup>
-        <Compile Remove="Dependencies\Model\DependencyConfigurationOrigin.cs"/>
-    </ItemGroup>
-
 
 </Project>

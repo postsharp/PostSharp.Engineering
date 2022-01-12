@@ -23,9 +23,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var argsBuilder = new StringBuilder();
             var path = Path.Combine( context.RepoDirectory, this.SolutionPath );
 
+            var configuration = context.Product.Configurations[settings.BuildConfiguration];
+
             argsBuilder.Append(
                 CultureInfo.InvariantCulture,
-                $"-t:{target} -p:Configuration={settings.BuildConfiguration} \"{path}\" -v:{settings.Verbosity.ToAlias()} -NoLogo" );
+                $"-t:{target} -p:Configuration={configuration.MSBuildName} \"{path}\" -v:{settings.Verbosity.ToAlias()} -NoLogo" );
 
             if ( settings.NoConcurrency )
             {

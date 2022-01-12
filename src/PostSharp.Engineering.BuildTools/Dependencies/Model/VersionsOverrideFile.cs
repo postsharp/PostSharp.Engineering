@@ -83,7 +83,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                             case "branch":
                                 {
                                     var branch = dependencyVersionMatch.Groups["Arguments"].Value;
-                                    dependencySource = DependencySource.CreateBuildServerSource( branch, null, DependencyConfigurationOrigin.Default );
+
+                                    dependencySource = DependencySource.CreateBuildServerSource(
+                                        new CiBranch( branch ),
+                                        DependencyConfigurationOrigin.Default );
 
                                     break;
                                 }
@@ -103,25 +106,16 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                     }
 
                                     var buildNumber = int.Parse( buildSettingsMatch.Groups["Number"].Value, CultureInfo.InvariantCulture );
-
                                     var ciBuildTypeId = buildSettingsMatch.Groups.GetValueOrDefault( "TypeId" )?.Value;
 
                                     if ( string.IsNullOrEmpty( ciBuildTypeId ) )
                                     {
-                                        ciBuildTypeId = null;
-                                    }
-
-                                    var branch = buildSettingsMatch.Groups.GetValueOrDefault( "Branch" )?.Value;
-
-                                    if ( string.IsNullOrEmpty( branch ) )
-                                    {
-                                        branch = null;
+                                        context.Console.WriteError(
+                                            $"The TypeId property of dependency '{dependencyDefinition.Name}' does is required in '{versionsPath}'." );
                                     }
 
                                     dependencySource = DependencySource.CreateBuildServerSource(
-                                        buildNumber,
-                                        ciBuildTypeId,
-                                        branch,
+                                        new CiBuildId( buildNumber, ciBuildTypeId ),
                                         DependencyConfigurationOrigin.Default );
 
                                     break;
@@ -242,24 +236,36 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                 var ciBuildTypeId = item.Element( "CiBuildTypeId" )?.Value;
                                 var versionFile = item.Element( "VersionFile" )?.Value;
 
-                                DependencySource dependencySource;
+                                ICiBuildSpec buildSpec;
 
-                                if ( buildNumber != null )
+                                if ( !string.IsNullOrEmpty( buildNumber ) )
                                 {
-                                    dependencySource = DependencySource.CreateBuildServerSource(
-                                        int.Parse( buildNumber, CultureInfo.InvariantCulture ),
-                                        ciBuildTypeId,
-                                        branch,
-                                        origin );
+                                    if ( string.IsNullOrEmpty( ciBuildTypeId ) )
+                                    {
+                                        context.Console.WriteError(
+                                            $"The property CiBuildTypeId of dependency {name} is required in '{versionsOverridePath}'." );
+
+                                        return false;
+                                    }
+
+                                    buildSpec = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId );
                                 }
-                                else if ( branch != null )
+                                else if ( !string.IsNullOrEmpty( branch ) )
                                 {
-                                    dependencySource = DependencySource.CreateBuildServerSource( branch, ciBuildTypeId, origin );
+                                    buildSpec = new CiBranch( branch );
                                 }
                                 else
                                 {
-                                    throw new InvalidVersionFileException();
+                                    context.Console.WriteError(
+                                        $"The dependency {name}  in '{versionsOverridePath}' requires one of these properties: Branch or BuildNumber." );
+
+                                    return false;
                                 }
+
+                                var dependencySource =
+                                    DependencySource.CreateBuildServerSource(
+                                        buildSpec,
+                                        origin );
 
                                 dependencySource.VersionFile = versionFile;
                                 file.Dependencies[name] = dependencySource;
@@ -340,9 +346,20 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                     throw new InvalidOperationException( "The VersionFile property of dependencies should be set." );
                                 }
 
-                                AddIfNotNull( "Branch", dependency.Value.Branch );
-                                AddIfNotNull( "BuildNumber", dependency.Value.BuildNumber?.ToString( CultureInfo.InvariantCulture ) );
-                                AddIfNotNull( "CiBuildTypeId", dependency.Value.CiBuildTypeId );
+                                switch ( dependency.Value.BuildServerSource )
+                                {
+                                    case CiBranch branch:
+                                        AddIfNotNull( "Branch", branch.Name );
+
+                                        break;
+
+                                    case CiBuildId buildId:
+                                        AddIfNotNull( "BuildNumber", buildId.BuildNumber.ToString( CultureInfo.InvariantCulture ) );
+                                        AddIfNotNull( "CiBuildTypeId", buildId.BuildTypeId );
+
+                                        break;
+                                }
+
                                 AddIfNotNull( "VersionFile", versionFile );
 
                                 requiredFiles.Add( versionFile );

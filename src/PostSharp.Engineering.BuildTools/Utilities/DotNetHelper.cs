@@ -16,10 +16,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string arguments = "" )
         {
             var argsBuilder = new StringBuilder();
+            var configuration = context.Product.Configurations[settings.BuildConfiguration];
 
             argsBuilder.Append(
                 CultureInfo.InvariantCulture,
-                $"{command} -p:Configuration={settings.BuildConfiguration} \"{solution}\" -v:{settings.Verbosity.ToAlias()} --nologo" );
+                $"{command} -p:Configuration={configuration.MSBuildName} \"{solution}\" -v:{settings.Verbosity.ToAlias()} --nologo" );
 
             if ( settings.NoConcurrency )
             {

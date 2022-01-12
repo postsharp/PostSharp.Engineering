@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using System;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
@@ -20,7 +21,40 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             this._httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Bearer", token );
         }
 
-        public int? GetLatestBuildNumber( string buildTypeId, string branch, CancellationToken cancellationToken )
+        public string? GetBranchFromBuildNumber( CiBuildId buildId, CancellationToken cancellationToken )
+        {
+            var url =
+                $"https://tc.postsharp.net/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildId.BuildTypeId},number:{buildId.BuildNumber}";
+
+            var result = this._httpClient.GetAsync( url, cancellationToken ).Result;
+
+            if ( !result.IsSuccessStatusCode )
+            {
+                return null;
+            }
+
+            var content = result.Content.ReadAsStringAsync( cancellationToken ).Result;
+            var xmlResult = XDocument.Parse( content );
+            var build = xmlResult.Root?.Elements( "build" ).FirstOrDefault();
+
+            if ( build == null )
+            {
+                return null;
+            }
+
+            var branch = build.Attribute( "branch" )!.Value;
+
+            const string prefix = "refs/heads/";
+
+            if ( !branch.StartsWith( prefix, StringComparison.OrdinalIgnoreCase ) )
+            {
+                return null;
+            }
+
+            return branch.Substring( prefix.Length );
+        }
+
+        public CiBuildId? GetLatestBuildNumber( string buildTypeId, string branch, CancellationToken cancellationToken )
         {
             var url =
                 $"https://tc.postsharp.net/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId},branch:refs/heads/{branch}";
@@ -42,7 +76,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
             else
             {
-                return int.Parse( build.Attribute( "number" )!.Value, CultureInfo.InvariantCulture );
+                return new CiBuildId( int.Parse( build.Attribute( "number" )!.Value, CultureInfo.InvariantCulture ), buildTypeId );
             }
         }
 

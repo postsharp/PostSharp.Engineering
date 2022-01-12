@@ -1,28 +1,5 @@
 ﻿namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
-    public enum DependencyConfigurationOrigin
-    {
-        /// <summary>
-        /// Unknown origin.
-        /// </summary>
-        Unknown,
-
-        /// <summary>
-        /// Default value defined in source code.
-        /// </summary>
-        Default,
-
-        /// <summary>
-        /// Overridden value using the command-line tool.
-        /// </summary>
-        Override,
-
-        /// <summary>
-        /// Transitive from a parent dependency.
-        /// </summary>
-        Transitive
-    }
-
     public sealed class DependencySource
     {
         /// <summary>
@@ -30,11 +7,7 @@
         /// </summary>
         public string? Version { get; internal set; }
 
-        public string? Branch { get; internal set; }
-
-        public int? BuildNumber { get; internal set; }
-
-        public string? CiBuildTypeId { get; internal set; }
+        public ICiBuildSpec? BuildServerSource { get; internal set; }
 
         internal string? VersionFile { get; set; }
 
@@ -48,35 +21,15 @@
         public static DependencySource CreateFeed( string? version, DependencyConfigurationOrigin origin )
             => new() { Origin = origin, SourceKind = DependencySourceKind.Feed, Version = version };
 
-        public static DependencySource CreateBuildServerSource( string branch, string? ciBuildTypeId, DependencyConfigurationOrigin origin )
-            => new() { Origin = origin, SourceKind = DependencySourceKind.BuildServer, Branch = branch, CiBuildTypeId = ciBuildTypeId };
-
-        // The branch here is just informative. It is not used to resolve the dependency.
-        public static DependencySource CreateBuildServerSource( int buildNumber, string? ciBuildTypeId, string? branch, DependencyConfigurationOrigin origin )
-            => new()
-            {
-                Origin = origin,
-                SourceKind = DependencySourceKind.BuildServer,
-                BuildNumber = buildNumber,
-                CiBuildTypeId = ciBuildTypeId,
-                Branch = branch
-            };
+        public static DependencySource CreateBuildServerSource( ICiBuildSpec source, DependencyConfigurationOrigin origin )
+            => new() { Origin = origin, SourceKind = DependencySourceKind.BuildServer, BuildServerSource = source };
 
         public override string ToString()
         {
             switch ( this.SourceKind )
             {
                 case DependencySourceKind.BuildServer:
-                    if ( this.BuildNumber != null )
-                    {
-                        return
-                            $"{this.SourceKind}, BuildNumber='{this.BuildNumber}', CiBuildTypeId='{this.CiBuildTypeId}', Origin='{this.Origin}'";
-                    }
-                    else
-                    {
-                        return
-                            $"{this.SourceKind}, Branch='{this.Branch}', CiBuildTypeId='{this.CiBuildTypeId}', Origin='{this.Origin}'";
-                    }
+                    return $"BuildServer, " + this.BuildServerSource;
 
                 case DependencySourceKind.Local:
                     {

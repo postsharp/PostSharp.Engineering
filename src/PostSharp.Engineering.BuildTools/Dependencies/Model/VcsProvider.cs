@@ -2,6 +2,7 @@
 {
     public enum VcsProvider
     {
+        None,
         GitHub,
         AzureRepos
     }

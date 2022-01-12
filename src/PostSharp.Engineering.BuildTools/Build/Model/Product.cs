@@ -9,6 +9,7 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
@@ -27,6 +28,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             get => this._versionsFile ?? Path.Combine( this.EngineeringDirectory, "Versions.props" );
             init => this._versionsFile = value;
         }
+
+        /// <summary>
+        /// Gets the dependency from which the main version should be copied.
+        /// </summary>
+        public DependencyDefinition? MainVersionDependency { get; init; }
 
         public string ProductName { get; init; } = "Unnamed";
 
@@ -48,8 +54,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool KeepEditorConfig { get; init; }
 
+        public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
+
+        public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
+            = new(
+                new BuildConfigurationInfo( "Debug", AutoBuild: true ),
+                new BuildConfigurationInfo( "Release", true ),
+                new BuildConfigurationInfo( "Release", true, true ) );
+
         /// <summary>
-        /// Set of dependencies of this product. Some commands expect the dependency to exist in <see cref="PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.All"/>.
+        /// Gets the set of dependencies of this product. Some commands expect the dependency to exist in <see cref="PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.All"/>.
         /// </summary>
         public ImmutableArray<DependencyDefinition> Dependencies { get; init; } = ImmutableArray<DependencyDefinition>.Empty;
 
@@ -64,16 +78,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Build( BuildContext context, BuildSettings settings )
         {
-            // Validate options.
-            if ( settings.PublicBuild )
-            {
-                if ( settings.BuildConfiguration != BuildConfiguration.Release )
-                {
-                    context.Console.WriteError( $"Cannot build a public version of a {settings.BuildConfiguration} build without --force." );
-
-                    return false;
-                }
-            }
+            var buildConfigurationInfo = this.Configurations[settings.BuildConfiguration];
 
             // Build dependencies.
             if ( !settings.NoDependencies && !this.Prepare( context, settings ) )
@@ -131,7 +136,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             CreateZip( privateArtifactsDir );
 
             // If we're doing a public build, copy public artifacts to the publish directory.
-            if ( settings.PublicBuild )
+            if ( buildConfigurationInfo.PublishArtifacts )
             {
                 // Copy artifacts.
                 context.Console.WriteHeading( "Copying public artifacts" );
@@ -167,7 +172,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // Sign public artifacts.
                 var signSuccess = true;
 
-                if ( settings.Sign )
+                if ( buildConfigurationInfo.RequiresSigning )
                 {
                     context.Console.WriteHeading( "Signing artifacts" );
 
@@ -207,12 +212,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     context.Console.WriteSuccess( "Signing artifacts was successful." );
                 }
-            }
-            else if ( settings.Sign )
-            {
-                context.Console.WriteWarning( $"Cannot use --sign option in a non-public build." );
-
-                return false;
             }
 
             // Writing the import file at the end of the build so it gets only written if the build was successful.
@@ -468,12 +467,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 this.Clean( context, settings );
             }
 
-            var configuration = settings.BuildConfiguration.ToString().ToLowerInvariant();
+            context.Console.WriteHeading( "Preparing the version file" );
 
-            var versionPrefix = this.ComputeVersion( context, settings, configuration, out var patchNumber, out var versionSuffix );
+            var configuration = settings.BuildConfiguration;
 
             var privateArtifactsRelativeDir =
-                this.PrivateArtifactsDirectory.ToString( new VersionInfo( null!, settings.BuildConfiguration.ToString() ) );
+                this.PrivateArtifactsDirectory.ToString( new VersionInfo( null!, configuration.ToString() ) );
 
             var artifactsDir = Path.Combine( context.RepoDirectory, privateArtifactsRelativeDir );
 
@@ -494,7 +493,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 
             if ( versionsOverrideFile.Dependencies.Any( d => d.Value.SourceKind != DependencySourceKind.Feed && d.Value.VersionFile == null ) )
             {
-                FetchDependencyCommand.FetchDependencies( context, versionsOverrideFile );
+                FetchDependencyCommand.FetchDependencies( context, settings.BuildConfiguration, versionsOverrideFile );
 
                 versionsOverrideFile.LocalBuildFile = propsFilePath;
                 context.Console.WriteMessage( $"Updating '{versionsOverrideFile.FilePath}'." );
@@ -505,8 +504,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
+            // Read the main version number.
+            if ( !this.TryComputeVersion( context, settings, configuration, versionsOverrideFile, out var version ) )
+            {
+                return false;
+            }
+
             // Generate Versions.g.props.
-            var props = this.GenerateVersionFile( versionPrefix, patchNumber, versionSuffix, configuration, versionsOverrideFile );
+            var props = this.GenerateVersionFile( version, configuration, versionsOverrideFile );
             context.Console.WriteMessage( $"Writing '{propsFilePath}'." );
             File.WriteAllText( propsFilePath, props );
 
@@ -521,21 +526,74 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             context.Console.WriteSuccess(
                 $"Preparing the version file was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) ).PackageVersion}" );
 
+            // Generating the TeamCity file.
+            if ( !this.GenerateTeamcityConfiguration( context ) )
+            {
+                return false;
+            }
+
             return true;
         }
 
-        private string ComputeVersion( BuildContext context, BaseBuildSettings settings, string configuration, out int patchNumber, out string versionSuffix )
+        private bool TryComputeVersion(
+            BuildContext context,
+            BaseBuildSettings settings,
+            BuildConfiguration configuration,
+            VersionsOverrideFile versionsOverrideFile,
+            [NotNullWhen( true )] out VersionComponents? version )
         {
-            var (mainVersion, mainPackageVersionSuffix) =
+            var configurationLowerCase = configuration.ToString().ToLowerInvariant();
+
+            version = null;
+            string? mainVersion;
+            string? mainPackageVersionSuffix;
+
+            (mainVersion, mainPackageVersionSuffix) =
                 ReadMainVersionFile(
                     Path.Combine(
                         context.RepoDirectory,
                         this.EngineeringDirectory,
                         "MainVersion.props" ) );
 
-            context.Console.WriteHeading( "Preparing the version file" );
+            if ( this.MainVersionDependency != null )
+            {
+                // The main version is defined in a dependency. Load the import file.
+
+                if ( !versionsOverrideFile.Dependencies.TryGetValue( this.MainVersionDependency.Name, out var dependencySource ) )
+                {
+                    context.Console.WriteError( $"Cannot find a dependency named '{this.MainVersionDependency.Name}'." );
+
+                    return false;
+                }
+                else if ( dependencySource.VersionFile == null )
+                {
+                    context.Console.WriteError( $"The dependency '{this.MainVersionDependency.Name}' is not resolved." );
+
+                    return false;
+                }
+
+                var versionFile = Project.FromFile( dependencySource.VersionFile, new ProjectOptions() );
+
+                var propertyName = this.MainVersionDependency!.NameWithoutDot + "MainVersion";
+
+                mainVersion = versionFile.Properties.SingleOrDefault( p => p.Name == propertyName )
+                    ?.UnevaluatedValue;
+
+                if ( string.IsNullOrWhiteSpace( mainVersion ) )
+                {
+                    context.Console.WriteError( $"The file '{dependencySource.VersionFile}' does not contain the {propertyName}." );
+
+                    return false;
+                }
+
+                // Note that the version suffix is not copied from the dependency, only the main version. 
+
+                ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
+            }
 
             var versionPrefix = mainVersion;
+            string versionSuffix;
+            int patchNumber;
 
             switch ( settings.VersionSpec.Kind )
             {
@@ -571,8 +629,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                         File.WriteAllText( localVersionFile, localVersion.ToString( CultureInfo.InvariantCulture ) );
 
-                        versionSuffix =
-                            $"local-{Environment.UserName}-{configuration}";
+                        versionSuffix = $"local-{Environment.UserName}-{configurationLowerCase}";
 
                         patchNumber = localVersion;
 
@@ -583,7 +640,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     {
                         // Build server build with a build number given by the build server
                         patchNumber = settings.VersionSpec.Number;
-                        versionSuffix = $"dev-{configuration}";
+                        versionSuffix = $"dev-{configurationLowerCase}";
 
                         break;
                     }
@@ -599,22 +656,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     throw new InvalidOperationException();
             }
 
-            return versionPrefix;
+            version = new VersionComponents( mainVersion, versionPrefix, patchNumber, versionSuffix );
+
+            return true;
         }
 
         protected virtual string GenerateVersionFile(
-            string versionPrefix,
-            int patchNumber,
-            string versionSuffix,
-            string configuration,
+            VersionComponents version,
+            BuildConfiguration configuration,
             VersionsOverrideFile versionsOverrideFile )
         {
             var props = $@"
 <!-- This file is generated by the engineering tooling -->
 <Project>
-    <PropertyGroup>";
+    <PropertyGroup>
+        <{this.ProductNameWithoutDot}MainVersion>{version.MainVersion}</{this.ProductNameWithoutDot}MainVersion>";
 
-            var versionWithPatch = patchNumber == 0 ? versionPrefix : versionPrefix + "." + patchNumber;
+            var versionWithPatch = version.PatchNumber == 0 ? version.VersionPrefix : version.VersionPrefix + "." + version.PatchNumber;
 
             if ( this.GenerateArcadeProperties )
             {
@@ -623,12 +681,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var arcadeSuffix = "";
 
-                if ( !string.IsNullOrEmpty( versionSuffix ) )
+                if ( !string.IsNullOrEmpty( version.VersionSuffix ) )
                 {
-                    arcadeSuffix += versionSuffix;
+                    arcadeSuffix += version.VersionSuffix;
                 }
 
-                if ( patchNumber > 0 )
+                if ( version.PatchNumber > 0 )
                 {
                     if ( arcadeSuffix.Length > 0 )
                     {
@@ -640,22 +698,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         arcadeSuffix += "-patch-" + configuration;
                     }
 
-                    arcadeSuffix += patchNumber;
+                    arcadeSuffix += version.PatchNumber;
                 }
 
                 var packageSuffixWithDash = string.IsNullOrEmpty( arcadeSuffix ) ? "" : "-" + arcadeSuffix;
 
                 props += $@"
-        <{this.ProductNameWithoutDot}VersionPrefix>{versionPrefix}</{this.ProductNameWithoutDot}VersionPrefix>
+        
+        <{this.ProductNameWithoutDot}VersionPrefix>{version.VersionPrefix}</{this.ProductNameWithoutDot}VersionPrefix>
         <{this.ProductNameWithoutDot}VersionSuffix>{arcadeSuffix}</{this.ProductNameWithoutDot}VersionSuffix>
-        <{this.ProductNameWithoutDot}VersionPatchNumber>{patchNumber}</{this.ProductNameWithoutDot}VersionPatchNumber>
+        <{this.ProductNameWithoutDot}VersionPatchNumber>{version.PatchNumber}</{this.ProductNameWithoutDot}VersionPatchNumber>
         <{this.ProductNameWithoutDot}VersionWithoutSuffix>{versionWithPatch}</{this.ProductNameWithoutDot}VersionWithoutSuffix>
-        <{this.ProductNameWithoutDot}Version>{versionPrefix}{packageSuffixWithDash}</{this.ProductNameWithoutDot}Version>
+        <{this.ProductNameWithoutDot}Version>{version.VersionPrefix}{packageSuffixWithDash}</{this.ProductNameWithoutDot}Version>
         <{this.ProductNameWithoutDot}AssemblyVersion>{versionWithPatch}</{this.ProductNameWithoutDot}AssemblyVersion>";
             }
             else
             {
-                var packageSuffix = string.IsNullOrEmpty( versionSuffix ) ? "" : "-" + versionSuffix;
+                var packageSuffix = string.IsNullOrEmpty( version.VersionSuffix ) ? "" : "-" + version.VersionSuffix;
 
                 props += $@"
         <{this.ProductNameWithoutDot}Version>{versionWithPatch}{packageSuffix}</{this.ProductNameWithoutDot}Version>
@@ -675,13 +734,36 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             foreach ( var dependency in versionsOverrideFile.Dependencies )
             {
+                var buildSpec = dependency.Value.BuildServerSource;
+
                 props += $@"
         <{this.ProductNameWithoutDot}Dependencies Include=""{dependency.Key}"">
-            <SourceKind>{dependency.Value.SourceKind}</SourceKind>
-            <Version>{dependency.Value.Version}</Version>
-            <BuildNumber>{dependency.Value.BuildNumber}</BuildNumber>
-            <CiBuildTypeId>{dependency.Value.CiBuildTypeId}</CiBuildTypeId>
-            <Branch>{dependency.Value.Branch}</Branch>
+            <SourceKind>{dependency.Value.SourceKind}</SourceKind>";
+
+                if ( dependency.Value.Version != null )
+                {
+                    props += $@"
+            <Version>{dependency.Value.Version}</Version>";
+                }
+
+                switch ( buildSpec )
+                {
+                    case CiBuildId buildId:
+                        props += $@"
+            <BuildNumber>{buildId.BuildNumber}</BuildNumber>
+            <CiBuildTypeId>{buildId.BuildTypeId}</CiBuildTypeId>";
+
+                        break;
+
+                    case CiBranch branch:
+                        props += props + $@"
+            <Branch>{branch.Name}</Branch>";
+
+                        break;
+                }
+
+                props
+                    += $@"
         </{this.ProductNameWithoutDot}Dependencies>";
             }
 
@@ -771,19 +853,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     settings,
                     Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( stringParameters ) ),
                     false,
-                    ref hasTarget) )
+                    ref hasTarget ) )
             {
                 return false;
             }
 
-            if ( settings.Public )
+            var configurationInfo = context.Product.Configurations[settings.BuildConfiguration];
+
+            if ( configurationInfo.PublishArtifacts )
             {
                 if ( !Publisher.PublishDirectory(
                         context,
                         settings,
                         Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) ),
                         true,
-                        ref hasTarget) )
+                        ref hasTarget ) )
                 {
                     return false;
                 }
@@ -796,6 +880,149 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             else
             {
                 context.Console.WriteSuccess( "Publishing has succeeded." );
+            }
+
+            return true;
+        }
+
+        public bool GenerateTeamcityConfiguration( BuildContext context )
+        {
+            var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
+
+            var content = new StringWriter();
+
+            content.WriteLine(
+                @"
+// This file is automatically generated when you do `Build.ps1 prepare`, but it must be stored in  source control.
+
+import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.powerShell
+import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
+
+version = ""2019.2""
+
+project {
+" );
+
+            foreach ( var configuration in configurations )
+            {
+                content.WriteLine( $"buildType({configuration}Build)" );
+            }
+
+            content.WriteLine(
+                @"
+   buildType(Deploy)
+}" );
+
+            foreach ( var configuration in configurations )
+            {
+                var configurationInfo = this.Configurations[configuration];
+
+                content.WriteLine(
+                    $@"
+   object {configuration}Build : BuildType({{
+    name = ""Build [{configuration}]""
+
+    artifactRules = ""+:artifacts/publish/**/*=>artifacts/publish""
+
+    vcs {{
+        root(DslContext.settingsRoot)
+    }}
+
+    steps {{
+        powerShell {{
+            scriptMode = file {{
+                path = ""Build.ps1""
+            }}
+            noProfile = false
+            param(""jetbrains_powershell_scriptArguments"", ""test --configuration {configuration} --buildNumber %build.number%"")
+        }}
+    }}
+
+    requirements {{
+        equals(""env.BuildAgentType"", ""caravela02"")
+    }}
+
+" );
+
+                if ( configurationInfo.AutoBuild )
+                {
+                    content.WriteLine(
+                        @"
+    triggers {
+        vcs {
+            quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
+            branchFilter = ""+:<default>""
+        }
+    }" );
+                }
+
+                content.WriteLine(
+                    $@"
+  dependencies {{" );
+
+                foreach ( var dependency in this.Dependencies.Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency ) )
+                {
+                    content.WriteLine(
+                        $@"
+        snapshot(AbsoluteId(""{dependency.CiBuildTypes[configuration]}"")) {{
+                     onDependencyFailure = FailureAction.FAIL_TO_START
+                }}
+" );
+                }
+
+                content.WriteLine(
+                    $@"
+    }}
+  }})" );
+            }
+
+            content.WriteLine(
+                @"
+// Publish the release build to public feeds
+object Deploy : BuildType({
+    name = ""Deploy [Public]""
+    type = Type.DEPLOYMENT
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+
+    steps {
+        powerShell {
+            scriptMode = file {
+                path = ""Build.ps1""
+            }
+            noProfile = false
+            param(""jetbrains_powershell_scriptArguments"", ""publish --configuration Public"")
+        }
+    }
+    
+    dependencies {
+        dependency(PublicBuild) {
+            snapshot {
+            }
+
+            artifacts {
+                cleanDestination = true
+                artifactRules = ""+:artifacts/publish/**/*=>artifacts/publish""
+            }
+        }
+    }
+    
+    requirements {
+        equals(""env.BuildAgentType"", ""caravela02"")
+    }
+})
+
+" );
+
+            var filePath = Path.Combine( context.RepoDirectory, ".teamcity", "settings.kts" );
+
+            if ( !File.Exists( filePath ) || File.ReadAllText( filePath ) != content.ToString() )
+            {
+                context.Console.WriteWarning( $"Replacing '{filePath}'." );
+                File.WriteAllText( filePath, content.ToString() );
             }
 
             return true;
