@@ -42,7 +42,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 return null;
             }
 
-            var branch = build.Attribute( "branch" )!.Value;
+            var branch = build.Attribute( "branchName" )!.Value;
 
             const string prefix = "refs/heads/";
 
