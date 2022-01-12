@@ -8,7 +8,7 @@ namespace PostSharp.Engineering.BuildTools.Build
         Debug,
 
         /// <summary>
-        /// A release  build: optimized, obfuscated (if the solution supports it), , with an auto-generated version number. 
+        /// A release  build: optimized, obfuscated (if the solution supports it), with an auto-generated version number. 
         /// </summary>
         Release,
 

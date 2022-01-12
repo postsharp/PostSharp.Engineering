@@ -9,13 +9,9 @@ namespace PostSharp.Engineering.BuildTools.Build
     {
         [Description( "Sets the build configuration (Debug or Release)" )]
         [CommandOption( "-c|--configuration" )]
-        public BuildConfiguration BuildConfiguration
-        {
-            get;
-            set;
-        }
+        public BuildConfiguration BuildConfiguration { get; set; }
 
-        [Description( "Creates a numbered build (typically for an internal CI build)" )]
+        [Description( "Creates a numbered build (typically for an internal CI build). This option is ignored when the build configuration is 'Public'." )]
         [CommandOption( "--buildNumber" )]
         public int BuildNumber { get; set; }
 

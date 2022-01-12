@@ -595,7 +595,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             string versionSuffix;
             int patchNumber;
 
-            switch ( settings.VersionSpec.Kind )
+            var versionSpecKind = settings.VersionSpec.Kind;
+
+            if ( configuration == BuildConfiguration.Public )
+            {
+                versionSpecKind = VersionKind.Public;
+            }
+
+            switch ( versionSpecKind )
             {
                 case VersionKind.Local:
                     {
