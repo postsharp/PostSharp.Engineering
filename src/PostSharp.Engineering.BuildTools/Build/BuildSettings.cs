@@ -5,9 +5,13 @@ namespace PostSharp.Engineering.BuildTools.Build
 {
     public class BuildSettings : BaseBuildSettings
     {
-        [Description( "Signs the assemblies and packages" )]
+        [Description( "Signs the public assemblies and packages" )]
         [CommandOption( "--sign" )]
         public bool Sign { get; set; }
+
+        [Description( "Signs the private assemblies and packages" )]
+        [CommandOption( "--sign-private" )]
+        public bool SignPrivate { get; set; }
 
         [Description( "Create a zip file with all artifacts" )]
         [CommandOption( "--zip" )]

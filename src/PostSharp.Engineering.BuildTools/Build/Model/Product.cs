@@ -88,7 +88,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // We have to read the version from the file we have generated - using MSBuild, because it contains properties.
             var versionInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
 
-            var privateArtifactsDir = Path.Combine(
+            var privateArtifactsDirectory = Path.Combine(
                 context.RepoDirectory,
                 this.PrivateArtifactsDirectory.ToString( versionInfo ) );
 
@@ -99,12 +99,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Allow for some customization before we create the zip file and copy to the public directory.
-            this.BuildCompleted?.Invoke( (context, settings, privateArtifactsDir) );
+            this.BuildCompleted?.Invoke( (context, settings, privateArtifactsDirectory) );
 
             // Check that the build produced the expected artifacts.
             var allFilesPattern = this.PublicArtifacts.Add( this.PrivateArtifacts );
 
-            if ( !allFilesPattern.Verify( context, privateArtifactsDir, versionInfo ) )
+            if ( !allFilesPattern.Verify( context, privateArtifactsDirectory, versionInfo ) )
             {
                 return false;
             }
@@ -129,7 +129,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            CreateZip( privateArtifactsDir );
+            string? publicArtifactsDirectory = null;
 
             // If we're doing a public build, copy public artifacts to the publish directory.
             if ( settings.PublicBuild )
@@ -138,9 +138,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteHeading( "Copying public artifacts" );
                 var files = new List<FilePatternMatch>();
 
-                this.PublicArtifacts.TryGetFiles( privateArtifactsDir, versionInfo, files );
+                this.PublicArtifacts.TryGetFiles( privateArtifactsDirectory, versionInfo, files );
 
-                var publicArtifactsDirectory = Path.Combine(
+                publicArtifactsDirectory = Path.Combine(
                     context.RepoDirectory,
                     this.PublicArtifactsDirectory.ToString( versionInfo ) );
 
@@ -154,7 +154,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     var targetFile = Path.Combine( publicArtifactsDirectory, Path.GetFileName( file.Path ) );
 
                     context.Console.WriteMessage( file.Path );
-                    File.Copy( Path.Combine( privateArtifactsDir, file.Path ), targetFile, true );
+                    File.Copy( Path.Combine( privateArtifactsDirectory, file.Path ), targetFile, true );
                 }
 
                 // Verify that public packages have no private dependencies.
@@ -164,56 +164,68 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     return false;
                 }
+            }
 
-                // Sign public artifacts.
+            // Sign artifacts.
+            if ( settings.Sign || settings.SignPrivate )
+            {
+                context.Console.WriteHeading( "Signing artifacts" );
+
+                var signToolSecret = Environment.GetEnvironmentVariable( "SIGNSERVER_SECRET" );
+
+                if ( signToolSecret == null )
+                {
+                    context.Console.WriteError( "The SIGNSERVER_SECRET environment variable is not defined." );
+
+                    return false;
+                }
+
                 var signSuccess = true;
 
-                if ( settings.Sign )
+                void SignDirectory( string directory, string filter )
                 {
-                    context.Console.WriteHeading( "Signing artifacts" );
-
-                    var signToolSecret = Environment.GetEnvironmentVariable( "SIGNSERVER_SECRET" );
-
-                    if ( signToolSecret == null )
+                    if ( Directory.EnumerateFiles( directory, filter ).Any() )
                     {
-                        context.Console.WriteError( "The SIGNSERVER_SECRET environment variable is not defined." );
+                        // We don't pass the secret so it does not get printed. We pass an environment variable reference instead.
+                        // The ToolInvocationHelper will expand it.
 
-                        return false;
+                        signSuccess = signSuccess && DotNetTool.SignClient.Invoke(
+                            context,
+                            $"Sign --baseDirectory {directory} --input {filter} --config $(ToolsDirectory)\\signclient-appsettings.json --name {this.ProductName} --user sign-caravela@postsharp.net --secret %SIGNSERVER_SECRET%",
+                            context.RepoDirectory );
                     }
-
-                    void Sign( string filter )
-                    {
-                        if ( Directory.EnumerateFiles( publicArtifactsDirectory, filter ).Any() )
-                        {
-                            // We don't pass the secret so it does not get printed. We pass an environment variable reference instead.
-                            // The ToolInvocationHelper will expand it.
-
-                            signSuccess = signSuccess && DotNetTool.SignClient.Invoke(
-                                context,
-                                $"Sign --baseDirectory {publicArtifactsDirectory} --input {filter} --config $(ToolsDirectory)\\signclient-appsettings.json --name {this.ProductName} --user sign-caravela@postsharp.net --secret %SIGNSERVER_SECRET%",
-                                context.RepoDirectory );
-                        }
-                    }
-
-                    Sign( "*.nupkg" );
-                    Sign( "*.vsix" );
-
-                    if ( !signSuccess )
-                    {
-                        return false;
-                    }
-
-                    // Zipping public artifacts.
-                    CreateZip( publicArtifactsDirectory );
-
-                    context.Console.WriteSuccess( "Signing artifacts was successful." );
                 }
-            }
-            else if ( settings.Sign )
-            {
-                context.Console.WriteWarning( $"Cannot use --sign option in a non-public build." );
 
-                return false;
+                void SignPrivateAndPublic( string filter )
+                {
+                    if ( settings.SignPrivate )
+                    {
+                        SignDirectory( privateArtifactsDirectory, filter );
+                    }
+
+                    if ( settings.Sign && publicArtifactsDirectory != null )
+                    {
+                        SignDirectory( publicArtifactsDirectory, filter );
+                    }
+                }
+
+                SignPrivateAndPublic( "*.nupkg" );
+                SignPrivateAndPublic( "*.vsix" );
+
+                if ( !signSuccess )
+                {
+                    return false;
+                }
+
+                context.Console.WriteSuccess( "Signing artifacts was successful." );
+            }
+
+            // Zip artifacts.
+            CreateZip( privateArtifactsDirectory );
+
+            if ( publicArtifactsDirectory != null )
+            {
+                CreateZip( publicArtifactsDirectory );
             }
 
             // Writing the import file at the end of the build so it gets only written if the build was successful.
