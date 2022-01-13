@@ -925,7 +925,8 @@ project {
             foreach ( var configuration in configurations )
             {
                 var configurationInfo = this.Configurations[configuration];
-                var artifactsDirectory = context.Product.PublicArtifactsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+                var publicArtifactsDirectory = context.Product.PublicArtifactsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+                var privateArtifactsDirectory = context.Product.PrivateArtifactsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
                 // Basic definition and steps.
                 content.WriteLine(
@@ -933,7 +934,7 @@ project {
    object {configuration}Build : BuildType({{
     name = ""Build [{configuration}]""
 
-    artifactRules = ""+:{artifactsDirectory}/**/*=>{artifactsDirectory}""
+    artifactRules = ""+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory},+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}""
 
     vcs {{
         root(DslContext.settingsRoot)
