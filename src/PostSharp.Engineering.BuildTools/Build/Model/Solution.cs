@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Immutable;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
@@ -18,7 +17,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool CanFormatCode { get; init; }
 
-        public ImmutableArray<string> FormatExclusions { get; init; }
+        public string[] FormatExclusions { get; init; } = Array.Empty<string>();
 
         [Obsolete( "Use BuildMethod=Build" )]
         public bool CanPack

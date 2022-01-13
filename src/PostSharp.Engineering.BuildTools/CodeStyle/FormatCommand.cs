@@ -21,7 +21,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
                     var command =
                         $"cleanupcode --profile:Custom {solution.SolutionPath} --disable-settings-layers:\"GlobalAll;GlobalPerProduct;SolutionPersonal;ProjectPersonal\"";
 
-                    if ( !solution.FormatExclusions.IsDefaultOrEmpty )
+                    if ( solution.FormatExclusions is { Length: > 0 } )
                     {
                         command += $" --exclude:\"{string.Join( ';', solution.FormatExclusions )}\"";
                     }
