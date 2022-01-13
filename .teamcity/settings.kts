@@ -8,17 +8,18 @@ version = "2019.2"
 
 project {
 
-buildType(DebugBuild)
-buildType(ReleaseBuild)
-buildType(PublicBuild)
+   buildType(DebugBuild)
+   buildType(ReleaseBuild)
+   buildType(PublicBuild)
 
    buildType(Deploy)
 }
 
-   object DebugBuild : BuildType({
+object DebugBuild : BuildType({
+
     name = "Build [Debug]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public,+:artifacts/publish/private/**/*=>artifacts/publish/private"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -49,12 +50,13 @@ buildType(PublicBuild)
 
     }
 
-  })
+})
 
-   object ReleaseBuild : BuildType({
+object ReleaseBuild : BuildType({
+
     name = "Build [Release]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public,+:artifacts/publish/private/**/*=>artifacts/publish/private"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -76,12 +78,13 @@ buildType(PublicBuild)
 
 
 
-  })
+})
 
-   object PublicBuild : BuildType({
+object PublicBuild : BuildType({
+
     name = "Build [Public]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public,+:artifacts/publish/private/**/*=>artifacts/publish/private"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -103,10 +106,11 @@ buildType(PublicBuild)
 
 
 
-  })
+})
 
 // Publish the release build to public feeds
 object Deploy : BuildType({
+
     name = "Deploy [Public]"
     type = Type.DEPLOYMENT
 
@@ -131,7 +135,7 @@ object Deploy : BuildType({
 
             artifacts {
                 cleanDestination = true
-                artifactRules = "+:artifacts/publish/**/*=>artifacts/publish"
+                artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public"
             }
         }
     }

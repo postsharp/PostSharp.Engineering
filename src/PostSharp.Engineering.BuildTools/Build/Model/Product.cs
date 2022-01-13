@@ -526,7 +526,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 $"Preparing the version file was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) ).PackageVersion}" );
 
             // Generating the TeamCity file.
-            if ( !this.GenerateTeamcityConfiguration( context, new VersionInfo( packageVersion, configuration.ToString() ) ) )
+            if ( !this.GenerateTeamcityConfiguration( context, packageVersion ) )
             {
                 return false;
             }
@@ -724,7 +724,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 var packageSuffix = string.IsNullOrEmpty( version.VersionSuffix ) ? "" : "-" + version.VersionSuffix;
                 packageVersion = versionWithPatch + packageSuffix;
-                
+
                 props += $@"
         <{this.ProductNameWithoutDot}Version>{packageVersion}</{this.ProductNameWithoutDot}Version>
         <{this.ProductNameWithoutDot}AssemblyVersion>{versionWithPatch}</{this.ProductNameWithoutDot}AssemblyVersion>";
@@ -894,7 +894,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool GenerateTeamcityConfiguration( BuildContext context, VersionInfo versionInfo )
+        private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )
         {
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
 
@@ -914,7 +914,7 @@ project {
 
             foreach ( var configuration in configurations )
             {
-                content.WriteLine( $"buildType({configuration}Build)" );
+                content.WriteLine( $"   buildType({configuration}Build)" );
             }
 
             content.WriteLine(
@@ -925,16 +925,20 @@ project {
             foreach ( var configuration in configurations )
             {
                 var configurationInfo = this.Configurations[configuration];
+                var versionInfo = new VersionInfo( packageVersion, configuration.ToString() );
                 var publicArtifactsDirectory = context.Product.PublicArtifactsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
-                var privateArtifactsDirectory = context.Product.PrivateArtifactsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+
+                var privateArtifactsDirectory =
+                    context.Product.PrivateArtifactsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
                 // Basic definition and steps.
                 content.WriteLine(
                     $@"
-   object {configuration}Build : BuildType({{
+object {configuration}Build : BuildType({{
+
     name = ""Build [{configuration}]""
 
-    artifactRules = ""+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory},+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}""
+    artifactRules = ""+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}""
 
     vcs {{
         root(DslContext.settingsRoot)
@@ -957,7 +961,7 @@ project {
 " );
 
                 // Triggers.
-                if ( configurationInfo.BuildTriggers != null && configurationInfo.BuildTriggers.Length > 0 )
+                if ( configurationInfo.BuildTriggers is { Length: > 0 } )
                 {
                     content.WriteLine(
                         @"
@@ -989,51 +993,61 @@ project {
                 }}
 " );
                     }
+
+                    content.WriteLine(
+                        $@"
+     }}" );
                 }
 
                 content.WriteLine(
                     $@"
-  }})" );
+}})" );
             }
 
             // Deployment dependencies.
+            var deployVersionInfo = new VersionInfo( packageVersion, BuildConfiguration.Public.ToString() );
+
+            var deployPublicArtifactsDirectory =
+                context.Product.PublicArtifactsDirectory.ToString( deployVersionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+
             content.WriteLine(
-                @"
+                $@"
 // Publish the release build to public feeds
-object Deploy : BuildType({
+object Deploy : BuildType({{
+
     name = ""Deploy [Public]""
     type = Type.DEPLOYMENT
 
-    vcs {
+    vcs {{
         root(DslContext.settingsRoot)
-    }
+    }}
 
-    steps {
-        powerShell {
-            scriptMode = file {
+    steps {{
+        powerShell {{
+            scriptMode = file {{
                 path = ""Build.ps1""
-            }
+            }}
             noProfile = false
             param(""jetbrains_powershell_scriptArguments"", ""publish --configuration Public"")
-        }
-    }
+        }}
+    }}
     
-    dependencies {
-        dependency(PublicBuild) {
-            snapshot {
-            }
+    dependencies {{
+        dependency(PublicBuild) {{
+            snapshot {{
+            }}
 
-            artifacts {
+            artifacts {{
                 cleanDestination = true
-                artifactRules = ""+:artifacts/publish/**/*=>artifacts/publish""
-            }
-        }
-    }
+                artifactRules = ""+:{deployPublicArtifactsDirectory}/**/*=>{deployPublicArtifactsDirectory}""
+            }}
+        }}
+    }}
     
-    requirements {
+    requirements {{
         equals(""env.BuildAgentType"", ""caravela02"")
-    }
-})
+    }}
+}})
 
 " );
 
