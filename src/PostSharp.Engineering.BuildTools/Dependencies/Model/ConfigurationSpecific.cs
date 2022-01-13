@@ -52,5 +52,8 @@ public class ConfigurationSpecific<T>
             _ => throw new ArgumentOutOfRangeException()
         };
 
+    public ConfigurationSpecific<T> WithValue( BuildConfiguration configuration, Func<T, T> func )
+        => this.WithValue( configuration, func( this.GetValue( configuration ) ) );
+
     public override string ToString() => $"Debug={{{this.Debug}}}, Release={{{this.Release}}}, Public={{{this.Public}}}";
 }

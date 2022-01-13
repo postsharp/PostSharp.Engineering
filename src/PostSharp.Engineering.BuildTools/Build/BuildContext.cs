@@ -14,6 +14,8 @@ namespace PostSharp.Engineering.BuildTools.Build
         public string RepoDirectory { get; }
 
         public Product Product { get; }
+        
+        public string Branch { get; }
 
         public string GetManifestFilePath( BuildConfiguration configuration )
         {
@@ -23,11 +25,12 @@ namespace PostSharp.Engineering.BuildTools.Build
                 $"{this.Product.ProductName}.version.props" );
         }
 
-        private BuildContext( ConsoleHelper console, string repoDirectory, Product product )
+        private BuildContext( ConsoleHelper console, string repoDirectory, Product product, string branch )
         {
             this.Console = console;
             this.RepoDirectory = repoDirectory;
             this.Product = product;
+            this.Branch = branch;
         }
 
         public static bool TryCreate(
@@ -45,7 +48,13 @@ namespace PostSharp.Engineering.BuildTools.Build
                 return false;
             }
 
-            buildContext = new BuildContext( console, repoDirectory, (Product) commandContext.Data! );
+            if ( !ToolInvocationHelper.InvokeTool( console, "git", "rev-parse --abbrev-ref HEAD", repoDirectory, out var gitExitCode, out var gitOutput ) || gitExitCode != 0 )
+            {
+                buildContext = null;
+                return false;
+            }
+
+            buildContext = new BuildContext( console, repoDirectory, (Product) commandContext.Data!, gitOutput.Trim() );
 
             return true;
         }

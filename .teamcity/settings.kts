@@ -42,13 +42,13 @@ buildType(PublicBuild)
 
 
     triggers {
-        vcs {
-            quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
-            branchFilter = "+:<default>"
-        }
-    }
 
-  dependencies {
+        vcs {
+            watchChangesInDependencies = true
+            branchFilter = "+:<default>"
+        }        
+
+    }
 
     }
   })
@@ -78,8 +78,6 @@ buildType(PublicBuild)
 
 
 
-  dependencies {
-
     }
   })
 
@@ -107,8 +105,6 @@ buildType(PublicBuild)
     }
 
 
-
-  dependencies {
 
     }
   })

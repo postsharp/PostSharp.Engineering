@@ -1,5 +1,6 @@
 ﻿using Spectre.Console;
 using System;
+using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -10,6 +11,8 @@ using System.Threading;
 
 namespace PostSharp.Engineering.BuildTools.Utilities
 {
+    public record ToolInvocationOptions( ImmutableDictionary<string, string>? EnvironmentVariables = null, bool Silent = false );
+    
     public static class ToolInvocationHelper
     {
         public static bool InvokePowershell(
@@ -28,7 +31,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string fileName,
             string commandLine,
             string workingDirectory,
-            params (string Key, string Value)[] environmentVariables )
+            ToolInvocationOptions? options = null )
         {
             if ( !InvokeTool(
                     console,
@@ -36,7 +39,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     commandLine,
                     workingDirectory,
                     out var exitCode,
-                    environmentVariables ) )
+                    options ) )
             {
                 return false;
             }
@@ -58,7 +61,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string commandLine,
             string workingDirectory,
             out int exitCode,
-            params (string Key, string Value)[] environmentVariables )
+            ToolInvocationOptions? options = null )
             => InvokeTool(
                 console,
                 fileName,
@@ -101,7 +104,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         }
                     }
                 },
-                environmentVariables );
+                options );
 
         // #16205 We don't allow cancellation here because there's no other working way to wait for a process exit
         // than Process.WaitForExit() on .NET Core when capturing process output.
@@ -112,7 +115,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string workingDirectory,
             out int exitCode,
             out string output,
-            params (string Key, string Value)[] environmentVariables )
+            ToolInvocationOptions? options = null )
         {
             StringBuilder stringBuilder = new();
 
@@ -140,7 +143,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                             stringBuilder.Append( '\n' );
                         }
                     },
-                    environmentVariables );
+                    options );
 
             output = stringBuilder.ToString();
 
@@ -156,7 +159,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             out int exitCode,
             Action<string> handleErrorData,
             Action<string> handleOutputData,
-            params (string Key, string Value)[] environmentVariables )
+            ToolInvocationOptions? options = null )
         {
             exitCode = 0;
 
@@ -186,9 +189,12 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     RedirectStandardOutput = true
                 };
 
-            foreach ( var pair in environmentVariables )
+            if ( options?.EnvironmentVariables != null )
             {
-                startInfo.Environment[pair.Key] = pair.Value;
+                foreach ( var pair in options.EnvironmentVariables )
+                {
+                    startInfo.Environment[pair.Key] = pair.Value;
+                }
             }
 
             Path.GetFileName( fileName );
@@ -236,7 +242,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 };
 
                 // Log the command line, but not the one with expanded environment variables, so we don't expose secrets.
-                console.WriteImportantMessage( "Executing: {0} {1}", process.StartInfo.FileName, commandLine );
+                if ( !options?.Silent ?? false )
+                {
+                    console.WriteImportantMessage( "Executing: {0} {1}", process.StartInfo.FileName, commandLine );
+                }
 
                 using ( process )
                 {

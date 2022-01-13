@@ -9,7 +9,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         {
             var productDependencies = context.Product.Dependencies;
 
-            if ( productDependencies.IsDefaultOrEmpty )
+            if ( productDependencies is  { Length: > 0 } )
             {
                 context.Console.WriteImportantMessage( $"{context.Product.ProductName} has no dependency." );
             }

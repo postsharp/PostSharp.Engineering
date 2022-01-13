@@ -44,9 +44,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool GenerateArcadeProperties { get; init; }
 
-        public ImmutableArray<string> AdditionalDirectoriesToClean { get; init; } = ImmutableArray<string>.Empty;
+        public string[] AdditionalDirectoriesToClean { get; init; } = Array.Empty<string>();
 
-        public ImmutableArray<Solution> Solutions { get; init; } = ImmutableArray<Solution>.Empty;
+        public Solution[] Solutions { get; init; } = Array.Empty<Solution>();
 
         public Pattern PrivateArtifacts { get; init; } = Pattern.Empty;
 
@@ -58,21 +58,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
-                new BuildConfigurationInfo( "Debug", AutoBuild: true ),
+                new BuildConfigurationInfo( "Debug", BuildTriggers: new[]{ new SourceBuildTrigger() } ),
                 new BuildConfigurationInfo( "Release", true ),
                 new BuildConfigurationInfo( "Release", true, true ) );
 
         /// <summary>
         /// Gets the set of dependencies of this product. Some commands expect the dependency to exist in <see cref="PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.All"/>.
         /// </summary>
-        public ImmutableArray<DependencyDefinition> Dependencies { get; init; } = ImmutableArray<DependencyDefinition>.Empty;
+        public DependencyDefinition[] Dependencies { get; init; } = Array.Empty<DependencyDefinition>();
 
         public DependencyDefinition? GetDependency( string name )
             => this.Dependencies.SingleOrDefault( d => d.Name == name )
                ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name );
 
-        public ImmutableDictionary<string, string> SupportedProperties { get; init; } =
-            ImmutableDictionary<string, string>.Empty;
+        public Dictionary<string, string> SupportedProperties { get; init; } = new();
+            
 
         public bool RequiresEngineeringSdk { get; init; } = true;
 
@@ -925,6 +925,7 @@ project {
             {
                 var configurationInfo = this.Configurations[configuration];
 
+                // Basic definition and steps.
                 content.WriteLine(
                     $@"
    object {configuration}Build : BuildType({{
@@ -952,30 +953,39 @@ project {
 
 " );
 
-                if ( configurationInfo.AutoBuild )
+                // Triggers.
+                if ( configurationInfo.BuildTriggers != null && configurationInfo.BuildTriggers.Length > 0 )
                 {
                     content.WriteLine(
                         @"
-    triggers {
-        vcs {
-            quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
-            branchFilter = ""+:<default>""
-        }
+    triggers {" );
+
+                    foreach ( var trigger in configurationInfo.BuildTriggers )
+                    {
+                        trigger.GenerateTeamcityCode( context, configurationInfo, content );
+                    }
+
+                    content.WriteLine(
+                        @"
     }" );
                 }
 
-                content.WriteLine(
-                    $@"
-  dependencies {{" );
-
-                foreach ( var dependency in this.Dependencies.Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency ) )
+                // Dependencies.
+                if ( this.Dependencies is { Length: > 0 } )
                 {
                     content.WriteLine(
                         $@"
+  dependencies {{" );
+
+                    foreach ( var dependency in this.Dependencies.Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency ) )
+                    {
+                        content.WriteLine(
+                            $@"
         snapshot(AbsoluteId(""{dependency.CiBuildTypes[configuration]}"")) {{
                      onDependencyFailure = FailureAction.FAIL_TO_START
                 }}
 " );
+                    }
                 }
 
                 content.WriteLine(
@@ -984,6 +994,7 @@ project {
   }})" );
             }
 
+            // Deployment dependencies.
             content.WriteLine(
                 @"
 // Publish the release build to public feeds

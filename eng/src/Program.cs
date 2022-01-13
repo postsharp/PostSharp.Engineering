@@ -9,7 +9,7 @@ using System.Collections.Immutable;
 var product = new Product
 {
     ProductName = "PostSharp.Engineering",
-    Solutions = ImmutableArray.Create<Solution>( new DotNetSolution( "PostSharp.Engineering.sln" ) { SupportsTestCoverage = true, CanFormatCode = true } ),
+    Solutions = new[] { new DotNetSolution( "PostSharp.Engineering.sln" ) { SupportsTestCoverage = true, CanFormatCode = true } },
     PublicArtifacts = Pattern.Create( "PostSharp.Engineering.Sdk.$(PackageVersion).nupkg", "PostSharp.Engineering.BuildTools.$(PackageVersion).nupkg" ),
     RequiresEngineeringSdk = false
 };

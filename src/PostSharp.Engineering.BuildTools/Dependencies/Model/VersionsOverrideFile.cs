@@ -45,7 +45,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 return false;
             }
 
-            var versionFile = Project.FromFile( versionsPath, new ProjectOptions() );
+            var projectOptions = new ProjectOptions { GlobalProperties = new Dictionary<string, string>() { ["VcsBranch"] = context.Branch } };
+            var versionFile = Project.FromFile( versionsPath, projectOptions );
 
             var defaultDependencyProperties = context.Product.Dependencies
                 .ToDictionary(
