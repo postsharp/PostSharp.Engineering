@@ -786,7 +786,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var nameWithoutDot = dependency.Key.Replace( ".", "", StringComparison.OrdinalIgnoreCase );
 
                 props += $@"
-        <{nameWithoutDot}Version>{dependency.Value.Version}</{nameWithoutDot}Version>";
+        <{nameWithoutDot}Version Condition=""'$({nameWithoutDot}Version)'==''"">{dependency.Value.Version}</{nameWithoutDot}Version>";
             }
 
             props += @"
