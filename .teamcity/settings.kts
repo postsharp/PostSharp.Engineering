@@ -18,7 +18,7 @@ buildType(PublicBuild)
    object DebugBuild : BuildType({
     name = "Build [Debug]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public,+:artifacts/publish/private/**/*=>artifacts/publish/private"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -54,7 +54,7 @@ buildType(PublicBuild)
    object ReleaseBuild : BuildType({
     name = "Build [Release]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public,+:artifacts/publish/private/**/*=>artifacts/publish/private"
 
     vcs {
         root(DslContext.settingsRoot)
@@ -81,7 +81,7 @@ buildType(PublicBuild)
    object PublicBuild : BuildType({
     name = "Build [Public]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public,+:artifacts/publish/private/**/*=>artifacts/publish/private"
 
     vcs {
         root(DslContext.settingsRoot)
