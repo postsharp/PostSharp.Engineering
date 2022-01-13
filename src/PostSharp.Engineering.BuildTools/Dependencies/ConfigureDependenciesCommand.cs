@@ -12,7 +12,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
     {
         context.Console.WriteHeading( "Setting the local dependencies" );
 
-        if ( context.Product.Dependencies is { Length: > 0 })
+        if ( context.Product.Dependencies is { Length: > 0 } )
         {
             context.Console.WriteError( "This product has no dependency." );
 

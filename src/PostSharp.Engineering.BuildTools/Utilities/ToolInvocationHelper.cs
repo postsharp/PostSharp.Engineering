@@ -1,6 +1,5 @@
 ﻿using Spectre.Console;
 using System;
-using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -11,8 +10,6 @@ using System.Threading;
 
 namespace PostSharp.Engineering.BuildTools.Utilities
 {
-    public record ToolInvocationOptions( ImmutableDictionary<string, string>? EnvironmentVariables = null, bool Silent = false );
-    
     public static class ToolInvocationHelper
     {
         public static bool InvokePowershell(

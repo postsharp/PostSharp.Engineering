@@ -3,13 +3,12 @@
 using PostSharp.Engineering.BuildTools;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using Spectre.Console.Cli;
-using System.Collections.Immutable;
 
 // These packages are published to internal and private feeds.
 var product = new Product
 {
     ProductName = "PostSharp.Engineering",
-    Solutions = new[] { new DotNetSolution( "PostSharp.Engineering.sln" ) { SupportsTestCoverage = true, CanFormatCode = true } },
+    Solutions = new Solution[] { new DotNetSolution( "PostSharp.Engineering.sln" ) { SupportsTestCoverage = true, CanFormatCode = true } },
     PublicArtifacts = Pattern.Create( "PostSharp.Engineering.Sdk.$(PackageVersion).nupkg", "PostSharp.Engineering.BuildTools.$(PackageVersion).nupkg" ),
     RequiresEngineeringSdk = false
 };

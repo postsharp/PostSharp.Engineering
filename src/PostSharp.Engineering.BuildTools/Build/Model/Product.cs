@@ -58,7 +58,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
-                new BuildConfigurationInfo( "Debug", BuildTriggers: new[]{ new SourceBuildTrigger() } ),
+                new BuildConfigurationInfo( "Debug", BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
                 new BuildConfigurationInfo( "Release", true ),
                 new BuildConfigurationInfo( "Release", true, true ) );
 
@@ -72,7 +72,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name );
 
         public Dictionary<string, string> SupportedProperties { get; init; } = new();
-            
 
         public bool RequiresEngineeringSdk { get; init; } = true;
 

@@ -51,6 +51,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             if ( !ToolInvocationHelper.InvokeTool( console, "git", "rev-parse --abbrev-ref HEAD", repoDirectory, out var gitExitCode, out var gitOutput ) || gitExitCode != 0 )
             {
                 buildContext = null;
+
                 return false;
             }
 
