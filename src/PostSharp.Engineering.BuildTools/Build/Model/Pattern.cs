@@ -17,6 +17,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.Items = items;
         }
 
+        public bool IsEmpty => this.Items.IsDefaultOrEmpty;
+
         public static Pattern Empty { get; } = new( ImmutableArray<(ParametricString Pattern, bool IsExclude)>.Empty );
 
         public Pattern Add( params ParametricString[] patterns ) => new( this.Items.AddRange( patterns.Select( p => (p, false) ) ) );

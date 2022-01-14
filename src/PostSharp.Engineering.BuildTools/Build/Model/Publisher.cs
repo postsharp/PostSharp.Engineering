@@ -1,75 +1,73 @@
-﻿using System;
-using System.Collections.Immutable;
-using System.IO;
+﻿using Microsoft.Extensions.FileSystemGlobbing;
+using System;
+using System.Collections.Generic;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     public abstract class Publisher
     {
-        /// <summary>
-        /// Gets a value indicating whether the current publisher shall publish public artifacts (when <c>true</c>) or
-        /// private artifacts (when <c>false</c>).
-        /// </summary>
-        public abstract bool IsPublic { get; }
+        protected Publisher( Pattern files )
+        {
+            this.Files = files;
+        }
 
-        /// <summary>
-        /// Gets the extension of the principal artifacts of this target (e.g. <c>.nupkg</c> for a package).
-        /// </summary>
-        public abstract string Extension { get; }
+        public Pattern Files { get; }
 
         /// <summary>
         /// Executes the target for a specified artifact.
         /// </summary>
-        public abstract SuccessCode Execute( BuildContext context, PublishSettings settings, string file, bool isPublic );
-
-        public static ImmutableArray<Publisher> DefaultCollection
-            => ImmutableArray.Create<Publisher>(
-                new NugetPublisher( "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%", true ),
-                new VsixPublisher() );
+        public abstract SuccessCode Execute( BuildContext context, PublishSettings settings, string file, BuildConfigurationInfo configuration );
 
         public static bool PublishDirectory(
             BuildContext context,
             PublishSettings settings,
             string directory,
+            BuildConfigurationInfo configuration,
+            VersionInfo version,
             bool isPublic,
             ref bool hasTarget )
         {
             var success = true;
 
-            foreach ( var publishingTarget in DefaultCollection )
+            var publishers = isPublic ? configuration.PublicPublishers : configuration.PrivatePublishers;
+
+            if ( publishers is not { Length: > 0 } )
             {
-                if ( publishingTarget.IsPublic != isPublic )
+                return true;
+            }
+
+            foreach ( var publisher in publishers )
+            {
+                var files = new List<FilePatternMatch>();
+
+                if ( !publisher.Files.TryGetFiles( directory, version, files ) )
                 {
-                    continue;
+                    return false;
                 }
 
-                foreach ( var file in Directory.EnumerateFiles( directory ) )
+                foreach ( var file in files )
                 {
-                    if ( file.Contains( "-local-", StringComparison.OrdinalIgnoreCase ) )
+                    if ( file.Stem.Contains( "-local-", StringComparison.OrdinalIgnoreCase ) )
                     {
                         context.Console.WriteError( "Cannot publish a local build." );
 
                         return false;
                     }
 
-                    if ( Path.GetExtension( file )
-                        .Equals( publishingTarget.Extension, StringComparison.OrdinalIgnoreCase ) )
+                    hasTarget = true;
+
+                    switch ( publisher.Execute( context, settings, file.Path, configuration ) )
                     {
-                        hasTarget = true;
-                        
-                        switch ( publishingTarget.Execute( context, settings, Path.Combine( directory, file ), isPublic ) )
-                        {
-                            case SuccessCode.Success:
-                                break;
+                        case SuccessCode.Success:
+                            break;
 
-                            case SuccessCode.Error:
-                                success = false;
+                        case SuccessCode.Error:
+                            success = false;
 
-                                break;
+                            break;
 
-                            case SuccessCode.Fatal:
-                                return false;
-                        }
+                        case SuccessCode.Fatal:
+                            return false;
                     }
                 }
             }

@@ -1,3 +1,5 @@
+using PostSharp.Engineering.BuildTools.Build.Model;
+
 namespace PostSharp.Engineering.BuildTools.Build;
 
 public record BuildConfigurationInfo(
@@ -5,5 +7,10 @@ public record BuildConfigurationInfo(
     // ReSharper disable once InconsistentNaming
     string MSBuildName,
     bool RequiresSigning = false,
-    bool PublishArtifacts = false,
-    IBuildTrigger[]? BuildTriggers = null );
+    IBuildTrigger[]? BuildTriggers = null,
+
+    // Publishers for public artifacts.
+    Publisher[]? PublicPublishers = null,
+
+    // Publishers for private artifacts.
+    Publisher[]? PrivatePublishers = null );

@@ -60,7 +60,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             = new(
                 new BuildConfigurationInfo( "Debug", BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
                 new BuildConfigurationInfo( "Release", true ),
-                new BuildConfigurationInfo( "Release", true, true ) );
+                new BuildConfigurationInfo(
+                    "Release",
+                    true,
+                    PublicPublishers: new Publisher[]
+                    {
+                        new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
+                        new VsixPublisher( Pattern.Create( "*.vsix" ) )
+                    } ) );
+
+
 
         /// <summary>
         /// Gets the set of dependencies of this product. Some commands expect the dependency to exist in <see cref="PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.All"/>.
@@ -134,8 +143,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             CreateZip( privateArtifactsDir );
 
-            // If we're doing a public build, copy public artifacts to the publish directory.
-            if ( buildConfigurationInfo.PublishArtifacts )
+            // Copy public artifacts to the publish directory.
+            if ( !this.PublicArtifacts.IsEmpty )
             {
                 // Copy artifacts.
                 context.Console.WriteHeading( "Copying public artifacts" );
@@ -856,30 +865,30 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var stringParameters = new VersionInfo( versionFile.PackageVersion, versionFile.Configuration );
 
             var hasTarget = false;
+            var configuration = this.Configurations.GetValue( settings.BuildConfiguration );
 
             if ( !Publisher.PublishDirectory(
                     context,
                     settings,
                     Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( stringParameters ) ),
+                    configuration,
+                    versionFile,
                     false,
                     ref hasTarget ) )
             {
                 return false;
             }
 
-            var configurationInfo = context.Product.Configurations[settings.BuildConfiguration];
-
-            if ( configurationInfo.PublishArtifacts )
+            if ( !Publisher.PublishDirectory(
+                    context,
+                    settings,
+                    Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) ),
+                    configuration,
+                    versionFile,
+                    true,
+                    ref hasTarget ) )
             {
-                if ( !Publisher.PublishDirectory(
-                        context,
-                        settings,
-                        Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) ),
-                        true,
-                        ref hasTarget ) )
-                {
-                    return false;
-                }
+                return false;
             }
 
             if ( !hasTarget )
