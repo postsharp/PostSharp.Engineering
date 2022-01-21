@@ -69,8 +69,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         new VsixPublisher( Pattern.Create( "*.vsix" ) )
                     } ) );
 
-
-
         /// <summary>
         /// Gets the set of dependencies of this product. Some commands expect the dependency to exist in <see cref="PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.All"/>.
         /// </summary>
@@ -144,7 +142,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             CreateZip( privateArtifactsDir );
 
             // Copy public artifacts to the publish directory.
-            if ( !this.PublicArtifacts.IsEmpty )
+            if ( !this.PublicArtifacts.IsEmpty && settings.VersionSpec.Kind == VersionKind.Public )
             {
                 // Copy artifacts.
                 context.Console.WriteHeading( "Copying public artifacts" );
@@ -243,16 +241,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private void WriteImportFile( BuildContext context, BuildConfiguration configuration )
         {
             // Write a link to this file in the root file of the repo. This file is the interface of the repo, which can be imported by other repos.
+            var manifestFilePath = context.GetManifestFilePath( configuration );
+            var importFilePath = Path.Combine( context.RepoDirectory, this.ProductName + ".Import.props" );
+
+            // We're generating a relative path so that the path can be resolved even when the filesystem is mounted
+            // to a different location than the current one (used e.g. when using Hyper-V).
+            var relativePath = Path.GetRelativePath( Path.GetDirectoryName( importFilePath )!, manifestFilePath );
+
             var importFileContent = $@"
 <Project>
     <!-- This file must not be added to source control and must not be uploaded as a build artifact.
          It must be imported by other repos as a dependency. 
          Dependent projects should not directly reference the artifacts path, which is considered an implementation detail. -->
-    <Import Project=""{context.GetManifestFilePath( configuration )}""/>
+    <Import Project=""{relativePath}""/>
 </Project>
 ";
-
-            var importFilePath = Path.Combine( context.RepoDirectory, this.ProductName + ".Import.props" );
 
             File.WriteAllText( importFilePath, importFileContent );
         }

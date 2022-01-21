@@ -203,11 +203,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                             if ( string.IsNullOrEmpty( buildNumber ) || string.IsNullOrEmpty( ciBuildTypeId ) )
                             {
-                                context.Console.WriteError( $"The dependency '{name}' must have both BuildNumber and CiBuildTypeId properties in {directDependency.Source.VersionFile}." );
+                                context.Console.WriteError(
+                                    $"The dependency '{name}' must have both BuildNumber and CiBuildTypeId properties in {directDependency.Source.VersionFile}." );
 
                                 return false;
                             }
-                            
+
                             dependencySource = DependencySource.CreateBuildServerSource(
                                 new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId ),
                                 DependencyConfigurationOrigin.Transitive );

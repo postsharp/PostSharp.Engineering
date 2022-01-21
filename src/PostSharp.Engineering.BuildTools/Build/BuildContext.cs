@@ -14,7 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Build
         public string RepoDirectory { get; }
 
         public Product Product { get; }
-        
+
         public string Branch { get; }
 
         public string GetManifestFilePath( BuildConfiguration configuration )
@@ -48,7 +48,8 @@ namespace PostSharp.Engineering.BuildTools.Build
                 return false;
             }
 
-            if ( !ToolInvocationHelper.InvokeTool( console, "git", "rev-parse --abbrev-ref HEAD", repoDirectory, out var gitExitCode, out var gitOutput ) || gitExitCode != 0 )
+            if ( !ToolInvocationHelper.InvokeTool( console, "git", "rev-parse --abbrev-ref HEAD", repoDirectory, out var gitExitCode, out var gitOutput )
+                 || gitExitCode != 0 )
             {
                 buildContext = null;
 
