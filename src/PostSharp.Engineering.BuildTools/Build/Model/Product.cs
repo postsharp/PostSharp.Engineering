@@ -54,15 +54,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool KeepEditorConfig { get; init; }
 
+        public string BuildAgentType { get; init; } = "caravela02";
+
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
 
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
-                new BuildConfigurationInfo( "Debug", BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
-                new BuildConfigurationInfo( "Release", true ),
-                new BuildConfigurationInfo(
-                    "Release",
-                    true,
+                debug: new BuildConfigurationInfo( MSBuildName: "Debug", BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
+                release: new BuildConfigurationInfo( MSBuildName: "Release", RequiresSigning: true ),
+                @public: new BuildConfigurationInfo(
+                    MSBuildName: "Release",
+                    RequiresSigning: true,
                     PublicPublishers: new Publisher[]
                     {
                         new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
@@ -967,7 +969,7 @@ object {configuration}Build : BuildType({{
     }}
 
     requirements {{
-        equals(""env.BuildAgentType"", ""caravela02"")
+        equals(""env.BuildAgentType"", ""{this.BuildAgentType}"")
     }}
 
 " );
@@ -1019,6 +1021,9 @@ object {configuration}Build : BuildType({{
             // Deployment dependencies.
             var deployVersionInfo = new VersionInfo( packageVersion, BuildConfiguration.Public.ToString() );
 
+            var deployPrivateArtifactsDirectory =
+                context.Product.PrivateArtifactsDirectory.ToString( deployVersionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+
             var deployPublicArtifactsDirectory =
                 context.Product.PublicArtifactsDirectory.ToString( deployVersionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
@@ -1051,13 +1056,13 @@ object Deploy : BuildType({{
 
             artifacts {{
                 cleanDestination = true
-                artifactRules = ""+:{deployPublicArtifactsDirectory}/**/*=>{deployPublicArtifactsDirectory}""
+                artifactRules = ""+:{deployPublicArtifactsDirectory}/**/*=>{deployPublicArtifactsDirectory}\n+:{deployPrivateArtifactsDirectory}/**/*=>{deployPrivateArtifactsDirectory}""
             }}
         }}
     }}
     
     requirements {{
-        equals(""env.BuildAgentType"", ""caravela02"")
+        equals(""env.BuildAgentType"", ""{this.BuildAgentType}"")
     }}
 }})
 

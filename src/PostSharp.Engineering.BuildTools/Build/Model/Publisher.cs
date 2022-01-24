@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.FileSystemGlobbing;
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
@@ -56,7 +57,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     hasTarget = true;
 
-                    switch ( publisher.Execute( context, settings, file.Path, configuration ) )
+                    var filePath = Path.Combine( directory, file.Path );
+
+                    switch ( publisher.Execute( context, settings, filePath, configuration ) )
                     {
                         case SuccessCode.Success:
                             break;
