@@ -39,25 +39,32 @@ namespace PostSharp.Engineering.BuildTools.Git
                 return true;
             }
 
+            var success = true;
             var subdirectories = directory.GetDirectories();
+            var isEmpty = true;
 
             foreach ( var subdirectory in subdirectories )
             {
-                if ( !RenameAll( console, subdirectory, originalSubstring, newSubstring, rootPath ) )
-                {
-                    return false;
-                }
+                isEmpty = false;
+                success &= RenameAll( console, subdirectory, originalSubstring, newSubstring, rootPath );
             }
 
             foreach ( var file in directory.GetFiles() )
             {
-                if ( !GitRename( console, file, directory, originalSubstring, newSubstring, rootPath ) )
-                {
-                    return false;
-                }
+                isEmpty = false;
+                success &= GitRename( console, file, directory, originalSubstring, newSubstring, rootPath );
             }
 
-            return GitRename( console, directory, directory.Parent!, originalSubstring, newSubstring, rootPath );
+            if ( !isEmpty )
+            {
+                success &= GitRename( console, directory, directory.Parent!, originalSubstring, newSubstring, rootPath );
+            }
+            else
+            {
+                console.WriteWarning( $"Cannot rename '{directory.FullName}' because it is an empty directory." );
+            }
+
+            return success;
         }
 
         private static bool GitRename(
@@ -76,6 +83,8 @@ namespace PostSharp.Engineering.BuildTools.Git
 
                 var pathFrom = renamedNode.FullName;
                 var pathTo = Path.Combine( containingDirectory.FullName, newName );
+                
+                console.WriteMessage( $"Renaming: '{pathFrom}' -> '{pathTo}'" );
 
                 if ( pathFrom == rootPath )
                 {

@@ -41,14 +41,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
 
                 var matcher = new Matcher( StringComparison.OrdinalIgnoreCase );
-                matcher.AddInclude( pattern.Pattern.ToString( versionInfo ) );
+                var expandedPattern = pattern.Pattern.ToString( versionInfo );
+                matcher.AddInclude( expandedPattern );
 
                 var matchingResult =
                     matcher.Execute( new DirectoryInfoWrapper( new DirectoryInfo( directory ) ) );
 
                 if ( !matchingResult.HasMatches )
                 {
-                    context.Console.WriteError( $"The pattern '{directory}\\{pattern.Pattern}' does not match any file." );
+                    context.Console.WriteError( $"The pattern '{directory}\\{expandedPattern}' does not match any file." );
                     success = false;
                 }
             }
