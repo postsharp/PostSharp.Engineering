@@ -365,7 +365,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 if ( settings.IncludeTests || !solution.IsTestOnly )
                 {
-                    context.Console.WriteHeading( $"Building {solution.Name}." );
+                    context.Console.WriteHeading( $"Building {solution.Name} ({settings.BuildConfiguration} configuration)" );
 
                     if ( !settings.NoDependencies )
                     {
