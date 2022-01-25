@@ -36,8 +36,8 @@ public class ConfigurationSpecific<T>
         => configuration switch
         {
             BuildConfiguration.Debug => this.Debug,
-            BuildConfiguration.Public => this.Public,
             BuildConfiguration.Release => this.Release,
+            BuildConfiguration.Public => this.Public,
             _ => throw new ArgumentOutOfRangeException()
         };
 
@@ -47,8 +47,8 @@ public class ConfigurationSpecific<T>
         => configuration switch
         {
             BuildConfiguration.Debug => new ConfigurationSpecific<T>( value, this.Release, this.Public ),
-            BuildConfiguration.Public => new ConfigurationSpecific<T>( this.Debug, value, this.Public ),
-            BuildConfiguration.Release => new ConfigurationSpecific<T>( this.Debug, this.Release, value ),
+            BuildConfiguration.Release => new ConfigurationSpecific<T>( this.Debug, value, this.Public ),
+            BuildConfiguration.Public => new ConfigurationSpecific<T>( this.Debug, this.Release, value ),
             _ => throw new ArgumentOutOfRangeException()
         };
 

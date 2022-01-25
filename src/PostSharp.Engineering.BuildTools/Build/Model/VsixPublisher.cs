@@ -5,11 +5,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     public class VsixPublisher : Publisher
     {
-        public override bool IsPublic => true;
+        public VsixPublisher( Pattern files ) : base( files ) { }
 
-        public override string Extension => ".vsix";
-
-        public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, bool isPublic )
+        public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, BuildConfigurationInfo configuration )
         {
             var hasEnvironmentError = false;
 

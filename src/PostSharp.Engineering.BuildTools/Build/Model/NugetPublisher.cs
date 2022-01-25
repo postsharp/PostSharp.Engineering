@@ -8,18 +8,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private readonly string _source;
         private readonly string _apiKey;
 
-        public NugetPublisher( string source, string apiKey, bool isPublic )
+        public NugetPublisher( Pattern files, string source, string apiKey ) : base( files )
         {
             this._source = source;
             this._apiKey = apiKey;
-            this.IsPublic = isPublic;
         }
 
-        public override bool IsPublic { get; }
-
-        public override string Extension => ".nupkg";
-
-        public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, bool isPublic )
+        public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, BuildConfigurationInfo configuration )
         {
             var hasEnvironmentError = false;
 

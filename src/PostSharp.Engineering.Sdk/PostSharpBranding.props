@@ -4,6 +4,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <None Include="$(MSBuildThisFileDirectory)\assets\postsharp.png" Visible="false" Pack="true" PackagePath="" />
+        <None Include="$(MSBuildThisFileDirectory)\assets\postsharp.png" Visible="false" Pack="true" PackagePath=""/>
     </ItemGroup>
 </Project>

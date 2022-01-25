@@ -54,13 +54,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool KeepEditorConfig { get; init; }
 
+        public string BuildAgentType { get; init; } = "caravela02";
+
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
 
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
-                new BuildConfigurationInfo( "Debug", BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
-                new BuildConfigurationInfo( "Release", true ),
-                new BuildConfigurationInfo( "Release", true, true ) );
+                debug: new BuildConfigurationInfo( MSBuildName: "Debug", BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
+                release: new BuildConfigurationInfo( MSBuildName: "Release", RequiresSigning: true ),
+                @public: new BuildConfigurationInfo(
+                    MSBuildName: "Release",
+                    RequiresSigning: true,
+                    PublicPublishers: new Publisher[]
+                    {
+                        new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
+                        new VsixPublisher( Pattern.Create( "*.vsix" ) )
+                    } ) );
 
         /// <summary>
         /// Gets the set of dependencies of this product. Some commands expect the dependency to exist in <see cref="PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.All"/>.
@@ -134,8 +143,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             CreateZip( privateArtifactsDir );
 
-            // If we're doing a public build, copy public artifacts to the publish directory.
-            if ( buildConfigurationInfo.PublishArtifacts )
+            // Copy public artifacts to the publish directory.
+            if ( !this.PublicArtifacts.IsEmpty && settings.VersionSpec.Kind == VersionKind.Public )
             {
                 // Copy artifacts.
                 context.Console.WriteHeading( "Copying public artifacts" );
@@ -234,16 +243,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private void WriteImportFile( BuildContext context, BuildConfiguration configuration )
         {
             // Write a link to this file in the root file of the repo. This file is the interface of the repo, which can be imported by other repos.
+            var manifestFilePath = context.GetManifestFilePath( configuration );
+            var importFilePath = Path.Combine( context.RepoDirectory, this.ProductName + ".Import.props" );
+
+            // We're generating a relative path so that the path can be resolved even when the filesystem is mounted
+            // to a different location than the current one (used e.g. when using Hyper-V).
+            var relativePath = Path.GetRelativePath( Path.GetDirectoryName( importFilePath )!, manifestFilePath );
+
             var importFileContent = $@"
 <Project>
     <!-- This file must not be added to source control and must not be uploaded as a build artifact.
          It must be imported by other repos as a dependency. 
          Dependent projects should not directly reference the artifacts path, which is considered an implementation detail. -->
-    <Import Project=""{context.GetManifestFilePath( configuration )}""/>
+    <Import Project=""{relativePath}""/>
 </Project>
 ";
-
-            var importFilePath = Path.Combine( context.RepoDirectory, this.ProductName + ".Import.props" );
 
             File.WriteAllText( importFilePath, importFileContent );
         }
@@ -856,30 +870,30 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var stringParameters = new VersionInfo( versionFile.PackageVersion, versionFile.Configuration );
 
             var hasTarget = false;
+            var configuration = this.Configurations.GetValue( settings.BuildConfiguration );
 
             if ( !Publisher.PublishDirectory(
                     context,
                     settings,
                     Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( stringParameters ) ),
+                    configuration,
+                    versionFile,
                     false,
                     ref hasTarget ) )
             {
                 return false;
             }
 
-            var configurationInfo = context.Product.Configurations[settings.BuildConfiguration];
-
-            if ( configurationInfo.PublishArtifacts )
+            if ( !Publisher.PublishDirectory(
+                    context,
+                    settings,
+                    Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) ),
+                    configuration,
+                    versionFile,
+                    true,
+                    ref hasTarget ) )
             {
-                if ( !Publisher.PublishDirectory(
-                        context,
-                        settings,
-                        Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) ),
-                        true,
-                        ref hasTarget ) )
-                {
-                    return false;
-                }
+                return false;
             }
 
             if ( !hasTarget )
@@ -955,7 +969,7 @@ object {configuration}Build : BuildType({{
     }}
 
     requirements {{
-        equals(""env.BuildAgentType"", ""caravela02"")
+        equals(""env.BuildAgentType"", ""{this.BuildAgentType}"")
     }}
 
 " );
@@ -1007,6 +1021,9 @@ object {configuration}Build : BuildType({{
             // Deployment dependencies.
             var deployVersionInfo = new VersionInfo( packageVersion, BuildConfiguration.Public.ToString() );
 
+            var deployPrivateArtifactsDirectory =
+                context.Product.PrivateArtifactsDirectory.ToString( deployVersionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+
             var deployPublicArtifactsDirectory =
                 context.Product.PublicArtifactsDirectory.ToString( deployVersionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
@@ -1039,13 +1056,13 @@ object Deploy : BuildType({{
 
             artifacts {{
                 cleanDestination = true
-                artifactRules = ""+:{deployPublicArtifactsDirectory}/**/*=>{deployPublicArtifactsDirectory}""
+                artifactRules = ""+:{deployPublicArtifactsDirectory}/**/*=>{deployPublicArtifactsDirectory}\n+:{deployPrivateArtifactsDirectory}/**/*=>{deployPrivateArtifactsDirectory}""
             }}
         }}
     }}
     
     requirements {{
-        equals(""env.BuildAgentType"", ""caravela02"")
+        equals(""env.BuildAgentType"", ""{this.BuildAgentType}"")
     }}
 }})
 
