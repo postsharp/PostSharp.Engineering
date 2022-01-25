@@ -908,6 +908,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
+        public bool Swap( BuildContext context, SwapSettings settings )
+        {
+            throw new NotImplementedException();
+        }
+
         private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )
         {
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };

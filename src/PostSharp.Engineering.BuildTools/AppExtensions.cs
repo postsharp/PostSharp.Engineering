@@ -37,6 +37,10 @@ namespace PostSharp.Engineering.BuildTools
                             .WithData( product )
                             .WithDescription( "Publishes all packages that have been previously built by the 'build' command" );
 
+                        root.AddCommand<SwapCommand>( "swap" )
+                            .WithData( product )
+                            .WithDescription( "Swaps deployment slots" );
+
                         root.AddBranch(
                             "dependencies",
                             dependencies =>
