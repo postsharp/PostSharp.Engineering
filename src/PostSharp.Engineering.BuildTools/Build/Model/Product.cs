@@ -528,12 +528,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 FetchDependencyCommand.FetchDependencies( context, settings.BuildConfiguration, versionsOverrideFile );
 
                 versionsOverrideFile.LocalBuildFile = propsFilePath;
-                context.Console.WriteMessage( $"Updating '{versionsOverrideFile.FilePath}'." );
-
-                if ( !versionsOverrideFile.TrySave( context ) )
-                {
-                    return false;
-                }
+            }
+            
+            // We always save the Versions.g.props because it may not exist and it may have been changed by the previous step.
+            if ( !versionsOverrideFile.TrySave( context ) )
+            {
+                return false;
             }
 
             // Read the main version number.
