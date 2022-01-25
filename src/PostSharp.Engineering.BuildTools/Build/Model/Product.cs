@@ -152,8 +152,27 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 Directory.CreateDirectory( publicArtifactsDirectory );
             }
+            
+            void CreateEmptyPublicDirectory()
+            {
+                // We have to create an empty file, otherwise TeamCity will complain that
+                // artifacts are missing.
+                var emptyFile = Path.Combine( publicArtifactsDirectory, ".empty" );
 
-            if ( settings.VersionSpec.Kind == VersionKind.Public && !this.PublicArtifacts.IsEmpty )
+                File.WriteAllText( emptyFile, "This file is intentionally empty." );
+            }
+
+            if ( this.PublicArtifacts.IsEmpty )
+            {
+                context.Console.WriteMessage( "Do not prepare public artifacts because there is none." );
+                CreateEmptyPublicDirectory();
+            }
+            else if ( settings.BuildConfiguration != BuildConfiguration.Public )
+            {
+                context.Console.WriteMessage( "Do not prepare public artifacts because this is not a public build" );
+                CreateEmptyPublicDirectory();
+            }
+            else
             {
                 // Copy artifacts.
                 context.Console.WriteHeading( "Copying public artifacts" );
@@ -221,14 +240,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     context.Console.WriteSuccess( "Signing artifacts was successful." );
                 }
             }
-            else
-            {
-                // We have to create an empty file, otherwise TeamCity will complain that
-                // artifacts are missing.
-                var emptyFile = Path.Combine( publicArtifactsDirectory, ".empty" );
-
-                File.WriteAllText( emptyFile, "This file is intentionally empty." );
-            }
+          
 
             // Writing the import file at the end of the build so it gets only written if the build was successful.
             this.WriteImportFile( context, settings.BuildConfiguration );
