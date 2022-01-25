@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model
@@ -38,12 +39,19 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             // We always use the debug build for engineering.
             ("PostSharpEngineering_DebugBuild", "PostSharpEngineering_DebugBuild", "PostSharpEngineering_DebugBuild") ) { GenerateSnapshotDependency = false };
 
+        [Obsolete( "Renamed to MetalamaBackstage" )]
         public static DependencyDefinition PostSharpBackstageSettings { get; } = new(
             "PostSharp.Backstage.Settings",
             VcsProvider.AzureRepos,
             "Metalama",
             ("Metalama_PostSharpBackstageSettings_DebugBuild", "Metalama_PostSharpBackstageSettings_ReleaseBuild",
              "Metalama_PostSharpBackstageSettings_PublicBuild") );
+             
+        public static DependencyDefinition MetalamaBackstage { get; } = new(
+            "Metalama.Backstage",
+            VcsProvider.AzureRepos,
+            "Metalama",
+            ("Metalama_MetalamaBackstage_DebugBuild", "Metalama_MetalamaBackstage_ReleaseBuild", "Metalama_MetalamaBackstage_PublicBuild") );
 
         public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
             Roslyn,
@@ -53,6 +61,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             MetalamaSamples,
             MetalamaTry,
             PostSharpEngineering,
-            PostSharpBackstageSettings );
+            MetalamaBackstage );
     }
 }

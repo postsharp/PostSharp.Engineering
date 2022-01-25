@@ -62,10 +62,10 @@ namespace PostSharp.Engineering.BuildTools.Build
         }
 
         public VersionSpec VersionSpec
-            => this.BuildNumber > 0
-                ? new VersionSpec( VersionKind.Numbered, this.BuildNumber )
-                : this.BuildConfiguration == BuildConfiguration.Public
-                    ? new VersionSpec( VersionKind.Public )
+            => this.BuildConfiguration == BuildConfiguration.Public
+                ? new VersionSpec( VersionKind.Public )
+                : this.BuildNumber > 0
+                    ? new VersionSpec( VersionKind.Numbered, this.BuildNumber )
                     : new VersionSpec( VersionKind.Local );
     }
 }

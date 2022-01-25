@@ -144,22 +144,41 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             CreateZip( privateArtifactsDir );
 
             // Copy public artifacts to the publish directory.
-            if ( !this.PublicArtifacts.IsEmpty && settings.VersionSpec.Kind == VersionKind.Public )
+            var publicArtifactsDirectory = Path.Combine(
+                context.RepoDirectory,
+                this.PublicArtifactsDirectory.ToString( versionInfo ) );
+
+            if ( !Directory.Exists( publicArtifactsDirectory ) )
+            {
+                Directory.CreateDirectory( publicArtifactsDirectory );
+            }
+            
+            void CreateEmptyPublicDirectory()
+            {
+                // We have to create an empty file, otherwise TeamCity will complain that
+                // artifacts are missing.
+                var emptyFile = Path.Combine( publicArtifactsDirectory, ".empty" );
+
+                File.WriteAllText( emptyFile, "This file is intentionally empty." );
+            }
+
+            if ( this.PublicArtifacts.IsEmpty )
+            {
+                context.Console.WriteMessage( "Do not prepare public artifacts because there is none." );
+                CreateEmptyPublicDirectory();
+            }
+            else if ( settings.BuildConfiguration != BuildConfiguration.Public )
+            {
+                context.Console.WriteMessage( "Do not prepare public artifacts because this is not a public build" );
+                CreateEmptyPublicDirectory();
+            }
+            else
             {
                 // Copy artifacts.
                 context.Console.WriteHeading( "Copying public artifacts" );
                 var files = new List<FilePatternMatch>();
 
                 this.PublicArtifacts.TryGetFiles( privateArtifactsDir, versionInfo, files );
-
-                var publicArtifactsDirectory = Path.Combine(
-                    context.RepoDirectory,
-                    this.PublicArtifactsDirectory.ToString( versionInfo ) );
-
-                if ( !Directory.Exists( publicArtifactsDirectory ) )
-                {
-                    Directory.CreateDirectory( publicArtifactsDirectory );
-                }
 
                 foreach ( var file in files )
                 {
@@ -357,7 +376,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 if ( settings.IncludeTests || !solution.IsTestOnly )
                 {
-                    context.Console.WriteHeading( $"Building {solution.Name}." );
+                    context.Console.WriteHeading( $"Building {solution.Name} ({settings.BuildConfiguration} configuration)" );
 
                     if ( !settings.NoDependencies )
                     {
@@ -509,12 +528,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 FetchDependencyCommand.FetchDependencies( context, settings.BuildConfiguration, versionsOverrideFile );
 
                 versionsOverrideFile.LocalBuildFile = propsFilePath;
-                context.Console.WriteMessage( $"Updating '{versionsOverrideFile.FilePath}'." );
-
-                if ( !versionsOverrideFile.TrySave( context ) )
-                {
-                    return false;
-                }
+            }
+            
+            // We always save the Versions.g.props because it may not exist and it may have been changed by the previous step.
+            versionsOverrideFile.LocalBuildFile = propsFilePath;
+            
+            if ( !versionsOverrideFile.TrySave( context ) )
+            {
+                return false;
             }
 
             // Read the main version number.
