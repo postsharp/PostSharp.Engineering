@@ -144,22 +144,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             CreateZip( privateArtifactsDir );
 
             // Copy public artifacts to the publish directory.
-            if ( !this.PublicArtifacts.IsEmpty && settings.VersionSpec.Kind == VersionKind.Public )
+            var publicArtifactsDirectory = Path.Combine(
+                context.RepoDirectory,
+                this.PublicArtifactsDirectory.ToString( versionInfo ) );
+
+            if ( !Directory.Exists( publicArtifactsDirectory ) )
+            {
+                Directory.CreateDirectory( publicArtifactsDirectory );
+            }
+
+            if ( settings.VersionSpec.Kind == VersionKind.Public && !this.PublicArtifacts.IsEmpty )
             {
                 // Copy artifacts.
                 context.Console.WriteHeading( "Copying public artifacts" );
                 var files = new List<FilePatternMatch>();
 
                 this.PublicArtifacts.TryGetFiles( privateArtifactsDir, versionInfo, files );
-
-                var publicArtifactsDirectory = Path.Combine(
-                    context.RepoDirectory,
-                    this.PublicArtifactsDirectory.ToString( versionInfo ) );
-
-                if ( !Directory.Exists( publicArtifactsDirectory ) )
-                {
-                    Directory.CreateDirectory( publicArtifactsDirectory );
-                }
 
                 foreach ( var file in files )
                 {
@@ -220,6 +220,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     context.Console.WriteSuccess( "Signing artifacts was successful." );
                 }
+            }
+            else
+            {
+                // We have to create an empty file, otherwise TeamCity will complain that
+                // artifacts are missing.
+                var emptyFile = Path.Combine( publicArtifactsDirectory, ".empty" );
+
+                File.WriteAllText( emptyFile, "This file is intentionally empty." );
             }
 
             // Writing the import file at the end of the build so it gets only written if the build was successful.
