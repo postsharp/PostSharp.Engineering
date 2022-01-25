@@ -240,7 +240,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     context.Console.WriteSuccess( "Signing artifacts was successful." );
                 }
             }
-          
 
             // Writing the import file at the end of the build so it gets only written if the build was successful.
             this.WriteImportFile( context, settings.BuildConfiguration );

@@ -39,7 +39,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             // We always use the debug build for engineering.
             ("PostSharpEngineering_DebugBuild", "PostSharpEngineering_DebugBuild", "PostSharpEngineering_DebugBuild") ) { GenerateSnapshotDependency = false };
 
-        [Obsolete("Renamed to MetalamaBackstage")]
+        [Obsolete( "Renamed to MetalamaBackstage" )]
         public static DependencyDefinition PostSharpBackstageSettings { get; } = new(
             "PostSharp.Backstage.Settings",
             VcsProvider.AzureRepos,
