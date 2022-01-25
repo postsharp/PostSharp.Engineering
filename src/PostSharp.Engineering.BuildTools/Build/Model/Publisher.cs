@@ -13,7 +13,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         }
 
         public Pattern Files { get; }
-
+        
         /// <summary>
         /// Executes the target for a specified artifact.
         /// </summary>
@@ -43,7 +43,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 if ( !publisher.Files.TryGetFiles( directory, version, files ) )
                 {
-                    return false;
+                    continue;
                 }
 
                 foreach ( var file in files )
