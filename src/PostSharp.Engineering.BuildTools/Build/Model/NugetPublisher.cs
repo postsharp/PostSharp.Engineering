@@ -42,13 +42,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return SuccessCode.Fatal;
             }
 
+            var exe = "dotnet";
+
             // Note that we don't expand the ApiKey environment variable so we don't expose passwords to logs.
-            var arguments =
+            var args =
                 $"nuget push {file} --source {server} --api-key {this._apiKey} --skip-duplicate";
 
             if ( settings.Dry )
             {
-                context.Console.WriteImportantMessage( "Dry run: dotnet " + arguments );
+                context.Console.WriteImportantMessage( $"Dry run: {exe} {args}" );
 
                 return SuccessCode.Success;
             }
@@ -56,8 +58,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return ToolInvocationHelper.InvokeTool(
                     context.Console,
-                    "dotnet",
-                    arguments,
+                    exe,
+                    args,
                     Environment.CurrentDirectory )
                     ? SuccessCode.Success
                     : SuccessCode.Error;

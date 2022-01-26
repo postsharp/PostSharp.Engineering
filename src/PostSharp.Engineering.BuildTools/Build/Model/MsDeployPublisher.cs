@@ -63,7 +63,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( settings.Dry )
             {
-                context.Console.WriteImportantMessage( $"Dry run: {exe} " + args );
+                context.Console.WriteImportantMessage( $"Dry run: {exe} {args}" );
 
                 return SuccessCode.Success;
             }
