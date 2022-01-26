@@ -1,5 +1,4 @@
 ﻿using PostSharp.Engineering.BuildTools.Utilities;
-using System;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
@@ -34,54 +33,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public override SuccessCode Execute( BuildContext context, SwapSettings settings, BuildConfigurationInfo configuration )
         {
-            var exe = "az";
-
-            const string identityUserNameEnvironmentVariableName = "AZ_SWAP_IDENTITY_USERNAME";
-            var identityUserName = Environment.GetEnvironmentVariable( identityUserNameEnvironmentVariableName );
-
-            if ( identityUserName == null )
-            {
-                context.Console.WriteImportantMessage( $"{identityUserNameEnvironmentVariableName} environment variable not set. If the authorization fails, set this variable to use managed user identity or call 'az login'." );
-            }
-            else
-            {
-                var loginArgs = $"login --identity --username {identityUserName}";
-
-                if ( settings.Dry )
-                {
-                    context.Console.WriteImportantMessage( $"Dry run: {exe} {loginArgs}" );
-                }
-                else
-                {
-                    if ( !ToolInvocationHelper.InvokeTool(
-                            context.Console,
-                            exe,
-                            loginArgs,
-                            Environment.CurrentDirectory ) )
-                    {
-                        return SuccessCode.Error;
-                    }
-                }
-            }
-
             var args = $"webapp deployment slot swap --subscription {this.SubscriptionId} --resource-group {this.ResourceGroupName} --name {this.AppServiceName} --slot {this.SourceSlot} --target-slot {this.TargetSlot}";
 
-            if ( settings.Dry )
-            {
-                context.Console.WriteImportantMessage( $"Dry run: {exe} {args}" );
-
-                return SuccessCode.Success;
-            }
-            else
-            {
-                return ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        exe,
-                        args,
-                        Environment.CurrentDirectory )
-                    ? SuccessCode.Success
-                    : SuccessCode.Error;
-            }
+            return AzHelper.Run( context.Console, args, settings.Dry ) ? SuccessCode.Success : SuccessCode.Error;
         }
     }
 }

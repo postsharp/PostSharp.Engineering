@@ -2,8 +2,10 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
@@ -17,25 +19,41 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this._configurations = ImmutableArray.Create<MsDeployConfiguration>().AddRange( configurations );
         }
 
+        private static bool QueryPublishProfile( BuildContext context, PublishSettings settings, MsDeployConfiguration configuration, [MaybeNullWhen( false )] out PublishProfile publishProfile )
+        {
+            var args = $"webapp deployment list-publishing-profiles --subscription {configuration.SubscriptionId} --resource-group {configuration.ResourceGroupName} --name {configuration.SiteName} --slot {configuration.SlotName}";
+
+            if ( !AzHelper.Query( context.Console, args, settings.Dry, out var profiles ) )
+            {
+                publishProfile = null;
+
+                return false;
+            }
+
+            if (settings.Dry)
+            {
+                profiles = _dryPublishProfiles;
+            }
+
+            var profilesJson = JsonDocument.Parse( profiles );
+            var msDeployProfileJson = profilesJson.RootElement.EnumerateArray().Single( e => e.GetProperty( "publishMethod" ).GetString() == "MSDeploy" );
+
+            publishProfile = new(
+                PublishUrl: msDeployProfileJson.GetProperty( "publishUrl" ).GetString()!,
+                UserName: msDeployProfileJson.GetProperty( "userName" ).GetString()!,
+                Password: msDeployProfileJson.GetProperty( "userPWD" ).GetString()! );
+
+            return true;
+        }
+
         public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, VersionInfo version, BuildConfigurationInfo configuration )
         {
             var fileName = Path.GetFileName( file );
             var packageConfiguration = this._configurations.Single( c => c.PackageFileName.ToString( version ) == fileName );
 
-            var hasEnvironmentError = false;
-
-            var userName = $"{packageConfiguration.SiteName}__{packageConfiguration.SlotName}";
-            var passwordEnvironmentVariableName = $"{new string( userName.Select( c => char.IsLetterOrDigit( c ) ? char.ToUpperInvariant( c ) : '_' ).ToArray() )}_PASSWORD";
-
-            if ( string.IsNullOrEmpty( Environment.GetEnvironmentVariable( passwordEnvironmentVariableName ) ) )
+            if ( !QueryPublishProfile( context, settings, packageConfiguration, out var publishProfile ) )
             {
-                context.Console.WriteError( $"The {passwordEnvironmentVariableName} environment variable is not defined." );
-                hasEnvironmentError = true;
-            }
-
-            if ( hasEnvironmentError )
-            {
-                return SuccessCode.Fatal;
+                return SuccessCode.Error;
             }
 
             var exe = @"C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe";
@@ -45,7 +63,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 "-verb:sync",
                 $"-source:package='{file}'",
-                $"-dest:auto,ComputerName='https://{packageConfiguration.SiteName}-{packageConfiguration.SlotName}.scm.azurewebsites.net:443/msdeploy.axd?site={packageConfiguration.SiteName}',UserName='${userName}',Password='%{passwordEnvironmentVariableName}%',AuthType='Basic'",
+                $"-dest:auto,ComputerName='https://{publishProfile.PublishUrl}:443/msdeploy.axd?site={packageConfiguration.SiteName}',UserName='{publishProfile.UserName}',Password='$(Password)',AuthType='Basic'",
                 "-enableRule:AppOffline",
                 "-retryAttempts:6",
                 "-retryInterval:10000",
@@ -74,11 +92,82 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return ToolInvocationHelper.InvokeTool(
                     context.Console,
                     exe,
-                    args,
+                    args.Replace( "$(Password)", publishProfile.Password, StringComparison.Ordinal ),
                     Environment.CurrentDirectory )
                     ? SuccessCode.Success
                     : SuccessCode.Error;
             }
         }
+
+        private record PublishProfile(
+            string PublishUrl,
+            string UserName,
+            string Password
+        );
+
+#pragma warning disable SA1203 // Constants should appear before fields
+        private const string _dryPublishProfiles = @"[
+  {
+    ""SQLServerDBConnectionString"": """",
+    ""controlPanelLink"": ""http://windows.azure.com"",
+    ""databases"": null,
+    ""destinationAppUrl"": ""http://dry-web-staging.azurewebsites.net"",
+    ""hostingProviderForumLink"": """",
+    ""msdeploySite"": ""dry-web__staging"",
+    ""mySQLDBConnectionString"": """",
+    ""profileName"": ""dry-web-staging - Web Deploy"",
+    ""publishMethod"": ""MSDeploy"",
+    ""publishUrl"": ""dry-web-staging.scm.azurewebsites.net:443"",
+    ""userName"": ""$dry-web__staging"",
+    ""userPWD"": ""youcanttouchthis"",
+    ""webSystem"": ""WebSites""
+  },
+  {
+    ""SQLServerDBConnectionString"": """",
+    ""controlPanelLink"": ""http://windows.azure.com"",
+    ""databases"": null,
+    ""destinationAppUrl"": ""http://dry-web-staging.azurewebsites.net"",
+    ""ftpPassiveMode"": ""True"",
+    ""hostingProviderForumLink"": """",
+    ""mySQLDBConnectionString"": """",
+    ""profileName"": ""dry-web-staging - FTP"",
+    ""publishMethod"": ""FTP"",
+    ""publishUrl"": ""ftp://dry.ftp.azurewebsites.windows.net/site/wwwroot"",
+    ""userName"": ""dry-web__staging\\$dry-web__staging"",
+    ""userPWD"": ""youcanttouchthis"",
+    ""webSystem"": ""WebSites""
+  },
+  {
+    ""SQLServerDBConnectionString"": """",
+    ""controlPanelLink"": ""http://windows.azure.com"",
+    ""databases"": null,
+    ""destinationAppUrl"": ""http://dry-web-staging.azurewebsites.net"",
+    ""hostingProviderForumLink"": """",
+    ""mySQLDBConnectionString"": """",
+    ""profileName"": ""dry-web-staging - Zip Deploy"",
+    ""publishMethod"": ""ZipDeploy"",
+    ""publishUrl"": ""dry-web-staging.scm.azurewebsites.net:443"",
+    ""userName"": ""$dry-web__staging"",
+    ""userPWD"": ""youcanttouchthis"",
+    ""webSystem"": ""WebSites""
+  },
+  {
+    ""SQLServerDBConnectionString"": """",
+    ""controlPanelLink"": ""http://windows.azure.com"",
+    ""databases"": null,
+    ""destinationAppUrl"": ""http://dry-web-staging.azurewebsites.net"",
+    ""ftpPassiveMode"": ""True"",
+    ""hostingProviderForumLink"": """",
+    ""mySQLDBConnectionString"": """",
+    ""profileName"": ""dry-web-staging - ReadOnly - FTP"",
+    ""publishMethod"": ""FTP"",
+    ""publishUrl"": ""ftp://drydr.ftp.azurewebsites.windows.net/site/wwwroot"",
+    ""userName"": ""dry-web__staging\\$dry-web__staging"",
+    ""userPWD"": ""youcanttouchthis"",
+    ""webSystem"": ""WebSites""
+  }
+]"
+#pragma warning restore SA1203 // Constants should appear before fields
+;
     }
 }
