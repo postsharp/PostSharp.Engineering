@@ -887,13 +887,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             CleanRecursive( context.RepoDirectory );
         }
 
+        private (string Private, string Public) GetArtifactsDirectories( BuildContext context, VersionInfo version )
+        {
+            var stringParameters = new VersionInfo( version.PackageVersion, version.Configuration );
+
+            return (
+                Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( stringParameters ) ),
+                Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) )
+                );
+        }
+
         public bool Publish( BuildContext context, PublishSettings settings )
         {
             context.Console.WriteHeading( "Publishing files" );
 
             var versionFile = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
-
-            var stringParameters = new VersionInfo( versionFile.PackageVersion, versionFile.Configuration );
+            var directories = this.GetArtifactsDirectories( context, versionFile );
 
             var hasTarget = false;
             var configuration = this.Configurations.GetValue( settings.BuildConfiguration );
@@ -901,7 +910,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !Publisher.PublishDirectory(
                     context,
                     settings,
-                    Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( stringParameters ) ),
+                    directories,
                     configuration,
                     versionFile,
                     false,
@@ -913,7 +922,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !Publisher.PublishDirectory(
                     context,
                     settings,
-                    Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) ),
+                    directories,
                     configuration,
                     versionFile,
                     true,
@@ -936,7 +945,56 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Swap( BuildContext context, SwapSettings settings )
         {
-            throw new NotImplementedException();
+            var configuration = this.Configurations.GetValue( settings.BuildConfiguration );
+            var versionFile = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
+            var directories = this.GetArtifactsDirectories( context, versionFile );
+
+            var success = true;
+
+            if ( configuration.Swappers != null )
+            {
+                foreach ( var swapper in configuration.Swappers )
+                {
+                    switch ( swapper.Execute( context, settings, configuration ) )
+                    {
+                        case SuccessCode.Success:
+                            foreach ( var tester in swapper.Testers )
+                            {
+                                switch ( tester.Execute( context, directories.Private, versionFile, configuration, settings.Dry ) )
+                                {
+                                    case SuccessCode.Success:
+                                        break;
+
+                                    case SuccessCode.Error:
+                                        success = false;
+
+                                        break;
+
+                                    case SuccessCode.Fatal:
+                                        return false;
+
+                                    default:
+                                        throw new NotImplementedException();
+                                }
+                            }
+
+                            break;
+
+                        case SuccessCode.Error:
+                            success = false;
+
+                            break;
+
+                        case SuccessCode.Fatal:
+                            return false;
+
+                        default:
+                            throw new NotImplementedException();
+                    }
+                }
+            }
+
+            return success;
         }
 
         private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )

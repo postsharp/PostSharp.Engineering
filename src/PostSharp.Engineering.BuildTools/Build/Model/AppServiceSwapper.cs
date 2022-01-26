@@ -50,18 +50,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 if ( settings.Dry )
                 {
                     context.Console.WriteImportantMessage( $"Dry run: {exe} {loginArgs}" );
-
-                    return SuccessCode.Success;
                 }
                 else
                 {
-                    return ToolInvocationHelper.InvokeTool(
+                    if ( !ToolInvocationHelper.InvokeTool(
                             context.Console,
                             exe,
                             loginArgs,
-                            Environment.CurrentDirectory )
-                        ? SuccessCode.Success
-                        : SuccessCode.Error;
+                            Environment.CurrentDirectory ) )
+                    {
+                        return SuccessCode.Error;
+                    }
                 }
             }
 

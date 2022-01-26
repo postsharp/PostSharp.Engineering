@@ -1,29 +1,31 @@
 ﻿using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.IO;
+using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     public class MsDeployPublisher : Publisher
     {
-        public string SiteName { get; init; }
+        private readonly ImmutableArray<MsDeployConfiguration> _configurations;
 
-        public string SlotName { get; init; } = "staging";
-
-        public string? VirtualDirectory { get; init; }
-
-        public MsDeployPublisher( string wepPackageFile, string siteName )
-            : base( Pattern.Create( wepPackageFile ) )
+        public MsDeployPublisher( IEnumerable<MsDeployConfiguration> configurations )
+            : base( Pattern.Create( configurations.Select( c => c.PackageFileName ).ToArray() ) )
         {
-            this.SiteName = siteName;
+            this._configurations = ImmutableArray.Create<MsDeployConfiguration>().AddRange( configurations );
         }
 
-        public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, BuildConfigurationInfo configuration )
+        public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, VersionInfo version, BuildConfigurationInfo configuration )
         {
+            var fileName = Path.GetFileName( file );
+            var packageConfiguration = this._configurations.Single( c => c.PackageFileName.ToString( version ) == fileName );
+
             var hasEnvironmentError = false;
 
-            var userName = $"{this.SiteName}__{this.SlotName}";
-            var passwordEnvironmentVariableName = $"{userName}_PASSWORD".ToUpperInvariant();
+            var userName = $"{packageConfiguration.SiteName}__{packageConfiguration.SlotName}";
+            var passwordEnvironmentVariableName = $"{new string( userName.Select( c => char.IsLetterOrDigit( c ) ? char.ToUpperInvariant( c ) : '_' ).ToArray() )}_PASSWORD";
 
             if ( string.IsNullOrEmpty( Environment.GetEnvironmentVariable( passwordEnvironmentVariableName ) ) )
             {
@@ -43,20 +45,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 "-verb:sync",
                 $"-source:package='{file}'",
-                $"-dest:auto,ComputerName='https://{this.SiteName}-{this.SlotName}.scm.azurewebsites.net:443/msdeploy.axd?site={this.SiteName}',UserName='${userName}',Password='%{passwordEnvironmentVariableName}%',AuthType='Basic'",
+                $"-dest:auto,ComputerName='https://{packageConfiguration.SiteName}-{packageConfiguration.SlotName}.scm.azurewebsites.net:443/msdeploy.axd?site={packageConfiguration.SiteName}',UserName='${userName}',Password='%{passwordEnvironmentVariableName}%',AuthType='Basic'",
                 "-enableRule:AppOffline",
                 "-retryAttempts:6",
                 "-retryInterval:10000",
             };
 
-            if ( this.VirtualDirectory != null )
+            if ( packageConfiguration.VirtualDirectory != null )
             {
-                if ( !this.VirtualDirectory.StartsWith( '/' ) )
+                if ( !packageConfiguration.VirtualDirectory.StartsWith( '/' ) )
                 {
                     throw new InvalidOperationException( "The virtual directory has to start with a forward slash ('/')." );
                 }
 
-                argsList.Add( $"-setParam:name='IIS Web Application Name',value='{this.SiteName}{this.VirtualDirectory}'" );
+                argsList.Add( $"-setParam:name='IIS Web Application Name',value='{packageConfiguration.SiteName}{packageConfiguration.VirtualDirectory}'" );
             }
 
             var args = string.Join( ' ', argsList );
@@ -74,8 +76,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     exe,
                     args,
                     Environment.CurrentDirectory )
-                    ? SuccessCode.Error
-                    : SuccessCode.Fatal;
+                    ? SuccessCode.Success
+                    : SuccessCode.Error;
             }
         }
     }

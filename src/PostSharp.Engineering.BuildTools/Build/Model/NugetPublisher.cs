@@ -14,7 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this._apiKey = apiKey;
         }
 
-        public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, BuildConfigurationInfo configuration )
+        public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, VersionInfo version, BuildConfigurationInfo configuration )
         {
             var hasEnvironmentError = false;
 
