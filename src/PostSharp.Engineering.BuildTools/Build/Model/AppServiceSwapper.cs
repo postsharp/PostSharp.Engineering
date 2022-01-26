@@ -41,7 +41,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( identityUserName == null )
             {
-                context.Console.WriteImportantMessage( $"{identityUserNameEnvironmentVariableName}" );
+                context.Console.WriteImportantMessage( $"{identityUserNameEnvironmentVariableName} environment variable not set. If the authorization fails, set this variable to use managed user identity or call 'az login'." );
             }
             else
             {

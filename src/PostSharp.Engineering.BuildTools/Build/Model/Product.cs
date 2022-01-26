@@ -386,7 +386,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         }
                     }
 
-                    switch ( solution.GetBuildMethod() )
+                    var buildMethod = solution.GetBuildMethod();
+
+                    switch ( buildMethod )
                     {
                         case BuildMethod.Build:
                             if ( !solution.Build( context, settings ) )
@@ -419,6 +421,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             }
 
                             break;
+
+                        default:
+                            throw new NotImplementedException( $"Build method '{buildMethod}' is not implemented." );
                     }
 
                     context.Console.WriteSuccess( $"Building {solution.Name} was successful." );
