@@ -5,7 +5,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 {
     public static class AzHelper
     {
-        private const string _exe = "exe";
+        private const string _exe = "az";
 
         private static bool Login( ConsoleHelper console, bool dry )
         {
