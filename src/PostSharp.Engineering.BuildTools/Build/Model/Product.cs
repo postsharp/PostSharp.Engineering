@@ -152,7 +152,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 Directory.CreateDirectory( publicArtifactsDirectory );
             }
-            
+
             void CreateEmptyPublicDirectory()
             {
                 // We have to create an empty file, otherwise TeamCity will complain that
@@ -534,10 +534,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 versionsOverrideFile.LocalBuildFile = propsFilePath;
             }
-            
+
             // We always save the Versions.g.props because it may not exist and it may have been changed by the previous step.
             versionsOverrideFile.LocalBuildFile = propsFilePath;
-            
+
             if ( !versionsOverrideFile.TrySave( context ) )
             {
                 return false;

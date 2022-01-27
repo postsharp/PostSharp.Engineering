@@ -30,7 +30,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            if (settings.Dry)
+            if ( settings.Dry )
             {
                 profiles = _dryPublishProfiles;
             }

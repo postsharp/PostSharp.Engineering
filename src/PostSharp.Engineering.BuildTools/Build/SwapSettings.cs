@@ -5,8 +5,7 @@ namespace PostSharp.Engineering.BuildTools.Build
 {
     public class SwapSettings : BaseCommandSettings
     {
-        [Description(
-            "Sets the build configuration (Debug or Release) to publish. This option is irrelevant unless the artifact paths depend on the build configuration." )]
+        [Description( "Sets the build configuration (Debug | Release | Public) to swap" )]
         [CommandOption( "-c|--configuration" )]
         public BuildConfiguration BuildConfiguration { get; set; }
 

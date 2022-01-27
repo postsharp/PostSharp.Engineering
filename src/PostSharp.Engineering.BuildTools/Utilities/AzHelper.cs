@@ -39,7 +39,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
         }
 
-        public static bool Query( ConsoleHelper console, string args, bool dry, [MaybeNullWhen(false)] out string output )
+        public static bool Query( ConsoleHelper console, string args, bool dry, [MaybeNullWhen( false )] out string output )
         {
             if ( !Login( console, dry ) )
             {
