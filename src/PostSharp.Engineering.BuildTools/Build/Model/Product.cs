@@ -1000,6 +1000,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )
         {
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
+            var hasSwap = this.Configurations.Public.Swappers?.Length > 0;
 
             var content = new StringWriter();
 
@@ -1020,10 +1021,15 @@ project {
                 content.WriteLine( $"   buildType({configuration}Build)" );
             }
 
-            content.WriteLine(
-                @"
-   buildType(Deploy)
-}" );
+            content.WriteLine();
+            content.WriteLine( "   buildType(Deploy)" );
+
+            if ( hasSwap )
+            {
+                content.WriteLine( "   buildType(Swap)" );
+            }
+
+            content.WriteLine( "}" );
 
             foreach ( var configuration in configurations )
             {
@@ -1156,6 +1162,58 @@ object Deploy : BuildType({{
 }})
 
 " );
+
+            if ( hasSwap )
+            {
+                content.WriteLine(
+                    $@"
+// Swap the staging and production deployment slots
+object Swap : BuildType({{
+
+    name = ""Swap""
+    type = Type.DEPLOYMENT
+
+    vcs {{
+        root(DslContext.settingsRoot)
+    }}
+
+    steps {{
+        powerShell {{
+            scriptMode = file {{
+                path = ""Build.ps1""
+            }}
+            noProfile = false
+            param(""jetbrains_powershell_scriptArguments"", ""swap --configuration Public"")
+        }}
+    }}
+    
+    dependencies {{
+        dependency(PublicBuild) {{
+            snapshot {{
+            }}
+
+            artifacts {{
+                cleanDestination = true
+                artifactRules = ""+:{deployPublicArtifactsDirectory}/**/*=>{deployPublicArtifactsDirectory}\n+:{deployPrivateArtifactsDirectory}/**/*=>{deployPrivateArtifactsDirectory}""
+            }}
+        }}
+
+        dependency(Deploy) {{
+            snapshot {{
+            }}
+
+            artifacts {{
+            }}
+        }}
+    }}
+    
+    requirements {{
+        equals(""env.BuildAgentType"", ""{this.BuildAgentType}"")
+    }}
+}})
+
+" );
+            }
 
             var filePath = Path.Combine( context.RepoDirectory, ".teamcity", "settings.kts" );
 
