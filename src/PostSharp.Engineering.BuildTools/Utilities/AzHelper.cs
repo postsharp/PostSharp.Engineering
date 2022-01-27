@@ -7,9 +7,9 @@ namespace PostSharp.Engineering.BuildTools.Utilities
     {
         private const string _exe = "exe";
 
-        private static bool Login(ConsoleHelper console, bool dry)
+        private static bool Login( ConsoleHelper console, bool dry )
         {
-            const string identityUserNameEnvironmentVariableName = "AZ_SWAP_IDENTITY_USERNAME";
+            const string identityUserNameEnvironmentVariableName = "AZ_IDENTITY_USERNAME";
             var identityUserName = Environment.GetEnvironmentVariable( identityUserNameEnvironmentVariableName );
 
             if ( identityUserName == null )
