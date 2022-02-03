@@ -7,7 +7,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 {
     public class SetDependenciesCommandSettings : ConfigureDependenciesCommandSettings
     {
-        [Description( "The source of dependencies: Default | Local | BuildServer" )]
+        [Description( "The source of dependencies: Feed | Local | BuildServer" )]
         [CommandArgument( 0, "<source>" )]
         public DependencySourceKind Source { get; protected set; }
 
