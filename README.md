@@ -44,6 +44,9 @@ This repository contains common development, build and publishing scripts. It pr
     Enabled code coverage. This script should be imported in test projects only (not in projects being tested). This script
     adds a package to _coverlet_ so there is no need to have in in test projects (and these references should be removed).
   * `MetalamaBranding.props` and `PostSharpBranding.props`: Configure the proper icon for the nuget package.
+  * `PackagesConfig.targets`: Makes the Restore and Pack targets work for projects referencing NuGet using packages.config.
+  * `WebPublish.targets`: Configures the release build of web projects to be published as a zipped artifact.
+  * `TestsPublish.targets`: Configures the release build of test projects to be published as a zipped artifact.
 
 Both packages must be used at the same time.
 
