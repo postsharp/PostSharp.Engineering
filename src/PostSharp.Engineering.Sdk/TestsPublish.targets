@@ -1,11 +1,12 @@
 <Project>
 
-    <Target Name="PublishTests" AfterTargets="Build" Condition="'$(IsTestProject)'=='true' AND '$(Configuration)'=='Release'">
-        <CallTarget Targets="Publish" />
+    <Target Name="PublishTests" AfterTargets="Build"
+            Condition="'$(IsTestProject)'=='true' AND '$(Configuration)'=='Release'">
+        <CallTarget Targets="Publish"/>
         <ZipDirectory
-            SourceDirectory="$(PublishDir)"
-            DestinationFile="$(PackageOutputPath)\$(AssemblyName).$(Version).zip"
-            Overwrite="true" />
+                SourceDirectory="$(PublishDir)"
+                DestinationFile="$(PackageOutputPath)\$(AssemblyName).$(Version).zip"
+                Overwrite="true"/>
     </Target>
 
 </Project>

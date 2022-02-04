@@ -20,7 +20,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.TestAssemblyName = testAssemblyName;
         }
 
-        public override SuccessCode Execute( BuildContext context, string artifactsDirectory, VersionInfo versionInfo, BuildConfigurationInfo configuration, bool dry )
+        public override SuccessCode Execute(
+            BuildContext context,
+            string artifactsDirectory,
+            VersionInfo versionInfo,
+            BuildConfigurationInfo configuration,
+            bool dry )
         {
             var tempDirectory = Path.Combine( Path.GetTempPath(), Path.GetRandomFileName() );
             Directory.CreateDirectory( tempDirectory );
@@ -32,10 +37,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var exe = @"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\Extensions\TestPlatform\vstest.console.exe";
 
-                var argsList = new List<string>
-                {
-                    this.TestAssemblyName
-                };
+                var argsList = new List<string> { this.TestAssemblyName };
 
                 foreach ( var environmentVariable in this.EnvironmentVariables )
                 {
@@ -53,10 +55,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 else
                 {
                     return ToolInvocationHelper.InvokeTool(
-                            context.Console,
-                            exe,
-                            args,
-                            tempDirectory )
+                        context.Console,
+                        exe,
+                        args,
+                        tempDirectory )
                         ? SuccessCode.Success
                         : SuccessCode.Error;
                 }

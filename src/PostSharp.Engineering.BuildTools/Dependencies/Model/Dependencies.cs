@@ -46,7 +46,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "Metalama",
             ("Metalama_PostSharpBackstageSettings_DebugBuild", "Metalama_PostSharpBackstageSettings_ReleaseBuild",
              "Metalama_PostSharpBackstageSettings_PublicBuild") );
-             
+
         public static DependencyDefinition MetalamaBackstage { get; } = new(
             "Metalama.Backstage",
             VcsProvider.AzureRepos,

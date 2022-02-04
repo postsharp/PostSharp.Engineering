@@ -33,7 +33,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public override SuccessCode Execute( BuildContext context, SwapSettings settings, BuildConfigurationInfo configuration )
         {
-            var args = $"webapp deployment slot swap --subscription {this.SubscriptionId} --resource-group {this.ResourceGroupName} --name {this.AppServiceName} --slot {this.SourceSlot} --target-slot {this.TargetSlot}";
+            var args =
+                $"webapp deployment slot swap --subscription {this.SubscriptionId} --resource-group {this.ResourceGroupName} --name {this.AppServiceName} --slot {this.SourceSlot} --target-slot {this.TargetSlot}";
 
             return AzHelper.Run( context.Console, args, settings.Dry ) ? SuccessCode.Success : SuccessCode.Error;
         }

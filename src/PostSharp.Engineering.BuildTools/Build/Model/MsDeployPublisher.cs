@@ -13,15 +13,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     {
         private readonly ImmutableArray<MsDeployConfiguration> _configurations;
 
-        public MsDeployPublisher( IEnumerable<MsDeployConfiguration> configurations )
+        public MsDeployPublisher( IReadOnlyCollection<MsDeployConfiguration> configurations )
             : base( Pattern.Create( configurations.Select( c => c.PackageFileName ).ToArray() ) )
         {
             this._configurations = ImmutableArray.Create<MsDeployConfiguration>().AddRange( configurations );
         }
 
-        private static bool QueryPublishProfile( BuildContext context, PublishSettings settings, MsDeployConfiguration configuration, [MaybeNullWhen( false )] out PublishProfile publishProfile )
+        private static bool QueryPublishProfile(
+            BuildContext context,
+            PublishSettings settings,
+            MsDeployConfiguration configuration,
+            [MaybeNullWhen( false )] out PublishProfile publishProfile )
         {
-            var args = $"webapp deployment list-publishing-profiles --subscription {configuration.SubscriptionId} --resource-group {configuration.ResourceGroupName} --name {configuration.SiteName} --slot {configuration.SlotName}";
+            var args =
+                $"webapp deployment list-publishing-profiles --subscription {configuration.SubscriptionId} --resource-group {configuration.ResourceGroupName} --name {configuration.SiteName} --slot {configuration.SlotName}";
 
             if ( !AzHelper.Query( context.Console, args, settings.Dry, out var profiles ) )
             {
@@ -38,7 +43,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var profilesJson = JsonDocument.Parse( profiles );
             var msDeployProfileJson = profilesJson.RootElement.EnumerateArray().Single( e => e.GetProperty( "publishMethod" ).GetString() == "MSDeploy" );
 
-            publishProfile = new(
+            publishProfile = new PublishProfile(
                 PublishUrl: msDeployProfileJson.GetProperty( "publishUrl" ).GetString()!,
                 UserName: msDeployProfileJson.GetProperty( "userName" ).GetString()!,
                 Password: msDeployProfileJson.GetProperty( "userPWD" ).GetString()! );
@@ -46,7 +51,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, VersionInfo version, BuildConfigurationInfo configuration )
+        public override SuccessCode Execute(
+            BuildContext context,
+            PublishSettings settings,
+            string file,
+            VersionInfo version,
+            BuildConfigurationInfo configuration )
         {
             var fileName = Path.GetFileName( file );
             var packageConfiguration = this._configurations.Single( c => c.PackageFileName.ToString( version ) == fileName );
@@ -66,7 +76,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 $"-dest:auto,ComputerName='https://{publishProfile.PublishUrl}:443/msdeploy.axd?site={packageConfiguration.SiteName}',UserName='{publishProfile.UserName}',Password='$(Password)',AuthType='Basic'",
                 "-enableRule:AppOffline",
                 "-retryAttempts:6",
-                "-retryInterval:10000",
+                "-retryInterval:10000"
             };
 
             if ( packageConfiguration.VirtualDirectory != null )
@@ -102,8 +112,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private record PublishProfile(
             string PublishUrl,
             string UserName,
-            string Password
-        );
+            string Password );
 
 #pragma warning disable SA1203 // Constants should appear before fields
         private const string _dryPublishProfiles = @"[
@@ -168,6 +177,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
   }
 ]"
 #pragma warning restore SA1203 // Constants should appear before fields
-;
+            ;
     }
 }

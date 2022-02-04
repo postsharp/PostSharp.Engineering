@@ -83,7 +83,7 @@ namespace PostSharp.Engineering.BuildTools.Git
 
                 var pathFrom = renamedNode.FullName;
                 var pathTo = Path.Combine( containingDirectory.FullName, newName );
-                
+
                 console.WriteMessage( $"Renaming: '{pathFrom}' -> '{pathTo}'" );
 
                 if ( pathFrom == rootPath )

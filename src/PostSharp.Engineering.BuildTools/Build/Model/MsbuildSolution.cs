@@ -11,11 +11,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     {
         public MsbuildSolution( string solutionPath ) : base( solutionPath ) { }
 
-        public override bool Build( BuildContext context, BuildSettings settings ) => this.RunMsbuild( context, settings, this.SolutionPath, "Build", "-p:RestorePackages=false" );
+        public override bool Build( BuildContext context, BuildSettings settings )
+            => this.RunMsbuild( context, settings, this.SolutionPath, "Build", "-p:RestorePackages=false" );
 
-        public override bool Pack( BuildContext context, BuildSettings settings ) => this.RunMsbuild( context, settings, this.SolutionPath, "Pack", "-p:RestorePackages=false" );
+        public override bool Pack( BuildContext context, BuildSettings settings )
+            => this.RunMsbuild( context, settings, this.SolutionPath, "Pack", "-p:RestorePackages=false" );
 
-        public override bool Test( BuildContext context, BuildSettings settings ) => this.RunMsbuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
+        public override bool Test( BuildContext context, BuildSettings settings )
+            => this.RunMsbuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
 
         public override bool Restore( BuildContext context, BaseBuildSettings settings )
         {
@@ -35,11 +38,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     context.Console.WriteError( $"Error executing {exe} {args}" );
                     context.Console.WriteError( slnListOutput );
+
                     return false;
                 }
 
                 // The "dotnet sln list" command output contains a header, so we need to filter the rows.
-                var projectList = slnListOutput.Split( new[] { '\r', '\n' } ).Where( l => l.EndsWith( "proj", StringComparison.OrdinalIgnoreCase ) ).ToArray();
+                var projectList = slnListOutput.Split( '\r', '\n' ).Where( l => l.EndsWith( "proj", StringComparison.OrdinalIgnoreCase ) ).ToArray();
 
                 if ( projectList.Length == 0 )
                 {

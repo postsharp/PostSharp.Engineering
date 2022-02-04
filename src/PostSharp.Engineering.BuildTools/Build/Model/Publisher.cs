@@ -15,11 +15,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             this.Files = files;
         }
-        
+
         /// <summary>
         /// Executes the target for a specified artifact.
         /// </summary>
-        public abstract SuccessCode Execute( BuildContext context, PublishSettings settings, string file, VersionInfo version, BuildConfigurationInfo configuration );
+        public abstract SuccessCode Execute(
+            BuildContext context,
+            PublishSettings settings,
+            string file,
+            VersionInfo version,
+            BuildConfigurationInfo configuration );
 
         public static bool PublishDirectory(
             BuildContext context,

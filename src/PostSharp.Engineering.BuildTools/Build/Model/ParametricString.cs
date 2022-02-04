@@ -16,7 +16,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string ToString( VersionInfo parameters )
             => this._value?
                 .Replace( "$(PackageVersion)", parameters.PackageVersion, StringComparison.OrdinalIgnoreCase )
-                .Replace( "$(Configuration)", parameters.Configuration, StringComparison.OrdinalIgnoreCase ) ?? "";
+                .Replace( "$(Configuration)", parameters.Configuration, StringComparison.OrdinalIgnoreCase )
+                .Replace( "$(MSSBuildConfiguration)", parameters.MSBuildConfiguration, StringComparison.OrdinalIgnoreCase ) ?? "";
 
         public static implicit operator ParametricString( string value ) => new( value );
     }

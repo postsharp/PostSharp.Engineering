@@ -329,7 +329,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
-            return new VersionInfo( packageVersion, configuration );
+            return new VersionInfo( packageVersion, Enum.Parse<BuildConfiguration>( configuration ), this );
         }
 
         private static (string MainVersion, string PackageVersionSuffix) ReadMainVersionFile( string path )
@@ -509,7 +509,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var configuration = settings.BuildConfiguration;
 
             var privateArtifactsRelativeDir =
-                this.PrivateArtifactsDirectory.ToString( new VersionInfo( null!, configuration.ToString() ) );
+                this.PrivateArtifactsDirectory.ToString( new VersionInfo( null!, configuration, this ) );
 
             var artifactsDir = Path.Combine( context.RepoDirectory, privateArtifactsRelativeDir );
 
@@ -872,7 +872,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 DeleteDirectory( Path.Combine( context.RepoDirectory, directory ) );
             }
 
-            var stringParameters = new VersionInfo( settings.BuildConfiguration.ToString(), null! );
+            var stringParameters = new VersionInfo( null!, settings.BuildConfiguration, this );
 
             DeleteDirectory(
                 Path.Combine(
@@ -889,12 +889,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private (string Private, string Public) GetArtifactsDirectories( BuildContext context, VersionInfo version )
         {
-            var stringParameters = new VersionInfo( version.PackageVersion, version.Configuration );
-
             return (
-                Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( stringParameters ) ),
-                Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) )
-                );
+                Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( version ) ),
+                Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( version ) )
+            );
         }
 
         public bool Publish( BuildContext context, PublishSettings settings )
@@ -1034,7 +1032,7 @@ project {
             foreach ( var configuration in configurations )
             {
                 var configurationInfo = this.Configurations[configuration];
-                var versionInfo = new VersionInfo( packageVersion, configuration.ToString() );
+                var versionInfo = new VersionInfo( packageVersion, configuration, this );
                 var publicArtifactsDirectory = context.Product.PublicArtifactsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
                 var privateArtifactsDirectory =
@@ -1114,7 +1112,7 @@ object {configuration}Build : BuildType({{
             }
 
             // Deployment dependencies.
-            var deployVersionInfo = new VersionInfo( packageVersion, BuildConfiguration.Public.ToString() );
+            var deployVersionInfo = new VersionInfo( packageVersion, BuildConfiguration.Public, this );
 
             var deployPrivateArtifactsDirectory =
                 context.Product.PrivateArtifactsDirectory.ToString( deployVersionInfo ).Replace( "\\", "/", StringComparison.Ordinal );

@@ -14,5 +14,4 @@ public record BuildConfigurationInfo(
 
     // Publishers for private artifacts.
     Publisher[]? PrivatePublishers = null,
-
     Swapper[]? Swappers = null );

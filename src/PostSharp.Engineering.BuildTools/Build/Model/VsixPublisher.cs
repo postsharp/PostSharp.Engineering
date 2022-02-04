@@ -7,7 +7,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     {
         public VsixPublisher( Pattern files ) : base( files ) { }
 
-        public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, VersionInfo version, BuildConfigurationInfo configuration )
+        public override SuccessCode Execute(
+            BuildContext context,
+            PublishSettings settings,
+            string file,
+            VersionInfo version,
+            BuildConfigurationInfo configuration )
         {
             var hasEnvironmentError = false;
 

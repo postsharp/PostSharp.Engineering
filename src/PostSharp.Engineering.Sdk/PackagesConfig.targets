@@ -8,19 +8,25 @@
     </PropertyGroup>
 
     <Target Name="RestoreNuGetCommandLine">
-        <Error Text="The NuGetCommandLineVersion property is not defined in Versions.props." Condition="'$(NuGetCommandLineVersion)'==''" />
-        <Error Text="'$(NuGetExePath)' file doesn't exist. The NuGet.CommandLine version $(NuGetCommandLineVersion) may have not been restored. Make sure it is installed to the eng\Build*.csproj project and the Build.ps1 has been executed." Condition="!Exists('$(NuGetExePath)')" />
+        <Error Text="The NuGetCommandLineVersion property is not defined in Versions.props."
+               Condition="'$(NuGetCommandLineVersion)'==''"/>
+        <Error
+                Text="'$(NuGetExePath)' file doesn't exist. The NuGet.CommandLine version $(NuGetCommandLineVersion) may have not been restored. Make sure it is installed to the eng\Build*.csproj project and the Build.ps1 has been executed."
+                Condition="!Exists('$(NuGetExePath)')"/>
     </Target>
 
     <!-- This target is only called when calling the Restore target on a project. Calling the Restore target on a solution skips all projects that use packages.config. -->
     <!-- (The reason is not the condition here - the projects are completely skipped.) -->
-    <Target Name="RestorePackagesConfig" DependsOnTargets="RestoreNuGetCommandLine" AfterTargets="Restore" Condition="Exists('$(MSBuildProjectDirectory)\packages.config')">
-        <Exec Command="$(NuGetExePath) restore $(MSBuildProjectFullPath) -SolutionDirectory $(RepoDirectory)" />
+    <Target Name="RestorePackagesConfig" DependsOnTargets="RestoreNuGetCommandLine" AfterTargets="Restore"
+            Condition="Exists('$(MSBuildProjectDirectory)\packages.config')">
+        <Exec Command="$(NuGetExePath) restore $(MSBuildProjectFullPath) -SolutionDirectory $(RepoDirectory)"/>
     </Target>
 
-    <Target Name="PackPackagesConfig" DependsOnTargets="RestoreNuGetCommandLine;Build" AfterTargets="Pack" Condition="'$(IsPackable)'!='false' AND Exists('$(MSBuildProjectDirectory)\packages.config')">
-        <Exec Command="$(NuGetExePath) pack $(MSBuildProjectFullPath) -Properties Configuration=$(Configuration) -OutputDirectory $(PackageOutputPath) -Version $(Version) -SolutionDirectory $(RepoDirectory)" />
-        <Message Text="$(AssemblyName) -&gt; $(PackageOutputPath)$(AssemblyName).$(Version).nupkg" Importance="High" />
+    <Target Name="PackPackagesConfig" DependsOnTargets="RestoreNuGetCommandLine;Build" AfterTargets="Pack"
+            Condition="'$(IsPackable)'!='false' AND Exists('$(MSBuildProjectDirectory)\packages.config')">
+        <Exec
+                Command="$(NuGetExePath) pack $(MSBuildProjectFullPath) -Properties Configuration=$(Configuration) -OutputDirectory $(PackageOutputPath) -Version $(Version) -SolutionDirectory $(RepoDirectory)"/>
+        <Message Text="$(AssemblyName) -&gt; $(PackageOutputPath)$(AssemblyName).$(Version).nupkg" Importance="High"/>
     </Target>
 
 </Project>

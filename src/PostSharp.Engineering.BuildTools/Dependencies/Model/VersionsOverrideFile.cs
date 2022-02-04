@@ -286,7 +286,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public bool TrySave( BuildContext context )
         {
             context.Console.WriteMessage( $"Writing '{this.FilePath}'." );
-            
+
             var project = new XElement( "Project", new XAttribute( "InitialTargets", "VerifyProductDependencies" ) );
             var document = new XDocument( project );
 
