@@ -152,7 +152,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 Directory.CreateDirectory( publicArtifactsDirectory );
             }
-            
+
             void CreateEmptyPublicDirectory()
             {
                 // We have to create an empty file, otherwise TeamCity will complain that
@@ -386,7 +386,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         }
                     }
 
-                    switch ( solution.GetBuildMethod() )
+                    var buildMethod = solution.GetBuildMethod();
+
+                    switch ( buildMethod )
                     {
                         case BuildMethod.Build:
                             if ( !solution.Build( context, settings ) )
@@ -419,6 +421,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             }
 
                             break;
+
+                        default:
+                            throw new NotImplementedException( $"Build method '{buildMethod}' is not implemented." );
                     }
 
                     context.Console.WriteSuccess( $"Building {solution.Name} was successful." );
@@ -529,10 +534,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 versionsOverrideFile.LocalBuildFile = propsFilePath;
             }
-            
+
             // We always save the Versions.g.props because it may not exist and it may have been changed by the previous step.
             versionsOverrideFile.LocalBuildFile = propsFilePath;
-            
+
             if ( !versionsOverrideFile.TrySave( context ) )
             {
                 return false;
@@ -882,13 +887,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             CleanRecursive( context.RepoDirectory );
         }
 
+        private (string Private, string Public) GetArtifactsDirectories( BuildContext context, VersionInfo version )
+        {
+            var stringParameters = new VersionInfo( version.PackageVersion, version.Configuration );
+
+            return (
+                Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( stringParameters ) ),
+                Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) )
+                );
+        }
+
         public bool Publish( BuildContext context, PublishSettings settings )
         {
             context.Console.WriteHeading( "Publishing files" );
 
             var versionFile = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
-
-            var stringParameters = new VersionInfo( versionFile.PackageVersion, versionFile.Configuration );
+            var directories = this.GetArtifactsDirectories( context, versionFile );
 
             var hasTarget = false;
             var configuration = this.Configurations.GetValue( settings.BuildConfiguration );
@@ -896,7 +910,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !Publisher.PublishDirectory(
                     context,
                     settings,
-                    Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( stringParameters ) ),
+                    directories,
                     configuration,
                     versionFile,
                     false,
@@ -908,7 +922,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !Publisher.PublishDirectory(
                     context,
                     settings,
-                    Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) ),
+                    directories,
                     configuration,
                     versionFile,
                     true,
@@ -929,9 +943,64 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
+        public bool Swap( BuildContext context, SwapSettings settings )
+        {
+            var configuration = this.Configurations.GetValue( settings.BuildConfiguration );
+            var versionFile = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
+            var directories = this.GetArtifactsDirectories( context, versionFile );
+
+            var success = true;
+
+            if ( configuration.Swappers != null )
+            {
+                foreach ( var swapper in configuration.Swappers )
+                {
+                    switch ( swapper.Execute( context, settings, configuration ) )
+                    {
+                        case SuccessCode.Success:
+                            foreach ( var tester in swapper.Testers )
+                            {
+                                switch ( tester.Execute( context, directories.Private, versionFile, configuration, settings.Dry ) )
+                                {
+                                    case SuccessCode.Success:
+                                        break;
+
+                                    case SuccessCode.Error:
+                                        success = false;
+
+                                        break;
+
+                                    case SuccessCode.Fatal:
+                                        return false;
+
+                                    default:
+                                        throw new NotImplementedException();
+                                }
+                            }
+
+                            break;
+
+                        case SuccessCode.Error:
+                            success = false;
+
+                            break;
+
+                        case SuccessCode.Fatal:
+                            return false;
+
+                        default:
+                            throw new NotImplementedException();
+                    }
+                }
+            }
+
+            return success;
+        }
+
         private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )
         {
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
+            var hasSwap = this.Configurations.Public.Swappers?.Length > 0;
 
             var content = new StringWriter();
 
@@ -952,10 +1021,15 @@ project {
                 content.WriteLine( $"   buildType({configuration}Build)" );
             }
 
-            content.WriteLine(
-                @"
-   buildType(Deploy)
-}" );
+            content.WriteLine();
+            content.WriteLine( "   buildType(Deploy)" );
+
+            if ( hasSwap )
+            {
+                content.WriteLine( "   buildType(Swap)" );
+            }
+
+            content.WriteLine( "}" );
 
             foreach ( var configuration in configurations )
             {
@@ -1088,6 +1162,58 @@ object Deploy : BuildType({{
 }})
 
 " );
+
+            if ( hasSwap )
+            {
+                content.WriteLine(
+                    $@"
+// Swap the staging and production deployment slots
+object Swap : BuildType({{
+
+    name = ""Swap""
+    type = Type.DEPLOYMENT
+
+    vcs {{
+        root(DslContext.settingsRoot)
+    }}
+
+    steps {{
+        powerShell {{
+            scriptMode = file {{
+                path = ""Build.ps1""
+            }}
+            noProfile = false
+            param(""jetbrains_powershell_scriptArguments"", ""swap --configuration Public"")
+        }}
+    }}
+    
+    dependencies {{
+        dependency(PublicBuild) {{
+            snapshot {{
+            }}
+
+            artifacts {{
+                cleanDestination = true
+                artifactRules = ""+:{deployPublicArtifactsDirectory}/**/*=>{deployPublicArtifactsDirectory}\n+:{deployPrivateArtifactsDirectory}/**/*=>{deployPrivateArtifactsDirectory}""
+            }}
+        }}
+
+        dependency(Deploy) {{
+            snapshot {{
+            }}
+
+            artifacts {{
+            }}
+        }}
+    }}
+    
+    requirements {{
+        equals(""env.BuildAgentType"", ""{this.BuildAgentType}"")
+    }}
+}})
+
+" );
+            }
 
             var filePath = Path.Combine( context.RepoDirectory, ".teamcity", "settings.kts" );
 

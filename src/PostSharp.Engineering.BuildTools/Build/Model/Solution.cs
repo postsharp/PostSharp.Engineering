@@ -19,13 +19,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string[] FormatExclusions { get; init; } = Array.Empty<string>();
 
-        [Obsolete( "Use BuildMethod=Build" )]
-        public bool CanPack
-        {
-            get => this.BuildMethod == Model.BuildMethod.Pack;
-            init => this.BuildMethod = value ? Model.BuildMethod.Pack : Model.BuildMethod.Build;
-        }
-
         public BuildMethod? BuildMethod { get; init; }
 
         public BuildMethod GetBuildMethod() => this.BuildMethod ?? (this.IsTestOnly ? Model.BuildMethod.Build : Model.BuildMethod.Pack);

@@ -7,7 +7,7 @@ namespace PostSharp.Engineering.BuildTools.Build
 {
     public class BaseBuildSettings : BaseCommandSettings
     {
-        [Description( "Sets the build configuration (Debug or Release)" )]
+        [Description( "Sets the build configuration (Debug | Release | Public)" )]
         [CommandOption( "-c|--configuration" )]
         public BuildConfiguration BuildConfiguration { get; set; }
 

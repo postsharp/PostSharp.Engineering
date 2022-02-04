@@ -7,22 +7,24 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     public abstract class Publisher
     {
+        public Pattern Files { get; }
+
+        public Tester[] Testers { get; init; } = Array.Empty<Tester>();
+
         protected Publisher( Pattern files )
         {
             this.Files = files;
         }
-
-        public Pattern Files { get; }
         
         /// <summary>
         /// Executes the target for a specified artifact.
         /// </summary>
-        public abstract SuccessCode Execute( BuildContext context, PublishSettings settings, string file, BuildConfigurationInfo configuration );
+        public abstract SuccessCode Execute( BuildContext context, PublishSettings settings, string file, VersionInfo version, BuildConfigurationInfo configuration );
 
         public static bool PublishDirectory(
             BuildContext context,
             PublishSettings settings,
-            string directory,
+            (string Private, string Public) directories,
             BuildConfigurationInfo configuration,
             VersionInfo version,
             bool isPublic,
@@ -31,11 +33,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var success = true;
 
             var publishers = isPublic ? configuration.PublicPublishers : configuration.PrivatePublishers;
+            var directory = isPublic ? directories.Public : directories.Private;
 
             if ( publishers is not { Length: > 0 } )
             {
                 return true;
             }
+
+            var allFilesSucceeded = true;
 
             foreach ( var publisher in publishers )
             {
@@ -59,18 +64,45 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     var filePath = Path.Combine( directory, file.Path );
 
-                    switch ( publisher.Execute( context, settings, filePath, configuration ) )
+                    switch ( publisher.Execute( context, settings, filePath, version, configuration ) )
                     {
                         case SuccessCode.Success:
                             break;
 
                         case SuccessCode.Error:
                             success = false;
+                            allFilesSucceeded = false;
 
                             break;
 
                         case SuccessCode.Fatal:
                             return false;
+
+                        default:
+                            throw new NotImplementedException();
+                    }
+                }
+
+                if ( allFilesSucceeded )
+                {
+                    foreach ( var tester in publisher.Testers )
+                    {
+                        switch ( tester.Execute( context, directories.Private, version, configuration, settings.Dry ) )
+                        {
+                            case SuccessCode.Success:
+                                break;
+
+                            case SuccessCode.Error:
+                                success = false;
+
+                                break;
+
+                            case SuccessCode.Fatal:
+                                return false;
+
+                            default:
+                                throw new NotImplementedException();
+                        }
                     }
                 }
             }

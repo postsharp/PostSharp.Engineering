@@ -2,6 +2,7 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
@@ -10,18 +11,59 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     {
         public MsbuildSolution( string solutionPath ) : base( solutionPath ) { }
 
-        public override bool Build( BuildContext context, BuildSettings settings ) => this.RunMsbuild( context, settings, "Build", "-p:RestorePackages=false" );
+        public override bool Build( BuildContext context, BuildSettings settings ) => this.RunMsbuild( context, settings, this.SolutionPath, "Build", "-p:RestorePackages=false" );
 
-        public override bool Pack( BuildContext context, BuildSettings settings ) => this.RunMsbuild( context, settings, "Pack", "-p:RestorePackages=false" );
+        public override bool Pack( BuildContext context, BuildSettings settings ) => this.RunMsbuild( context, settings, this.SolutionPath, "Pack", "-p:RestorePackages=false" );
 
-        public override bool Test( BuildContext context, BuildSettings settings ) => this.RunMsbuild( context, settings, "Test", "-p:RestorePackages=false" );
+        public override bool Test( BuildContext context, BuildSettings settings ) => this.RunMsbuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
 
-        public override bool Restore( BuildContext context, BaseBuildSettings settings ) => this.RunMsbuild( context, settings, "Restore" );
+        public override bool Restore( BuildContext context, BaseBuildSettings settings )
+        {
+            if ( Path.GetExtension( this.SolutionPath ) != ".sln" )
+            {
+                return this.RunMsbuild( context, settings, this.SolutionPath, "Restore" );
+            }
+            else
+            {
+                // "msbuild -t Restore" doesn't call the Restore target for projects referencing NuGet packages using packages.config in a solution.
+                // We call the Restore target ourselves on each project in the solution.
 
-        private bool RunMsbuild( BuildContext context, BaseBuildSettings settings, string target, string arguments = "" )
+                var exe = "dotnet";
+                var args = $"sln \"{this.SolutionPath}\" list";
+
+                if ( !ToolInvocationHelper.InvokeTool( context.Console, exe, args, context.RepoDirectory, out var _, out var slnListOutput ) )
+                {
+                    context.Console.WriteError( $"Error executing {exe} {args}" );
+                    context.Console.WriteError( slnListOutput );
+                    return false;
+                }
+
+                // The "dotnet sln list" command output contains a header, so we need to filter the rows.
+                var projectList = slnListOutput.Split( new[] { '\r', '\n' } ).Where( l => l.EndsWith( "proj", StringComparison.OrdinalIgnoreCase ) ).ToArray();
+
+                if ( projectList.Length == 0 )
+                {
+                    throw new InvalidOperationException();
+                }
+
+                foreach ( var project in projectList )
+                {
+                    context.Console.WriteMessage( $"Restoring {project}" );
+
+                    if ( !this.RunMsbuild( context, settings, project, "Restore" ) )
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        }
+
+        private bool RunMsbuild( BuildContext context, BaseBuildSettings settings, string project, string target, string arguments = "" )
         {
             var argsBuilder = new StringBuilder();
-            var path = Path.Combine( context.RepoDirectory, this.SolutionPath );
+            var path = Path.Combine( context.RepoDirectory, project );
 
             var configuration = context.Product.Configurations[settings.BuildConfiguration];
 

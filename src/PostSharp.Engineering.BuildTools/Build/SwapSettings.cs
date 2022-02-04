@@ -3,9 +3,9 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Build
 {
-    public class PublishSettings : BaseCommandSettings
+    public class SwapSettings : BaseCommandSettings
     {
-        [Description( "Sets the build configuration (Debug | Release | Public) to publish" )]
+        [Description( "Sets the build configuration (Debug | Release | Public) to swap" )]
         [CommandOption( "-c|--configuration" )]
         public BuildConfiguration BuildConfiguration { get; set; }
 

@@ -1,0 +1,15 @@
+<Project>
+
+    <PropertyGroup Condition="'$(Configuration)'=='Release' AND '$(IsPackable)'!='false'">
+        <DeployOnBuild>true</DeployOnBuild>
+        <PublishProfile>staging</PublishProfile>
+        <PackageAsSingleFile>true</PackageAsSingleFile>
+        <SkipInvalidConfigurations>false</SkipInvalidConfigurations>
+        <GenerateSampleDeployScript>false</GenerateSampleDeployScript>
+        <!-- It is not possible to disble generation of the manifest, so we set the path to bin not to have it in the artefacts, since we don't need it for az deploy. -->
+        <PackageSourceManifest>$(OutputPath)\$(MSBuildProjectName).SourceManifest.xml</PackageSourceManifest>
+        <PackageLocation>$(PackageOutputPath)\\</PackageLocation>
+        <DefaultPackageFileName>$(AssemblyName).$(Version).zip</DefaultPackageFileName>
+    </PropertyGroup>
+
+</Project>

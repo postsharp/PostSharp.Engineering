@@ -14,7 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this._apiKey = apiKey;
         }
 
-        public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, BuildConfigurationInfo configuration )
+        public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, VersionInfo version, BuildConfigurationInfo configuration )
         {
             var hasEnvironmentError = false;
 
@@ -42,13 +42,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return SuccessCode.Fatal;
             }
 
+            const string azEndpointsEnvironmentVariableName = "VSS_NUGET_EXTERNAL_FEED_ENDPOINTS";
+
+            if ( apiKey == "az" && Environment.GetEnvironmentVariable( azEndpointsEnvironmentVariableName ) == null )
+            {
+                context.Console.WriteImportantMessage( $"{azEndpointsEnvironmentVariableName} environment variable not set. If the authorization fails, set this variable or sign in interactively. See https://github.com/microsoft/artifacts-credprovider#use for details." );
+            }
+
+            var exe = "dotnet";
+
             // Note that we don't expand the ApiKey environment variable so we don't expose passwords to logs.
-            var arguments =
+            var args =
                 $"nuget push {file} --source {server} --api-key {this._apiKey} --skip-duplicate";
 
             if ( settings.Dry )
             {
-                context.Console.WriteImportantMessage( "Dry run: dotnet " + arguments );
+                context.Console.WriteImportantMessage( $"Dry run: {exe} {args}" );
 
                 return SuccessCode.Success;
             }
@@ -56,8 +65,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return ToolInvocationHelper.InvokeTool(
                     context.Console,
-                    "dotnet",
-                    arguments,
+                    exe,
+                    args,
                     Environment.CurrentDirectory )
                     ? SuccessCode.Success
                     : SuccessCode.Error;
