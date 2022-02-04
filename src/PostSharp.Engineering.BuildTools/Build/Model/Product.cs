@@ -894,7 +894,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return (
                 Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( stringParameters ) ),
                 Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( stringParameters ) )
-                );
+            );
         }
 
         public bool Publish( BuildContext context, PublishSettings settings )

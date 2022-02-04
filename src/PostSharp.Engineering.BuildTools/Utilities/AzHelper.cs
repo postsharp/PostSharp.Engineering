@@ -14,7 +14,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             if ( identityUserName == null )
             {
-                console.WriteImportantMessage( $"{identityUserNameEnvironmentVariableName} environment variable not set. If the authorization fails, set this variable to use managed user identity or call 'az login'." );
+                console.WriteImportantMessage(
+                    $"{identityUserNameEnvironmentVariableName} environment variable not set. If the authorization fails, set this variable to use managed user identity or call 'az login'." );
 
                 return true;
             }
@@ -31,10 +32,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 else
                 {
                     return ToolInvocationHelper.InvokeTool(
-                            console,
-                            _exe,
-                            args,
-                            Environment.CurrentDirectory );
+                        console,
+                        _exe,
+                        args,
+                        Environment.CurrentDirectory );
                 }
             }
         }
@@ -44,6 +45,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             if ( !Login( console, dry ) )
             {
                 output = null;
+
                 return false;
             }
 
@@ -52,6 +54,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 console.WriteImportantMessage( $"Dry run: {_exe} {args}" );
 
                 output = "<dry>";
+
                 return true;
             }
             else

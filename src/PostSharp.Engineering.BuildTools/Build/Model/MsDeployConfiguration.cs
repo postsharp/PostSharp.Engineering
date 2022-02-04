@@ -14,7 +14,13 @@
 
         public string? VirtualDirectory { get; init; }
 
-        public MsDeployConfiguration( ParametricString packageFileName, string subscriptionId, string resourceGroupName, string siteName, string? slotName = null, string? virtualDirectory = null )
+        public MsDeployConfiguration(
+            ParametricString packageFileName,
+            string subscriptionId,
+            string resourceGroupName,
+            string siteName,
+            string? slotName = null,
+            string? virtualDirectory = null )
         {
             this.PackageFileName = packageFileName;
             this.SubscriptionId = subscriptionId;
