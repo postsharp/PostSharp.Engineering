@@ -14,7 +14,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this._apiKey = apiKey;
         }
 
-        public override SuccessCode Execute( BuildContext context, PublishSettings settings, string file, VersionInfo version, BuildConfigurationInfo configuration )
+        public override SuccessCode Execute(
+            BuildContext context,
+            PublishSettings settings,
+            string file,
+            VersionInfo version,
+            BuildConfigurationInfo configuration )
         {
             var hasEnvironmentError = false;
 
@@ -46,7 +51,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( apiKey == "az" && Environment.GetEnvironmentVariable( azEndpointsEnvironmentVariableName ) == null )
             {
-                context.Console.WriteImportantMessage( $"{azEndpointsEnvironmentVariableName} environment variable not set. If the authorization fails, set this variable or sign in interactively. See https://github.com/microsoft/artifacts-credprovider#use for details." );
+                context.Console.WriteImportantMessage(
+                    $"{azEndpointsEnvironmentVariableName} environment variable not set. If the authorization fails, set this variable or sign in interactively. See https://github.com/microsoft/artifacts-credprovider#use for details." );
             }
 
             var exe = "dotnet";

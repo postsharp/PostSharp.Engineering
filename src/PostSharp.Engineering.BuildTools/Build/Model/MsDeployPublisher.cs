@@ -13,7 +13,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     {
         private readonly ImmutableArray<MsDeployConfiguration> _configurations;
 
-        public MsDeployPublisher( IEnumerable<MsDeployConfiguration> configurations )
+        public MsDeployPublisher( IReadOnlyCollection<MsDeployConfiguration> configurations )
             : base( Pattern.Create( configurations.Select( c => c.PackageFileName ).ToArray() ) )
         {
             this._configurations = ImmutableArray.Create<MsDeployConfiguration>().AddRange( configurations );

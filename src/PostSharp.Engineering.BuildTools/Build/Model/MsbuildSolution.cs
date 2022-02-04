@@ -43,7 +43,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
 
                 // The "dotnet sln list" command output contains a header, so we need to filter the rows.
-                var projectList = slnListOutput.Split( new[] { '\r', '\n' } ).Where( l => l.EndsWith( "proj", StringComparison.OrdinalIgnoreCase ) ).ToArray();
+                var projectList = slnListOutput.Split( '\r', '\n' ).Where( l => l.EndsWith( "proj", StringComparison.OrdinalIgnoreCase ) ).ToArray();
 
                 if ( projectList.Length == 0 )
                 {
