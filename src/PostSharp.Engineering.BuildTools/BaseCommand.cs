@@ -1,3 +1,4 @@
+using Microsoft.Build.Locator;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
@@ -15,6 +16,14 @@ namespace PostSharp.Engineering.BuildTools
     public abstract class BaseCommand<T> : Command<T>
         where T : BaseCommandSettings
     {
+        static BaseCommand()
+        {
+            if ( MSBuildLocator.CanRegister )
+            {
+                MSBuildLocator.RegisterDefaults();
+            }
+        }
+
         public sealed override int Execute( CommandContext context, T settings )
         {
             try
@@ -65,16 +74,20 @@ namespace PostSharp.Engineering.BuildTools
                         return 1;
                     }
 
-                    // Display the logo.
-                    buildContext.Console.Out.Write(
-                        new FigletText( buildContext.Product.ProductName )
-                            .LeftAligned()
-                            .Color( Color.Purple ) );
-
-                    buildContext.Console.Out.WriteLine();
                     var myVersion = VersionHelper.EngineeringVersion;
-                    buildContext.Console.WriteMessage( $"Using PostSharp.Engineering v{myVersion}." );
-                    buildContext.Console.Out.WriteLine();
+
+                    // Display the logo.
+                    if ( !settings.NoLogo )
+                    {
+                        buildContext.Console.Out.Write(
+                            new FigletText( buildContext.Product.ProductName )
+                                .LeftAligned()
+                                .Color( Color.Purple ) );
+
+                        buildContext.Console.Out.WriteLine();
+                        buildContext.Console.WriteMessage( $"Using PostSharp.Engineering v{myVersion}." );
+                        buildContext.Console.Out.WriteLine();
+                    }
 
                     // Validate the sdk version in global.sdk.
                     if ( buildContext.Product.RequiresEngineeringSdk )
@@ -111,7 +124,10 @@ namespace PostSharp.Engineering.BuildTools
                     // Execute the command itself.
                     var success = this.ExecuteCore( buildContext, settings );
 
-                    buildContext.Console.WriteMessage( $"Finished at {DateTime.Now} after {stopwatch.Elapsed}." );
+                    if ( !settings.NoLogo )
+                    {
+                        buildContext.Console.WriteMessage( $"Finished at {DateTime.Now} after {stopwatch.Elapsed}." );
+                    }
 
                     return success ? 0 : 1;
                 }

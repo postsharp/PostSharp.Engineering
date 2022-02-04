@@ -14,12 +14,20 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     public class Product
     {
         private readonly string? _versionsFile;
+
+        public Product()
+        {
+            this.BuildExePath = Assembly.GetCallingAssembly().Location;
+        }
+
+        public string BuildExePath { get; }
 
         public string EngineeringDirectory { get; init; } = "eng";
 
