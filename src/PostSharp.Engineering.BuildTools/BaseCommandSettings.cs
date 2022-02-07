@@ -5,11 +5,19 @@ using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Linq;
 
-namespace PostSharp.Engineering.BuildTools.Build
+namespace PostSharp.Engineering.BuildTools
 {
     public class BaseCommandSettings : CommandSettings
     {
         private string[] _unparsedProperties = Array.Empty<string>();
+
+        [Description( "Do not display the logo" )]
+        [CommandOption( "--nologo" )]
+        public bool NoLogo { get; protected set; }
+
+        [Description( "Makes the engineering tool verbose (but not msbuild or dotnet)." )]
+        [CommandOption( "--verbose" )]
+        public bool Verbose { get; protected set; }
 
         [Description( "Use force" )]
         [CommandOption( "--force" )]

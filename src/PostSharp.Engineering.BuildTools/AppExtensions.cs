@@ -5,6 +5,7 @@ using PostSharp.Engineering.BuildTools.Csproj;
 using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Git;
 using PostSharp.Engineering.BuildTools.NuGet;
+using PostSharp.Engineering.BuildTools.XmlDoc;
 using Spectre.Console.Cli;
 using System.Linq;
 
@@ -119,6 +120,10 @@ namespace PostSharp.Engineering.BuildTools
                                     git => git.AddCommand<GitBulkRenameCommand>( "rename" )
                                         .WithDescription( "Renames all files and directories recursively preserving GIT history." )
                                         .WithExample( new[] { @"""C:\src\Caravela.Compiler""", @"""Caravela""", @"""Metalama""" } ) );
+
+                                tools.AddBranch(
+                                    "xmldoc",
+                                    xmldoc => xmldoc.AddCommand<RemoveInternalsCommand>( "clean" ).WithDescription( "Remove internals." ).WithData( product ) );
                             } );
                     } );
             }

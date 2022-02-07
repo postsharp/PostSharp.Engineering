@@ -20,7 +20,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             argsBuilder.Append(
                 CultureInfo.InvariantCulture,
-                $"{command} -p:Configuration={configuration.MSBuildName} \"{solution}\" -v:{settings.Verbosity.ToAlias()} --nologo" );
+                $"{command} -p:Configuration={configuration.MSBuildName} -p:EngineeringConfiguration={settings.BuildConfiguration} \"{solution}\" -v:{settings.Verbosity.ToAlias()} --nologo" );
 
             if ( settings.NoConcurrency )
             {

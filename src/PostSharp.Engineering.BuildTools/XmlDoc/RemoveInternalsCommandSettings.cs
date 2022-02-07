@@ -1,0 +1,19 @@
+using Spectre.Console.Cli;
+using System.ComponentModel;
+
+namespace PostSharp.Engineering.BuildTools.XmlDoc;
+
+public class RemoveInternalsCommandSettings : BaseCommandSettings
+{
+    [Description( "Path to the xml file. The dll is assumed to be next to it." )]
+    [CommandArgument( 0, "<xml-path>" )]
+    public string XmlPath { get; init; } = null!;
+
+    [Description( "Path to the csproj file." )]
+    [CommandArgument( 1, "<project-path>" )]
+    public string ProjectPath { get; init; } = null!;
+
+    [Description( "Does not save the file. Use with --verbose." )]
+    [CommandOption( "--dry" )]
+    public bool Dry { get; init; }
+}

@@ -1,5 +1,3 @@
-using PostSharp.Engineering.BuildTools.Build;
-
 namespace PostSharp.Engineering.BuildTools.Dependencies;
 
 public abstract class ConfigureDependenciesCommandSettings : BaseCommandSettings
