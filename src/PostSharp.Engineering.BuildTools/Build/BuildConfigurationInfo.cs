@@ -14,4 +14,8 @@ public record BuildConfigurationInfo(
 
     // Publishers for private artifacts.
     Publisher[]? PrivatePublishers = null,
-    Swapper[]? Swappers = null );
+    Swapper[]? Swappers = null,
+    
+    string? TeamCityBuildName = null,
+    string? TeamCityDeploymentName = null,
+    string? TeamCitySwapName = null);

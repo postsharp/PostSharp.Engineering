@@ -6,7 +6,7 @@ public class SourceBuildTrigger : IBuildTrigger
 {
     public bool WatchChangesInDependencies { get; set; } = true;
 
-    public void GenerateTeamcityCode( BuildContext context, BuildConfigurationInfo configurationInfo, TextWriter writer )
+    public void GenerateTeamcityCode( TextWriter writer )
     {
         writer.WriteLine(
             $@"
