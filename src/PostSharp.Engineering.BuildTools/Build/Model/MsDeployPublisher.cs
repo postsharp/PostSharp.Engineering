@@ -66,27 +66,29 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return SuccessCode.Error;
             }
 
+            context.Console.WriteMessage( $"Publishing {file} to {publishProfile.PublishUrl}{packageConfiguration.VirtualDirectory}." );
+
             var exe = @"C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe";
+
+            var iisWebApplicationName = packageConfiguration.VirtualDirectory == null
+                ? packageConfiguration.SiteName
+                : $"{packageConfiguration.SiteName}{packageConfiguration.VirtualDirectory}";
 
             // The arguments are taken from the log of the [Azure DevOps] [Azure App Service deploy] [release pipeline] step.
             var argsList = new List<string>
             {
                 "-verb:sync",
                 $"-source:package='{file}'",
-                $"-dest:auto,ComputerName='https://{publishProfile.PublishUrl}:443/msdeploy.axd?site={packageConfiguration.SiteName}',UserName='{publishProfile.UserName}',Password='$(Password)',AuthType='Basic'",
+                $"-dest:auto,ComputerName='https://{publishProfile.PublishUrl}/msdeploy.axd?site={packageConfiguration.SiteName}',UserName='{publishProfile.UserName}',Password='$(Password)',AuthType='Basic'",
+                $"-setParam:name='IIS Web Application Name',value='{iisWebApplicationName}'",
                 "-enableRule:AppOffline",
                 "-retryAttempts:6",
                 "-retryInterval:10000"
             };
 
-            if ( packageConfiguration.VirtualDirectory != null )
+            if ( packageConfiguration.VirtualDirectory != null && !packageConfiguration.VirtualDirectory.StartsWith( '/' ) )
             {
-                if ( !packageConfiguration.VirtualDirectory.StartsWith( '/' ) )
-                {
-                    throw new InvalidOperationException( "The virtual directory has to start with a forward slash ('/')." );
-                }
-
-                argsList.Add( $"-setParam:name='IIS Web Application Name',value='{packageConfiguration.SiteName}{packageConfiguration.VirtualDirectory}'" );
+                throw new InvalidOperationException( "The virtual directory has to start with a forward slash ('/')." );
             }
 
             var args = string.Join( ' ', argsList );
