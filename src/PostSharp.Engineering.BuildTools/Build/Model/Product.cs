@@ -727,7 +727,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     <PropertyGroup>
         <{this.ProductNameWithoutDot}MainVersion>{version.MainVersion}</{this.ProductNameWithoutDot}MainVersion>";
 
-            var versionWithPatch = version.PatchNumber == 0 ? version.VersionPrefix : version.VersionPrefix + "." + version.PatchNumber;
+            var versionWithPatch = version.VersionPrefix + "." + version.PatchNumber;
 
             if ( this.GenerateArcadeProperties )
             {
