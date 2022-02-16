@@ -33,6 +33,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public override SuccessCode Execute( BuildContext context, SwapSettings settings, BuildConfigurationInfo configuration )
         {
+            context.Console.WriteMessage( $"Swapping {this.SourceSlot} slot with {this.TargetSlot} slot of {this.AppServiceName} app service." );
+
             var args =
                 $"webapp deployment slot swap --subscription {this.SubscriptionId} --resource-group {this.ResourceGroupName} --name {this.AppServiceName} --slot {this.SourceSlot} --target-slot {this.TargetSlot}";
 

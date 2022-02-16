@@ -37,12 +37,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var exe = @"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\Extensions\TestPlatform\vstest.console.exe";
 
-                var argsList = new List<string> { this.TestAssemblyName };
+                var argsList = new List<string>();
 
                 foreach ( var environmentVariable in this.EnvironmentVariables )
                 {
-                    argsList.Add( $"-e {environmentVariable.Name}=\"{environmentVariable.Value}\"" );
+                    argsList.Add( $"-e:{environmentVariable.Name}=\"{environmentVariable.Value}\"" );
                 }
+
+                argsList.Add( this.TestAssemblyName );
 
                 var args = string.Join( ' ', argsList );
 
@@ -54,6 +56,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
                 else
                 {
+                    context.Console.WriteMessage( $"{exe} {args}" );
+
                     return ToolInvocationHelper.InvokeTool(
                         context.Console,
                         exe,
