@@ -119,7 +119,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Allow for some customization before we create the zip file and copy to the public directory.
-            this.BuildCompleted?.Invoke( (context, settings, privateArtifactsDir) );
+            var eventArgs = new BuildCompletedEventArgs( context, settings, privateArtifactsDir );
+            this.BuildCompleted?.Invoke( eventArgs );
+
+            if ( eventArgs.IsFailed )
+            {
+                return false;
+            }
 
             // Check that the build produced the expected artifacts.
             var allFilesPattern = this.PublicArtifacts.Add( this.PrivateArtifacts );
@@ -249,6 +255,48 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
+            // Create the consolidate directory.
+            if ( settings.CreateConsolidatedDirectory )
+            {
+                var consolidatedDirectory = Path.Combine(
+                    Path.GetDirectoryName( context.RepoDirectory )!,
+                    "artifacts",
+                    "consolidated",
+                    settings.BuildConfiguration.ToString().ToLowerInvariant() );
+
+                if ( !Directory.Exists( consolidatedDirectory ) )
+                {
+                    Directory.CreateDirectory( consolidatedDirectory );
+                }
+
+                context.Console.WriteMessage( $"Creating '{consolidatedDirectory}'." );
+
+                // Copy dependencies.
+                if ( !VersionsOverrideFile.TryLoad( context, out var versionsOverrideFile ) )
+                {
+                    return false;
+                }
+
+                foreach ( var dependency in versionsOverrideFile.Dependencies )
+                {
+                    if ( dependency.Value.Directory != null )
+                    {
+                        CopyPackages( dependency.Value.Directory );
+                    }
+                }
+
+                // Copy current repo.
+                CopyPackages( privateArtifactsDir );
+
+                void CopyPackages( string directory )
+                {
+                    foreach ( var file in Directory.GetFiles( directory, "*.nupkg" ) )
+                    {
+                        File.Copy( file, Path.Combine( consolidatedDirectory, Path.GetFileName( file ) ), true );
+                    }
+                }
+            }
+
             // Writing the import file at the end of the build so it gets only written if the build was successful.
             this.WriteImportFile( context, settings.BuildConfiguration );
 
@@ -371,12 +419,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// An event raised when the build is completed.
         /// </summary>
-        public event Func<(BuildContext Context, BuildSettings Settings, string Directory), bool>? BuildCompleted;
+        public event Action<BuildCompletedEventArgs>? BuildCompleted;
 
         /// <summary>
         /// An event raised when the Prepare phase is complete.
         /// </summary>
-        public event Func<(BuildContext Context, BaseBuildSettings Settings), bool>? PrepareCompleted;
+        public event Action<PrepareCompletedEventArgs>? PrepareCompleted;
 
         protected virtual bool BuildCore( BuildContext context, BuildSettings settings )
         {
@@ -564,7 +612,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( this.PrepareCompleted != null )
             {
-                if ( !this.PrepareCompleted.Invoke( (context, settings) ) )
+                var eventArgs = new PrepareCompletedEventArgs( context, settings );
+                this.PrepareCompleted( eventArgs );
+
+                if ( eventArgs.IsFailed )
                 {
                     return false;
                 }
@@ -727,7 +778,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     <PropertyGroup>
         <{this.ProductNameWithoutDot}MainVersion>{version.MainVersion}</{this.ProductNameWithoutDot}MainVersion>";
 
-            var versionWithPatch = version.PatchNumber == 0 ? version.VersionPrefix : version.VersionPrefix + "." + version.PatchNumber;
+            var versionWithPatch = version.VersionPrefix + "." + version.PatchNumber;
 
             if ( this.GenerateArcadeProperties )
             {

@@ -12,7 +12,7 @@
     <PropertyGroup>
         <RoslynVersion>4.0.1</RoslynVersion>
 
-        <!-- The property MSBuildVerison is reserved. -->
+        <!-- The property MSBuildVersion is reserved. -->
         <MSBuildPackagesVersion>17.0.0</MSBuildPackagesVersion>
     </PropertyGroup>
 
