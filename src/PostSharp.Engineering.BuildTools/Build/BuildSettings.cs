@@ -9,12 +9,19 @@ namespace PostSharp.Engineering.BuildTools.Build
         [CommandOption( "--sign" )]
         public bool Sign { get; set; }
 
-        [Description( "Create a zip file with all artifacts" )]
+        [Description( "Creates a zip file with all artifacts" )]
         [CommandOption( "--zip" )]
         public bool CreateZip { get; set; }
 
-        [Description( "Analyze the test coverage while and after running the tests" )]
+        [Description( "Analyzes the test coverage while and after running the tests" )]
         [CommandOption( "--analyze-coverage" )]
         public bool AnalyzeCoverage { get; set; }
+
+        // The following option is used e.g. when testing the LinqPad driver. It is not included by default because of 
+        // performance of the normal build scenario.
+        
+        [Description( "Creates a directory with all packages of the current repo and all transitive dependencies." )]
+        [CommandOption( "--consolidated" )]
+        public bool CreateConsolidatedDirectory { get; set; }
     }
 }

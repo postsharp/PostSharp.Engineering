@@ -1,4 +1,6 @@
-﻿namespace PostSharp.Engineering.BuildTools.Dependencies.Model
+﻿using System.IO;
+
+namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
     public sealed class DependencySource
     {
@@ -10,6 +12,8 @@
         public ICiBuildSpec? BuildServerSource { get; internal set; }
 
         internal string? VersionFile { get; set; }
+
+        public string? Directory => this.VersionFile == null ? null : Path.GetDirectoryName( this.VersionFile );
 
         public DependencySourceKind SourceKind { get; internal set; }
 
