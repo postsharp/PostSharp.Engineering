@@ -11,7 +11,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         private static string? _cmdArgsFormat;
 
-        private static bool TryFomratCmdArgs( ConsoleHelper console, string args, [MaybeNullWhen(false)] out string cmdArgs )
+        private static bool TryFormatCmdArgs( ConsoleHelper console, string args, [MaybeNullWhen( false )] out string cmdArgs )
         {
             if ( _cmdArgsFormat == null )
             {
@@ -24,6 +24,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     console.WriteError( whereOutput );
 
                     cmdArgs = null;
+
                     return false;
                 }
 
@@ -31,6 +32,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
 
             cmdArgs = string.Format( CultureInfo.InvariantCulture, _cmdArgsFormat, args );
+
             return true;
         }
 
@@ -50,7 +52,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             {
                 var azArgs = $"login --identity --username {identityUserName}";
 
-                if ( !TryFomratCmdArgs( console, azArgs, out var cmdArgs ) )
+                if ( !TryFormatCmdArgs( console, azArgs, out var cmdArgs ) )
                 {
                     return false;
                 }
@@ -81,9 +83,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 return false;
             }
 
-            if ( !TryFomratCmdArgs( console, args, out var cmdArgs ) )
+            if ( !TryFormatCmdArgs( console, args, out var cmdArgs ) )
             {
                 output = null;
+
                 return false;
             }
 
@@ -100,6 +103,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 if ( !ToolInvocationHelper.InvokeTool( console, _exe, cmdArgs, Environment.CurrentDirectory, out _, out output ) )
                 {
                     console.WriteError( output );
+
                     return false;
                 }
 
@@ -114,7 +118,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 return false;
             }
 
-            if ( !TryFomratCmdArgs( console, args, out var cmdArgs ) )
+            if ( !TryFormatCmdArgs( console, args, out var cmdArgs ) )
             {
                 return false;
             }

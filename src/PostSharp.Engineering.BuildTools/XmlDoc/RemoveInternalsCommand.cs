@@ -64,7 +64,7 @@ public class RemoveInternalsCommand : BaseCommand<RemoveInternalsCommandSettings
             {
                 context.Console.WriteMessage( $"{unresolvedSymbols} symbol(s) could not be resolved from '{settings.XmlPath}'." );
             }
-            
+
             context.Console.WriteMessage( $"Removed {membersToRemove.Count} internals from '{settings.XmlPath}'." );
 
             if ( !settings.Dry )

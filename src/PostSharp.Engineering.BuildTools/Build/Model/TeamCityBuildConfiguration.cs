@@ -33,7 +33,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public void GenerateTeamcityCode( TextWriter writer )
         {
             writer.WriteLine(
-                    $@"object {this.ObjectName} : BuildType({{
+                $@"object {this.ObjectName} : BuildType({{
 
     name = ""{this.Name}""
 " );
@@ -50,7 +50,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 writer.WriteLine();
             }
 
-            writer.WriteLine( $@"    vcs {{
+            writer.WriteLine(
+                $@"    vcs {{
         root(DslContext.settingsRoot)
     }}
 
@@ -122,7 +123,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 foreach ( var dependency in this.ArtifactDependencies! )
                 {
-
                     writer.WriteLine(
                         $@"
         dependency({dependency.ObjectName}) {{

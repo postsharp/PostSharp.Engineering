@@ -8,7 +8,7 @@ root = true
 
 # File header. 
 # WARNING! This setting may get corrupted by some tools. Do not accept a commit/PR where this is changed.
-file_header_template =
+file_header_template = 
 Copyright (c) SharpCrafters s.r.o.All rights reserved.\nThis project is not open source.Please see the LICENSE.md file in the repository root for details.# Indentation and spacing
 indent_size = 4
 indent_style = space

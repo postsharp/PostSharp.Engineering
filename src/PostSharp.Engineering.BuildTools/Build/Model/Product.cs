@@ -259,7 +259,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( settings.CreateConsolidatedDirectory )
             {
                 var consolidatedDirectory = Path.Combine(
-                    Path.GetDirectoryName( context.RepoDirectory )!,
+                    context.RepoDirectory,
                     "artifacts",
                     "consolidated",
                     settings.BuildConfiguration.ToString().ToLowerInvariant() );
@@ -778,7 +778,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     <PropertyGroup>
         <{this.ProductNameWithoutDot}MainVersion>{version.MainVersion}</{this.ProductNameWithoutDot}MainVersion>";
 
-            var versionWithPatch = version.VersionPrefix + "." + version.PatchNumber;
+            var packageVersionWithoutSuffix = version.PatchNumber == 0 ? version.VersionPrefix : version.VersionPrefix + "." + version.PatchNumber;
+            var assemblyVersion = version.VersionPrefix + "." + version.PatchNumber;
 
             if ( this.GenerateArcadeProperties )
             {
@@ -815,18 +816,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         <{this.ProductNameWithoutDot}VersionPrefix>{version.VersionPrefix}</{this.ProductNameWithoutDot}VersionPrefix>
         <{this.ProductNameWithoutDot}VersionSuffix>{arcadeSuffix}</{this.ProductNameWithoutDot}VersionSuffix>
         <{this.ProductNameWithoutDot}VersionPatchNumber>{version.PatchNumber}</{this.ProductNameWithoutDot}VersionPatchNumber>
-        <{this.ProductNameWithoutDot}VersionWithoutSuffix>{versionWithPatch}</{this.ProductNameWithoutDot}VersionWithoutSuffix>
+        <{this.ProductNameWithoutDot}VersionWithoutSuffix>{packageVersionWithoutSuffix}</{this.ProductNameWithoutDot}VersionWithoutSuffix>
         <{this.ProductNameWithoutDot}Version>{packageVersion}</{this.ProductNameWithoutDot}Version>
-        <{this.ProductNameWithoutDot}AssemblyVersion>{versionWithPatch}</{this.ProductNameWithoutDot}AssemblyVersion>";
+        <{this.ProductNameWithoutDot}AssemblyVersion>{assemblyVersion}</{this.ProductNameWithoutDot}AssemblyVersion>";
             }
             else
             {
                 var packageSuffix = string.IsNullOrEmpty( version.VersionSuffix ) ? "" : "-" + version.VersionSuffix;
-                packageVersion = versionWithPatch + packageSuffix;
+                packageVersion = packageVersionWithoutSuffix + packageSuffix;
 
                 props += $@"
         <{this.ProductNameWithoutDot}Version>{packageVersion}</{this.ProductNameWithoutDot}Version>
-        <{this.ProductNameWithoutDot}AssemblyVersion>{versionWithPatch}</{this.ProductNameWithoutDot}AssemblyVersion>";
+        <{this.ProductNameWithoutDot}AssemblyVersion>{assemblyVersion}</{this.ProductNameWithoutDot}AssemblyVersion>";
             }
 
             props += $@"
@@ -1057,7 +1058,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )
         {
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
-            var hasSwap = this.Configurations.Public.Swappers?.Length > 0;
 
             var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
 
@@ -1072,7 +1072,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var privateArtifactsDirectory =
                     context.Product.PrivateArtifactsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
-                var artifactRules = $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
+                var artifactRules =
+                    $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
 
                 var buildTeamCityConfiguration = new TeamCityBuildConfiguration(
                     objectName: $"{configuration}Build",
@@ -1101,11 +1102,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         buildArguments: $"publish --configuration {configuration}",
                         buildAgentType: this.BuildAgentType )
                     {
-                        IsDeployment = true,
-                        ArtifactDependencies = new[]
-                        {
-                            ( buildTeamCityConfiguration.ObjectName, artifactRules )
-                        }
+                        IsDeployment = true, ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
                     };
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -1113,21 +1110,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 if ( configurationInfo.Swappers != null )
                 {
-                    teamCityBuildConfigurations.Add( new TeamCityBuildConfiguration(
-                        objectName: $"{configuration}Swap",
-                        name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
-                        buildArguments: $"swap --configuration {configuration}",
-                        buildAgentType: this.BuildAgentType )
-                    {
-                        IsDeployment = true,
-                        SnapshotDependencyObjectNames = teamCityDeploymentConfiguration == null
-                            ? null
-                            : new[] { teamCityDeploymentConfiguration.ObjectName },
-                        ArtifactDependencies = new[]
+                    teamCityBuildConfigurations.Add(
+                        new TeamCityBuildConfiguration(
+                            objectName: $"{configuration}Swap",
+                            name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
+                            buildArguments: $"swap --configuration {configuration}",
+                            buildAgentType: this.BuildAgentType )
                         {
-                            ( buildTeamCityConfiguration.ObjectName, artifactRules )
-                        }
-                    } );
+                            IsDeployment = true,
+                            SnapshotDependencyObjectNames = teamCityDeploymentConfiguration == null
+                                ? null
+                                : new[] { teamCityDeploymentConfiguration.ObjectName },
+                            ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
+                        } );
                 }
             }
 
