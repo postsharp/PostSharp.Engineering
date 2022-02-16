@@ -239,9 +239,9 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 };
 
                 // Log the command line, but not the one with expanded environment variables, so we don't expose secrets.
-                if ( !options?.Silent ?? false )
+                if ( !(options?.Silent ?? false) )
                 {
-                    console.WriteImportantMessage( "Executing: {0} {1}", process.StartInfo.FileName, commandLine );
+                    console.WriteImportantMessage( "{0} {1}", process.StartInfo.FileName, commandLine );
                 }
 
                 using ( process )

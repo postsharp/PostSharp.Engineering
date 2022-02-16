@@ -14,7 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         public static DotNetTool SignClient { get; } = new( "SignClient", "1.3.155", "SignClient" );
 
-        public static DotNetTool Resharper { get; } = new( "JetBrains.Resharper.GlobalTools", "2021.3.0", "jb" );
+        public static DotNetTool Resharper { get; } = new( "JetBrains.Resharper.GlobalTools", "2021.3.3", "jb" );
 
         public DotNetTool( string packageId, string version, string command )
         {
@@ -25,6 +25,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         public bool Invoke( BuildContext context, string command, string? directory = null )
         {
+            directory ??= context.RepoDirectory;
             var toolsDirectory = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "tools" );
             var thisToolDirectory = Path.Combine( toolsDirectory, $".store\\{this.PackageId}" );
             var thisToolVersionDirectory = Path.Combine( thisToolDirectory, this.Version );
@@ -44,7 +45,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         context.Console,
                         "dotnet",
                         $"tool {verb} {this.PackageId} --version {this.Version} --tool-path \"{toolsDirectory}\" --add-source \"https://api.nuget.org/v3/index.json\"",
-                        directory ?? context.RepoDirectory ) )
+                        directory ) )
                 {
                     return false;
                 }
@@ -74,13 +75,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             // 3. Invoke the tool.
 
-            var toolPath = Path.Combine( toolsDirectory, $"{this.Command}.exe" );
-
             return ToolInvocationHelper.InvokeTool(
                 context.Console,
-                toolPath,
-                command,
-                context.RepoDirectory );
+                "dotnet",
+                $"run tool {this.Command} {command}",
+                directory );
         }
     }
 }

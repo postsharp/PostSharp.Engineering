@@ -19,7 +19,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
                 if ( solution.CanFormatCode )
                 {
                     var command =
-                        $"cleanupcode --profile:Custom {solution.SolutionPath} --disable-settings-layers:\"GlobalAll;GlobalPerProduct;SolutionPersonal;ProjectPersonal\"";
+                        $"cleanupcode --profile:Custom --project {solution.SolutionPath} --disable-settings-layers:\"GlobalAll;GlobalPerProduct;SolutionPersonal;ProjectPersonal\"";
 
                     if ( solution.FormatExclusions is { Length: > 0 } )
                     {
