@@ -19,7 +19,7 @@ namespace PostSharp.Engineering.BuildTools.Build
 
         // The following option is used e.g. when testing the LinqPad driver. It is not included by default because of 
         // performance of the normal build scenario.
-        
+
         [Description( "Creates a directory with all packages of the current repo and all transitive dependencies." )]
         [CommandOption( "--consolidated" )]
         public bool CreateConsolidatedDirectory { get; set; }

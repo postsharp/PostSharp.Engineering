@@ -99,14 +99,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             environmentVariablesBuilder.Add( "MSBuildSDKsPath", null );
             environmentVariablesBuilder.Add( "MSBuildSDKsPath", null );
 
-            var toolInvokationOptions = new ToolInvocationOptions( environmentVariablesBuilder.ToImmutable() );
+            var toolInvocationOptions = new ToolInvocationOptions( environmentVariablesBuilder.ToImmutable() );
 
             return ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "msbuild",
                 argsBuilder.ToString(),
                 Environment.CurrentDirectory,
-                toolInvokationOptions );
+                toolInvocationOptions );
         }
     }
 }

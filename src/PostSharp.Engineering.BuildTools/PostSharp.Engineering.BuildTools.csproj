@@ -13,12 +13,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-		
-		<!-- Runtime assets excluded in favor of Microsoft.Build.Locator package. -->
+
+        <!-- Runtime assets excluded in favor of Microsoft.Build.Locator package. -->
         <PackageReference Include="Microsoft.Build" Version="$(MSBuildPackagesVersion)" ExcludeAssets="runtime"/>
         <PackageReference Include="Microsoft.Build.Locator" Version="1.4.1"/>
 
-		<!-- Runtime assets excluded in favor of Microsoft.Build.Locator package. -->
+        <!-- Runtime assets excluded in favor of Microsoft.Build.Locator package. -->
         <PackageReference Include="Microsoft.Build.Framework" Version="$(MSBuildPackagesVersion)" ExcludeAssets="runtime"/>
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="$(RoslynVersion)"/>
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="$(RoslynVersion)"/>
