@@ -1,5 +1,6 @@
 ﻿using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle
 {
@@ -19,7 +20,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
                 if ( solution.CanFormatCode )
                 {
                     var command =
-                        $"cleanupcode --profile:Custom --project {solution.SolutionPath} --disable-settings-layers:\"GlobalAll;GlobalPerProduct;SolutionPersonal;ProjectPersonal\"";
+                        $"cleanupcode --profile:Custom \"{Path.Combine( context.RepoDirectory, solution.SolutionPath )}\" --disable-settings-layers:\"GlobalAll;GlobalPerProduct;SolutionPersonal;ProjectPersonal\"";
 
                     if ( solution.FormatExclusions is { Length: > 0 } )
                     {

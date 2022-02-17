@@ -23,15 +23,26 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             this.Command = command;
         }
 
-        public bool Invoke( BuildContext context, string command, string? directory = null )
+        public bool Invoke( BuildContext context, string command )
         {
-            directory ??= context.RepoDirectory;
             var toolsDirectory = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "tools" );
             var thisToolDirectory = Path.Combine( toolsDirectory, $".store\\{this.PackageId}" );
             var thisToolVersionDirectory = Path.Combine( thisToolDirectory, this.Version );
 
-            // 1. Restore the tool.
+            // 1. Create the dotnet tool manifest.
+            if ( !Directory.Exists( Path.Combine( toolsDirectory, ".config" ) ) )
+            {
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "dotnet",
+                        $"new tool-manifest",
+                        toolsDirectory ) )
+                {
+                    return false;
+                }
+            }
 
+            // 2. Restore the tool.
             if ( !Directory.Exists( thisToolVersionDirectory ) )
             {
                 if ( !Directory.Exists( toolsDirectory ) )
@@ -44,14 +55,14 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 if ( !ToolInvocationHelper.InvokeTool(
                         context.Console,
                         "dotnet",
-                        $"tool {verb} {this.PackageId} --version {this.Version} --tool-path \"{toolsDirectory}\" --add-source \"https://api.nuget.org/v3/index.json\"",
-                        directory ) )
+                        $"tool {verb} {this.PackageId} --version {this.Version} --local --add-source \"https://api.nuget.org/v3/index.json\"",
+                        toolsDirectory ) )
                 {
                     return false;
                 }
             }
 
-            // 2. Restore resource tools.
+            // 3. Restore resource tools.
             var assembly = this.GetType().Assembly;
 
             foreach ( var resourceName in assembly.GetManifestResourceNames() )
@@ -73,13 +84,12 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             command = command.Replace( "$(ToolsDirectory)", toolsDirectory, StringComparison.Ordinal );
 
-            // 3. Invoke the tool.
-
+            // 4. Invoke the tool.
             return ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "dotnet",
-                $"run tool {this.Command} {command}",
-                directory );
+                $"tool run {this.Command} {command}",
+                toolsDirectory );
         }
     }
 }
