@@ -1,6 +1,7 @@
 ﻿using PostSharp.Engineering.BuildTools.Build;
 using System;
 using System.IO;
+using System.Text.Json;
 
 namespace PostSharp.Engineering.BuildTools.Utilities
 {
@@ -26,8 +27,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         public bool Invoke( BuildContext context, string command )
         {
             var toolsDirectory = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "tools" );
-            var thisToolDirectory = Path.Combine( toolsDirectory, $".store\\{this.PackageId}" );
-            var thisToolVersionDirectory = Path.Combine( thisToolDirectory, this.Version );
+
+            if ( !Directory.Exists( toolsDirectory ) )
+            {
+                Directory.CreateDirectory( toolsDirectory );
+            }
 
             // 1. Create the dotnet tool manifest.
             if ( !Directory.Exists( Path.Combine( toolsDirectory, ".config" ) ) )
@@ -42,20 +46,37 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 }
             }
 
-            // 2. Restore the tool.
-            if ( !Directory.Exists( thisToolVersionDirectory ) )
+            // Open the config file and see if we have to install or update.
+            string? installVerb = null;
+            var configFilePath = Path.Combine( toolsDirectory, ".config", "dotnet-tools.json" );
+            var configDocument = JsonDocument.Parse( File.ReadAllText( configFilePath ) );
+
+            var installedVersionString = configDocument.RootElement.GetPropertyOrNull( "tools" )
+                .GetPropertyOrNull( this.PackageId.ToLowerInvariant() )
+                .GetPropertyOrNull( "version" )
+                ?.GetString();
+
+            if ( installedVersionString == null )
             {
-                if ( !Directory.Exists( toolsDirectory ) )
+                installVerb = "install";
+            }
+            else
+            {
+                var installedVersion = System.Version.Parse( installedVersionString );
+
+                if ( installedVersion < System.Version.Parse( this.Version ) )
                 {
-                    Directory.CreateDirectory( toolsDirectory );
+                    installVerb = "update";
                 }
+            }
 
-                var verb = Directory.Exists( thisToolDirectory ) ? "update" : "install";
-
+            // 2. Restore the tool.
+            if ( installVerb != null )
+            {
                 if ( !ToolInvocationHelper.InvokeTool(
                         context.Console,
                         "dotnet",
-                        $"tool {verb} {this.PackageId} --version {this.Version} --local --add-source \"https://api.nuget.org/v3/index.json\"",
+                        $"tool {installVerb} {this.PackageId} --version {this.Version} --local --add-source \"https://api.nuget.org/v3/index.json\"",
                         toolsDirectory ) )
                 {
                     return false;
