@@ -1,6 +1,7 @@
 ﻿using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using System;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
 
@@ -42,6 +43,16 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 "dotnet",
                 argsBuilder.ToString(),
                 Environment.CurrentDirectory );
+        }
+
+        public static ImmutableDictionary<string, string?> GetDotNetEnvironmentVariables()
+        {
+            var environmentVariablesBuilder = ImmutableDictionary.CreateBuilder<string, string?>();
+            environmentVariablesBuilder.Add( "DOTNET_ROOT_X64", null );
+            environmentVariablesBuilder.Add( "MSBUILD_EXE_PATH", null );
+            environmentVariablesBuilder.Add( "MSBuildSDKsPath", null );
+
+            return environmentVariablesBuilder.ToImmutable();
         }
     }
 }

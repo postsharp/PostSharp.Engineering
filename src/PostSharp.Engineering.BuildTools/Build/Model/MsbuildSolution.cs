@@ -1,6 +1,5 @@
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
-using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -93,13 +92,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             // The following environment variables are set by .NET Core and break MSBuild.
             // We need to unset them to be able to execute MSBuild from a .NET Core process.
-            var environmentVariablesBuilder = ImmutableDictionary.CreateBuilder<string, string?>();
-            environmentVariablesBuilder.Add( "DOTNET_ROOT_X64", null );
-            environmentVariablesBuilder.Add( "MSBUILD_EXE_PATH", null );
-            environmentVariablesBuilder.Add( "MSBuildSDKsPath", null );
-            environmentVariablesBuilder.Add( "MSBuildSDKsPath", null );
-
-            var toolInvocationOptions = new ToolInvocationOptions( environmentVariablesBuilder.ToImmutable() );
+            var toolInvocationOptions = new ToolInvocationOptions( DotNetHelper.GetDotNetEnvironmentVariables() );
 
             return ToolInvocationHelper.InvokeTool(
                 context.Console,
