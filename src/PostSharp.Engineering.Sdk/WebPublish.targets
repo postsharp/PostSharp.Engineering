@@ -14,8 +14,9 @@
     </PropertyGroup>
 
     <!-- To avoid error of build validation in engineering, we create a fake public package for debug build. -->
-    <Target Name="FakePublish" AfterTargets="Build" Condition="'$(Configuration)'=='Debug' AND '$(IsPackable)'!='false'">
-        <Touch Files="$(PackageOutputPath)\$(AssemblyName).$(Version).zip" AlwaysCreate="true"/>
+    <Target Name="FakePublish" AfterTargets="Build"
+            Condition="'$(Configuration)'=='Debug' AND '$(IsPackable)'!='false'">
+        <Touch Files="$(PackageOutputPath)\$(AssemblyName).$(Version).zip" AlwaysCreate="true" />
     </Target>
 
 </Project>

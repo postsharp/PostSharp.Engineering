@@ -1,6 +1,10 @@
 <Project>
-    <Target Name="CleanXmlDoc" Condition="'$(GenerateDocumentationFile)'=='True' AND '$(TargetFramework)'!='' AND Exists('$(MSBuildProjectDirectory)\$(OutDir)$(AssemblyName).xml')" AfterTargets="Build">
-        <Error Condition="'$(PostSharpEngineeringExePath)'==''" Message="The PostSharpEngineeringExePath property is not defined. It should be defined in Versions.g.props."/>
-        <Exec Command="dotnet &quot;$(PostSharpEngineeringExePath)&quot; tools xmldoc clean &quot;$(MSBuildProjectDirectory)\$(OutDir)$(AssemblyName).xml&quot; &quot;$(MSBuildProjectFile)&quot; --nologo"/>
+    <Target Name="CleanXmlDoc"
+            Condition="'$(GenerateDocumentationFile)'=='True' AND '$(TargetFramework)'!='' AND Exists('$(MSBuildProjectDirectory)\$(OutDir)$(AssemblyName).xml')"
+            AfterTargets="Build">
+        <Error Condition="'$(PostSharpEngineeringExePath)'==''"
+               Message="The PostSharpEngineeringExePath property is not defined. It should be defined in Versions.g.props." />
+        <Exec
+            Command="dotnet &quot;$(PostSharpEngineeringExePath)&quot; tools xmldoc clean &quot;$(MSBuildProjectDirectory)\$(OutDir)$(AssemblyName).xml&quot; &quot;$(MSBuildProjectFile)&quot; --nologo" />
     </Target>
 </Project>
