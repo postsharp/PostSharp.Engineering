@@ -7,7 +7,10 @@ using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools
 {
-    public class BaseCommandSettings : CommandSettings
+    /// <summary>
+    /// Declares the options that are common to all settings.
+    /// </summary>
+    public class CommonCommandSettings : CommandSettings
     {
         private string[] _unparsedProperties = Array.Empty<string>();
 

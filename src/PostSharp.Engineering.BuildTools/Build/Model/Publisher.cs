@@ -23,7 +23,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             BuildContext context,
             PublishSettings settings,
             string file,
-            VersionInfo version,
+            BuildInfo buildInfo,
             BuildConfigurationInfo configuration );
 
         public static bool PublishDirectory(
@@ -31,7 +31,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             PublishSettings settings,
             (string Private, string Public) directories,
             BuildConfigurationInfo configuration,
-            VersionInfo version,
+            BuildInfo buildInfo,
             bool isPublic,
             ref bool hasTarget )
         {
@@ -51,7 +51,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 var files = new List<FilePatternMatch>();
 
-                if ( !publisher.Files.TryGetFiles( directory, version, files ) )
+                if ( !publisher.Files.TryGetFiles( directory, buildInfo, files ) )
                 {
                     continue;
                 }
@@ -69,7 +69,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     var filePath = Path.Combine( directory, file.Path );
 
-                    switch ( publisher.Execute( context, settings, filePath, version, configuration ) )
+                    switch ( publisher.Execute( context, settings, filePath, buildInfo, configuration ) )
                     {
                         case SuccessCode.Success:
                             break;
@@ -92,7 +92,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     foreach ( var tester in publisher.Testers )
                     {
-                        switch ( tester.Execute( context, directories.Private, version, configuration, settings.Dry ) )
+                        switch ( tester.Execute( context, directories.Private, buildInfo, configuration, settings.Dry ) )
                         {
                             case SuccessCode.Success:
                                 break;

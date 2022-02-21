@@ -3,9 +3,12 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
 {
-    public class PrintDependenciesCommand : BaseCommand<BaseCommandSettings>
+    /// <summary>
+    /// Prints the content of <c>Versions.g.props</c> to the console.
+    /// </summary>
+    public class PrintDependenciesCommand : BaseCommand<CommonCommandSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, BaseCommandSettings settings )
+        protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
         {
             var path = Path.Combine(
                 context.RepoDirectory,

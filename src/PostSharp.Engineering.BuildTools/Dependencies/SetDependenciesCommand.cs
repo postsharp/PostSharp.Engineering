@@ -4,6 +4,10 @@ using System;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
 {
+    /// <summary>
+    /// Sets the source of a dependency to <see cref="DependencySourceKind.Local"/>, <see cref="DependencySourceKind.BuildServer"/>
+    /// or <see cref="DependencySourceKind.Feed"/>.
+    /// </summary>
     public class SetDependenciesCommand : ConfigureDependenciesCommand<SetDependenciesCommandSettings>
     {
         protected override bool ConfigureDependency(
@@ -31,7 +35,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                     if ( settings.Branch != null )
                     {
-                        buildSpec = new CiBranch( settings.Branch );
+                        buildSpec = new CiLatestBuildOfBranch( settings.Branch );
                     }
                     else if ( settings.BuildNumber != null )
                     {

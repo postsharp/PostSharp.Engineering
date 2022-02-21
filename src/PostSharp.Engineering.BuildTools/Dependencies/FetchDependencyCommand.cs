@@ -12,6 +12,9 @@ using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
 {
+    /// <summary>
+    /// Fetches the artifacts of the build dependencies.
+    /// </summary>
     public class FetchDependencyCommand : BaseCommand<FetchDependenciesCommandSettings>
     {
         protected override bool ExecuteCore( BuildContext context, FetchDependenciesCommandSettings settings )
@@ -278,7 +281,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     string ciBuildType;
                     string branchName;
 
-                    if ( buildSpec is CiBranch branch )
+                    if ( buildSpec is CiLatestBuildOfBranch branch )
                     {
                         ciBuildType = dependency.Definition.CiBuildTypes[configuration];
                         branchName = branch.Name;

@@ -2,6 +2,9 @@
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
+    /// <summary>
+    /// A string that can contain the following parameters: <c>$(PackageVersion)</c>, <c>$(Configuration)</c> or <c>$(MSSBuildConfiguration)</c>.
+    /// </summary>
     public readonly struct ParametricString
     {
         private readonly string? _value;
@@ -13,7 +16,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public override string ToString() => this._value ?? "<null>";
 
-        public string ToString( VersionInfo parameters )
+        public string ToString( BuildInfo parameters )
             => this._value?
                 .Replace( "$(PackageVersion)", parameters.PackageVersion, StringComparison.OrdinalIgnoreCase )
                 .Replace( "$(Configuration)", parameters.Configuration, StringComparison.OrdinalIgnoreCase )

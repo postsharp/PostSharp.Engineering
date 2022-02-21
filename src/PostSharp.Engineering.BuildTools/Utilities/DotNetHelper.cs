@@ -11,7 +11,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
     {
         public static bool Run(
             BuildContext context,
-            BaseBuildSettings settings,
+            BuildSettings settings,
             string solution,
             string command,
             string arguments = "" )

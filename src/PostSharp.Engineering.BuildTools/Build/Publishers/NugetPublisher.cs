@@ -1,8 +1,12 @@
-﻿using PostSharp.Engineering.BuildTools.Utilities;
+﻿using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 
-namespace PostSharp.Engineering.BuildTools.Build.Model
+namespace PostSharp.Engineering.BuildTools.Build.Publishers
 {
+    /// <summary>
+    /// Publishes NuGet packages to any feed.
+    /// </summary>
     public class NugetPublisher : Publisher
     {
         private readonly string _source;
@@ -18,7 +22,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             BuildContext context,
             PublishSettings settings,
             string file,
-            VersionInfo version,
+            BuildInfo buildInfo,
             BuildConfigurationInfo configuration )
         {
             var hasEnvironmentError = false;

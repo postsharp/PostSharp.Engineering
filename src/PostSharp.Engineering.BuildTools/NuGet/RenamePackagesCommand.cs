@@ -12,14 +12,17 @@ using System.Xml.XPath;
 
 namespace PostSharp.Engineering.BuildTools.NuGet
 {
-    public class RenamePackagesCommand : Command<RenamePackageSettings>
+    /// <summary>
+    /// Renames <c>Microsoft</c> into <c>Metalama.Roslyn</c> in all NuGet packages of a directory.
+    /// </summary>
+    public class RenamePackagesCommand : Command<RenamePackageCommandSettings>
     {
-        public override int Execute( CommandContext context, RenamePackageSettings settings )
+        public override int Execute( CommandContext context, RenamePackageCommandSettings settings )
         {
             return Execute( new ConsoleHelper(), settings ) ? 0 : 2;
         }
 
-        public static bool Execute( ConsoleHelper console, RenamePackageSettings settings )
+        public static bool Execute( ConsoleHelper console, RenamePackageCommandSettings settings )
         {
             var success = true;
 

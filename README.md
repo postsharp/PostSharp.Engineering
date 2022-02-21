@@ -23,6 +23,7 @@
     - [Step 7. Create the front-end build project](#step-7-create-the-front-end-build-project)
     - [Step 8. Create Build.ps1, the front-end build script](#step-8-create-buildps1-the-front-end-build-script)
     - [Step 9. Editing .gitignore](#step-9-editing-gitignore)
+  - [Build Concepts](#build-concepts)
   - [Continuous integration](#continuous-integration)
     - [Artifacts](#artifacts)
     - [Commands](#commands)
@@ -92,9 +93,9 @@ the `PackageReference` items. For example:
 
 Dependencies must be checked out under the same root directory (typically `c:\src`) under their canonic name.
 
-Then, use `Build.ps1 dependencies local` to specify which dependencies should be run locally.
+Then, use `Build.ps1 dependencies set local <DEPENDENCY>` to specify which dependencies should be run locally.
 
-This will generate `eng/Dependencies.props`, which you should have imported in `eng/Versions.props`.
+This will generate `eng/Versions.g.props`, which you should have imported in `eng/Versions.props`.
 
 
 ## Installation
@@ -326,6 +327,52 @@ artifacts
 eng/tools
 *.Import.props
 ```
+
+## Build Concepts
+
+The code in `Program.cs` uses the concepts described here.
+
+```mermaid
+classDiagram
+
+  class Product {
+
+  }
+
+  class Solution {
+
+  }
+
+
+
+  Program o-- "1" Product 
+  Product o-- "*" Solution
+  Product  o-- "*" DependencyDefinition
+  Product  o-- "3" BuildConfigurationInfo
+  BuildConfigurationInfo  o-- "*" IBuildTrigger
+  BuildConfigurationInfo o-- "*" Publisher
+  BuildConfigurationInfo o-- "*" Swapper
+  Swapper o-- "*" Tester
+  Solution <|-- DotNetSolution
+  Solution <|-- MSBuildSolution
+  Tester <|-- VSTestTester
+  IBuildTrigger <|-- NightlyBuildTrigger
+  IBuildTrigger <|-- SourceBuildTrigger
+  Publisher <|-- MSDeployPublisher
+  Publisher <|-- NuGetPublisher
+  Publisher <|-- VsixPublisher
+  
+
+```
+
+* _Program_ is your program, i.e. `BuildMyProduct`.
+* _Product_ is a unique instance configured by _Program_, the root object that defines the build for the whole repo.
+* _Solution_ represents a solution, project, or other build script in your repo. A solution is something that can be restored, built, packed, tested. Two standard implementations are _DotNetSolution_ and _MSBuildSolution_.
+* _BuildConfigurationInfo_ represents properties that are specific to a build configuration (i.e. _Debug_, _Release_ or _Public_) for the product.
+* _DependencyDefinition_ are dependencies to other repositories.
+* _Publisher_ is something that publishes, or deploys, an already-built artefact to a feed, marketplace, deployment slot, or anything. There are standard implementations for NuGet, VSIX, web sites.
+* _Swapper_ is something that swaps a staging deployment slot into the production deployment slot.
+* _Tester_ is a test suite, typically running against a staging deployment, that must execute successfully before the staging deployment is swapped into the production deployment.
 
 ## Continuous integration
 

@@ -3,7 +3,7 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Build
 {
-    public class PublishSettings : BaseCommandSettings
+    public class PublishSettings : CommonCommandSettings
     {
         [Description( "Sets the build configuration (Debug | Release | Public) to publish" )]
         [CommandOption( "-c|--configuration" )]

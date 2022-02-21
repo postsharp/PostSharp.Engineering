@@ -5,6 +5,9 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
 {
+    /// <summary>
+    /// Settings of <see cref="SetDependenciesCommand"/>.
+    /// </summary>
     public class SetDependenciesCommandSettings : ConfigureDependenciesCommandSettings
     {
         [Description( "The source of dependencies: Feed | Local | BuildServer" )]

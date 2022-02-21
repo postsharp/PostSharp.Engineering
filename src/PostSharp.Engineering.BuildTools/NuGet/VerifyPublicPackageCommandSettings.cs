@@ -3,7 +3,10 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.NuGet
 {
-    public class RenamePackageSettings : CommandSettings
+    /// <summary>
+    /// Settings for <see cref="VerifyPublicPackageCommand"/>.
+    /// </summary>
+    public class VerifyPublicPackageCommandSettings : CommandSettings
     {
         [Description( "Directory containing the packages" )]
         [CommandArgument( 0, "<directory>" )]

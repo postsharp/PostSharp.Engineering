@@ -3,7 +3,10 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Coverage
 {
-    public class AnalyzeCoverageSettings : CommandSettings
+    /// <summary>
+    /// Settings for <see cref="AnalyzeCoverageCommand"/>.
+    /// </summary>
+    public class AnalyzeCoverageCommandSettings : CommandSettings
     {
         [CommandArgument( 0, "<path>" )]
         [Description( "Path to the OpenCover xml file" )]

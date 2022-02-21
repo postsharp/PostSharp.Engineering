@@ -1,5 +1,10 @@
-﻿namespace PostSharp.Engineering.BuildTools.Build.Model
+﻿using PostSharp.Engineering.BuildTools.Build.Model;
+
+namespace PostSharp.Engineering.BuildTools.Build.Publishers
 {
+    /// <summary>
+    /// Configuration of a deployment with <see cref="MsDeployPublisher"/>.
+    /// </summary>
     public class MsDeployConfiguration
     {
         public ParametricString PackageFileName { get; init; }

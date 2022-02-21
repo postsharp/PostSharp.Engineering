@@ -1,11 +1,15 @@
-﻿using PostSharp.Engineering.BuildTools.Utilities;
+﻿using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 
-namespace PostSharp.Engineering.BuildTools.Build.Model
+namespace PostSharp.Engineering.BuildTools.Build.Testers
 {
+    /// <summary>
+    /// An implementation of <see cref="Tester"/> for VSTest.
+    /// </summary>
     public class VsTestTester : Tester
     {
         public ParametricString TestPackageName { get; init; }
@@ -23,7 +27,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public override SuccessCode Execute(
             BuildContext context,
             string artifactsDirectory,
-            VersionInfo versionInfo,
+            BuildInfo buildInfo,
             BuildConfigurationInfo configuration,
             bool dry )
         {
@@ -32,7 +36,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             try
             {
-                var packagePath = Path.Combine( artifactsDirectory, this.TestPackageName.ToString( versionInfo ) );
+                var packagePath = Path.Combine( artifactsDirectory, this.TestPackageName.ToString( buildInfo ) );
                 ZipFile.ExtractToDirectory( packagePath, tempDirectory );
 
                 var exe = @"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\Extensions\TestPlatform\vstest.console.exe";

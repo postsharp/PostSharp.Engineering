@@ -4,6 +4,9 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle
 {
+    /// <summary>
+    /// Base class for <see cref="PushCodeStyleCommand"/> and <see cref="PullCodeStyleCommand"/>.
+    /// </summary>
     internal abstract class BaseCodeStyleCommand<T> : BaseCommand<T>
         where T : CodeStyleSettings
     {

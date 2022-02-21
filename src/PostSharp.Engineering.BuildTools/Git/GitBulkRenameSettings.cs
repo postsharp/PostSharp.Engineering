@@ -3,6 +3,9 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Git
 {
+    /// <summary>
+    /// Settings for <see cref="GitBulkRenameCommand"/>.
+    /// </summary>
     internal class GitBulkRenameSettings : CommandSettings
     {
         [Description( "The path to the root of the GIT repository where the renaming should take place." )]

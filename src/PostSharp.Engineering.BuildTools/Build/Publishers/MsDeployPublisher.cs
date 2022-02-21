@@ -1,4 +1,5 @@
-﻿using PostSharp.Engineering.BuildTools.Utilities;
+﻿using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -7,8 +8,11 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 
-namespace PostSharp.Engineering.BuildTools.Build.Model
+namespace PostSharp.Engineering.BuildTools.Build.Publishers
 {
+    /// <summary>
+    /// A <see cref="Publisher"/> that uses <c>MSDeploy</c> to deploy a web site.
+    /// </summary>
     public class MsDeployPublisher : Publisher
     {
         private readonly ImmutableArray<MsDeployConfiguration> _configurations;
@@ -55,11 +59,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             BuildContext context,
             PublishSettings settings,
             string file,
-            VersionInfo version,
+            BuildInfo buildInfo,
             BuildConfigurationInfo configuration )
         {
             var fileName = Path.GetFileName( file );
-            var packageConfiguration = this._configurations.Single( c => c.PackageFileName.ToString( version ) == fileName );
+            var packageConfiguration = this._configurations.Single( c => c.PackageFileName.ToString( buildInfo ) == fileName );
 
             if ( !QueryPublishProfile( context, settings, packageConfiguration, out var publishProfile ) )
             {

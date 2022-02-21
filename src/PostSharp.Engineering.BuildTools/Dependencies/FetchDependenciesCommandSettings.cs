@@ -3,7 +3,10 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
 {
-    public class FetchDependenciesCommandSettings : BaseCommandSettings
+    /// <summary>
+    /// Settings for <see cref="FetchDependencyCommand"/>.
+    /// </summary>
+    public class FetchDependenciesCommandSettings : CommonCommandSettings
     {
         [Description(
             "Directory into which dependency repos are expected to be. If not specified, it will default to the base directory of the current repo." )]

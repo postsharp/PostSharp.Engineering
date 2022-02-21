@@ -8,7 +8,10 @@ using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
-    public class Pattern
+    /// <summary>
+    /// A file globbing pattern, i.e. something like <c>**\*.cs</c>. This class is immutable. 
+    /// </summary>
+    public sealed class Pattern
     {
         private ImmutableArray<(ParametricString Pattern, bool IsExclude)> Items { get; }
 
@@ -19,17 +22,38 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool IsEmpty => this.Items.IsDefaultOrEmpty;
 
+        /// <summary>
+        /// Gets an empty <see cref="Pattern"/>.
+        /// </summary>
         public static Pattern Empty { get; } = new( ImmutableArray<(ParametricString Pattern, bool IsExclude)>.Empty );
 
+        /// <summary>
+        /// Adds new including patterns to the current pattern and returns the result.
+        /// </summary>
         public Pattern Add( params ParametricString[] patterns ) => new( this.Items.AddRange( patterns.Select( p => (p, false) ) ) );
 
-        public Pattern Add( Pattern pattern ) => new( this.Items.AddRange( pattern.Items ) );
-
+        /// <summary>
+        /// Adds new excluding patterns to the current pattern and returns the result.
+        /// </summary>
         public Pattern Remove( params ParametricString[] patterns ) => new( this.Items.AddRange( patterns.Select( p => (p, true) ) ) );
 
+        /// <summary>
+        /// Appends a pattern after the current pattern and results the result.
+        /// </summary>
+        public Pattern Appends( Pattern pattern ) => new( this.Items.AddRange( pattern.Items ) );
+
+        /// <summary>
+        /// Creates a new additive pattern.
+        /// </summary>
+        /// <param name="patterns"></param>
+        /// <returns></returns>
         public static Pattern Create( params ParametricString[] patterns ) => Empty.Add( patterns );
 
-        public bool Verify( BuildContext context, string directory, VersionInfo versionInfo )
+        /// <summary>
+        /// Verifies that every item of the current pattern matches some files on the file system,
+        /// and writes an error to the console when one does not.
+        /// </summary>
+        public bool Verify( BuildContext context, string directory, BuildInfo buildInfo )
         {
             var success = true;
 
@@ -41,7 +65,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
 
                 var matcher = new Matcher( StringComparison.OrdinalIgnoreCase );
-                var expandedPattern = pattern.Pattern.ToString( versionInfo );
+                var expandedPattern = pattern.Pattern.ToString( buildInfo );
                 matcher.AddInclude( expandedPattern );
 
                 var matchingResult =
@@ -57,13 +81,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return success;
         }
 
-        public bool TryGetFiles( string directory, VersionInfo versionInfo, List<FilePatternMatch> files )
+        /// <summary>
+        /// Gets the files in a given directory matching the current pattern.
+        /// </summary>
+        public bool TryGetFiles( string directory, BuildInfo buildInfo, List<FilePatternMatch> files )
         {
             var matcher = new Matcher( StringComparison.OrdinalIgnoreCase );
 
             foreach ( var pattern in this.Items )
             {
-                var file = pattern.Pattern.ToString( versionInfo );
+                var file = pattern.Pattern.ToString( buildInfo );
 
                 if ( pattern.IsExclude )
                 {

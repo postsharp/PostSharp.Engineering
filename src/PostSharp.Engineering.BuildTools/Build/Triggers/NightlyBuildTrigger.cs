@@ -1,7 +1,11 @@
-﻿using System.IO;
+﻿using PostSharp.Engineering.BuildTools.Build.Model;
+using System.IO;
 
-namespace PostSharp.Engineering.BuildTools.Build;
+namespace PostSharp.Engineering.BuildTools.Build.Triggers;
 
+/// <summary>
+/// Generates a build trigger that triggers the build daily at 22:00 for the default branch.
+/// </summary>
 public class NightlyBuildTrigger : IBuildTrigger
 {
     public void GenerateTeamcityCode( TextWriter writer )

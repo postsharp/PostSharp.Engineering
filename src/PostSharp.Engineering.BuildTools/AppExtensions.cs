@@ -13,6 +13,9 @@ namespace PostSharp.Engineering.BuildTools
 {
     public static class AppExtensions
     {
+        /// <summary>
+        /// Adds <see cref="Product"/>-related commands to a <see cref="CommandApp"/>.
+        /// </summary>
         public static void AddProductCommands( this CommandApp app, Product? product = null )
         {
             if ( product != null )

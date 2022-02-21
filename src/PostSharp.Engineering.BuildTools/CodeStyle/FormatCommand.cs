@@ -4,9 +4,12 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle
 {
-    public class FormatCommand : BaseCommand<BaseCommandSettings>
+    /// <summary>
+    /// Formats the source code of the current repo by applying the standard code style (running JetBrains cleanupcode command).
+    /// </summary>
+    public class FormatCommand : BaseCommand<CommonCommandSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, BaseCommandSettings settings )
+        protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
         {
             context.Console.WriteHeading( "Reformatting the code" );
 

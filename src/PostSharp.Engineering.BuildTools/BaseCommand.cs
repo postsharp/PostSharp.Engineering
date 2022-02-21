@@ -1,5 +1,6 @@
 using Microsoft.Build.Locator;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -13,8 +14,11 @@ using System.Text.Json;
 
 namespace PostSharp.Engineering.BuildTools
 {
+    /// <summary>
+    /// The base class for all commands that require a <see cref="Product"/>.
+    /// </summary>
     public abstract class BaseCommand<T> : Command<T>
-        where T : BaseCommandSettings
+        where T : CommonCommandSettings
     {
         static BaseCommand()
         {

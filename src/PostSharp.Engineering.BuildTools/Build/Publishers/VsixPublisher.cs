@@ -1,8 +1,12 @@
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 
-namespace PostSharp.Engineering.BuildTools.Build.Model
+namespace PostSharp.Engineering.BuildTools.Build.Publishers
 {
+    /// <summary>
+    /// Publishes VSIX packages to Visual Studio Marketplace. 
+    /// </summary>
     public class VsixPublisher : Publisher
     {
         public VsixPublisher( Pattern files ) : base( files ) { }
@@ -11,7 +15,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             BuildContext context,
             PublishSettings settings,
             string file,
-            VersionInfo version,
+            BuildInfo buildInfo,
             BuildConfigurationInfo configuration )
         {
             var hasEnvironmentError = false;

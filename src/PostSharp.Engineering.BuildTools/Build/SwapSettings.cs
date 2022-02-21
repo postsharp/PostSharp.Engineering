@@ -3,7 +3,10 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Build
 {
-    public class SwapSettings : BaseCommandSettings
+    /// <summary>
+    /// Settings of <see cref="SwapCommand"/>.
+    /// </summary>
+    public class SwapSettings : CommonCommandSettings
     {
         [Description( "Sets the build configuration (Debug | Release | Public) to swap" )]
         [CommandOption( "-c|--configuration" )]

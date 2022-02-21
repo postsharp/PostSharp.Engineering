@@ -5,11 +5,16 @@ using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies;
 
+/// <summary>
+/// Base class for <see cref="SetDependenciesCommand"/> and <see cref="ResetDependenciesCommand"/>.
+/// </summary>
+/// <typeparam name="T"></typeparam>
 public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
     where T : ConfigureDependenciesCommandSettings
 {
     protected override bool ExecuteCore( BuildContext context, T settings )
     {
+        // Validates the command line options.
         context.Console.WriteHeading( "Setting the local dependencies" );
 
         if ( context.Product.Dependencies is not { Length: > 0 } )
@@ -26,11 +31,13 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
             return false;
         }
 
+        // Loads the current version file.
         if ( !VersionsOverrideFile.TryLoad( context, out var versionsOverrideFile ) )
         {
             return false;
         }
 
+        // Iterate all matching dependencies.
         var dependencies = settings.GetAllFlag() ? context.Product.Dependencies.Select( x => x.Name ) : settings.GetDependencies();
 
         foreach ( var dependency in dependencies )
@@ -39,6 +46,8 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
 
             if ( int.TryParse( dependency, out var index ) )
             {
+                // The dependency was given by position.
+                
                 if ( index < 1 || index > context.Product.Dependencies.Length )
                 {
                     context.Console.WriteError( $"'{index}' is not a valid dependency index. Use the 'dependencies list' command." );
@@ -50,6 +59,8 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
             }
             else
             {
+                // The dependency was given by name.
+                
                 dependencyDefinition = context.Product.GetDependency( dependency );
 
                 if ( dependencyDefinition == null )
@@ -60,6 +71,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
                 }
             }
 
+            // Executes the logic itself.
             if ( !this.ConfigureDependency( context, versionsOverrideFile, dependencyDefinition, settings ) )
             {
                 return false;

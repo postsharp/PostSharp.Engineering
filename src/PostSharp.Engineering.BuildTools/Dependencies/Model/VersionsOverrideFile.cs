@@ -86,7 +86,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                     var branch = dependencyVersionMatch.Groups["Arguments"].Value;
 
                                     dependencySource = DependencySource.CreateBuildServerSource(
-                                        new CiBranch( branch ),
+                                        new CiLatestBuildOfBranch( branch ),
                                         DependencyConfigurationOrigin.Default );
 
                                     break;
@@ -253,7 +253,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                 }
                                 else if ( !string.IsNullOrEmpty( branch ) )
                                 {
-                                    buildSpec = new CiBranch( branch );
+                                    buildSpec = new CiLatestBuildOfBranch( branch );
                                 }
                                 else
                                 {
@@ -367,7 +367,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                                 switch ( dependency.Value.BuildServerSource )
                                 {
-                                    case CiBranch branch:
+                                    case CiLatestBuildOfBranch branch:
                                         AddIfNotNull( "Branch", branch.Name );
 
                                         break;

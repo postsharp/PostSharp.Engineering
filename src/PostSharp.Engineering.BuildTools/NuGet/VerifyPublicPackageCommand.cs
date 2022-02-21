@@ -16,16 +16,20 @@ using System.Xml.XPath;
 
 namespace PostSharp.Engineering.BuildTools.NuGet
 {
-    internal class VerifyPublicPackageCommand : Command<VerifyPackageSettings>
+    /// <summary>
+    /// Verifies that dependencies of the NuGet packages in a given directory are either published to <c>nuget.org</c> or
+    /// present in the same directory.
+    /// </summary>
+    internal class VerifyPublicPackageCommand : Command<VerifyPublicPackageCommandSettings>
     {
-        public override int Execute( CommandContext context, VerifyPackageSettings settings )
+        public override int Execute( CommandContext context, VerifyPublicPackageCommandSettings settings )
         {
             var console = new ConsoleHelper();
 
             return Execute( console, settings ) ? 0 : 1;
         }
 
-        public static bool Execute( ConsoleHelper console, VerifyPackageSettings settings )
+        public static bool Execute( ConsoleHelper console, VerifyPublicPackageCommandSettings settings )
         {
             var directory = new DirectoryInfo( settings.Directory );
 

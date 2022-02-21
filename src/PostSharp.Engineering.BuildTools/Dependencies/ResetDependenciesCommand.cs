@@ -3,6 +3,9 @@ using PostSharp.Engineering.BuildTools.Dependencies.Model;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies;
 
+/// <summary>
+/// Removes the configuration of a dependency from the version file.
+/// </summary>
 public class ResetDependenciesCommand : ConfigureDependenciesCommand<ResetDependenciesCommandSettings>
 {
     protected override bool ConfigureDependency(

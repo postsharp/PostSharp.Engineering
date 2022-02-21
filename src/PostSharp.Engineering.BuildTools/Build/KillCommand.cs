@@ -7,6 +7,9 @@ using System.Management;
 
 namespace PostSharp.Engineering.BuildTools.Build
 {
+    /// <summary>
+    /// Kills all processes that may lock build artefacts.
+    /// </summary>
     public class KillCommand : BaseCommand<KillCommandSettings>
     {
         protected override bool ExecuteCore( BuildContext context, KillCommandSettings settings )

@@ -1,6 +1,8 @@
 ﻿using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using Microsoft.Extensions.FileSystemGlobbing;
+using PostSharp.Engineering.BuildTools.Build.Publishers;
+using PostSharp.Engineering.BuildTools.Build.Triggers;
 using PostSharp.Engineering.BuildTools.Coverage;
 using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -128,7 +130,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Check that the build produced the expected artifacts.
-            var allFilesPattern = this.PublicArtifacts.Add( this.PrivateArtifacts );
+            var allFilesPattern = this.PublicArtifacts.Appends( this.PrivateArtifacts );
 
             if ( !allFilesPattern.Verify( context, privateArtifactsDir, versionInfo ) )
             {
@@ -205,7 +207,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // Verify that public packages have no private dependencies.
                 if ( !VerifyPublicPackageCommand.Execute(
                         context.Console,
-                        new VerifyPackageSettings { Directory = publicArtifactsDirectory } ) )
+                        new VerifyPublicPackageCommandSettings { Directory = publicArtifactsDirectory } ) )
                 {
                     return false;
                 }
@@ -336,7 +338,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             File.WriteAllText( importFilePath, importFileContent );
         }
 
-        private VersionInfo ReadGeneratedVersionFile( string path )
+        private BuildInfo ReadGeneratedVersionFile( string path )
         {
             var versionFilePath = path;
             var versionFile = Project.FromFile( versionFilePath, new ProjectOptions() );
@@ -384,7 +386,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
-            return new VersionInfo( packageVersion, Enum.Parse<BuildConfiguration>( configuration ), this );
+            return new BuildInfo( packageVersion, Enum.Parse<BuildConfiguration>( configuration ), this );
         }
 
         private static (string MainVersion, string PackageVersionSuffix) ReadMainVersionFile( string path )
@@ -490,7 +492,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Test( BuildContext context, BuildSettings settings )
         {
-            if ( !settings.NoDependencies && !this.Build( context, (BuildSettings) settings.WithIncludeTests( true ) ) )
+            if ( !settings.NoDependencies && !this.Build( context, settings.WithIncludeTests( true ) ) )
             {
                 return false;
             }
@@ -524,7 +526,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 if ( settings.AnalyzeCoverage && solution.SupportsTestCoverage )
                 {
                     solutionOptions =
-                        (BuildSettings) settings.WithAdditionalProperties( properties ).WithoutConcurrency();
+                        settings.WithAdditionalProperties( properties ).WithoutConcurrency();
                 }
 
                 context.Console.WriteHeading( $"Testing {solution.Name}." );
@@ -541,7 +543,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 if ( !AnalyzeCoverageCommand.Execute(
                         context.Console,
-                        new AnalyzeCoverageSettings { Path = Path.Combine( testResultsDir, "coverage.net5.0.json" ) } ) )
+                        new AnalyzeCoverageCommandSettings { Path = Path.Combine( testResultsDir, "coverage.net5.0.json" ) } ) )
                 {
                     return false;
                 }
@@ -552,7 +554,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        public bool Prepare( BuildContext context, BaseBuildSettings settings )
+        public bool Prepare( BuildContext context, BuildSettings settings )
         {
             if ( !settings.NoDependencies )
             {
@@ -564,7 +566,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var configuration = settings.BuildConfiguration;
 
             var privateArtifactsRelativeDir =
-                this.PrivateArtifactsDirectory.ToString( new VersionInfo( null!, configuration, this ) );
+                this.PrivateArtifactsDirectory.ToString( new BuildInfo( null!, configuration, this ) );
 
             var artifactsDir = Path.Combine( context.RepoDirectory, privateArtifactsRelativeDir );
 
@@ -634,7 +636,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private bool TryComputeVersion(
             BuildContext context,
-            BaseBuildSettings settings,
+            BuildSettings settings,
             BuildConfiguration configuration,
             VersionsOverrideFile versionsOverrideFile,
             [NotNullWhen( true )] out VersionComponents? version )
@@ -863,7 +865,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                         break;
 
-                    case CiBranch branch:
+                    case CiLatestBuildOfBranch branch:
                         props += props + $@"
             <Branch>{branch.Name}</Branch>";
 
@@ -896,7 +898,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return props;
         }
 
-        public void Clean( BuildContext context, BaseBuildSettings settings )
+        public void Clean( BuildContext context, BuildSettings settings )
         {
             void DeleteDirectory( string directory )
             {
@@ -931,7 +933,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 DeleteDirectory( Path.Combine( context.RepoDirectory, directory ) );
             }
 
-            var stringParameters = new VersionInfo( null!, settings.BuildConfiguration, this );
+            var stringParameters = new BuildInfo( null!, settings.BuildConfiguration, this );
 
             DeleteDirectory(
                 Path.Combine(
@@ -946,11 +948,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             CleanRecursive( context.RepoDirectory );
         }
 
-        private (string Private, string Public) GetArtifactsDirectories( BuildContext context, VersionInfo version )
+        private (string Private, string Public) GetArtifactsDirectories( BuildContext context, BuildInfo buildInfo )
         {
             return (
-                Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( version ) ),
-                Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( version ) )
+                Path.Combine( context.RepoDirectory, this.PrivateArtifactsDirectory.ToString( buildInfo ) ),
+                Path.Combine( context.RepoDirectory, this.PublicArtifactsDirectory.ToString( buildInfo ) )
             );
         }
 
@@ -1063,7 +1065,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             foreach ( var configuration in configurations )
             {
                 var configurationInfo = this.Configurations[configuration];
-                var versionInfo = new VersionInfo( packageVersion, configuration, this );
+                var versionInfo = new BuildInfo( packageVersion, configuration, this );
 
                 var publicArtifactsDirectory =
                     context.Product.PublicArtifactsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );

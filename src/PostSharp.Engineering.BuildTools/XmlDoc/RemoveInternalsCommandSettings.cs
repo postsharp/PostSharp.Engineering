@@ -3,7 +3,7 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.XmlDoc;
 
-public class RemoveInternalsCommandSettings : BaseCommandSettings
+public class RemoveInternalsCommandSettings : CommonCommandSettings
 {
     [Description( "Path to the xml file. The dll is assumed to be next to it." )]
     [CommandArgument( 0, "<xml-path>" )]

@@ -4,6 +4,9 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle
 {
+    /// <summary>
+    /// Copies the code style from the shared repo to the current repo. 
+    /// </summary>
     internal class PullCodeStyleCommand : BaseCodeStyleCommand<PullCodeStyleSettings>
     {
         protected override bool ExecuteCore( BuildContext context, PullCodeStyleSettings settings )

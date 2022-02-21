@@ -1,5 +1,8 @@
 namespace PostSharp.Engineering.BuildTools.Build
 {
+    /// <summary>
+    /// <see cref="Debug"/>, <see cref="Release"/> and <see cref="Public"/>.
+    /// </summary>
     public enum BuildConfiguration
     {
         /// <summary>

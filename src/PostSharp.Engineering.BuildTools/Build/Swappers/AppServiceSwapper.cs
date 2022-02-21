@@ -1,7 +1,11 @@
-﻿using PostSharp.Engineering.BuildTools.Utilities;
+﻿using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Utilities;
 
-namespace PostSharp.Engineering.BuildTools.Build.Model
+namespace PostSharp.Engineering.BuildTools.Build.Swappers
 {
+    /// <summary>
+    /// An implementation of <see cref="Swapper"/> for Azure AppService slots.
+    /// </summary>
     public class AppServiceSwapper : Swapper
     {
         public string SubscriptionId { get; init; }

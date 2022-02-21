@@ -5,7 +5,7 @@
         public abstract SuccessCode Execute(
             BuildContext context,
             string artifactsDirectory,
-            VersionInfo versionInfo,
+            BuildInfo buildInfo,
             BuildConfigurationInfo configuration,
             bool dry );
     }

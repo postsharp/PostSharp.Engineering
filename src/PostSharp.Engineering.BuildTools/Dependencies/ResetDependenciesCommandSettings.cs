@@ -4,6 +4,9 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies;
 
+/// <summary>
+/// Settings of <see cref="ResetDependenciesCommand"/>.
+/// </summary>
 public class ResetDependenciesCommandSettings : ConfigureDependenciesCommandSettings
 {
     [Description( "The list of dependencies (given by name by or position in the dependency list) to configure" )]

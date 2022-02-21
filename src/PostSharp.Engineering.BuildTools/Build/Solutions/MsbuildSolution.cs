@@ -1,3 +1,4 @@
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Globalization;
@@ -5,8 +6,11 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace PostSharp.Engineering.BuildTools.Build.Model
+namespace PostSharp.Engineering.BuildTools.Build.Solutions
 {
+    /// <summary>
+    /// An implementation of <see cref="Solution"/> that uses the <c>msbuild</c> utility to build projects.
+    /// </summary>
     public class MsbuildSolution : Solution
     {
         public MsbuildSolution( string solutionPath ) : base( solutionPath ) { }
@@ -20,7 +24,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public override bool Test( BuildContext context, BuildSettings settings )
             => this.RunMsbuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
 
-        public override bool Restore( BuildContext context, BaseBuildSettings settings )
+        public override bool Restore( BuildContext context, BuildSettings settings )
         {
             if ( Path.GetExtension( this.SolutionPath ) != ".sln" )
             {
@@ -64,7 +68,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
         }
 
-        private bool RunMsbuild( BuildContext context, BaseBuildSettings settings, string project, string target, string arguments = "" )
+        private bool RunMsbuild( BuildContext context, BuildSettings settings, string project, string target, string arguments = "" )
         {
             var argsBuilder = new StringBuilder();
             var path = Path.Combine( context.RepoDirectory, project );

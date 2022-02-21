@@ -3,7 +3,10 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle
 {
-    internal class CodeStyleSettings : BaseCommandSettings
+    /// <summary>
+    /// Settings for <see cref="PushCodeStyleCommand"/> and <see cref="PullCodeStyleCommand"/>.
+    /// </summary>
+    internal class CodeStyleSettings : CommonCommandSettings
     {
         [Description( "Clones the repo if it does not exist." )]
         [CommandOption( "--create" )]

@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.Solutions;
 using Spectre.Console.Cli;
 
 var product = new Product

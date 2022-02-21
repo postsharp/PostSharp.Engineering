@@ -3,9 +3,12 @@ using PostSharp.Engineering.BuildTools.Dependencies.Model;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
 {
-    public class ListDependenciesCommand : BaseCommand<BaseCommandSettings>
+    /// <summary>
+    /// Lists dependencies.
+    /// </summary>
+    public class ListDependenciesCommand : BaseCommand<CommonCommandSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, BaseCommandSettings settings )
+        protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
         {
             var productDependencies = context.Product.Dependencies;
 

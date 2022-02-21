@@ -4,7 +4,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 {
     public class VcsHelper
     {
-        public static bool CheckNoChange( BuildContext context, BaseCommandSettings settings, string repo )
+        public static bool CheckNoChange( BuildContext context, CommonCommandSettings settings, string repo )
         {
             if ( !settings.Force )
             {

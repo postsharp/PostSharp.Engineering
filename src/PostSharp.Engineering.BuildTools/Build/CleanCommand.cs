@@ -1,8 +1,11 @@
 ﻿namespace PostSharp.Engineering.BuildTools.Build
 {
-    public class CleanCommand : BaseCommand<BaseBuildSettings>
+    /// <summary>
+    /// Cleans the current repo from build artefacts.
+    /// </summary>
+    public class CleanCommand : BaseCommand<BuildSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, BaseBuildSettings settings )
+        protected override bool ExecuteCore( BuildContext context, BuildSettings settings )
         {
             context.Product.Clean( context, settings );
 

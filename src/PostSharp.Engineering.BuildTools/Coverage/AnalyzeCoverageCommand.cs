@@ -16,16 +16,19 @@ using System.Text.RegularExpressions;
 
 namespace PostSharp.Engineering.BuildTools.Coverage
 {
-    public class AnalyzeCoverageCommand : Command<AnalyzeCoverageSettings>
+    /// <summary>
+    /// Compares the code coverage result file with the syntax tree and detects tolerable gaps. Emit warnings for non-tolerable gaps.
+    /// </summary>
+    public class AnalyzeCoverageCommand : Command<AnalyzeCoverageCommandSettings>
     {
-        public override int Execute( CommandContext context, AnalyzeCoverageSettings settings )
+        public override int Execute( CommandContext context, AnalyzeCoverageCommandSettings settings )
         {
             ConsoleHelper console = new();
 
             return Execute( console, settings ) ? 0 : 1;
         }
 
-        public static bool Execute( ConsoleHelper console, AnalyzeCoverageSettings settings )
+        public static bool Execute( ConsoleHelper console, AnalyzeCoverageCommandSettings settings )
         {
             console.WriteHeading( "Analyzing test coverage" );
 

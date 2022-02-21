@@ -6,6 +6,9 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Git
 {
+    /// <summary>
+    /// Renames files in bulk using <c>git rename</c>.
+    /// </summary>
     internal class GitBulkRenameCommand : Command<GitBulkRenameSettings>
     {
         // ReSharper disable RedundantNullableFlowAttribute
