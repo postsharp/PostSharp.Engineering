@@ -45,7 +45,12 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 Environment.CurrentDirectory );
         }
 
-        public static ImmutableDictionary<string, string?> GetDotNetEnvironmentVariables()
+        /// <summary>
+        /// Returns the environment variables set by .NET Core with no values.
+        /// Keeping the values set breaks MSBuild.
+        /// We need to unset them to be able to execute MSBuild from a .NET Core process.
+        /// </summary>
+        public static ImmutableDictionary<string, string?> GetMsBuildFixingEnvironmentVariables()
         {
             var environmentVariablesBuilder = ImmutableDictionary.CreateBuilder<string, string?>();
             environmentVariablesBuilder.Add( "DOTNET_ROOT_X64", null );
