@@ -105,7 +105,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             command = command.Replace( "$(ToolsDirectory)", toolsDirectory, StringComparison.Ordinal );
 
-            var toolOptions = new ToolInvocationOptions( DotNetHelper.GetDotNetEnvironmentVariables() );
+            var toolOptions = new ToolInvocationOptions( DotNetHelper.GetMsBuildFixingEnvironmentVariables() );
 
             // 4. Invoke the tool.
             return ToolInvocationHelper.InvokeTool(

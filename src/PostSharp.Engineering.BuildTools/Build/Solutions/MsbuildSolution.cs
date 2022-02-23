@@ -94,9 +94,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 argsBuilder.Append( " " + arguments.Trim() );
             }
 
-            // The following environment variables are set by .NET Core and break MSBuild.
-            // We need to unset them to be able to execute MSBuild from a .NET Core process.
-            var toolInvocationOptions = new ToolInvocationOptions( DotNetHelper.GetDotNetEnvironmentVariables() );
+            var toolInvocationOptions = new ToolInvocationOptions( DotNetHelper.GetMsBuildFixingEnvironmentVariables() );
 
             return ToolInvocationHelper.InvokeTool(
                 context.Console,
