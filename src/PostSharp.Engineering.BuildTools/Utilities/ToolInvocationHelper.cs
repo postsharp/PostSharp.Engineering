@@ -16,12 +16,14 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             ConsoleHelper console,
             string fileName,
             string commandLine,
-            string workingDirectory )
+            string workingDirectory,
+            ToolInvocationOptions? options = null )
             => InvokeTool(
                 console,
                 "powershell",
                 $"-NonInteractive -File {fileName} {commandLine}",
-                workingDirectory );
+                workingDirectory,
+                options );
 
         public static bool InvokeTool(
             ConsoleHelper console,
