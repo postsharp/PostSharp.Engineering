@@ -1,7 +1,7 @@
 # Build flow
 
 ```mermaid
-flowchart LR
+flowchart TB
     start([b build])
 
     start --> are_dependencies_resolved{Are<br>dependencies<br>resolved?}
