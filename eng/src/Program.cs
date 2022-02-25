@@ -9,7 +9,10 @@ var product = new Product
 {
     ProductName = "PostSharp.Engineering",
     Solutions = new Solution[] { new DotNetSolution( "PostSharp.Engineering.sln" ) { SupportsTestCoverage = true, CanFormatCode = true } },
-    PublicArtifacts = Pattern.Create( "PostSharp.Engineering.Sdk.$(PackageVersion).nupkg", "PostSharp.Engineering.BuildTools.$(PackageVersion).nupkg" ),
+    PublicArtifacts = Pattern.Create(
+        "PostSharp.Engineering.Sdk.$(PackageVersion).nupkg",
+        "PostSharp.Engineering.BuildTools.$(PackageVersion).nupkg",
+        "PostSharp.Engineering.BuildTools.AWS.$(PackageVersion).nupkg" ),
     RequiresEngineeringSdk = false
 };
 
