@@ -34,6 +34,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             this.FilePath = path;
         }
 
+        /// <summary>
+        /// Loads the versions defined in Versions.props based on the Product definition.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
         private bool TryLoadDefaultVersions( BuildContext context )
         {
             var versionsPath = Path.Combine( context.RepoDirectory, context.Product.VersionsFile );

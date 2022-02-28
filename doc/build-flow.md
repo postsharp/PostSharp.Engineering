@@ -2,51 +2,36 @@
 
 ```mermaid
 flowchart TB
-    start([b build])
+    start([b prepare])
 
     start --> are_dependencies_resolved{Are<br>dependencies<br>resolved?}
 
-    build[[Build the product]]
 
-    resolve_direct_dependencies[[Resolve direct dependencies]]
-    resolve_transitive_dependencies[[Resolve transitive dependencies]]
+    are_dependencies_resolved --> |Yes| END
+    are_dependencies_resolved --> fetch[b fetch] --> END
 
-    are_dependencies_resolved --> |Yes| build
-    are_dependencies_resolved --> |No| resolve_direct_dependencies --> resolve_transitive_dependencies --> build
-
-    build --> END([End])
+    END([End])
 ```
-
-## Direct dependencies resolution
 
 ```mermaid
-flowchart LR
+flowchart TB
+    start([b fetch])
 
-    subgraph for_each_direct_dependency[For each direct dependency of this repo:]
+    start --> load_default_version(Load Version.props)
+    load_default_version --> load_last_build(Load version.props of last build)
+     load_last_build --> load_versions_override_file{Load Versions.g.props<br/>if exists}
+load_versions_override_file --> dependency_list
+dependency_list --> for_each_dependency
+subgraph for_each_dependency
+    resolving --> downloading --> discover[discover transitive dependencies] --> add[add to list]
+end
 
-        start([Start])
 
-        start --> dependency>Direct dependency]
-
-        dependency --> switch_dependency_kind{What<br>kind<br>is it?}
-
-        switch_dependency_kind --> |Feed| use_feed[Use the dependency<br>from the feed]
-        switch_dependency_kind --> |Local| use_local[Use the local build<br>of the dependency]
-        switch_dependency_kind --> |BuildServer| latest_build_exists{Does the latest<br>successful build<br>of this repo<br>exist?}
-
-        latest_build_exists --> |Yes| use_proven_dependency[Use the build of the dependency<br>defined by the latest successful build of this repo]
-        latest_build_exists --> |No| use_latest_dependency[Use the latest successful build<br>of the dependency]
-
-        END([End])
-
-        use_feed --> END
-        use_local --> END
-        use_proven_dependency --> END
-        use_latest_dependency --> END
-    end
+  for_each_dependency --> write_versions_override_file  --> END([End])
 ```
 
-## Transitive dependencies resolution
+
+## Dependencies resolution
 
 ```mermaid
 flowchart LR
@@ -55,10 +40,11 @@ flowchart LR
 
         start([Start])
 
-        start --> dependency>Transitive dependency]
+        start --> dependency>dependency]
 
         dependency --> switch_dependency_kind{What<br>kind<br>is it?}
 
+switch_dependency_kind --> |Resolved| END
         switch_dependency_kind --> |Feed| use_feed[Use the transitive dependency<br>from the feed]
         switch_dependency_kind --> |Local| use_local[Use the local build<br>of the transitive dependency]
         switch_dependency_kind --> |BuildServer| use_proven_dependency[Use the build of the transitive dependency<br>defined by the latest build of the consuming dependency]
