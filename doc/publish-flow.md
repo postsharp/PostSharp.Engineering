@@ -19,6 +19,11 @@ flowchart TB
 
     publish --> is_published{Was the publishing<br>successful?}
 
-    is_published --> |Yes| tag[Tag the published commit] --> version_bump[Bump the main version] --> success
+    is_published --> |Yes| tag[Tag the published commit] --> version_bump[Bump the main version]
     is_published --> |No| failure
+
+    version_bump --> requires_merge{Does the repo<br>require merge<br>to the master branch?}
+
+    requires_merge --> |Yes| merge[Merge the published commit to master] --> success
+    requires_merge --> |No| success
 ```

@@ -23,20 +23,20 @@
 
 ### Resolve dependencies from feed
 
-We can define an exact version of a dependency fetched from available feeds.
+- An exact version of a dependency fetched from available feeds can be defined.
 
 ### Resolve dependencies from the build server
 
-We can define a branch for which the latest compatible build is found.
-The artifacts of such build are then fetched from the build server and they are used as the source of the dependency.
+- A branch for which the latest successful compatible build is found can be defined.
+- The artifacts of such build are then fetched from the build server and are used as the source of the dependency.
 
 ### Resolve local dependencies
 
-Local build of a dependency can be used by another local build.
+- Local build of a dependency can be used by another local build.
 
 ### Resolve transitive dependencies
 
-Transitive dependencies of any of the kinds defined above are resolved.
+- Transitive dependencies of any of the kinds defined above are resolved.
 
 ## Developer
 
@@ -67,7 +67,8 @@ Transitive dependencies of any of the kinds defined above are resolved.
 ### Manually triggered publishing
 
 - The build server user should be able to trigger any publishing manually.
-- Publishing first triggers and waits for a publish build of the product being published and all dependencies.
+- Publishing first triggers and waits for a public build of the product being published and all dependencies.
+- For each enclosing project, there will be a publish build configuration, which will trigger the cascade of publishing.
 
 ## Build server
 
@@ -76,3 +77,4 @@ Transitive dependencies of any of the kinds defined above are resolved.
 - When a new change appears in the default branch of a repo, the build of the repo is triggered.
 - If the build succeeds, a build of all consuming repos is triggered.
 - The triggered build configuration(s) are set in the repo.
+- Changes from TeamCity do not trigger the build.
