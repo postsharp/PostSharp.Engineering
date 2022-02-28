@@ -2,7 +2,7 @@
 
 On TeamCity, each product is represented as a project. Products, that should be deployed at once, are grouped into a parent project.
 
-There is a master project with a "Publish All" build configuration, service as the publishing button for the whole group.
+There is a master project with a "Publish All" build configuration that serves as the publishing button for the whole group.
 
 This configuration depends on all "Publish [Public]" build configurations of all projects in the group.
 

@@ -55,7 +55,7 @@
 
 ### Switch to local dependencies
 
-- The developer should be able to switch to the local build of a dependency with one simple command.
+- The developer should be able to switch to the local build of a dependency using one simple command.
 
 ## Build server user
 
@@ -68,7 +68,7 @@
 
 - The build server user should be able to trigger any publishing manually.
 - Publishing first triggers and waits for a public build of the product being published and all dependencies.
-- For each enclosing project, there will be a publish build configuration, which will trigger the cascade of publishing.
+- For each enclosing project, there will be a "Publish All" build configuration, which will trigger the cascade of publishing.
 
 ## Build server
 
@@ -77,4 +77,4 @@
 - When a new change appears in the default branch of a repo, the build of the repo is triggered.
 - If the build succeeds, a build of all consuming repos is triggered.
 - The triggered build configuration(s) are set in the repo.
-- Changes from TeamCity do not trigger the build.
+- Changes committed by TeamCity do not trigger the build.
