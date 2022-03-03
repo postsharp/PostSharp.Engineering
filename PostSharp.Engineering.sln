@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PostSharp.Engineering.Sdk",
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BuildEngineering", "eng\src\BuildEngineering.csproj", "{D13909BC-3CF0-456E-A1BD-2A19BA57554C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostSharp.Engineering.BuildTools.AWS", "src\PostSharp.Engineering.BuildTools.AWS\PostSharp.Engineering.BuildTools.AWS.csproj", "{4FAE94DD-B317-4F8C-AD97-859AEBD92044}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{D13909BC-3CF0-456E-A1BD-2A19BA57554C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D13909BC-3CF0-456E-A1BD-2A19BA57554C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D13909BC-3CF0-456E-A1BD-2A19BA57554C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4FAE94DD-B317-4F8C-AD97-859AEBD92044}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4FAE94DD-B317-4F8C-AD97-859AEBD92044}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4FAE94DD-B317-4F8C-AD97-859AEBD92044}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4FAE94DD-B317-4F8C-AD97-859AEBD92044}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
