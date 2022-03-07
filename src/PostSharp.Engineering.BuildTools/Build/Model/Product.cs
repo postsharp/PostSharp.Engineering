@@ -1083,6 +1083,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     buildAgentType: this.BuildAgentType )
                 {
                     ArtifactRules = artifactRules,
+                    AdditionalArtifactRules = configurationInfo.AdditionalArtifactRules,
                     BuildTriggers = configurationInfo.BuildTriggers,
                     SnapshotDependencyObjectNames = this.Dependencies?
                         .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
