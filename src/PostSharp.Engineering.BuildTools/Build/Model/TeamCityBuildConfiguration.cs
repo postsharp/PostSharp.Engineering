@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
@@ -15,6 +16,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool IsDeployment { get; init; }
 
         public string? ArtifactRules { get; init; }
+        
+        public string[]? AdditionalArtifactRules { get; init; }
 
         public IBuildTrigger[]? BuildTriggers { get; init; }
 
@@ -46,7 +49,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( this.ArtifactRules != null )
             {
-                writer.WriteLine( $@"    artifactRules = ""{this.ArtifactRules}""" );
+                if ( this.AdditionalArtifactRules != null )
+                {
+                    writer.WriteLine( $@"    artifactRules = ""{this.ArtifactRules}\n{string.Join( $@"\n", this.AdditionalArtifactRules )}""" );
+                }
+                else
+                {
+                    writer.WriteLine( $@"    artifactRules = ""{this.ArtifactRules}""" );
+                }
+                
                 writer.WriteLine();
             }
 
