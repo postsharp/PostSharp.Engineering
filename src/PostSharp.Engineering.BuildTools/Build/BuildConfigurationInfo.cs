@@ -30,4 +30,4 @@ public record BuildConfigurationInfo(
     string? TeamCityBuildName = null,
     string? TeamCityDeploymentName = null,
     string? TeamCitySwapName = null,
-    string? AdditionalArtifactRules = null );
+    string[]? AdditionalArtifactRules = null );
