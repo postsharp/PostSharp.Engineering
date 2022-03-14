@@ -206,11 +206,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                             var loadedBuildId = versionsOverrideFile.Dependencies[name].BuildServerSource as CiBuildId;
                            
                             // TODO: something better to replace GetMetadataValue from .build-artifacts with fetched data (Version.g.props)
-                            if ( loadedBuildId?.BuildNumber > int.Parse( buildNumber ) )
+                            if ( loadedBuildId != null )
                             {
-                                buildNumber = loadedBuildId.BuildNumber.ToString();
+                                if ( loadedBuildId?.BuildNumber > int.Parse( buildNumber, CultureInfo.InvariantCulture ) )
+                                {
+                                    buildNumber = loadedBuildId.BuildNumber.ToString( CultureInfo.InvariantCulture );
+                                }
                             }
-
+                            
                             if ( string.IsNullOrEmpty( buildNumber ) || string.IsNullOrEmpty( ciBuildTypeId ) )
                             {
                                 context.Console.WriteError(
@@ -278,10 +281,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 var buildSpec = dependency.Source.BuildServerSource;
                 var buildId = buildSpec as CiBuildId;
                 CiBuildId resolvedBuildId;
-
-                var latestBuildNumber = teamcity.GetLatestBuildNumber(
-                    buildId.BuildTypeId,
-                    ConsoleHelper.CancellationToken );
+                CiBuildId? latestBuildNumber = null;
+                
+                if ( buildId != null )
+                {
+                    latestBuildNumber = teamcity.GetLatestBuildNumber(
+                        buildId.BuildTypeId,
+                        ConsoleHelper.CancellationToken );
+                }
 
                 if ( latestBuildNumber != null && latestBuildNumber.BuildNumber > buildId?.BuildNumber )
                 {
@@ -340,7 +347,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     }
                     
                     var artifactName = $"{dependency.Definition.Name}.version.props";
+                    
                     // TODO: odstranit configuration z názvu (?) + zhezčit artifactFile tady pod tím
+                    
                     var path = dependency.Definition.Name == "Metalama.Compiler"
                         ? Path.Combine( "artifacts", "packages", "Release", "Shipping" )
                         : context.Product.PrivateArtifactsDirectory.ToString();
@@ -349,7 +358,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     
                     var outputFile = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, configuration + artifactName );
                     
-                    if ( !teamcity.DownloadSingleArtifact(
+                    if ( latestBuildNumber.BuildTypeId != null && !teamcity.DownloadSingleArtifact(
                             latestBuildNumber.BuildTypeId,
                             latestBuildNumber.BuildNumber,
                             artifactFile,
