@@ -283,7 +283,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 CiBuildId resolvedBuildId;
                 CiBuildId? latestBuildNumber = null;
                 
-                if ( buildId != null )
+                if ( buildId != null && buildId.BuildTypeId != null )
                 {
                     latestBuildNumber = teamcity.GetLatestBuildNumber(
                         buildId.BuildTypeId,
