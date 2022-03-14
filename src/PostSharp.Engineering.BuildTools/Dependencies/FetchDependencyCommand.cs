@@ -203,6 +203,13 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         case DependencySourceKind.BuildServer:
                             var buildNumber = transitiveDependency.GetMetadataValue( "BuildNumber" );
                             var ciBuildTypeId = transitiveDependency.GetMetadataValue( "CiBuildTypeId" );
+                            var loadedBuildId = versionsOverrideFile.Dependencies[name].BuildServerSource as CiBuildId;
+                           
+                            // TODO: something better to replace GetMetadataValue from .build-artifacts with fetched data (Version.g.props)
+                            if ( loadedBuildId?.BuildNumber > int.Parse( buildNumber ) )
+                            {
+                                buildNumber = loadedBuildId.BuildNumber.ToString();
+                            }
 
                             if ( string.IsNullOrEmpty( buildNumber ) || string.IsNullOrEmpty( ciBuildTypeId ) )
                             {
@@ -272,6 +279,16 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 var buildId = buildSpec as CiBuildId;
                 CiBuildId resolvedBuildId;
 
+                var latestBuildNumber = teamcity.GetLatestBuildNumber(
+                    buildId.BuildTypeId,
+                    ConsoleHelper.CancellationToken );
+
+                if ( latestBuildNumber != null && latestBuildNumber.BuildNumber > buildId?.BuildNumber )
+                {
+                    context.Console.WriteWarning(
+                        $"Dependency '{dependency.Definition.Name}' may be outdated. The current build version is #{buildId.BuildNumber}, but newer version #{latestBuildNumber.BuildNumber} was found for '{latestBuildNumber.BuildTypeId}'" );
+                }
+
                 if ( buildId != null && !update )
                 {
                     resolvedBuildId = buildId;
@@ -309,7 +326,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         branchName = dependency.Definition.DefaultBranch;
                     }
 
-                    var latestBuildNumber = teamcity.GetLatestBuildNumber(
+                    latestBuildNumber ??= teamcity.GetLatestBuildNumber(
                         ciBuildType,
                         branchName,
                         ConsoleHelper.CancellationToken );
@@ -320,6 +337,31 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                             $"No successful build for {dependency.Definition.Name} on branch {branchName} (BuildTypeId={ciBuildType}." );
 
                         return false;
+                    }
+                    
+                    var artifactName = $"{dependency.Definition.Name}.version.props";
+                    // TODO: odstranit configuration z názvu (?) + zhezčit artifactFile tady pod tím
+                    var path = dependency.Definition.Name == "Metalama.Compiler"
+                        ? Path.Combine( "artifacts", "packages", "Release", "Shipping" )
+                        : context.Product.PrivateArtifactsDirectory.ToString();
+                    
+                    var artifactFile = Path.Combine( path, artifactName );
+                    
+                    var outputFile = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, configuration + artifactName );
+                    
+                    if ( !teamcity.DownloadSingleArtifact(
+                            latestBuildNumber.BuildTypeId,
+                            latestBuildNumber.BuildNumber,
+                            artifactFile,
+                            outputFile,
+                            ConsoleHelper.CancellationToken ) )
+                    {
+                        context.Console.WriteWarning(
+                            $"Requested artifact '{artifactName}' has not been found in artifacts {artifactFile} for {dependency.Definition.Name} build #{latestBuildNumber.BuildNumber} of {latestBuildNumber.BuildTypeId}" );
+                    }
+                    else
+                    {
+                        context.Console.WriteMessage( $"Writing '{outputFile}' from {dependency.Definition.Name} build #{latestBuildNumber.BuildNumber} of {latestBuildNumber.BuildTypeId}" );
                     }
 
                     resolvedBuildId = latestBuildNumber;

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
@@ -80,6 +81,32 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
         }
 
+        public CiBuildId? GetLatestBuildNumber( string buildTypeId, CancellationToken cancellationToken )
+        {
+            var url =
+                $"https://tc.postsharp.net/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId}";
+
+            var result = this._httpClient.GetAsync( url, cancellationToken ).Result;
+
+            if ( !result.IsSuccessStatusCode )
+            {
+                return null;
+            }
+            
+            var content = result.Content.ReadAsStringAsync( cancellationToken ).Result;
+            var xmlResult = XDocument.Parse( content );
+            var build = xmlResult.Root?.Elements( "build" ).FirstOrDefault();
+
+            if ( build == null )
+            {
+                return null;
+            }
+            else
+            {
+                return new CiBuildId( int.Parse( build.Attribute( "number" )!.Value, CultureInfo.InvariantCulture ), buildTypeId );
+            }
+        }
+
         public void DownloadArtifacts( string buildTypeId, int buildNumber, string directory, CancellationToken cancellationToken )
         {
             var url = $"https://tc.postsharp.net/repository/downloadAll/{buildTypeId}/{buildNumber}";
@@ -90,6 +117,30 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             var zip = new ZipArchive( memoryStream, ZipArchiveMode.Read, false );
             zip.ExtractToDirectory( directory, true );
+        }
+
+        public bool DownloadSingleArtifact( string buildTypeId, int buildNumber, string artifact, string directory, CancellationToken cancellationToken )
+        {
+            var url = $"https://tc.postsharp.net/repository/download/{buildTypeId}/{buildNumber}/{artifact}";
+            var result = this._httpClient.GetAsync( url, cancellationToken ).Result;
+
+            if ( !result.IsSuccessStatusCode )
+            {
+                return false;
+            }
+
+            var stream = result.Content.ReadAsStream();
+
+            var memoryStream = new MemoryStream();
+            stream.CopyToAsync( memoryStream, cancellationToken ).Wait( cancellationToken);
+            memoryStream.Seek( 0, SeekOrigin.Begin );
+        
+            using ( var fileStream = new FileStream( directory, FileMode.OpenOrCreate, FileAccess.Write ) )
+            {
+                memoryStream.CopyTo( fileStream );
+            }
+
+            return true;
         }
 
         public void Dispose()
