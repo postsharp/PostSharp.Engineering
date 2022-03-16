@@ -1,6 +1,5 @@
 ﻿// Copyright (c) SharpCrafters s.r.o.All rights reserved.Released under the MIT license.
 
-using Amazon;
 using Amazon.S3;
 using Amazon.S3.Model;
 using PostSharp.Engineering.BuildTools.Build;
@@ -10,13 +9,12 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
+using System.Net;
 
 namespace PostSharp.Engineering.BuildTools.AWS.S3.Publishers
 {
     public class S3Publisher : Publisher
     {
-
         private readonly ImmutableArray<S3PublisherConfiguration> _configuration;
 
         public S3Publisher( IReadOnlyCollection<S3PublisherConfiguration> configurations )
@@ -56,7 +54,8 @@ namespace PostSharp.Engineering.BuildTools.AWS.S3.Publishers
             var awsAccessKeyId = Environment.GetEnvironmentVariable( "AWS_ACCESS_KEY_ID" );
             var awsSecretAccessKey = Environment.GetEnvironmentVariable( "AWS_SECRET_ACCESS_KEY" );
 
-            var message = $"Publishing '{file}' file to '{packageConfiguration.KeyName}' in '{packageConfiguration.BucketName}' bucket in '{packageConfiguration.RegionEnpoint}' region. AWS access key ID: '{awsAccessKeyId}'.";
+            var message =
+                $"Publishing '{file}' file to '{packageConfiguration.KeyName}' in '{packageConfiguration.BucketName}' bucket in '{packageConfiguration.RegionEnpoint}' region. AWS access key ID: '{awsAccessKeyId}'.";
 
             if ( settings.Dry )
             {
@@ -68,19 +67,14 @@ namespace PostSharp.Engineering.BuildTools.AWS.S3.Publishers
             {
                 try
                 {
-                    var putRequest = new PutObjectRequest
-                    {
-                        BucketName = packageConfiguration.BucketName,
-                        Key = packageConfiguration.KeyName,
-                        FilePath = file,
-                    };
+                    var putRequest = new PutObjectRequest { BucketName = packageConfiguration.BucketName, Key = packageConfiguration.KeyName, FilePath = file };
 
                     context.Console.WriteImportantMessage( message );
 
                     using var client = new AmazonS3Client( awsAccessKeyId, awsSecretAccessKey, packageConfiguration.RegionEnpoint );
                     var putResponse = client.PutObjectAsync( putRequest ).GetAwaiter().GetResult();
-                    
-                    if ( putResponse.HttpStatusCode != System.Net.HttpStatusCode.OK )
+
+                    if ( putResponse.HttpStatusCode != HttpStatusCode.OK )
                     {
                         context.Console.WriteError( "AmazonS3Client failed to publish the file." );
 

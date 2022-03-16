@@ -31,8 +31,13 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
             return false;
         }
 
+        if ( !settings.TryGetBuildConfiguration( context, out var configuration ) )
+        {
+            return false;
+        }
+
         // Loads the current version file.
-        if ( !VersionsOverrideFile.TryLoad( context, out var versionsOverrideFile ) )
+        if ( !VersionsOverrideFile.TryLoad( context, configuration, out var versionsOverrideFile ) )
         {
             return false;
         }
@@ -47,7 +52,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
             if ( int.TryParse( dependency, out var index ) )
             {
                 // The dependency was given by position.
-                
+
                 if ( index < 1 || index > context.Product.Dependencies.Length )
                 {
                     context.Console.WriteError( $"'{index}' is not a valid dependency index. Use the 'dependencies list' command." );
@@ -60,7 +65,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
             else
             {
                 // The dependency was given by name.
-                
+
                 dependencyDefinition = context.Product.GetDependency( dependency );
 
                 if ( dependencyDefinition == null )
@@ -81,7 +86,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         // Fetching dependencies.
         context.Console.WriteImportantMessage( "Fetching dependencies" );
 
-        if ( !FetchDependencyCommand.FetchDependenciesForAllConfigurations( context, versionsOverrideFile ) )
+        if ( !FetchDependencyCommand.FetchDependencies( context, configuration, versionsOverrideFile ) )
         {
             return false;
         }

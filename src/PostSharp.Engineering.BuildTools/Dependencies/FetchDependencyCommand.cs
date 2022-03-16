@@ -21,12 +21,17 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         {
             context.Console.WriteHeading( "Fetching build artifacts" );
 
-            if ( !VersionsOverrideFile.TryLoad( context, out var versionsOverrideFile ) )
+            if ( !settings.TryGetBuildConfiguration( context, out var configuration ) )
             {
                 return false;
             }
 
-            if ( !FetchDependenciesForAllConfigurations( context, versionsOverrideFile, settings ) )
+            if ( !VersionsOverrideFile.TryLoad( context, configuration, out var versionsOverrideFile ) )
+            {
+                return false;
+            }
+
+            if ( !FetchDependencies( context, configuration, versionsOverrideFile, settings ) )
             {
                 return false;
             }
@@ -34,24 +39,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             if ( !versionsOverrideFile.TrySave( context ) )
             {
                 return false;
-            }
-
-            return true;
-        }
-
-        public static bool FetchDependenciesForAllConfigurations(
-            BuildContext context,
-            VersionsOverrideFile versionsOverrideFile,
-            FetchDependenciesCommandSettings? settings = null )
-        {
-            foreach ( var configuration in new[] { BuildConfiguration.Debug, BuildConfiguration.Public, BuildConfiguration.Release } )
-            {
-                context.Console.WriteMessage( $"Fetching for {configuration} configuration." );
-
-                if ( !FetchDependencies( context, configuration, versionsOverrideFile, settings ) )
-                {
-                    return false;
-                }
             }
 
             return true;
@@ -377,21 +364,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         {
             foreach ( var dependency in dependencies.Where( d => d.Source.SourceKind == DependencySourceKind.Local ) )
             {
-                var importsFile = Path.GetFullPath(
-                    Path.Combine(
-                        context.RepoDirectory,
-                        "..",
-                        dependency.Definition.Name,
-                        dependency.Definition.Name + ".Import.props" ) );
-
-                if ( !File.Exists( importsFile ) )
+                if ( !File.Exists( dependency.Source.VersionFile ) )
                 {
-                    context.Console.WriteError( $"The file '{importsFile}' does not exist. Check that the product has been built." );
+                    context.Console.WriteError( $"The file '{dependency.Source.VersionFile}' does not exist. Check that the product has been built." );
 
                     return false;
                 }
-
-                dependency.Source.VersionFile = importsFile;
             }
 
             return true;

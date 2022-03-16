@@ -1,5 +1,6 @@
 ﻿using PostSharp.Engineering.BuildTools.Build.Model;
 using Spectre.Console.Cli;
+using System;
 using System.Collections.Immutable;
 using System.ComponentModel;
 
@@ -10,9 +11,49 @@ namespace PostSharp.Engineering.BuildTools.Build
     /// </summary>
     public class BuildSettings : CommonCommandSettings
     {
+        private BuildConfiguration? _resolvedConfiguration;
+
         [Description( "Sets the build configuration (Debug | Release | Public)" )]
         [CommandOption( "-c|--configuration" )]
-        public BuildConfiguration BuildConfiguration { get; set; }
+
+        public BuildConfiguration? BuildConfiguration
+        {
+            [Obsolete( "Use ResolvedBuildConfiguration in consuming code." )]
+            get;
+            set;
+        }
+
+#pragma warning disable CS0618
+
+        public BuildConfiguration ResolvedBuildConfiguration
+            => this._resolvedConfiguration ?? this.BuildConfiguration
+                ?? throw new InvalidOperationException( "Call the Initialize method or set the BuildConfiguration first ." );
+
+        public override void Initialize( BuildContext context )
+        {
+            if ( this.BuildConfiguration != null )
+            {
+                this._resolvedConfiguration = this.BuildConfiguration.Value;
+            }
+            else
+            {
+                var defaultConfiguration = context.Product.ReadDefaultConfiguration( context );
+
+                if ( defaultConfiguration == null )
+                {
+                    context.Console.WriteMessage( $"Using the default configuration Debug." );
+
+                    this._resolvedConfiguration = Build.BuildConfiguration.Debug;
+                }
+                else
+                {
+                    context.Console.WriteMessage( $"Using the prepared build configuration: {defaultConfiguration.Value}." );
+
+                    this._resolvedConfiguration = defaultConfiguration.Value;
+                }
+            }
+        }
+#pragma warning restore CS0618
 
         [Description( "Creates a numbered build (typically for an internal CI build). This option is ignored when the build configuration is 'Public'." )]
         [CommandOption( "--buildNumber" )]
@@ -64,16 +105,16 @@ namespace PostSharp.Engineering.BuildTools.Build
             return clone;
         }
 
-        public VersionSpec VersionSpec
-            => this.BuildConfiguration == BuildConfiguration.Public
+        public VersionSpec GetVersionSpec( BuildConfiguration configuration )
+            => configuration == Build.BuildConfiguration.Public
                 ? new VersionSpec( VersionKind.Public )
                 : this.BuildNumber > 0
                     ? new VersionSpec( VersionKind.Numbered, this.BuildNumber )
                     : new VersionSpec( VersionKind.Local );
-        
-        [Description( "Signs the assemblies and packages" )]
-        [CommandOption( "--sign" )]
-        public bool Sign { get; set; }
+
+        [Description( "Does not sign the assemblies and packages" )]
+        [CommandOption( "--no-sign" )]
+        public bool NoSign { get; set; }
 
         [Description( "Creates a zip file with all artifacts" )]
         [CommandOption( "--zip" )]

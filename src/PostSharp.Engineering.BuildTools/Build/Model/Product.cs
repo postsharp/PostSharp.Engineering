@@ -17,6 +17,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
+using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
@@ -96,7 +97,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Build( BuildContext context, BuildSettings settings )
         {
-            var buildConfigurationInfo = this.Configurations[settings.BuildConfiguration];
+            var configuration = settings.ResolvedBuildConfiguration;
+            var buildConfigurationInfo = this.Configurations[configuration];
 
             // Build dependencies.
             if ( !settings.NoDependencies && !this.Prepare( context, settings ) )
@@ -108,7 +110,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.DeleteImportFile( context );
 
             // We have to read the version from the file we have generated - using MSBuild, because it contains properties.
-            var versionInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
+            var versionInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) );
 
             var privateArtifactsDir = Path.Combine(
                 context.RepoDirectory,
@@ -183,7 +185,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteMessage( "Do not prepare public artifacts because there is none." );
                 CreateEmptyPublicDirectory();
             }
-            else if ( settings.BuildConfiguration != BuildConfiguration.Public )
+            else if ( settings.ResolvedBuildConfiguration != BuildConfiguration.Public )
             {
                 context.Console.WriteMessage( "Do not prepare public artifacts because this is not a public build" );
                 CreateEmptyPublicDirectory();
@@ -204,18 +206,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     File.Copy( Path.Combine( privateArtifactsDir, file.Path ), targetFile, true );
                 }
 
-                // Verify that public packages have no private dependencies.
-                if ( !VerifyPublicPackageCommand.Execute(
-                        context.Console,
-                        new VerifyPublicPackageCommandSettings { Directory = publicArtifactsDirectory } ) )
-                {
-                    return false;
-                }
-
                 // Sign public artifacts.
                 var signSuccess = true;
 
-                if ( buildConfigurationInfo.RequiresSigning )
+                if ( buildConfigurationInfo.RequiresSigning && !settings.NoSign )
                 {
                     context.Console.WriteHeading( "Signing artifacts" );
 
@@ -263,7 +257,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     context.RepoDirectory,
                     "artifacts",
                     "consolidated",
-                    settings.BuildConfiguration.ToString().ToLowerInvariant() );
+                    configuration.ToString().ToLowerInvariant() );
 
                 if ( !Directory.Exists( consolidatedDirectory ) )
                 {
@@ -273,16 +267,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteMessage( $"Creating '{consolidatedDirectory}'." );
 
                 // Copy dependencies.
-                if ( !VersionsOverrideFile.TryLoad( context, out var versionsOverrideFile ) )
+                if ( !VersionsOverrideFile.TryLoad( context, configuration, out var versionsOverrideFile ) )
                 {
                     return false;
                 }
 
                 foreach ( var dependency in versionsOverrideFile.Dependencies )
                 {
-                    if ( dependency.Value.Directory != null )
+                    if ( dependency.Value.VersionFile != null )
                     {
-                        CopyPackages( dependency.Value.Directory );
+                        var versionDocument = XDocument.Load( dependency.Value.VersionFile );
+                        var import = versionDocument.Root!.Element( "Import" )!.Attribute( "Project" )!.Value;
+
+                        var importDirectory = Path.GetDirectoryName( Path.Combine( Path.GetDirectoryName( dependency.Value.VersionFile )!, import ) )!;
+                        CopyPackages( importDirectory );
                     }
                 }
 
@@ -299,7 +297,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Writing the import file at the end of the build so it gets only written if the build was successful.
-            this.WriteImportFile( context, settings.BuildConfiguration );
+            this.WriteImportFile( context, configuration );
 
             context.Console.WriteSuccess( $"Building the whole {this.ProductName} product was successful. Package version: {versionInfo.PackageVersion}." );
 
@@ -433,7 +431,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 if ( settings.IncludeTests || !solution.IsTestOnly )
                 {
-                    context.Console.WriteHeading( $"Building {solution.Name} ({settings.BuildConfiguration} configuration)" );
+                    context.Console.WriteHeading( $"Building {solution.Name} ({settings.ResolvedBuildConfiguration} configuration)" );
 
                     if ( !settings.NoDependencies )
                     {
@@ -554,16 +552,47 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
+        public string GetConfigurationNeutralVersionsFilePath( BuildContext context )
+        {
+            return Path.Combine( context.RepoDirectory, this.EngineeringDirectory, "Versions.g.props" );
+        }
+
+        public BuildConfiguration? ReadDefaultConfiguration( BuildContext context )
+        {
+            var path = this.GetConfigurationNeutralVersionsFilePath( context );
+
+            if ( !File.Exists( path ) )
+            {
+                return null;
+            }
+
+            var versionFile = Project.FromFile( path, new ProjectOptions() );
+
+            var configuration = versionFile.Properties.SingleOrDefault( p => p.Name == "EngineeringConfiguration" )
+                ?.UnevaluatedValue;
+
+            if ( configuration == null )
+            {
+                return null;
+            }
+
+            // Note that the version suffix is not copied from the dependency, only the main version. 
+
+            ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
+
+            return Enum.Parse<BuildConfiguration>( configuration );
+        }
+
         public bool Prepare( BuildContext context, BuildSettings settings )
         {
+            var configuration = settings.ResolvedBuildConfiguration;
+
             if ( !settings.NoDependencies )
             {
                 this.Clean( context, settings );
             }
 
             context.Console.WriteHeading( "Preparing the version file" );
-
-            var configuration = settings.BuildConfiguration;
 
             var privateArtifactsRelativeDir =
                 this.PrivateArtifactsDirectory.ToString( new BuildInfo( null!, configuration, this ) );
@@ -579,7 +608,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var propsFilePath = Path.Combine( artifactsDir, propsFileName );
 
             // Load Versions.g.props.
-            if ( !VersionsOverrideFile.TryLoad( context, out var versionsOverrideFile ) )
+            if ( !VersionsOverrideFile.TryLoad( context, configuration, out var versionsOverrideFile ) )
             {
                 return false;
             }
@@ -587,7 +616,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 
             if ( versionsOverrideFile.Dependencies.Any( d => d.Value.SourceKind != DependencySourceKind.Feed && d.Value.VersionFile == null ) )
             {
-                FetchDependencyCommand.FetchDependencies( context, settings.BuildConfiguration, versionsOverrideFile );
+                FetchDependencyCommand.FetchDependencies( context, configuration, versionsOverrideFile );
 
                 versionsOverrideFile.LocalBuildFile = propsFilePath;
             }
@@ -622,14 +651,30 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            context.Console.WriteSuccess(
-                $"Preparing the version file was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) ).PackageVersion}" );
+            // Generating the configuration-neutral Versions.g.props for the prepared configuration.
+            var configurationNeutralVersionsFilePath = this.GetConfigurationNeutralVersionsFilePath( context );
+
+            context.Console.WriteMessage( $"Writing '{configurationNeutralVersionsFilePath}'." );
+
+            File.WriteAllText(
+                configurationNeutralVersionsFilePath,
+                $@"
+<Project>
+    <PropertyGroup>
+        <EngineeringConfiguration>{settings.ResolvedBuildConfiguration}</EngineeringConfiguration>
+    </PropertyGroup>
+    <Import Project=""Versions.{settings.ResolvedBuildConfiguration}.g.props"" />
+</Project>
+" );
 
             // Generating the TeamCity file.
             if ( !this.GenerateTeamcityConfiguration( context, packageVersion ) )
             {
                 return false;
             }
+
+            context.Console.WriteSuccess(
+                $"Preparing the build was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) ).PackageVersion}" );
 
             return true;
         }
@@ -694,7 +739,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             string versionSuffix;
             int patchNumber;
 
-            var versionSpecKind = settings.VersionSpec.Kind;
+            var versionSpec = settings.GetVersionSpec( configuration );
+            var versionSpecKind = versionSpec.Kind;
 
             if ( configuration == BuildConfiguration.Public )
             {
@@ -745,7 +791,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 case VersionKind.Numbered:
                     {
                         // Build server build with a build number given by the build server
-                        patchNumber = settings.VersionSpec.Number;
+                        patchNumber = versionSpec.Number;
                         versionSuffix = $"dev-{configurationLowerCase}";
 
                         break;
@@ -933,7 +979,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 DeleteDirectory( Path.Combine( context.RepoDirectory, directory ) );
             }
 
-            var stringParameters = new BuildInfo( null!, settings.BuildConfiguration, this );
+            var stringParameters = new BuildInfo( null!, settings.ResolvedBuildConfiguration, this );
 
             DeleteDirectory(
                 Path.Combine(
@@ -956,15 +1002,45 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             );
         }
 
+        public bool Verify( BuildContext context, PublishSettings settings )
+        {
+            if ( settings.BuildConfiguration == BuildConfiguration.Public )
+            {
+                var versionFile = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
+                var directories = this.GetArtifactsDirectories( context, versionFile );
+
+                // Verify that public packages have no private dependencies.
+                if ( !VerifyPublicPackageCommand.Execute(
+                        context.Console,
+                        new VerifyPublicPackageCommandSettings { Directory = directories.Public } ) )
+                {
+                    return false;
+                }
+
+                return true;
+            }
+            else
+            {
+                context.Console.WriteError( "Artifacts can only be verified for the public build." );
+
+                return false;
+            }
+        }
+
         public bool Publish( BuildContext context, PublishSettings settings )
         {
-            context.Console.WriteHeading( "Publishing files" );
-
             var versionFile = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
             var directories = this.GetArtifactsDirectories( context, versionFile );
 
             var hasTarget = false;
             var configuration = this.Configurations.GetValue( settings.BuildConfiguration );
+
+            if ( settings.BuildConfiguration == BuildConfiguration.Public )
+            {
+                this.Verify( context, settings );
+            }
+
+            context.Console.WriteHeading( "Publishing files" );
 
             if ( !Publisher.PublishDirectory(
                     context,

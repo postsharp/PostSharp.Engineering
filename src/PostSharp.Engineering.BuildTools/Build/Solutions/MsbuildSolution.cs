@@ -73,11 +73,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             var argsBuilder = new StringBuilder();
             var path = Path.Combine( context.RepoDirectory, project );
 
-            var configuration = context.Product.Configurations[settings.BuildConfiguration];
+            var configurationInfo = context.Product.Configurations[settings.ResolvedBuildConfiguration];
 
             argsBuilder.Append(
                 CultureInfo.InvariantCulture,
-                $"-t:{target} -p:Configuration={configuration.MSBuildName} -p:EngineeringConfiguration={settings.BuildConfiguration} \"{path}\" -v:{settings.Verbosity.ToAlias()} -NoLogo" );
+                $"-t:{target} -p:Configuration={configurationInfo.MSBuildName} \"{path}\" -v:{settings.Verbosity.ToAlias()} -NoLogo" );
 
             if ( settings.NoConcurrency )
             {

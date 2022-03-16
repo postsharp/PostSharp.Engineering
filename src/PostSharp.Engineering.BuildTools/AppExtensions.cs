@@ -37,6 +37,10 @@ namespace PostSharp.Engineering.BuildTools
                             .WithData( product )
                             .WithDescription( "Builds all packages then run all tests (implies 'build')" );
 
+                        root.AddCommand<VerifyCommand>( "verify" )
+                            .WithData( product )
+                            .WithDescription( "Verify that the dependencies of public artifacts have already been publicly deployed" );
+
                         root.AddCommand<PublishCommand>( "publish" )
                             .WithData( product )
                             .WithDescription( "Publishes all packages that have been previously built by the 'build' command" );

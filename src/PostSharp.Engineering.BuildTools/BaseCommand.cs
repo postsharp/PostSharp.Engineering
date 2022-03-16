@@ -125,6 +125,9 @@ namespace PostSharp.Engineering.BuildTools
                         }
                     }
 
+                    // Initialize the settings with the build context.
+                    settings.Initialize( buildContext );
+
                     // Execute the command itself.
                     var success = this.ExecuteCore( buildContext, settings );
 

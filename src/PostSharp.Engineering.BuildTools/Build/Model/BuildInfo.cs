@@ -1,7 +1,7 @@
 ﻿namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     // ReSharper disable once InconsistentNaming
-    
+
     /// <summary>
     /// Information about a build, required to format a <see cref="ParametricString"/>.
     /// </summary>

@@ -162,14 +162,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             return true;
         }
 
-        public static bool TryLoad( BuildContext context, [NotNullWhen( true )] out VersionsOverrideFile? file )
+        public static bool TryLoad( BuildContext context, BuildConfiguration configuration, [NotNullWhen( true )] out VersionsOverrideFile? file )
         {
-            var versionsOverridePath = Path.Combine(
+            var configurationSpecificVersionFilePath = Path.Combine(
                 context.RepoDirectory,
                 context.Product.EngineeringDirectory,
-                "Versions.g.props" );
+                $"Versions.{configuration}.g.props" );
 
-            file = new VersionsOverrideFile( versionsOverridePath );
+            file = new VersionsOverrideFile( configurationSpecificVersionFilePath );
 
             if ( !file.TryLoadDefaultVersions( context ) )
             {
@@ -179,9 +179,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             }
 
             // Override defaults from the version file.
-            if ( File.Exists( versionsOverridePath ) )
+            if ( File.Exists( configurationSpecificVersionFilePath ) )
             {
-                var document = XDocument.Load( versionsOverridePath );
+                var document = XDocument.Load( configurationSpecificVersionFilePath );
                 var project = document.Root!;
 
                 var localImport = project.Elements( "Import" )
@@ -208,7 +208,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         if ( !Enum.TryParse<DependencySourceKind>( kindString, out var kind ) )
                         {
                             context.Console.WriteWarning(
-                                $"The dependency kind '{kindString}' defined in '{versionsOverridePath}' is not supported. Skipping the parsing of this dependency." );
+                                $"The dependency kind '{kindString}' defined in '{configurationSpecificVersionFilePath}' is not supported. Skipping the parsing of this dependency." );
 
                             continue;
                         }
@@ -232,51 +232,64 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                 break;
 
                             case DependencySourceKind.Local:
-                                file.Dependencies[name] = DependencySource.CreateLocal( origin );
+                                {
+                                    var dependencySource = DependencySource.CreateLocal( origin );
 
-                                break;
+                                    dependencySource.VersionFile = Path.GetFullPath(
+                                        Path.Combine(
+                                            context.RepoDirectory,
+                                            "..",
+                                            name,
+                                            name + ".Import.props" ) );
+
+                                    file.Dependencies[name] = dependencySource;
+
+                                    break;
+                                }
 
                             case DependencySourceKind.BuildServer:
-                                var branch = item.Element( "Branch" )?.Value;
-                                var buildNumber = item.Element( "BuildNumber" )?.Value;
-                                var ciBuildTypeId = item.Element( "CiBuildTypeId" )?.Value;
-                                var versionFile = item.Element( "VersionFile" )?.Value;
-
-                                ICiBuildSpec buildSpec;
-
-                                if ( !string.IsNullOrEmpty( buildNumber ) )
                                 {
-                                    if ( string.IsNullOrEmpty( ciBuildTypeId ) )
+                                    var branch = item.Element( "Branch" )?.Value;
+                                    var buildNumber = item.Element( "BuildNumber" )?.Value;
+                                    var ciBuildTypeId = item.Element( "CiBuildTypeId" )?.Value;
+                                    var versionFile = item.Element( "VersionFile" )?.Value;
+
+                                    ICiBuildSpec buildSpec;
+
+                                    if ( !string.IsNullOrEmpty( buildNumber ) )
+                                    {
+                                        if ( string.IsNullOrEmpty( ciBuildTypeId ) )
+                                        {
+                                            context.Console.WriteError(
+                                                $"The property CiBuildTypeId of dependency {name} is required in '{configurationSpecificVersionFilePath}'." );
+
+                                            return false;
+                                        }
+
+                                        buildSpec = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId );
+                                    }
+                                    else if ( !string.IsNullOrEmpty( branch ) )
+                                    {
+                                        buildSpec = new CiLatestBuildOfBranch( branch );
+                                    }
+                                    else
                                     {
                                         context.Console.WriteError(
-                                            $"The property CiBuildTypeId of dependency {name} is required in '{versionsOverridePath}'." );
+                                            $"The dependency {name}  in '{configurationSpecificVersionFilePath}' requires one of these properties: Branch or BuildNumber." );
 
                                         return false;
                                     }
 
-                                    buildSpec = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId );
+                                    var dependencySource =
+                                        DependencySource.CreateBuildServerSource(
+                                            buildSpec,
+                                            origin );
+
+                                    dependencySource.VersionFile = versionFile;
+                                    file.Dependencies[name] = dependencySource;
+
+                                    break;
                                 }
-                                else if ( !string.IsNullOrEmpty( branch ) )
-                                {
-                                    buildSpec = new CiLatestBuildOfBranch( branch );
-                                }
-                                else
-                                {
-                                    context.Console.WriteError(
-                                        $"The dependency {name}  in '{versionsOverridePath}' requires one of these properties: Branch or BuildNumber." );
-
-                                    return false;
-                                }
-
-                                var dependencySource =
-                                    DependencySource.CreateBuildServerSource(
-                                        buildSpec,
-                                        origin );
-
-                                dependencySource.VersionFile = versionFile;
-                                file.Dependencies[name] = dependencySource;
-
-                                break;
 
                             default:
                                 throw new InvalidVersionFileException();

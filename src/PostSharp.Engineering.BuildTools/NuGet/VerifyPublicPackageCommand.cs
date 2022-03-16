@@ -54,7 +54,7 @@ namespace PostSharp.Engineering.BuildTools.NuGet
 
             Task.WhenAll( remotePackageTasks.Values ).Wait();
 
-            foreach ( var invalidDependency in remotePackageTasks.Where( p => !p.Value.IsCompletedSuccessfully ) )
+            foreach ( var invalidDependency in remotePackageTasks.Where( p => !p.Value.Result.IsSuccessStatusCode ) )
             {
                 console.WriteError( $"The package {invalidDependency.Key} could not be found." );
                 success = false;

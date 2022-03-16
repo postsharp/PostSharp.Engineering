@@ -6,9 +6,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
     /// <summary>
     /// Lists dependencies.
     /// </summary>
-    public class ListDependenciesCommand : BaseCommand<CommonCommandSettings>
+    public class ListDependenciesCommand : BaseCommand<BaseDependenciesCommandSettings>
     {
-        protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
+        protected override bool ExecuteCore( BuildContext context, BaseDependenciesCommandSettings settings )
         {
             var productDependencies = context.Product.Dependencies;
 
@@ -20,7 +20,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             {
                 context.Console.WriteImportantMessage( $"{context.Product.ProductName} has {productDependencies.Length} explicit dependencies:" );
 
-                if ( !VersionsOverrideFile.TryLoad( context, out var versionsOverrideFile ) )
+                if ( !settings.TryGetBuildConfiguration( context, out var configuration ) )
+                {
+                    return false;
+                }
+
+                if ( !VersionsOverrideFile.TryLoad( context, configuration, out var versionsOverrideFile ) )
                 {
                     return false;
                 }
