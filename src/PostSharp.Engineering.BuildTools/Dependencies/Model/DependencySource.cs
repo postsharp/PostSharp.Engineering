@@ -13,8 +13,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         internal string? VersionFile { get; set; }
 
-        public string? Directory => this.VersionFile == null ? null : Path.GetDirectoryName( this.VersionFile );
-
         public DependencySourceKind SourceKind { get; internal set; }
 
         public DependencyConfigurationOrigin Origin { get; internal init; }

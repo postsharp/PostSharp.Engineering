@@ -640,17 +640,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             context.Console.WriteMessage( $"Writing '{propsFilePath}'." );
             File.WriteAllText( propsFilePath, props );
 
-            if ( this.PrepareCompleted != null )
-            {
-                var eventArgs = new PrepareCompletedEventArgs( context, settings );
-                this.PrepareCompleted( eventArgs );
-
-                if ( eventArgs.IsFailed )
-                {
-                    return false;
-                }
-            }
-
             // Generating the configuration-neutral Versions.g.props for the prepared configuration.
             var configurationNeutralVersionsFilePath = this.GetConfigurationNeutralVersionsFilePath( context );
 
@@ -671,6 +660,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !this.GenerateTeamcityConfiguration( context, packageVersion ) )
             {
                 return false;
+            }
+            
+            // Execute the event.
+            if ( this.PrepareCompleted != null )
+            {
+                var eventArgs = new PrepareCompletedEventArgs( context, settings );
+                this.PrepareCompleted( eventArgs );
+
+                if ( eventArgs.IsFailed )
+                {
+                    return false;
+                }
             }
 
             context.Console.WriteSuccess(

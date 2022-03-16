@@ -364,6 +364,16 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         {
             foreach ( var dependency in dependencies.Where( d => d.Source.SourceKind == DependencySourceKind.Local ) )
             {
+                if ( dependency.Source.VersionFile == null )
+                {
+                    dependency.Source.VersionFile = Path.GetFullPath(
+                        Path.Combine(
+                            context.RepoDirectory,
+                            "..",
+                            dependency.Definition.Name,
+                            dependency.Definition.Name + ".Import.props" ) );
+                }
+                
                 if ( !File.Exists( dependency.Source.VersionFile ) )
                 {
                     context.Console.WriteError( $"The file '{dependency.Source.VersionFile}' does not exist. Check that the product has been built." );
