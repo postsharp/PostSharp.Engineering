@@ -1,6 +1,5 @@
 ﻿using PostSharp.Engineering.BuildTools.Build.Model;
 using Spectre.Console.Cli;
-using System;
 using System.Collections.Immutable;
 using System.ComponentModel;
 
@@ -9,52 +8,8 @@ namespace PostSharp.Engineering.BuildTools.Build
     /// <summary>
     /// Settings for <see cref="BuildCommand"/>, <see cref="PrepareCommand"/> and <see cref="CleanCommand"/>.
     /// </summary>
-    public class BuildSettings : CommonCommandSettings
+    public class BuildSettings : BaseBuildSettings
     {
-        private BuildConfiguration? _resolvedConfiguration;
-
-        [Description( "Sets the build configuration (Debug | Release | Public)" )]
-        [CommandOption( "-c|--configuration" )]
-
-        public BuildConfiguration? BuildConfiguration
-        {
-            [Obsolete( "Use ResolvedBuildConfiguration in consuming code." )]
-            get;
-            set;
-        }
-
-#pragma warning disable CS0618
-
-        public BuildConfiguration ResolvedBuildConfiguration
-            => this._resolvedConfiguration ?? this.BuildConfiguration
-                ?? throw new InvalidOperationException( "Call the Initialize method or set the BuildConfiguration first ." );
-
-        public override void Initialize( BuildContext context )
-        {
-            if ( this.BuildConfiguration != null )
-            {
-                this._resolvedConfiguration = this.BuildConfiguration.Value;
-            }
-            else
-            {
-                var defaultConfiguration = context.Product.ReadDefaultConfiguration( context );
-
-                if ( defaultConfiguration == null )
-                {
-                    context.Console.WriteMessage( $"Using the default configuration Debug." );
-
-                    this._resolvedConfiguration = Build.BuildConfiguration.Debug;
-                }
-                else
-                {
-                    context.Console.WriteMessage( $"Using the prepared build configuration: {defaultConfiguration.Value}." );
-
-                    this._resolvedConfiguration = defaultConfiguration.Value;
-                }
-            }
-        }
-#pragma warning restore CS0618
-
         [Description( "Creates a numbered build (typically for an internal CI build). This option is ignored when the build configuration is 'Public'." )]
         [CommandOption( "--buildNumber" )]
         public int BuildNumber { get; set; }

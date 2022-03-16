@@ -1004,9 +1004,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Verify( BuildContext context, PublishSettings settings )
         {
-            if ( settings.BuildConfiguration == BuildConfiguration.Public )
+            var configuration = settings.ResolvedBuildConfiguration;
+
+            if ( configuration == BuildConfiguration.Public )
             {
-                var versionFile = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
+                var versionFile = this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) );
                 var directories = this.GetArtifactsDirectories( context, versionFile );
 
                 // Verify that public packages have no private dependencies.
@@ -1029,13 +1031,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Publish( BuildContext context, PublishSettings settings )
         {
-            var versionFile = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
+            var configuration = settings.ResolvedBuildConfiguration;
+            var versionFile = this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) );
             var directories = this.GetArtifactsDirectories( context, versionFile );
 
             var hasTarget = false;
-            var configuration = this.Configurations.GetValue( settings.BuildConfiguration );
+            var configurationInfo = this.Configurations.GetValue( configuration );
 
-            if ( settings.BuildConfiguration == BuildConfiguration.Public )
+            if ( configuration == BuildConfiguration.Public )
             {
                 this.Verify( context, settings );
             }
@@ -1046,7 +1049,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     context,
                     settings,
                     directories,
-                    configuration,
+                    configurationInfo,
                     versionFile,
                     false,
                     ref hasTarget ) )
@@ -1058,7 +1061,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     context,
                     settings,
                     directories,
-                    configuration,
+                    configurationInfo,
                     versionFile,
                     true,
                     ref hasTarget ) )
