@@ -17,7 +17,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string arguments = "" )
         {
             var argsBuilder = new StringBuilder();
-            var configuration = context.Product.Configurations[settings.ResolvedBuildConfiguration];
+            var configuration = context.Product.Configurations[settings.BuildConfiguration];
 
             argsBuilder.Append(
                 CultureInfo.InvariantCulture,

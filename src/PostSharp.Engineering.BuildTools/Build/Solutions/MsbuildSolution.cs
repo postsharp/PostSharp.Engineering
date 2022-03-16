@@ -73,7 +73,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             var argsBuilder = new StringBuilder();
             var path = Path.Combine( context.RepoDirectory, project );
 
-            var configurationInfo = context.Product.Configurations[settings.ResolvedBuildConfiguration];
+            var configurationInfo = context.Product.Configurations[settings.BuildConfiguration];
 
             argsBuilder.Append(
                 CultureInfo.InvariantCulture,

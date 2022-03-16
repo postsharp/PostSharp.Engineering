@@ -97,7 +97,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Build( BuildContext context, BuildSettings settings )
         {
-            var configuration = settings.ResolvedBuildConfiguration;
+            var configuration = settings.BuildConfiguration;
             var buildConfigurationInfo = this.Configurations[configuration];
 
             // Build dependencies.
@@ -185,7 +185,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteMessage( "Do not prepare public artifacts because there is none." );
                 CreateEmptyPublicDirectory();
             }
-            else if ( settings.ResolvedBuildConfiguration != BuildConfiguration.Public )
+            else if ( settings.BuildConfiguration != BuildConfiguration.Public )
             {
                 context.Console.WriteMessage( "Do not prepare public artifacts because this is not a public build" );
                 CreateEmptyPublicDirectory();
@@ -431,7 +431,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 if ( settings.IncludeTests || !solution.IsTestOnly )
                 {
-                    context.Console.WriteHeading( $"Building {solution.Name} ({settings.ResolvedBuildConfiguration} configuration)" );
+                    context.Console.WriteHeading( $"Building {solution.Name} ({settings.BuildConfiguration} configuration)" );
 
                     if ( !settings.NoDependencies )
                     {
@@ -585,7 +585,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Prepare( BuildContext context, BuildSettings settings )
         {
-            var configuration = settings.ResolvedBuildConfiguration;
+            var configuration = settings.BuildConfiguration;
 
             if ( !settings.NoDependencies )
             {
@@ -661,9 +661,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 $@"
 <Project>
     <PropertyGroup>
-        <EngineeringConfiguration>{settings.ResolvedBuildConfiguration}</EngineeringConfiguration>
+        <EngineeringConfiguration>{settings.BuildConfiguration}</EngineeringConfiguration>
     </PropertyGroup>
-    <Import Project=""Versions.{settings.ResolvedBuildConfiguration}.g.props"" />
+    <Import Project=""Versions.{settings.BuildConfiguration}.g.props"" />
 </Project>
 " );
 
@@ -979,7 +979,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 DeleteDirectory( Path.Combine( context.RepoDirectory, directory ) );
             }
 
-            var stringParameters = new BuildInfo( null!, settings.ResolvedBuildConfiguration, this );
+            var stringParameters = new BuildInfo( null!, settings.BuildConfiguration, this );
 
             DeleteDirectory(
                 Path.Combine(
@@ -1004,7 +1004,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Verify( BuildContext context, PublishSettings settings )
         {
-            var configuration = settings.ResolvedBuildConfiguration;
+            var configuration = settings.BuildConfiguration;
 
             if ( configuration == BuildConfiguration.Public )
             {
@@ -1031,7 +1031,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Publish( BuildContext context, PublishSettings settings )
         {
-            var configuration = settings.ResolvedBuildConfiguration;
+            var configuration = settings.BuildConfiguration;
             var versionFile = this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) );
             var directories = this.GetArtifactsDirectories( context, versionFile );
 
