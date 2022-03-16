@@ -1,4 +1,5 @@
-﻿using Spectre.Console.Cli;
+﻿using PostSharp.Engineering.BuildTools.Build;
+using Spectre.Console.Cli;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -64,5 +65,7 @@ namespace PostSharp.Engineering.BuildTools
 
         public ImmutableDictionary<string, string> Properties { get; protected set; } =
             ImmutableDictionary.Create<string, string>( StringComparer.OrdinalIgnoreCase );
+
+        public virtual void Initialize( BuildContext context ) { }
     }
 }

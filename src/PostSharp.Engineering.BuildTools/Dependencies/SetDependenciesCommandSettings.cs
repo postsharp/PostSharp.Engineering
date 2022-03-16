@@ -11,7 +11,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
     public class SetDependenciesCommandSettings : ConfigureDependenciesCommandSettings
     {
         [Description( "The source of dependencies: Feed | Local | BuildServer" )]
-        [CommandArgument( 0, "<source>" )]
+        [CommandArgument( 1, "<source>" )]
         public DependencySourceKind Source { get; protected set; }
 
         [Description( "The list of dependencies (given by name by or position in the dependency list) to configure" )]

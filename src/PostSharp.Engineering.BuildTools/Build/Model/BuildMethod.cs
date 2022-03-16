@@ -10,12 +10,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// Building should call <see cref="Solution.Build"/>.
         /// </summary>
         Build,
-        
+
         /// <summary>
         /// Building should call <see cref="Solution.Test"/>.
         /// </summary>
         Test,
-        
+
         /// <summary>
         /// Building should call <see cref="Solution.Pack"/>.
         /// </summary>

@@ -8,12 +8,8 @@ namespace PostSharp.Engineering.BuildTools.Build
     /// <summary>
     /// Settings for <see cref="BuildCommand"/>, <see cref="PrepareCommand"/> and <see cref="CleanCommand"/>.
     /// </summary>
-    public class BuildSettings : CommonCommandSettings
+    public class BuildSettings : BaseBuildSettings
     {
-        [Description( "Sets the build configuration (Debug | Release | Public)" )]
-        [CommandOption( "-c|--configuration" )]
-        public BuildConfiguration BuildConfiguration { get; set; }
-
         [Description( "Creates a numbered build (typically for an internal CI build). This option is ignored when the build configuration is 'Public'." )]
         [CommandOption( "--buildNumber" )]
         public int BuildNumber { get; set; }
@@ -64,16 +60,16 @@ namespace PostSharp.Engineering.BuildTools.Build
             return clone;
         }
 
-        public VersionSpec VersionSpec
-            => this.BuildConfiguration == BuildConfiguration.Public
+        public VersionSpec GetVersionSpec( BuildConfiguration configuration )
+            => configuration == Build.BuildConfiguration.Public
                 ? new VersionSpec( VersionKind.Public )
                 : this.BuildNumber > 0
                     ? new VersionSpec( VersionKind.Numbered, this.BuildNumber )
                     : new VersionSpec( VersionKind.Local );
-        
-        [Description( "Signs the assemblies and packages" )]
-        [CommandOption( "--sign" )]
-        public bool Sign { get; set; }
+
+        [Description( "Does not sign the assemblies and packages" )]
+        [CommandOption( "--no-sign" )]
+        public bool NoSign { get; set; }
 
         [Description( "Creates a zip file with all artifacts" )]
         [CommandOption( "--zip" )]

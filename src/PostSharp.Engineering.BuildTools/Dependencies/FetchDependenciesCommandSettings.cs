@@ -6,7 +6,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
     /// <summary>
     /// Settings for <see cref="FetchDependencyCommand"/>.
     /// </summary>
-    public class FetchDependenciesCommandSettings : CommonCommandSettings
+    public class FetchDependenciesCommandSettings : BaseDependenciesCommandSettings
     {
         [Description(
             "Directory into which dependency repos are expected to be. If not specified, it will default to the base directory of the current repo." )]
