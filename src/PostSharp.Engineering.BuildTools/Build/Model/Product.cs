@@ -253,16 +253,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Create the consolidate directory.
             if ( settings.CreateConsolidatedDirectory )
             {
+                context.Console.WriteHeading( "Creating the consolidated directory" );
+                
                 var consolidatedDirectory = Path.Combine(
                     context.RepoDirectory,
                     "artifacts",
                     "consolidated",
                     configuration.ToString().ToLowerInvariant() );
 
-                if ( !Directory.Exists( consolidatedDirectory ) )
+                if ( Directory.Exists( consolidatedDirectory ) )
                 {
-                    Directory.CreateDirectory( consolidatedDirectory );
+                    Directory.Delete( consolidatedDirectory, true );
                 }
+                
+                Directory.CreateDirectory( consolidatedDirectory );
+
 
                 context.Console.WriteMessage( $"Creating '{consolidatedDirectory}'." );
 
@@ -277,9 +282,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     if ( dependency.Value.VersionFile != null )
                     {
                         var versionDocument = XDocument.Load( dependency.Value.VersionFile );
-                        var import = versionDocument.Root!.Element( "Import" )!.Attribute( "Project" )!.Value;
+                        var import = versionDocument.Root!.Element( "Import" )?.Attribute( "Project" )?.Value;
 
-                        var importDirectory = Path.GetDirectoryName( Path.Combine( Path.GetDirectoryName( dependency.Value.VersionFile )!, import ) )!;
+                        string importDirectory;
+                        if ( import == null )
+                        {
+                            importDirectory = Path.GetDirectoryName( dependency.Value.VersionFile )!;
+                        }
+                        else
+                        {
+
+                            importDirectory = Path.GetDirectoryName( Path.Combine( Path.GetDirectoryName( dependency.Value.VersionFile )!, import ) )!;
+                        }
+                        
+
                         CopyPackages( importDirectory );
                     }
                 }
