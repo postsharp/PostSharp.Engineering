@@ -267,7 +267,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 var buildTypeId = contextProduct.CiBuildTypes[configuration];
 
                 latestBuildNumber = teamcity.GetLatestBuildNumber( buildTypeId, contextProduct.DefaultBranch, ConsoleHelper.CancellationToken );
-                var artifactName = $"{context.Product.ProductNameWithoutDot}.version.props";
+                var artifactName = $"{context.Product.ProductName}.version.props";
                 var artifactFile = Path.Combine( context.Product.PrivateArtifactsDirectory.ToString(), artifactName );
 
                 if ( latestBuildNumber != null )
