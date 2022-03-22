@@ -81,32 +81,6 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
         }
 
-        public CiBuildId? GetLatestBuildNumber( string buildTypeId, CancellationToken cancellationToken )
-        {
-            var url =
-                $"https://tc.postsharp.net/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId}";
-
-            var result = this._httpClient.GetAsync( url, cancellationToken ).Result;
-
-            if ( !result.IsSuccessStatusCode )
-            {
-                return null;
-            }
-            
-            var content = result.Content.ReadAsStringAsync( cancellationToken ).Result;
-            var xmlResult = XDocument.Parse( content );
-            var build = xmlResult.Root?.Elements( "build" ).FirstOrDefault();
-
-            if ( build == null )
-            {
-                return null;
-            }
-            else
-            {
-                return new CiBuildId( int.Parse( build.Attribute( "number" )!.Value, CultureInfo.InvariantCulture ), buildTypeId );
-            }
-        }
-
         public void DownloadArtifacts( string buildTypeId, int buildNumber, string directory, CancellationToken cancellationToken )
         {
             var url = $"https://tc.postsharp.net/repository/downloadAll/{buildTypeId}/{buildNumber}";

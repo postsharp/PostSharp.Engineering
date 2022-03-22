@@ -300,6 +300,98 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             return true;
         }
+        
+        public static bool LoadBuildServerDependencies(
+            BuildContext context,
+            BuildConfiguration configuration,
+            string buildServerVersionFilePath,
+            [NotNullWhen( true )] out VersionsOverrideFile? file )
+        {
+            file = new VersionsOverrideFile( buildServerVersionFilePath );
+            
+            // Override defaults from the version file.
+            if ( File.Exists( buildServerVersionFilePath ) )
+            {
+                var document = XDocument.Load( buildServerVersionFilePath );
+                var project = document.Root!;
+                var itemGroup = project.Element( "ItemGroup" );
+
+                if ( itemGroup != null )
+                {
+                    foreach ( var item in itemGroup.Elements() )
+                    {
+                        var name = item.Attribute( "Include" )?.Value;
+                        var kindString = item.Element( "SourceKind" )?.Value;
+
+                        if ( name == null )
+                        {
+                            context.Console.WriteMessage( $"Invalid dependency file." );
+
+                            continue;
+                        }
+
+                        if ( !Enum.TryParse<DependencySourceKind>( kindString, out var kind ) )
+                        {
+                            context.Console.WriteWarning(
+                                $"The dependency kind '{kindString}' defined in '{buildServerVersionFilePath}' is not supported. Skipping the parsing of this dependency." );
+
+                            continue;
+                        }
+
+                        var originString = item.Element( "Origin" )?.Value;
+
+                        if ( originString == null || !Enum.TryParse( originString, out DependencyConfigurationOrigin origin ) )
+                        {
+                            origin = DependencyConfigurationOrigin.Unknown;
+                        }
+
+                        if ( kind == DependencySourceKind.BuildServer )
+                        {
+                            var branch = item.Element( "Branch" )?.Value;
+                            var buildNumber = item.Element( "BuildNumber" )?.Value;
+                            var ciBuildTypeId = item.Element( "CiBuildTypeId" )?.Value;
+                            var versionFile = item.Element( "VersionFile" )?.Value;
+
+                            ICiBuildSpec buildSpec;
+
+                            if ( !string.IsNullOrEmpty( buildNumber ) )
+                            {
+                                if ( string.IsNullOrEmpty( ciBuildTypeId ) )
+                                {
+                                    context.Console.WriteError(
+                                        $"The property CiBuildTypeId of dependency {name} is required in '{buildServerVersionFilePath}'." );
+
+                                    return false;
+                                }
+
+                                buildSpec = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId );
+                            }
+                            else if ( !string.IsNullOrEmpty( branch ) )
+                            {
+                                buildSpec = new CiLatestBuildOfBranch( branch );
+                            }
+                            else
+                            {
+                                context.Console.WriteError(
+                                    $"The dependency {name}  in '{buildServerVersionFilePath}' requires one of these properties: Branch or BuildNumber." );
+
+                                return false;
+                            }
+
+                            var dependencySource =
+                                DependencySource.CreateBuildServerSource(
+                                    buildSpec,
+                                    origin );
+
+                            dependencySource.VersionFile = versionFile;
+                            file.Dependencies[name] = dependencySource;
+                        }
+                    }
+                }
+            }
+
+            return true;
+        }
 
         public bool TrySave( BuildContext context )
         {

@@ -258,6 +258,38 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             ImmutableArray<Dependency> dependencies,
             bool update )
         {
+            string? buildServerVersionFile = null;
+            CiBuildId? latestBuildNumber;
+            
+            if ( update )
+            {
+                var contextProduct = context.Product.Self;
+                var buildTypeId = contextProduct.CiBuildTypes[configuration];
+
+                latestBuildNumber = teamcity.GetLatestBuildNumber( buildTypeId, contextProduct.DefaultBranch, ConsoleHelper.CancellationToken );
+                var artifactName = $"{context.Product.ProductNameWithoutDot}.version.props";
+                var artifactFile = Path.Combine( context.Product.PrivateArtifactsDirectory.ToString(), artifactName );
+
+                if ( latestBuildNumber != null )
+                {
+                    if ( !DownloadBuildVersion(
+                            context,
+                            teamcity,
+                            buildTypeId,
+                            latestBuildNumber.BuildNumber,
+                            artifactFile,
+                            out var file ) )
+                    {
+                        context.Console.WriteWarning(
+                            $"Requested artifact '{artifactName}' has not been found in artifacts directory for {context.Product.ProductName} build #{latestBuildNumber.BuildNumber} of {latestBuildNumber.BuildTypeId}" );
+                    }
+
+                    buildServerVersionFile = file;
+                }
+            }
+
+            VersionsOverrideFile.LoadBuildServerDependencies( context, configuration, buildServerVersionFile, out var buildServerDependencies );
+
             foreach ( var dependency in dependencies )
             {
                 if ( dependency.Source.SourceKind != DependencySourceKind.BuildServer )
@@ -268,20 +300,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 var buildSpec = dependency.Source.BuildServerSource;
                 var buildId = buildSpec as CiBuildId;
                 CiBuildId resolvedBuildId;
-                CiBuildId? latestBuildNumber = null;
-                
-                if ( buildId != null && buildId.BuildTypeId != null )
-                {
-                    latestBuildNumber = teamcity.GetLatestBuildNumber(
-                        buildId.BuildTypeId,
-                        ConsoleHelper.CancellationToken );
-                }
-
-                if ( latestBuildNumber != null && latestBuildNumber.BuildNumber > buildId?.BuildNumber )
-                {
-                    context.Console.WriteWarning(
-                        $"Dependency '{dependency.Definition.Name}' may be outdated. The current build version is #{buildId.BuildNumber}, but newer version #{latestBuildNumber.BuildNumber} was found for '{latestBuildNumber.BuildTypeId}'" );
-                }
 
                 if ( buildId != null && !update )
                 {
@@ -320,44 +338,30 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         branchName = dependency.Definition.DefaultBranch;
                     }
 
-                    latestBuildNumber ??= teamcity.GetLatestBuildNumber(
-                        ciBuildType,
-                        branchName,
-                        ConsoleHelper.CancellationToken );
+                    latestBuildNumber = buildId;
 
+                    if ( buildServerDependencies != null )
+                    {
+                        foreach ( var buildServerDependency in buildServerDependencies.Dependencies )
+                        {
+                            if ( buildServerDependency.Key == dependency.Definition.Name )
+                            {
+                                var buildServerBuildId = buildServerDependency.Value.BuildServerSource as CiBuildId;
+                            
+                                if ( buildServerBuildId.BuildNumber > buildId.BuildNumber )
+                                {
+                                    latestBuildNumber = buildServerBuildId;
+                                }
+                            }
+                        }
+                    }
+                    
                     if ( latestBuildNumber == null )
                     {
                         context.Console.WriteError(
                             $"No successful build for {dependency.Definition.Name} on branch {branchName} (BuildTypeId={ciBuildType}." );
 
                         return false;
-                    }
-                    
-                    var artifactName = $"{dependency.Definition.Name}.version.props";
-                    
-                    // TODO: odstranit configuration z názvu (?) + zhezčit artifactFile tady pod tím
-                    
-                    var path = dependency.Definition.Name == "Metalama.Compiler"
-                        ? Path.Combine( "artifacts", "packages", "Release", "Shipping" )
-                        : context.Product.PrivateArtifactsDirectory.ToString();
-                    
-                    var artifactFile = Path.Combine( path, artifactName );
-                    
-                    var outputFile = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, configuration + artifactName );
-                    
-                    if ( latestBuildNumber.BuildTypeId != null && !teamcity.DownloadSingleArtifact(
-                            latestBuildNumber.BuildTypeId,
-                            latestBuildNumber.BuildNumber,
-                            artifactFile,
-                            outputFile,
-                            ConsoleHelper.CancellationToken ) )
-                    {
-                        context.Console.WriteWarning(
-                            $"Requested artifact '{artifactName}' has not been found in artifacts {artifactFile} for {dependency.Definition.Name} build #{latestBuildNumber.BuildNumber} of {latestBuildNumber.BuildTypeId}" );
-                    }
-                    else
-                    {
-                        context.Console.WriteMessage( $"Writing '{outputFile}' from {dependency.Definition.Name} build #{latestBuildNumber.BuildNumber} of {latestBuildNumber.BuildTypeId}" );
                     }
 
                     resolvedBuildId = latestBuildNumber;
@@ -483,6 +487,60 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             }
 
             dependencySource.VersionFile = versionFile;
+
+            return true;
+        }
+        
+        private static bool DownloadBuildVersion(
+            BuildContext context,
+            TeamcityClient teamcity,
+            string ciBuildTypeId,
+            int buildNumber,
+            string artifact,
+            out string? buildVersionFile )
+        {
+            var restoreDirectory = Path.Combine(
+                Environment.GetEnvironmentVariable( "USERPROFILE" ) ?? Path.GetTempPath(),
+                ".build-artifacts",
+                context.Product.ProductName,
+                ciBuildTypeId,
+                buildNumber.ToString( CultureInfo.InvariantCulture ) );
+
+            var artifactsDirectory = Path.Combine( restoreDirectory, context.Product.PrivateArtifactsDirectory.ToString() );
+
+            var outputFile = Path.Combine( restoreDirectory, artifact );
+            var versionCompletedFile = Path.Combine( restoreDirectory, ".versionCompleted" );
+
+            if ( !File.Exists( versionCompletedFile ) )
+            {
+                if ( !Directory.Exists( artifactsDirectory ) )
+                {
+                    Directory.CreateDirectory( artifactsDirectory );
+                }
+
+                if ( !teamcity.DownloadSingleArtifact( ciBuildTypeId, buildNumber, artifact, outputFile, ConsoleHelper.CancellationToken ) )
+                {
+                    buildVersionFile = null;
+                    
+                    return false;
+                }
+                
+                context.Console.WriteMessage( $"Writing '{outputFile}' from {context.Product.ProductName} build #{buildNumber} of {ciBuildTypeId}" );
+
+                File.WriteAllText( versionCompletedFile, "Completed version" );
+            }
+
+            // Find the latest compatible build version file.
+            var productName = context.Product.ProductName;
+            var versionFile = FindVersionFile( productName, restoreDirectory );
+            buildVersionFile = versionFile;
+            
+            if ( versionFile == null )
+            {
+                context.Console.WriteError( $"Could not find {productName}.version.props under '{restoreDirectory}'." );
+
+                return false;
+            }
 
             return true;
         }

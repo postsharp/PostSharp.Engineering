@@ -45,7 +45,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// </summary>
         public DependencyDefinition? MainVersionDependency { get; init; }
 
-        public string ProductName { get; init; } = "Unnamed";
+        public DependencyDefinition Self { get; init; }
+
+        public string ProductName => this.Self.Name;
 
         public string ProductNameWithoutDot => this.ProductName.Replace( ".", "", StringComparison.OrdinalIgnoreCase );
 
