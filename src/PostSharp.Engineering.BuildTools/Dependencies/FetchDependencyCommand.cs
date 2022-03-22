@@ -288,7 +288,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 }
             }
 
-            VersionsOverrideFile.LoadBuildServerDependencies( context, configuration, buildServerVersionFile, out var buildServerDependencies );
+            VersionsOverrideFile.LoadBuildServerDependencies( context, configuration, buildServerVersionFile!, out var buildServerDependencies );
 
             foreach ( var dependency in dependencies )
             {
@@ -347,10 +347,13 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                             if ( buildServerDependency.Key == dependency.Definition.Name )
                             {
                                 var buildServerBuildId = buildServerDependency.Value.BuildServerSource as CiBuildId;
-                            
-                                if ( buildServerBuildId.BuildNumber > buildId.BuildNumber )
+
+                                if ( buildServerBuildId != null && buildId != null )
                                 {
-                                    latestBuildNumber = buildServerBuildId;
+                                    if ( buildServerBuildId.BuildNumber > buildId.BuildNumber )
+                                    {
+                                        latestBuildNumber = buildServerBuildId;
+                                    } 
                                 }
                             }
                         }
