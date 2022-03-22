@@ -259,7 +259,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             bool update )
         {
             string? buildServerVersionFile = null;
-            CiBuildId? latestBuildNumber;
+            CiBuildId? latestBuildNumber = null;
             
             if ( update )
             {
@@ -319,7 +319,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     {
                         // We already have an resolved reference, but we need to update.
                         // In this case, we do not change the BuildIdType.
-
                         ciBuildType = buildId.BuildTypeId ?? dependency.Definition.CiBuildTypes[configuration];
                         var previousBranchName = teamcity.GetBranchFromBuildNumber( buildId, ConsoleHelper.CancellationToken );
 
@@ -334,11 +333,15 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     }
                     else
                     {
+                        Console.WriteLine( 3 );
                         ciBuildType = dependency.Definition.CiBuildTypes[configuration];
                         branchName = dependency.Definition.DefaultBranch;
                     }
 
-                    latestBuildNumber = buildId;
+                    if ( latestBuildNumber == null )
+                    {
+                        latestBuildNumber = teamcity.GetLatestBuildNumber( ciBuildType, branchName, ConsoleHelper.CancellationToken );
+                    }
 
                     if ( buildServerDependencies != null )
                     {
