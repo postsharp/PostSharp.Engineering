@@ -16,7 +16,7 @@ namespace PostSharp.Engineering.BuildTools.Git
         [CommandArgument( 0, "<original>" )]
         public string OriginalSubstring { get; init; } = null!;
 
-        [Description( "The substring by which the original substring is replaced." )]
+        [Description( "The substring by which the original substring is replaced, or EMPTY to represent an empty string." )]
         [CommandArgument( 0, "<replacement>" )]
         public string NewSubstring { get; init; } = null!;
     }

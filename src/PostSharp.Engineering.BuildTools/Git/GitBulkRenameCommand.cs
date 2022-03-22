@@ -27,7 +27,14 @@ namespace PostSharp.Engineering.BuildTools.Git
                 return 1;
             }
 
-            if ( !RenameAll( console, root, settings.OriginalSubstring, settings.NewSubstring, root.FullName ) )
+            var replacement = settings.NewSubstring;
+
+            if ( replacement == "EMPTY" )
+            {
+                replacement = "";
+            }
+
+            if ( !RenameAll( console, root, settings.OriginalSubstring, replacement, root.FullName ) )
             {
                 return 1;
             }

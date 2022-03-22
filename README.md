@@ -161,6 +161,10 @@ Create `eng\MainVersion.props` file. The content should look like:
 </Project>
 ```
 
+Additionally, there may be a property named `PatchVersion`, which may contain a version number with 4 components.
+The `PatchVersion` property value MUST start with the value of the `MainVersion` property. The use case for this property is when a repo A has a version dependency on another repo B but we want to release a patch of repo B without releasing a new build of repo A.
+
+
 ### Step 4. Versions.props
 
 Create `eng\Versions.props` file. The content should look like this (replace `My` by the name of the repo without dot):

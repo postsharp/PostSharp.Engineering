@@ -255,16 +255,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Create the consolidate directory.
             if ( settings.CreateConsolidatedDirectory )
             {
+                context.Console.WriteHeading( "Creating the consolidated directory" );
+
                 var consolidatedDirectory = Path.Combine(
                     context.RepoDirectory,
                     "artifacts",
                     "consolidated",
                     configuration.ToString().ToLowerInvariant() );
 
-                if ( !Directory.Exists( consolidatedDirectory ) )
+                if ( Directory.Exists( consolidatedDirectory ) )
                 {
-                    Directory.CreateDirectory( consolidatedDirectory );
+                    Directory.Delete( consolidatedDirectory, true );
                 }
+
+                Directory.CreateDirectory( consolidatedDirectory );
 
                 context.Console.WriteMessage( $"Creating '{consolidatedDirectory}'." );
 
@@ -279,9 +283,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     if ( dependency.Value.VersionFile != null )
                     {
                         var versionDocument = XDocument.Load( dependency.Value.VersionFile );
-                        var import = versionDocument.Root!.Element( "Import" )!.Attribute( "Project" )!.Value;
+                        var import = versionDocument.Root!.Element( "Import" )?.Attribute( "Project" )?.Value;
 
-                        var importDirectory = Path.GetDirectoryName( Path.Combine( Path.GetDirectoryName( dependency.Value.VersionFile )!, import ) )!;
+                        string importDirectory;
+
+                        if ( import == null )
+                        {
+                            importDirectory = Path.GetDirectoryName( dependency.Value.VersionFile )!;
+                        }
+                        else
+                        {
+                            importDirectory = Path.GetDirectoryName( Path.Combine( Path.GetDirectoryName( dependency.Value.VersionFile )!, import ) )!;
+                        }
+
                         CopyPackages( importDirectory );
                     }
                 }
@@ -389,7 +403,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return new BuildInfo( packageVersion, Enum.Parse<BuildConfiguration>( configuration ), this );
         }
 
-        private static (string MainVersion, string PackageVersionSuffix) ReadMainVersionFile( string path )
+        private static (string MainVersion, string? PatchVersion, string PackageVersionSuffix) ReadMainVersionFile( string path )
         {
             var versionFilePath = path;
             var versionFile = Project.FromFile( versionFilePath, new ProjectOptions() );
@@ -397,6 +411,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var mainVersion = versionFile
                 .Properties
                 .SingleOrDefault( p => p.Name == "MainVersion" )
+                ?.EvaluatedValue;
+
+            var patchVersion = versionFile
+                .Properties
+                .SingleOrDefault( p => p.Name == "PatchVersion" )
                 ?.EvaluatedValue;
 
             if ( string.IsNullOrEmpty( mainVersion ) )
@@ -414,7 +433,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
-            return (mainVersion, suffix);
+            return (mainVersion, patchVersion, suffix);
         }
 
         /// <summary>
@@ -663,7 +682,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
-            
+
             // Execute the event.
             if ( this.PrepareCompleted != null )
             {
@@ -694,8 +713,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             version = null;
             string? mainVersion;
             string? mainPackageVersionSuffix;
+            string? patchVersion;
 
-            (mainVersion, mainPackageVersionSuffix) =
+            (mainVersion, patchVersion, mainPackageVersionSuffix) =
                 ReadMainVersionFile(
                     Path.Combine(
                         context.RepoDirectory,
@@ -736,6 +756,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // Note that the version suffix is not copied from the dependency, only the main version. 
 
                 ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
+            }
+
+            if ( !string.IsNullOrWhiteSpace( patchVersion ) && !patchVersion.StartsWith( mainVersion + ".", StringComparison.Ordinal ) )
+            {
+                context.Console.WriteError(
+                    $"The PatchVersion property in MainVersion.props ({patchVersion}) does not match the MainVersion property value ({mainVersion})." );
+
+                return false;
             }
 
             var versionPrefix = mainVersion;
@@ -804,6 +832,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     // Public build
                     versionSuffix = mainPackageVersionSuffix.TrimStart( '-' );
                     patchNumber = 0;
+
+                    if ( !string.IsNullOrWhiteSpace( patchVersion ) )
+                    {
+                        var parsedPatchVersion = Version.Parse( patchVersion );
+                        patchNumber = parsedPatchVersion.Revision;
+                    }
 
                     break;
 
