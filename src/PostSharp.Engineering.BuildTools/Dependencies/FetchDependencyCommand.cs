@@ -338,11 +338,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         branchName = dependency.Definition.DefaultBranch;
                     }
 
-                    if ( latestBuildNumber == null )
-                    {
-                        latestBuildNumber = teamcity.GetLatestBuildNumber( ciBuildType, branchName, ConsoleHelper.CancellationToken );
-                    }
-
                     if ( buildServerDependencies != null )
                     {
                         foreach ( var buildServerDependency in buildServerDependencies.Dependencies )
@@ -361,7 +356,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                             }
                         }
                     }
-                    
+
+                    latestBuildNumber ??= teamcity.GetLatestBuildNumber( ciBuildType, branchName, ConsoleHelper.CancellationToken );
+
                     if ( latestBuildNumber == null )
                     {
                         context.Console.WriteError(
