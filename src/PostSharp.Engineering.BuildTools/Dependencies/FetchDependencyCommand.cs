@@ -190,17 +190,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         case DependencySourceKind.BuildServer:
                             var buildNumber = transitiveDependency.GetMetadataValue( "BuildNumber" );
                             var ciBuildTypeId = transitiveDependency.GetMetadataValue( "CiBuildTypeId" );
-                            var loadedBuildId = versionsOverrideFile.Dependencies[name].BuildServerSource as CiBuildId;
-                           
-                            // TODO: something better to replace GetMetadataValue from .build-artifacts with fetched data (Version.g.props)
-                            if ( loadedBuildId != null )
-                            {
-                                if ( loadedBuildId?.BuildNumber > int.Parse( buildNumber, CultureInfo.InvariantCulture ) )
-                                {
-                                    buildNumber = loadedBuildId.BuildNumber.ToString( CultureInfo.InvariantCulture );
-                                }
-                            }
-                            
+
                             if ( string.IsNullOrEmpty( buildNumber ) || string.IsNullOrEmpty( ciBuildTypeId ) )
                             {
                                 context.Console.WriteError(
@@ -333,7 +323,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     }
                     else
                     {
-                        Console.WriteLine( 3 );
                         ciBuildType = dependency.Definition.CiBuildTypes[configuration];
                         branchName = dependency.Definition.DefaultBranch;
                     }
