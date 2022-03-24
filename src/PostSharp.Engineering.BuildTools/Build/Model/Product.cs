@@ -110,6 +110,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var configuration = settings.BuildConfiguration;
             var buildConfigurationInfo = this.Configurations[configuration];
 
+            // TODO - if there is no new change (just a version bump f.e.), build will fail
+            
             // Build dependencies.
             if ( !settings.NoDependencies && !this.Prepare( context, settings ) )
             {
@@ -651,10 +653,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            //this.TagCommit( context );
+            if ( !this.TagLastCommit( context ) )
+            {
+                context.Console.WriteError( "Could not tag the latest commit." );
+                
+                return false;
+            }
 
-            this.BumpVersion( context );
-            
+            if ( !this.BumpVersion( context ) )
+            {
+                context.Console.WriteError( "Could not bump the main version." );
+                
+                return false;
+            }
+
             // TODO - Remove things above <<<<
 
             var propsFileName = $"{this.ProductName}.version.props";
@@ -1168,7 +1180,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             
             // TODO 4 - publish was successful, tag commit
 
-            this.TagCommit( context );
+            this.TagLastCommit( context );
             
             // TODO 5 - bump version
             this.BumpVersion( context );
@@ -1329,24 +1341,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 out _,
                 out var tagName );
 
-            var tag = tagName.Trim();
-            version = tag.Substring( tag.LastIndexOf( '_' ) + 1 );
+            version = tagName.Trim();
             Console.WriteLine( version );
-            
-            // Gets number of commits since latest tag
+
+            // Gets number of commits since latest tag ignoring those with version bump
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"rev-list --count \"{tag}..HEAD\"",
+                $"rev-list --count \"{version}..HEAD\" --invert-grep --grep=\"<<VERSION_BUMP>>\"",
                 context.RepoDirectory,
-                out var gitExitCode,
+                out _,
                 out var newCommitsAfterTag );
             
             int.TryParse( newCommitsAfterTag, out var commits );
 
             if ( commits > 0 )
             {
-                context.Console.WriteWarning( $"There is total of {commits} unpublished commits since '{tag}' tag." );
+                context.Console.WriteWarning( $"There is total of {commits} unpublished commits since '{version}' tag." );
                 
                 return true;
             }
@@ -1362,7 +1373,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             
             LoadMainVersion( mainVersionFile, out var mainVersion );
             
-            if ( !tagVersion.Equals( mainVersion?.ToString(), StringComparison.Ordinal ) )
+            if ( tagVersion.Equals( mainVersion?.ToString(), StringComparison.Ordinal ) )
             {
                 return false;
             }
@@ -1371,7 +1382,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         }
         
         // TODO - finalize this
-        private bool TagCommit( BuildContext context )
+        private bool TagLastCommit( BuildContext context )
         {
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,
@@ -1381,19 +1392,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             
             // TODO - put the correct EnvVariable here
 
-            if ( Environment.GetEnvironmentVariable( "I_AM_TEAMCITY" ) == null )
-            {
-                ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"commit --author=\"TeamCity <teamcity@postsharp.net>\" -m \"{version}\"",
-                    context.RepoDirectory );
-            }
-
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"tag \"<<VERSION_BUMP>> {version}\"",
+                $"tag \"{version}\"",
                 context.RepoDirectory,
                 out var gitExitCode,
                 out var gitOutput );
@@ -1407,30 +1409,30 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteMessage( $"Tagged the most recent commit with version '{version}'." );
             
-            // TODO - Keep this thing or just "git push", if Keep - keep the discard?
-            // ToolInvocationHelper.InvokeTool(
-            //     context.Console,
-            //     "git",
-            //     "rev-parse --abbrev-ref HEAD",
-            //     context.RepoDirectory,
-            //     out _,
-            //     out var branchName );
+            // TODO - Keep this thing or push to default branch? ... if keep - keep the discard?
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                "rev-parse --abbrev-ref HEAD",
+                context.RepoDirectory,
+                out _,
+                out var branchName );
 
-            // TODO - Test when all is ready
+            // TODO - Test PUSH when all is ready
             // ToolInvocationHelper.InvokeTool(
             //     context.Console,
             //     "git",
-            //     $"push {branchName}",
+            //     $"push {branchName} tag {version}",
             //     context.RepoDirectory,
             //     out gitExitCode,
             //     out gitOutput );
-            //
-            // if ( gitExitCode != 0 )
-            // {
-            //     context.Console.WriteError( gitOutput );
-            //
-            //     return false;
-            // }
+            
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOutput );
+            
+                return false;
+            }
             
             return true;
         }
@@ -1470,6 +1472,38 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
             
             context.Console.WriteSuccess( $"Bumping the '{context.Product.ProductName}' version from '{currentVersion}' to '{newVersion}' was successful." );
+
+            if ( !this.CommitVersionBump( context, newVersion ) )
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool CommitVersionBump( BuildContext context, Version? version )
+        {
+            // TODO - put the correct EnvVariable here
+
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"add {this.MainVersionFile}",
+                context.RepoDirectory );
+            
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"commit --author=\"TeamCity <teamcity@postsharp.net>\" -m \"<<VERSION_BUMP>> {version}\"",
+                context.RepoDirectory );
+
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"push",
+                context.RepoDirectory,
+                out _,
+                out var gitOutputMessage);
 
             return true;
         }
