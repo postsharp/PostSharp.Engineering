@@ -17,6 +17,7 @@ public class SourceBuildTrigger : IBuildTrigger
         vcs {{
             watchChangesInDependencies = {this.WatchChangesInDependencies.ToString().ToLowerInvariant()}
             branchFilter = ""+:<default>""
+            triggerRules = ""-:comment=<<VERSION_BUMP>>:**""
         }}        " );
     }
 }

@@ -637,36 +637,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 Directory.CreateDirectory( artifactsDir );
             }
-            
-            // // TODO - Remove things below >>>>
-            //
-            // if ( !ChangesSinceLastTag( context, out var tagVersion ) )
-            // {
-            //     return false;
-            // }
-            //
-            // if ( !this.IsVersionBumped( context, tagVersion ) )
-            // {
-            //     context.Console.WriteError( $"The '{context.Product.ProductName}' version has not been bumped." );
-            //     
-            //     return false;
-            // }
-            //
-            // if ( !this.TagLastCommit( context ) )
-            // {
-            //     context.Console.WriteError( "Could not tag the latest commit." );
-            //     
-            //     return false;
-            // }
-            //
-            // if ( !this.BumpVersion( context ) )
-            // {
-            //     context.Console.WriteError( "Could not bump the main version." );
-            //     
-            //     return false;
-            // }
-            //
-            // // TODO - Remove things above <<<<
 
             var propsFileName = $"{this.ProductName}.version.props";
             var propsFilePath = Path.Combine( artifactsDir, propsFileName );
@@ -1379,8 +1349,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             return true;
         }
-        
-        // TODO - finalize this
+
         private bool TagLastCommit( BuildContext context )
         {
             var mainVersionFile = Path.Combine(
@@ -1388,8 +1357,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 this.MainVersionFile );
             
             LoadMainVersion( mainVersionFile, out var version );
-            
-            // TODO - put the correct EnvVariable here
 
             ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -1408,22 +1375,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteMessage( $"Tagging the most recent commit with version '{version}'." );
             
-            // TODO - Keep this thing or push to default branch? ... if keep - keep the discard?
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                "rev-parse --abbrev-ref HEAD",
-                context.RepoDirectory,
-                out _,
-                out var branchName );
-
-            Console.WriteLine( branchName );
+            // // TODO - Keep this thing or push to default branch? ... if keep - keep the discard?
+            // ToolInvocationHelper.InvokeTool(
+            //     context.Console,
+            //     "git",
+            //     "rev-parse --abbrev-ref HEAD",
+            //     context.RepoDirectory,
+            //     out _,
+            //     out var branchName );
+            //
+            // Console.WriteLine( branchName );
 
             // TODO - Test PUSH when all is ready
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"push {branchName.Trim()} tag {version}",
+                $"push origin {version}",
                 context.RepoDirectory,
                 out gitExitCode,
                 out gitOutput );
@@ -1434,6 +1401,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             
                 return false;
             }
+            
+            context.Console.WriteSuccess( $"Tagging the '{context.Product.ProductName}' with version '{version}' was successful." );
             
             return true;
         }
@@ -1490,22 +1459,28 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 $"add {this.MainVersionFile}",
                 context.RepoDirectory );
 
-            if ( Environment.GetEnvironmentVariable( "TEAMCITY_GIT_PATH" ) != null )
-            {
-                ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"commit --author=\"TeamCity <teamcity@postsharp.net>\" -m \"<<VERSION_BUMP>> {version}\"",
-                    context.RepoDirectory );
-            }
-            else
-            {
-                ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"commit -m \"<<VERSION_BUMP>> {version}\"",
-                    context.RepoDirectory );
-            }
+            // if ( Environment.GetEnvironmentVariable( "TEAMCITY_GIT_PATH" ) != null )
+            // {
+            //     ToolInvocationHelper.InvokeTool(
+            //         context.Console,
+            //         "git",
+            //         $"commit --author=\"TeamCity <teamcity@postsharp.net>\" -m \"<<VERSION_BUMP>> {version}\"",
+            //         context.RepoDirectory );
+            // }
+            // else
+            // {
+            //     ToolInvocationHelper.InvokeTool(
+            //         context.Console,
+            //         "git",
+            //         $"commit -m \"<<VERSION_BUMP>> {version}\"",
+            //         context.RepoDirectory );
+            // }
+            
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"commit -m \"<<VERSION_BUMP>> {version}\"",
+                context.RepoDirectory );
 
             ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -1539,18 +1514,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var build = currentVersion.Build;
 
             build++;
-                
-            if ( build > 99 )
-            {
-                build = 0;
-                minor++;
-                    
-                if ( minor > 99 )
-                {
-                    minor = 0;
-                    major++;
-                }
-            }
 
             newVersion = new Version( major, minor, build );
 
