@@ -1,5 +1,6 @@
 ﻿using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
+using Microsoft.CodeAnalysis;
 using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
@@ -18,12 +19,15 @@ using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Xml.Linq;
+using Project = Microsoft.Build.Evaluation.Project;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     public class Product
     {
         private readonly string? _versionsFile;
+
+        private readonly string? _mainVersionFile;
 
         public Product()
         {
@@ -38,6 +42,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             get => this._versionsFile ?? Path.Combine( this.EngineeringDirectory, "Versions.props" );
             init => this._versionsFile = value;
+        }
+
+        public string MainVersionFile
+        {
+            get => this._mainVersionFile ?? Path.Combine( this.EngineeringDirectory, "MainVersion.props" );
+            init => this._mainVersionFile = value;
         }
 
         /// <summary>
@@ -1073,6 +1083,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var hasTarget = false;
             var configurationInfo = this.Configurations.GetValue( configuration );
 
+            // TODO: 1 - changes since last publishing tag
+            if ( this.ChangesSinceLastTag() )
+            {
+                context.Console.WriteError( "There are unpublished changes since the last version." );
+                
+                return false;
+            }
+            
+            // TODO: 2 - version bumped
+
+            if ( !this.IsVersionBumped() )
+            {
+                context.Console.WriteError( $"The '{context.Product.ProductName}' version has not been bumped." );
+                
+                return false;
+            }
+            
             if ( configuration == BuildConfiguration.Public )
             {
                 this.Verify( context, settings );
@@ -1080,6 +1107,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteHeading( "Publishing files" );
 
+            // 3 - publish success?
+            
             if ( !Publisher.PublishDirectory(
                     context,
                     settings,
@@ -1112,6 +1141,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 context.Console.WriteSuccess( "Publishing has succeeded." );
             }
+            
+            // TODO 4 - publish was successful, tag commit
+
+            this.TagCommit( context );
+            
+            // TODO 5 - bump version
+            this.BumpVersion( context );
 
             return true;
         }
@@ -1253,6 +1289,195 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteWarning( $"Replacing '{filePath}'." );
                 File.WriteAllText( filePath, content.ToString() );
             }
+
+            return true;
+        }
+
+        private bool ChangesSinceLastTag()
+        {
+            return false;
+        }
+        
+        private bool IsVersionBumped()
+        {
+            return false;
+        }
+        
+        // TODO - finalize this
+        private bool TagCommit( BuildContext context )
+        {
+            var mainVersionFile = Path.Combine(
+                context.RepoDirectory,
+                this.MainVersionFile );
+            
+            LoadMainVersion( mainVersionFile, out var version );
+            
+            // TODO - put the correct EnvVariable here
+
+            if ( Environment.GetEnvironmentVariable( "I_AM_TEAMCITY" ) == null )
+            {
+                ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"commit --author=\"TeamCity <teamcity@postsharp.net>\" -m \"{version}\"",
+                    context.RepoDirectory );
+            }
+
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"tag \"<<VERSION_BUMP>> {version}\"",
+                context.RepoDirectory,
+                out var gitExitCode,
+                out var gitOutput );
+            
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOutput );
+
+                return false;
+            }
+
+            context.Console.WriteMessage( $"Tagged the most recent commit with version '{version}'." );
+            
+            // TODO - Keep this thing or just "git push", if Keep - keep the discard?
+            // ToolInvocationHelper.InvokeTool(
+            //     context.Console,
+            //     "git",
+            //     "rev-parse --abbrev-ref HEAD",
+            //     context.RepoDirectory,
+            //     out _,
+            //     out var branchName );
+
+            // TODO - Test when all is ready
+            // ToolInvocationHelper.InvokeTool(
+            //     context.Console,
+            //     "git",
+            //     $"push {branchName}",
+            //     context.RepoDirectory,
+            //     out gitExitCode,
+            //     out gitOutput );
+            //
+            // if ( gitExitCode != 0 )
+            // {
+            //     context.Console.WriteError( gitOutput );
+            //
+            //     return false;
+            // }
+            
+            return true;
+        }
+        
+        private bool BumpVersion( BuildContext context )
+        {
+            var mainVersionFile = Path.Combine(
+                context.RepoDirectory,
+                this.MainVersionFile );
+
+            if ( !File.Exists( mainVersionFile ) )
+            {
+                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
+                
+                return false;
+            }
+
+            if ( !LoadMainVersion( mainVersionFile, out var currentVersion ) )
+            {
+                context.Console.WriteError( $"Could not load '{mainVersionFile}'." );
+                
+                return false;
+            }
+
+            if ( !IncrementVersion( currentVersion, out var newVersion ) )
+            {
+                context.Console.WriteError( $"Could not increment version '{currentVersion}'." );
+
+                return false;
+            }
+            
+            if ( !SaveMainVersion( context, mainVersionFile, newVersion ) )
+            {
+                context.Console.WriteError( $"Could not save '{mainVersionFile}'." );
+
+                return false;
+            }
+            
+            context.Console.WriteSuccess( $"Bumping the '{context.Product.ProductName}' version from '{currentVersion}' to '{newVersion}' was successful." );
+
+            return true;
+        }
+        
+        private static bool IncrementVersion( Version? currentVersion, out Version? newVersion )
+        {
+            newVersion = null;
+
+            if ( currentVersion == null )
+            {
+                return false;
+            }
+            
+            var major = currentVersion.Major;
+            var minor = currentVersion.Minor;
+            var build = currentVersion.Build;
+
+            build++;
+                
+            if ( build > 99 )
+            {
+                build = 0;
+                minor++;
+                    
+                if ( minor > 99 )
+                {
+                    minor = 0;
+                    major++;
+                }
+            }
+
+            newVersion = new Version( major, minor, build );
+
+            return true;
+        }
+
+        private static bool LoadMainVersion( string mainVersionFile, out Version? version )
+        {
+            var document = XDocument.Load( mainVersionFile );
+            var project = document.Root;
+            var properties = project?.Element( "PropertyGroup" );
+            var mainVersion = properties?.Element( "MainVersion" )?.Value;
+
+            Version.TryParse( mainVersion, out version );
+
+            if ( version == null )
+            {
+                return false;
+            }
+
+            return true;
+        }
+        
+        private static bool SaveMainVersion( BuildContext context, string mainVersionFile, Version? version )
+        {
+            if ( !File.Exists( mainVersionFile ) )
+            {
+                return false;
+            }
+
+            if ( version == null )
+            {
+                return false;
+            }
+            
+            context.Console.WriteMessage( $"Writing '{mainVersionFile}'" );
+            
+            File.WriteAllText(
+                mainVersionFile,
+                $@"<Project>
+    <PropertyGroup>
+        <MainVersion>{version}</MainVersion>
+        <PackageVersionSuffix>-preview</PackageVersionSuffix>
+    </PropertyGroup>
+</Project>" );
 
             return true;
         }
