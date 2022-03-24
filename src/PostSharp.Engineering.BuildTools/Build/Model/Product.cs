@@ -635,23 +635,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             
             // TODO - Remove things below >>>>
             
-            if ( this.ChangesSinceLastTag() )
+            if ( !ChangesSinceLastTag( context, out var tagVersion ) )
             {
-                context.Console.WriteError( "There are unpublished changes since the last version." );
+                context.Console.WriteWarning( "There are no changes since the last publishing." );
                 
                 return false;
             }
             
             // TODO: 2 - version bumped
 
-            if ( !this.IsVersionBumped() )
+            if ( !this.IsVersionBumped( context, tagVersion ) )
             {
                 context.Console.WriteError( $"The '{context.Product.ProductName}' version has not been bumped." );
                 
                 return false;
             }
 
-            this.TagCommit( context );
+            //this.TagCommit( context );
 
             this.BumpVersion( context );
             
@@ -1108,18 +1108,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var configurationInfo = this.Configurations.GetValue( configuration );
 
             // TODO: 1 - changes since last publishing tag
-            if ( this.ChangesSinceLastTag() )
+            if ( !ChangesSinceLastTag( context, out var tagVersion ) )
             {
-                context.Console.WriteError( "There are unpublished changes since the last version." );
+                context.Console.WriteError( "There are no changes since the last publishing." );
                 
                 return false;
             }
             
             // TODO: 2 - version bumped
 
-            if ( !this.IsVersionBumped() )
+            if ( !this.IsVersionBumped( context, tagVersion ) )
             {
-                context.Console.WriteError( $"The '{context.Product.ProductName}' version has not been bumped." );
+                context.Console.WriteWarning( $"The '{context.Product.ProductName}' version has not been bumped." );
                 
                 return false;
             }
@@ -1317,20 +1317,57 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool ChangesSinceLastTag( BuildContext context )
+        private static bool ChangesSinceLastTag( BuildContext context, out string version )
         {
+            // TODO - should I check for _VERSION_BUMP_ at the start of the tag?
+            // Gets the last version tag
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                "status",
-                context.RepoDirectory );
+                "tag",
+                context.RepoDirectory,
+                out _,
+                out var tagName );
+
+            var tag = tagName.Trim();
+            version = tag.Substring( tag.LastIndexOf( '_' ) + 1 );
+            Console.WriteLine( version );
+            
+            // Gets number of commits since latest tag
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"rev-list --count \"{tag}..HEAD\"",
+                context.RepoDirectory,
+                out var gitExitCode,
+                out var newCommitsAfterTag );
+            
+            int.TryParse( newCommitsAfterTag, out var commits );
+
+            if ( commits > 0 )
+            {
+                context.Console.WriteWarning( $"There is total of {commits} unpublished commits since '{tag}' tag." );
+                
+                return true;
+            }
             
             return false;
         }
         
-        private bool IsVersionBumped()
+        private bool IsVersionBumped( BuildContext context, string tagVersion )
         {
-            return false;
+            var mainVersionFile = Path.Combine(
+                context.RepoDirectory,
+                this.MainVersionFile );
+            
+            LoadMainVersion( mainVersionFile, out var mainVersion );
+            
+            if ( !tagVersion.Equals( mainVersion?.ToString(), StringComparison.Ordinal ) )
+            {
+                return false;
+            }
+
+            return true;
         }
         
         // TODO - finalize this
