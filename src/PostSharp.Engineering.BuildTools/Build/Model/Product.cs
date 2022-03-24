@@ -632,6 +632,30 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 Directory.CreateDirectory( artifactsDir );
             }
+            
+            // TODO - Remove things below >>>>
+            
+            if ( this.ChangesSinceLastTag() )
+            {
+                context.Console.WriteError( "There are unpublished changes since the last version." );
+                
+                return false;
+            }
+            
+            // TODO: 2 - version bumped
+
+            if ( !this.IsVersionBumped() )
+            {
+                context.Console.WriteError( $"The '{context.Product.ProductName}' version has not been bumped." );
+                
+                return false;
+            }
+
+            this.TagCommit( context );
+
+            this.BumpVersion( context );
+            
+            // TODO - Remove things above <<<<
 
             var propsFileName = $"{this.ProductName}.version.props";
             var propsFilePath = Path.Combine( artifactsDir, propsFileName );
@@ -1293,8 +1317,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool ChangesSinceLastTag()
+        private bool ChangesSinceLastTag( BuildContext context )
         {
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                "status",
+                context.RepoDirectory );
+            
             return false;
         }
         
