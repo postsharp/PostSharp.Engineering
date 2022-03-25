@@ -1095,8 +1095,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( !this.IsVersionBumped( context, tagVersion ) )
             {
-                context.Console.WriteWarning( $"The '{context.Product.ProductName}' version has not been bumped." );
-                
                 return false;
             }
             
@@ -1139,10 +1137,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 context.Console.WriteSuccess( "Publishing has succeeded." );
             }
-            
-            this.TagLastCommit( context );
-            
-            this.BumpVersion( context );
+
+            if ( !this.TagLastCommit( context ) )
+            {
+                context.Console.WriteError( "Could not tag the last commit." );
+            }
+
+            if ( !this.BumpVersion( context ) )
+            {
+                context.Console.WriteError( "Could not bump" );
+            }
 
             return true;
         }
@@ -1288,30 +1292,31 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool ChangesSinceLastTag( BuildContext context, out string version )
+        private static bool ChangesSinceLastTag( BuildContext context, out string? version )
         {
-            // TODO - should I check for _VERSION_BUMP_ at the start of the tag?
-            // Gets the last version tag
+            // Gets the most recent version tag
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                "tag",
+                "tag --sort=-v:refname",
                 context.RepoDirectory,
                 out _,
                 out var tagName );
 
-            version = tagName.Trim();
+            // Only first tag is read
+            using ( var reader = new StringReader( tagName ) )
+            {
+                version = reader.ReadLine();
+            }
 
-            if ( version == string.Empty )
+            if ( string.IsNullOrEmpty( version ) )
             {
                 context.Console.WriteWarning( "There is no tag to check changes against." );
                 
                 return false;
             }
-            
-            Console.WriteLine( version );
 
-            // Gets number of commits since latest tag ignoring those with version bump
+            // Gets the number of commits since the most recent version tag ignoring those with version bump only
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
@@ -1334,16 +1339,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return false;
         }
         
-        private bool IsVersionBumped( BuildContext context, string tagVersion )
+        private bool IsVersionBumped( BuildContext context, string? tagVersion )
         {
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,
                 this.MainVersionFile );
-            
+
+            if ( string.IsNullOrEmpty( tagVersion ) )
+            {
+                return false;
+            }
+
             LoadMainVersion( mainVersionFile, out var mainVersion );
             
             if ( tagVersion.Equals( mainVersion?.ToString(), StringComparison.Ordinal ) )
             {
+                context.Console.WriteWarning( $"The '{context.Product.ProductName}' version has not been bumped." );
+
                 return false;
             }
 
@@ -1355,7 +1367,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,
                 this.MainVersionFile );
-            
+
             LoadMainVersion( mainVersionFile, out var version );
 
             ToolInvocationHelper.InvokeTool(
@@ -1365,7 +1377,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.RepoDirectory,
                 out var gitExitCode,
                 out var gitOutput );
-            
+
             if ( gitExitCode != 0 )
             {
                 context.Console.WriteError( gitOutput );
@@ -1374,19 +1386,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             context.Console.WriteMessage( $"Tagging the most recent commit with version '{version}'." );
-            
-            // // TODO - Keep this thing or push to default branch? ... if keep - keep the discard?
-            // ToolInvocationHelper.InvokeTool(
-            //     context.Console,
-            //     "git",
-            //     "rev-parse --abbrev-ref HEAD",
-            //     context.RepoDirectory,
-            //     out _,
-            //     out var branchName );
-            //
-            // Console.WriteLine( branchName );
 
-            // TODO - Test PUSH when all is ready
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
@@ -1394,16 +1394,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.RepoDirectory,
                 out gitExitCode,
                 out gitOutput );
-            
+
             if ( gitExitCode != 0 )
             {
                 context.Console.WriteError( gitOutput );
-            
+
                 return false;
             }
-            
-            context.Console.WriteSuccess( $"Tagging the '{context.Product.ProductName}' with version '{version}' was successful." );
-            
+
+            context.Console.WriteSuccess( $"Tagging the latest commit with version '{version}' was successful." );
+
             return true;
         }
         
@@ -1416,14 +1416,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !File.Exists( mainVersionFile ) )
             {
                 context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
-                
+
                 return false;
             }
 
             if ( !LoadMainVersion( mainVersionFile, out var currentVersion ) )
             {
                 context.Console.WriteError( $"Could not load '{mainVersionFile}'." );
-                
+
                 return false;
             }
 
@@ -1433,7 +1433,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 return false;
             }
-            
+
             if ( !SaveMainVersion( context, mainVersionFile, newVersion ) )
             {
                 context.Console.WriteError( $"Could not save '{mainVersionFile}'." );
@@ -1475,7 +1475,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             //         $"commit -m \"<<VERSION_BUMP>> {version}\"",
             //         context.RepoDirectory );
             // }
-            
+
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
@@ -1489,17 +1489,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.RepoDirectory,
                 out var gitExitCode,
                 out var gitOutput );
-            
+
             if ( gitExitCode != 0 )
             {
                 context.Console.WriteError( gitOutput );
-            
+
                 return false;
             }
 
             return true;
         }
-        
+
         private static bool IncrementVersion( Version? currentVersion, out Version? newVersion )
         {
             newVersion = null;
@@ -1508,7 +1508,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {   
                 return false;
             }
-            
+
             var major = currentVersion.Major;
             var minor = currentVersion.Minor;
             var build = currentVersion.Build;
@@ -1536,7 +1536,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             return true;
         }
-        
+
         private static bool SaveMainVersion( BuildContext context, string mainVersionFile, Version? version )
         {
             if ( !File.Exists( mainVersionFile ) )
@@ -1548,9 +1548,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
-            
+
             context.Console.WriteMessage( $"Writing '{mainVersionFile}'" );
-            
+
             File.WriteAllText(
                 mainVersionFile,
                 $@"<Project>
