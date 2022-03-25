@@ -1303,7 +1303,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 out _,
                 out var tagName );
 
-            // Only first tag is read
+            // Only first tag from the list of tags is read
             using ( var reader = new StringReader( tagName ) )
             {
                 version = reader.ReadLine();
