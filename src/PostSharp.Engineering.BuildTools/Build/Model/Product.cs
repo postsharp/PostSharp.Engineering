@@ -1312,7 +1312,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( string.IsNullOrEmpty( lastVersionTag ) )
             {
                 context.Console.WriteWarning( "There is no tag to check changes against." );
-                
+
                 return false;
             }
 
@@ -1324,21 +1324,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.RepoDirectory,
                 out _,
                 out var newCommitsAfterTag );
-            
+
             int.TryParse( newCommitsAfterTag, out var commits );
 
             if ( commits > 0 )
             {
                 context.Console.WriteWarning( $"There is total of {commits} unpublished commits since '{lastVersionTag}' tag." );
-                
+
                 return true;
             }
-            
+
             context.Console.WriteWarning( "There are no unpublished changes since the last version tag." );
-            
+
             return false;
         }
-        
+
         private bool IsVersionBumped( BuildContext context, string? tagVersion )
         {
             var mainVersionFile = Path.Combine(
@@ -1351,7 +1351,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             LoadMainVersion( mainVersionFile, out var mainVersion, out _ );
-            
+
             if ( tagVersion.Equals( mainVersion?.ToString(), StringComparison.Ordinal ) )
             {
                 context.Console.WriteWarning( $"The '{context.Product.ProductName}' version has not been bumped." );
@@ -1387,13 +1387,55 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"push origin {versionTag}",
-                context.RepoDirectory,
-                out gitExitCode,
-                out gitOutput );
+            // Temporary solution for TeamCity requiring authentication for Git operations
+            if ( Environment.GetEnvironmentVariable( "TEAMCITY_GIT_PATH" ) != null )
+            {
+                var teamcitySourceCodeWritingToken = Environment.GetEnvironmentVariable( "TEAMCITY_SOURCE_WRITE_TOKEN" );
+
+                if ( teamcitySourceCodeWritingToken == null )
+                {
+                    context.Console.WriteError( "TeamCity source code writing token is not set." );
+
+                    return false;
+                }
+
+                ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"remote get-url origin",
+                    context.RepoDirectory,
+                    out gitExitCode,
+                    out gitOutput );
+
+                if ( gitExitCode != 0 )
+                {
+                    context.Console.WriteMessage( gitOutput );
+
+                    return false;
+                }
+
+                var origin = gitOutput.Trim();
+
+                origin = origin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
+
+                ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"push {origin} {versionTag}",
+                    context.RepoDirectory,
+                    out gitExitCode,
+                    out gitOutput );
+            }
+            else
+            {
+                ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"push origin {versionTag}",
+                    context.RepoDirectory,
+                    out gitExitCode,
+                    out gitOutput );
+            }
 
             if ( gitExitCode != 0 )
             {
@@ -1402,34 +1444,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // Temporary solution for TeamCity requiring authentication for Git operations
-            if ( Environment.GetEnvironmentVariable( "TEAMCITY_GIT_PATH" ) != null )
-            {
-                var teamcitySourceCodeWritingToken = Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" );
-
-                if ( teamcitySourceCodeWritingToken == null )
-                {
-                    context.Console.WriteMessage( gitOutput );
-
-                    return false;
-                }
-
-                ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "",
-                    teamcitySourceCodeWritingToken,
-                    context.RepoDirectory,
-                    out _,
-                    out var output );
-
-                context.Console.WriteMessage( output );
-            }
-
             context.Console.WriteSuccess( $"Tagging the latest commit with version '{versionTag}' was successful." );
 
             return true;
         }
-        
+
         private bool BumpVersion( BuildContext context )
         {
             var mainVersionFile = Path.Combine(
@@ -1466,10 +1485,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( !this.CommitVersionBump( context, newVersion ) )
             {
+                context.Console.WriteError( "Could not commit the version bump." );
+                
                 return false;
             }
 
-            context.Console.WriteSuccess( $"Bumping the '{context.Product.ProductName}' version from '{currentVersion}' to '{newVersion}' was successful." );
+            context.Console.WriteSuccess( $"Bumping the '{context.Product.ProductName}' version from '{currentVersion}{packageVersionSuffix}' to '{newVersion}{packageVersionSuffix}' was successful." );
 
             return true;
         }
@@ -1480,49 +1501,84 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console,
                 "git",
                 $"add {this.MainVersionFile}",
-                context.RepoDirectory );
-
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"commit -m \"<<VERSION_BUMP>> {version}\"",
-                context.RepoDirectory );
-
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"push",
                 context.RepoDirectory,
-                out var gitExitCode,
-                out var gitOutput );
+                out _,
+                out _ );
 
-            if ( gitExitCode != 0 )
-            {
-                context.Console.WriteError( gitOutput );
-
-                return false;
-            }
-            
             if ( Environment.GetEnvironmentVariable( "TEAMCITY_GIT_PATH" ) != null )
             {
-                var teamcitySourceCodeWritingToken = Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" );
+                var teamcitySourceCodeWritingToken = Environment.GetEnvironmentVariable( "TEAMCITY_SOURCE_WRITE_TOKEN" );
 
                 if ( teamcitySourceCodeWritingToken == null )
                 {
-                    context.Console.WriteMessage( gitOutput );
+                    context.Console.WriteError( "TeamCity source code writing token is not set." );
 
                     return false;
                 }
+                
+                ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"commit -c user.email=\"teamcity@postsharp.net\" -c user.name=\"TeamCity\" -m \"<<VERSION_BUMP>> {version}\"",
+                    context.RepoDirectory,
+                    out _,
+                    out var gitOutput );
+
+                context.Console.WriteMessage( gitOutput );
 
                 ToolInvocationHelper.InvokeTool(
                     context.Console,
-                    "",
-                    teamcitySourceCodeWritingToken,
+                    "git",
+                    $"remote get-url origin",
                     context.RepoDirectory,
                     out _,
-                    out var output );
+                    out gitOutput );
 
-                context.Console.WriteMessage( output );
+                var origin = gitOutput.Trim();
+
+                origin = origin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
+
+                ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"push {origin}",
+                    context.RepoDirectory,
+                    out var gitExitCode,
+                    out gitOutput );
+
+                if ( gitExitCode != 0 )
+                {
+                    context.Console.WriteError( gitOutput );
+
+                    return false;
+                }
+            }
+            else
+            {
+                ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"commit -m \"<<VERSION_BUMP>> {version}\"",
+                    context.RepoDirectory,
+                    out _,
+                    out var gitOutput );
+
+                context.Console.WriteMessage( gitOutput );
+                
+                ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"push",
+                    context.RepoDirectory,
+                    out var gitExitCode,
+                    out gitOutput );
+                
+                if ( gitExitCode != 0 )
+                {
+                    context.Console.WriteError( gitOutput );
+
+                    return false;
+                }
             }
 
             return true;
