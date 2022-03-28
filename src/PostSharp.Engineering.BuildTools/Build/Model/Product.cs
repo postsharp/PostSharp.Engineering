@@ -1292,7 +1292,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool ChangesSinceLastTag( BuildContext context, out string? version )
+        private static bool ChangesSinceLastTag( BuildContext context, out string? lastVersionTag )
         {
             // Gets the most recent version tag
             ToolInvocationHelper.InvokeTool(
@@ -1303,13 +1303,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 out _,
                 out var tagName );
 
-            // Only first tag from the list of tags is read
+            // Only the first tag from the list of tags is read
             using ( var reader = new StringReader( tagName ) )
             {
-                version = reader.ReadLine();
+                lastVersionTag = reader.ReadLine();
             }
 
-            if ( string.IsNullOrEmpty( version ) )
+            if ( string.IsNullOrEmpty( lastVersionTag ) )
             {
                 context.Console.WriteWarning( "There is no tag to check changes against." );
                 
@@ -1320,7 +1320,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"rev-list --count \"{version}..HEAD\" --invert-grep --grep=\"<<VERSION_BUMP>>\"",
+                $"rev-list --count \"{lastVersionTag}..HEAD\" --invert-grep --grep=\"<<VERSION_BUMP>>\"",
                 context.RepoDirectory,
                 out _,
                 out var newCommitsAfterTag );
@@ -1329,7 +1329,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( commits > 0 )
             {
-                context.Console.WriteWarning( $"There is total of {commits} unpublished commits since '{version}' tag." );
+                context.Console.WriteWarning( $"There is total of {commits} unpublished commits since '{lastVersionTag}' tag." );
                 
                 return true;
             }
@@ -1350,7 +1350,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            LoadMainVersion( mainVersionFile, out var mainVersion );
+            LoadMainVersion( mainVersionFile, out var mainVersion, out _ );
             
             if ( tagVersion.Equals( mainVersion?.ToString(), StringComparison.Ordinal ) )
             {
@@ -1368,12 +1368,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.RepoDirectory,
                 this.MainVersionFile );
 
-            LoadMainVersion( mainVersionFile, out var version );
+            LoadMainVersion( mainVersionFile, out var version, out var packageVersionSuffix );
+
+            var versionTag = string.Concat( version, packageVersionSuffix );
 
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"tag \"{version}\"",
+                $"tag \"{versionTag}\"",
                 context.RepoDirectory,
                 out var gitExitCode,
                 out var gitOutput );
@@ -1385,12 +1387,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            context.Console.WriteMessage( $"Tagging the most recent commit with version '{version}'." );
-
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"push origin {version}",
+                $"push origin {versionTag}",
                 context.RepoDirectory,
                 out gitExitCode,
                 out gitOutput );
@@ -1402,7 +1402,30 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            context.Console.WriteSuccess( $"Tagging the latest commit with version '{version}' was successful." );
+            // Temporary solution for TeamCity requiring authentication for Git operations
+            if ( Environment.GetEnvironmentVariable( "TEAMCITY_GIT_PATH" ) != null )
+            {
+                var teamcitySourceCodeWritingToken = Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" );
+
+                if ( teamcitySourceCodeWritingToken == null )
+                {
+                    context.Console.WriteMessage( gitOutput );
+
+                    return false;
+                }
+
+                ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "",
+                    teamcitySourceCodeWritingToken,
+                    context.RepoDirectory,
+                    out _,
+                    out var output );
+
+                context.Console.WriteMessage( output );
+            }
+
+            context.Console.WriteSuccess( $"Tagging the latest commit with version '{versionTag}' was successful." );
 
             return true;
         }
@@ -1420,7 +1443,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            if ( !LoadMainVersion( mainVersionFile, out var currentVersion ) )
+            if ( !LoadMainVersion( mainVersionFile, out var currentVersion, out var packageVersionSuffix ) )
             {
                 context.Console.WriteError( $"Could not load '{mainVersionFile}'." );
 
@@ -1434,7 +1457,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            if ( !SaveMainVersion( context, mainVersionFile, newVersion ) )
+            if ( !SaveMainVersion( context, mainVersionFile, newVersion, packageVersionSuffix ) )
             {
                 context.Console.WriteError( $"Could not save '{mainVersionFile}'." );
 
@@ -1459,23 +1482,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 $"add {this.MainVersionFile}",
                 context.RepoDirectory );
 
-            // if ( Environment.GetEnvironmentVariable( "TEAMCITY_GIT_PATH" ) != null )
-            // {
-            //     ToolInvocationHelper.InvokeTool(
-            //         context.Console,
-            //         "git",
-            //         $"commit --author=\"TeamCity <teamcity@postsharp.net>\" -m \"<<VERSION_BUMP>> {version}\"",
-            //         context.RepoDirectory );
-            // }
-            // else
-            // {
-            //     ToolInvocationHelper.InvokeTool(
-            //         context.Console,
-            //         "git",
-            //         $"commit -m \"<<VERSION_BUMP>> {version}\"",
-            //         context.RepoDirectory );
-            // }
-
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
@@ -1495,6 +1501,28 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteError( gitOutput );
 
                 return false;
+            }
+            
+            if ( Environment.GetEnvironmentVariable( "TEAMCITY_GIT_PATH" ) != null )
+            {
+                var teamcitySourceCodeWritingToken = Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" );
+
+                if ( teamcitySourceCodeWritingToken == null )
+                {
+                    context.Console.WriteMessage( gitOutput );
+
+                    return false;
+                }
+
+                ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "",
+                    teamcitySourceCodeWritingToken,
+                    context.RepoDirectory,
+                    out _,
+                    out var output );
+
+                context.Console.WriteMessage( output );
             }
 
             return true;
@@ -1520,12 +1548,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool LoadMainVersion( string mainVersionFile, out Version? version )
+        private static bool LoadMainVersion( string mainVersionFile, out Version? version, out string? packageVersionSuffix )
         {
             var document = XDocument.Load( mainVersionFile );
             var project = document.Root;
             var properties = project?.Element( "PropertyGroup" );
             var mainVersion = properties?.Element( "MainVersion" )?.Value;
+            packageVersionSuffix = properties?.Element( "PackageVersionSuffix" )?.Value;
 
             Version.TryParse( mainVersion, out version );
 
@@ -1537,7 +1566,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool SaveMainVersion( BuildContext context, string mainVersionFile, Version? version )
+        private static bool SaveMainVersion( BuildContext context, string mainVersionFile, Version? version, string? packageVersionSuffix )
         {
             if ( !File.Exists( mainVersionFile ) )
             {
@@ -1556,7 +1585,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 $@"<Project>
     <PropertyGroup>
         <MainVersion>{version}</MainVersion>
-        <PackageVersionSuffix>-preview</PackageVersionSuffix>
+        {(packageVersionSuffix == null ? "<PackageVersionSuffix></PackageVersionSuffix>" : $"<PackageVersionSuffix>{packageVersionSuffix}</PackageVersionSuffix>")}
     </PropertyGroup>
 </Project>" );
 
