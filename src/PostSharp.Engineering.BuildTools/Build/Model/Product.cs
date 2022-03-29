@@ -1333,12 +1333,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( commits > 0 )
             {
-                context.Console.WriteWarning( $"There is total of {commits} unpublished commits since '{lastVersionTag}' tag." );
+                context.Console.WriteImportantMessage( $"There is total of {commits} unpublished commits since '{lastVersionTag}' tag." );
 
                 return true;
             }
 
-            context.Console.WriteWarning( "There are no unpublished changes since the last version tag." );
+            context.Console.WriteImportantMessage( "There are no unpublished changes since the last version tag." );
 
             return false;
         }
@@ -1493,24 +1493,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 ToolInvocationHelper.InvokeTool(
                     context.Console,
                     "git",
-                    "git config user.name TeamCity",
+                    "config user.name TeamCity",
                     context.RepoDirectory );
 
                 ToolInvocationHelper.InvokeTool(
                     context.Console,
                     "git",
-                    "git config user.email teamcity@postsharp.net",
+                    "config user.email teamcity@postsharp.net",
                     context.RepoDirectory );
 
-                ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"commit -m \"<<VERSION_BUMP>> {version}\"",
-                    context.RepoDirectory,
-                    out _,
-                    out var gitOutput );
-
-                context.Console.WriteMessage( gitOutput );
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console, 
+                        "git",
+                        $"commit -m \"<<VERSION_BUMP>> {version}\"",
+                        context.RepoDirectory ) )
+                {
+                    return false;
+                }
 
                 ToolInvocationHelper.InvokeTool(
                     context.Console,
@@ -1518,7 +1517,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     $"remote get-url origin",
                     context.RepoDirectory,
                     out _,
-                    out gitOutput );
+                    out var gitOutput );
 
                 var origin = gitOutput.Trim();
 
