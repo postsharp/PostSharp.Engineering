@@ -1109,7 +1109,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.RepoDirectory,
                 this.MainVersionFile );
 
-            // Get the currentVersion from MainVersion.props.
+            // Get the current version from MainVersion.props.
             if ( !TryLoadMainVersion( mainVersionFile, out var currentVersion, out var packageVersionSuffix ) )
             {
                 return false;
@@ -1426,7 +1426,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             var versionTag = string.Concat( version, packageVersionSuffix );
 
-            // Tagging the last commit with version
+            // Tagging the last commit with version.
             if ( !ToolInvocationHelper.InvokeTool(
                     context.Console,
                     "git",
@@ -1436,7 +1436,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // Returns the remote origin
+            // Returns the remote origin.
             if ( !ToolInvocationHelper.InvokeTool(
                     context.Console,
                     "git",
@@ -1467,7 +1467,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            // Pushes tag to origin
+            // Pushes tag to origin.
             if ( !ToolInvocationHelper.InvokeTool(
                     context.Console, 
                     "git",
@@ -1662,7 +1662,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 document.Save( xmlWriter );
             }
 
-            context.Console.WriteMessage( $"Writing '{mainVersionFile}'" );
+            context.Console.WriteMessage( $"Writing '{mainVersionFile}'." );
 
             return true;
         }
