@@ -22,8 +22,15 @@ public static class TestDependencies
         "postsharp",
         ("Test_PostSharpEngineeringTestTransitiveDependency_DebugBuild", "Test_PostSharpEngineeringTestTransitiveDependency_ReleaseBuild", "Test_PostSharpEngineeringTestTransitiveDependency_PublicBuild") );
 
+    public static DependencyDefinition GitHub { get; } = new(
+        "PostSharp.Engineering.Test.GitHub",
+        VcsProvider.GitHub,
+        "postsharp",
+        ("Test_PostSharpEngineeringTestGitHub_DebugBuild", "Test_PostSharpEngineeringTestGitHub_ReleaseBuild", "Test_PostSharpEngineeringTestGitHub_PublicBuild") );
+
     public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
         Product,
         Dependency,
-        TransitiveDependency );
+        TransitiveDependency,
+        GitHub );
 }
