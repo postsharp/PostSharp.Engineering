@@ -1456,7 +1456,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 if ( isHttps )
                 {
-                    if ( !TeamCityHelper.GetTeamCitySourceWriteToken( out var teamcitySourceWriteTokenEnvironmentVariableName, out var teamcitySourceCodeWritingToken ) )
+                    if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken( out var teamcitySourceWriteTokenEnvironmentVariableName, out var teamcitySourceCodeWritingToken ) )
                     {
                         context.Console.WriteImportantMessage( $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
                     }
@@ -1571,7 +1571,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 if ( isHttps )
                 {
-                    if ( !TeamCityHelper.GetTeamCitySourceWriteToken( out var teamcitySourceWriteTokenEnvironmentVariableName, out var teamcitySourceCodeWritingToken ) )
+                    if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken( out var teamcitySourceWriteTokenEnvironmentVariableName, out var teamcitySourceCodeWritingToken ) )
                     {
                         context.Console.WriteImportantMessage( $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
                     }
