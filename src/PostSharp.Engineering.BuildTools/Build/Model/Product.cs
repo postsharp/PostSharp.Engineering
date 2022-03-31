@@ -1102,8 +1102,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var hasTarget = false;
             var configurationInfo = this.Configurations.GetValue( configuration );
 
-            Console.WriteLine( settings.Force );
-            
             // Get the location of MainVersion.props file.
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,
