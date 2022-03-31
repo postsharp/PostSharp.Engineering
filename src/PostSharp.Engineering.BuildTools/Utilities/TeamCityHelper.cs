@@ -7,7 +7,7 @@ public static class TeamCityHelper
 {
     public static bool IsTeamCityBuild { get; } = Environment.GetEnvironmentVariable( "TEAMCITY_GIT_PATH" ) != null;
     
-    public static bool GetTeamCitySourceWriteToken( out string environmentVariableName, [NotNullWhen( true )] out string? teamCitySourceWriteToken )
+    public static bool TryGetTeamCitySourceWriteToken( out string environmentVariableName, [NotNullWhen( true )] out string? teamCitySourceWriteToken )
     {
         environmentVariableName = "TEAMCITY_SOURCE_WRITE_TOKEN";
         teamCitySourceWriteToken = Environment.GetEnvironmentVariable( environmentVariableName );
