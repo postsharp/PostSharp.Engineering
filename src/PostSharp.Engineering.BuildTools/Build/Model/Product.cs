@@ -1175,27 +1175,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteSuccess( "Publishing has succeeded." );
             }
 
-            // TODO: should following 3 steps affect publishing (hence the 'falses')
             // After successful artifact publishing the last commit is tagged with current version tag.
             if ( !AddTagToLastCommit( context, currentVersion, packageVersionSuffix ) )
             {
                 return false;
             }
 
-            // TODO: Should merge fail affect the Publishing?
             // Checks if the current branch needs to be merged to master.
             if ( RequiresMergeOfBranches( context, out var currentBranch ) )
             {
                 context.Console.WriteImportantMessage( $"Branch '{currentBranch}' requires merging to master." );
 
-                // If so, merge is started.
+                // Merge current branch.
                 if ( !MergeBranchToMaster( context, currentBranch ) )
                 {
                     return false;
                 }
             }
-            
-            // TODO: Shouldn't commit tagging be after merge commit?
 
             // Finally the MainVersion.props version is bumped.
             if ( !this.BumpVersion( context, mainVersionFile, currentVersion, packageVersionSuffix ) )
@@ -1498,7 +1494,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private static bool RequiresMergeOfBranches( BuildContext context, [NotNullWhen( true )] out string? currentBranch )
         {
-            // TODO: Keep this?
             // Fetch all remotes to make sure the merge has not already been done.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -1561,7 +1556,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             var lastCommonCommitHash = gitOutput;
 
-            // If the commit hashes are equal, there haven't been any unmerged commits.
+            // If the commit hashes are equal, there haven't been any unmerged commits, or the current branch is actually master.
             return !lastCurrentBranchCommitHash.Equals( lastCommonCommitHash, StringComparison.Ordinal );
         }
 
@@ -1577,12 +1572,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // TODO: decide if --no-ff is kept or not, the merge commit message is not created if FastForward merge is occurring.
             // Attempts merging branch to master with custom merge message. --no-ff option is to force merge commit to be created.
             if ( !ToolInvocationHelper.InvokeTool(
                     context.Console,
                     "git",
-                    $"merge {branchToMerge} --no-ff -m \"Merged '{branchToMerge}' to 'master'.\"",
+                    $"merge {branchToMerge}",
                     context.RepoDirectory ) )
             {
                 return false;
