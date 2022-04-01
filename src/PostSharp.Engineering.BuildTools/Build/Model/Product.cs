@@ -1183,16 +1183,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // TODO: Should merge fail affect the Publishing?
-            // TODO: Does it really have to be before BumpVersion, because if it is, the version bump commit will be bound to 'dev' branch and only previous changes will be merged
+            // Checks if the current branch needs to be merged to master.
             if ( RequiresMergeOfBranches( context, out var currentBranch ) )
             {
                 context.Console.WriteImportantMessage( $"Branch '{currentBranch}' requires merging to master." );
-                
-                if ( !MergeBranches( context, currentBranch ) )
+
+                // If so, merge is started.
+                if ( !MergeBranchToMaster( context, currentBranch ) )
                 {
                     return false;
                 }
             }
+            
+            // TODO: Shouldn't commit tagging be after merge commit?
 
             // Finally the MainVersion.props version is bumped.
             if ( !this.BumpVersion( context, mainVersionFile, currentVersion, packageVersionSuffix ) )
@@ -1495,6 +1498,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private static bool RequiresMergeOfBranches( BuildContext context, [NotNullWhen( true )] out string? currentBranch )
         {
+            // TODO: Keep this?
             // Fetch all remotes to make sure the merge has not already been done.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -1510,7 +1514,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.RepoDirectory,
                 out var gitExitCode,
                 out var gitOutput );
-            
+
             if ( gitExitCode != 0 )
             {
                 context.Console.WriteError( gitOutput );
@@ -1520,7 +1524,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             currentBranch = gitOutput.Trim();
-            
+
             // Returns the last commit on the current branch in the commit hash format.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -1538,7 +1542,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             var lastCurrentBranchCommitHash = gitOutput;
-            
+
             // Returns hash of as good common ancestor commit as possible between master and current branch.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -1560,9 +1564,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // If the commit hashes are equal, there haven't been any unmerged commits.
             return !lastCurrentBranchCommitHash.Equals( lastCommonCommitHash, StringComparison.Ordinal );
         }
-        
-        private static bool MergeBranches( BuildContext context, string currentBranch )
+
+        private static bool MergeBranchToMaster( BuildContext context, string branchToMerge )
         {
+            // Change to the master branch before we do merge.
             if ( !ToolInvocationHelper.InvokeTool(
                     context.Console, 
                     "git",
@@ -1572,11 +1577,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // Attempts merging current branch into master.
+            // TODO: decide if --no-ff is kept or not, the merge commit message is not created if FastForward merge is occurring.
+            // Attempts merging branch to master with custom merge message. --no-ff option is to force merge commit to be created.
             if ( !ToolInvocationHelper.InvokeTool(
                     context.Console,
                     "git",
-                    $"merge {currentBranch} --no-ff -m \"Merge '{currentBranch}' to 'master'.\"",
+                    $"merge {branchToMerge} --no-ff -m \"Merged '{branchToMerge}' to 'master'.\"",
                     context.RepoDirectory ) )
             {
                 return false;
@@ -1599,7 +1605,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             var gitOrigin = gitOutput.Trim();
-            
+
             var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
 
             // When on TeamCity, origin will be updated to form including Git authentication credentials.
@@ -1618,7 +1624,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            // Push merge operation to origin
+            // Push completed merge operation to remote.
             if ( !ToolInvocationHelper.InvokeTool(
                     context.Console, 
                     "git",
@@ -1627,23 +1633,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
-            
-            context.Console.WriteSuccess( $"Merging '{currentBranch}' into 'master' branch was successful." );
 
-            return true;
-        }
+            context.Console.WriteSuccess( $"Merging '{branchToMerge}' into 'master' branch was successful." );
 
-        private bool RemoveTagFromLastCommit( BuildContext context, string tag )
-        {
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console, 
-                    "git",
-                    $"push --delete origin",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
-            
             return true;
         }
 
