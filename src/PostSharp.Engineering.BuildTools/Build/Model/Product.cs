@@ -1,5 +1,7 @@
-﻿using Microsoft.Build.Definition;
+﻿using Microsoft.Build.Construction;
+using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
+using Microsoft.CodeAnalysis;
 using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
@@ -17,13 +19,18 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
+using System.Text;
+using System.Xml;
 using System.Xml.Linq;
+using Project = Microsoft.Build.Evaluation.Project;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     public class Product
     {
         private readonly string? _versionsFile;
+
+        private readonly string? _mainVersionFile;
 
         public Product()
         {
@@ -38,6 +45,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             get => this._versionsFile ?? Path.Combine( this.EngineeringDirectory, "Versions.props" );
             init => this._versionsFile = value;
+        }
+
+        public string MainVersionFile
+        {
+            get => this._mainVersionFile ?? Path.Combine( this.EngineeringDirectory, "MainVersion.props" );
+            init => this._mainVersionFile = value;
         }
 
         /// <summary>
@@ -99,6 +112,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             var configuration = settings.BuildConfiguration;
             var buildConfigurationInfo = this.Configurations[configuration];
+
+            // The build for public configuration will not run if there are no changes since the last version tag.
+            if ( configuration == BuildConfiguration.Public )
+            {
+                if ( !settings.Force )
+                {
+                    // Get the latest version tag.
+                    TryGetLastVersionTag( context, out var versionTag );
+
+                    // If there are no changes since the last tag (i.e. last publishing) the build will end successfully here.
+                    if ( !AreChangesSinceLastVersionTag( context, versionTag ) )
+                    {
+                        return true;
+                    }
+                }
+            }
 
             // Build dependencies.
             if ( !settings.NoDependencies && !this.Prepare( context, settings ) )
@@ -1073,13 +1102,46 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var hasTarget = false;
             var configurationInfo = this.Configurations.GetValue( configuration );
 
+            // Get the location of MainVersion.props file.
+            var mainVersionFile = Path.Combine(
+                context.RepoDirectory,
+                this.MainVersionFile );
+
+            // Get the current version from MainVersion.props.
+            if ( !TryLoadMainVersion( mainVersionFile, out var currentVersion, out var packageVersionSuffix ) )
+            {
+                return false;
+            }
+            
+            // Get the latest version tag.
+            if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
+            {
+                return false;
+            }
+
+            // Using --force flag ignores checks for changes and version bump.
+            if ( !settings.Force )
+            {
+                // If there are no changes since the last tag (i.e. last publishing) the publishing will end successfully here.
+                if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
+                {
+                    return true;
+                }
+
+                // If version has not been bumped since the last publish, it requires manual bump and therefore the version can't be published.
+                if ( !IsVersionBumped( context, currentVersion, lastVersionTag ) )
+                {
+                    return false;
+                }
+            }
+            
             if ( configuration == BuildConfiguration.Public )
             {
                 this.Verify( context, settings );
             }
 
             context.Console.WriteHeading( "Publishing files" );
-
+            
             if ( !Publisher.PublishDirectory(
                     context,
                     settings,
@@ -1111,6 +1173,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             else
             {
                 context.Console.WriteSuccess( "Publishing has succeeded." );
+            }
+
+            // After successful artifact publishing the last commit is tagged with current version tag.
+            if ( !AddTagToLastCommit( context, currentVersion, packageVersionSuffix ) )
+            {
+                return false;
+            }
+
+            // Finally the MainVersion.props version is bumped.
+            if ( !this.BumpVersion( context, mainVersionFile, currentVersion, packageVersionSuffix ) )
+            {
+                return false;
             }
 
             return true;
@@ -1253,6 +1327,340 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteWarning( $"Replacing '{filePath}'." );
                 File.WriteAllText( filePath, content.ToString() );
             }
+
+            return true;
+        }
+
+        private static bool TryGetLastVersionTag( BuildContext context, [NotNullWhen( true )] out string? lastVersionTag )
+        {
+            // Returns the list of tag reference names treated as versions in descending order.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                "tag --sort=-version:refname",
+                context.RepoDirectory,
+                out _,
+                out var tags );
+
+            // Only the most recent tag from the list of is used.
+            using ( var reader = new StringReader( tags ) )
+            {
+                lastVersionTag = reader.ReadLine();
+            }
+
+            if ( string.IsNullOrEmpty( lastVersionTag ) )
+            {
+                context.Console.WriteWarning( "There is no version tag in this repository. For clean repositories tag the initial commit with 0.0.0 version tag." );
+
+                return false;
+            }
+
+            return true;
+        }
+        
+        private static bool AreChangesSinceLastVersionTag( BuildContext context, string? lastVersionTag )
+        {
+            // Gets the count from list of committed changes between last version tag and current HEAD excluding version bumps.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"rev-list --count \"{lastVersionTag}..HEAD\" --invert-grep --grep=\"<<VERSION_BUMP>>\"",
+                context.RepoDirectory,
+                out var gitExitCode,
+                out var gitOutput );
+
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOutput );
+
+                return false;
+            }
+
+            var commitsCount = int.Parse( gitOutput, CultureInfo.InvariantCulture );
+
+            if ( commitsCount > 0 )
+            {
+                context.Console.WriteWarning( $"There is total of {commitsCount} unpublished commits since '{lastVersionTag}' tag." );
+
+                return true;
+            }
+
+            context.Console.WriteWarning( "There are no unpublished changes since the last version tag. Use --force." );
+
+            return false;
+        }
+
+        private static bool IsVersionBumped( BuildContext context, Version currentVersion, string lastVersionTag )
+        {
+            var version = lastVersionTag;
+
+            // Version can contain suffixes such as "-preview". By convention, all our version numbers before the dash are unique (i.e. given a version x.y-z1, we never have x.y-z2).
+            if ( version.Contains( '-', StringComparison.InvariantCulture ) )
+            {
+                // Only numeric part of version is kept.
+                version = lastVersionTag.Substring( 0, lastVersionTag.IndexOf( '-', StringComparison.InvariantCulture ) );
+            }
+
+            var lastVersion = new Version( version );
+
+            if ( lastVersion > currentVersion )
+            {
+                context.Console.WriteError( $"Last tag version '{lastVersion}' is bigger than current version '{currentVersion}'." );
+
+                return false;
+            }
+
+            if ( lastVersion == currentVersion )
+            {
+                context.Console.WriteError( $"The '{context.Product.ProductName}' version has not been bumped. Use --force." );
+
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool AddTagToLastCommit( BuildContext context, Version? version, string? packageVersionSuffix )
+        {
+            var versionTag = string.Concat( version, packageVersionSuffix );
+
+            // Tagging the last commit with version.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"tag \"{versionTag}\"",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            // Returns the remote origin.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"remote get-url origin",
+                    context.RepoDirectory,
+                    out _,
+                    out var gitOrigin ) )
+            {
+                return false;
+            }
+
+            gitOrigin = gitOrigin.Trim();
+            var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
+
+            // When on TeamCity, if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
+            if ( TeamCityHelper.IsTeamCityBuild )
+            {
+                if ( isHttps )
+                {
+                    if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken( out var teamcitySourceWriteTokenEnvironmentVariableName, out var teamcitySourceCodeWritingToken ) )
+                    {
+                        context.Console.WriteImportantMessage( $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
+                    }
+                    else
+                    {
+                        gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
+                    }
+                }
+            }
+
+            // Pushes tag to origin.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console, 
+                    "git",
+                    $"push {gitOrigin} {versionTag}",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            context.Console.WriteSuccess( $"Tagging the latest commit with version '{versionTag}' was successful." );
+
+            return true;
+        }
+
+        private bool BumpVersion( BuildContext context, string mainVersionFile, Version currentVersion, string packageVersionSuffix )
+        {
+            if ( !File.Exists( mainVersionFile ) )
+            {
+                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
+
+                return false;
+            }
+
+            // Increment the version.
+            if ( !IncrementVersion( context, currentVersion, out var newVersion ) )
+            {
+                context.Console.WriteError( $"Could not increment version '{currentVersion}'." );
+
+                return false;
+            }
+
+            // Save the MainVersion.props with new version.
+            if ( !TrySaveMainVersion( context, mainVersionFile, newVersion, packageVersionSuffix ) )
+            {
+                return false;
+            }
+
+            // Commit the version bump.
+            if ( !this.TryCommitVersionBump( context, currentVersion, newVersion ) )
+            {   
+                return false;
+            }
+
+            context.Console.WriteSuccess( $"Bumping the '{context.Product.ProductName}' version from '{currentVersion}{packageVersionSuffix}' to '{newVersion}{packageVersionSuffix}' was successful." );
+
+            return true;
+        }
+
+        private bool TryCommitVersionBump( BuildContext context, Version currentVersion, Version newVersion )
+        {
+            // Adds bumped MainVersion.props to Git staging area.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"add {this.MainVersionFile}",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            // Returns the remote origin.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"remote get-url origin",
+                context.RepoDirectory,
+                out var gitExitCode,
+                out var gitOrigin );
+
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOrigin );
+
+                return false;
+            }
+
+            gitOrigin = gitOrigin.Trim();
+            var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
+
+            // When on TeamCity, Git user credentials are set to TeamCity and if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
+            if ( TeamCityHelper.IsTeamCityBuild )
+            {
+                // Following configurations are set only for the current operations in the repository.
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        "config user.name TeamCity",
+                        context.RepoDirectory ) )
+                {
+                    return false;
+                }
+
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        "config user.email teamcity@postsharp.net",
+                        context.RepoDirectory ) )
+                {
+                    return false;
+                }
+
+                if ( isHttps )
+                {
+                    if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken( out var teamcitySourceWriteTokenEnvironmentVariableName, out var teamcitySourceCodeWritingToken ) )
+                    {
+                        context.Console.WriteImportantMessage( $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
+                    }
+                    else
+                    {
+                        gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
+                    }
+                }
+            }
+
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console, 
+                    "git",
+                    $"commit -m \"<<VERSION_BUMP>> {currentVersion} to {newVersion}\"",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"push {gitOrigin}",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool IncrementVersion( BuildContext context, Version currentVersion, out Version newVersion )
+        {
+            var major = currentVersion.Major;
+            var minor = currentVersion.Minor;
+            var build = currentVersion.Build;
+
+            build++;
+
+            newVersion = new Version( major, minor, build );
+
+            return true;
+        }
+
+        private static bool TryLoadMainVersion( string mainVersionFile, [NotNullWhen( true )] out Version? currentVersion, out string packageVersionSuffix )
+        {
+            var document = XDocument.Load( mainVersionFile );
+            var project = document.Root;
+            var properties = project?.Element( "PropertyGroup" );
+            var mainVersionString = properties?.Element( "MainVersion" )?.Value;
+            packageVersionSuffix = properties?.Element( "PackageVersionSuffix" )?.Value ?? string.Empty;
+
+            if ( mainVersionString == null )
+            {
+                currentVersion = null;
+
+                return false;
+            }
+
+            currentVersion = Version.Parse( mainVersionString );
+
+            return true;
+        }
+
+        private static bool TrySaveMainVersion( BuildContext context, string mainVersionFile, Version version, string packageVersionSuffix )
+        {
+            if ( !File.Exists( mainVersionFile ) )
+            {
+                context.Console.WriteError( $"Could not save '{mainVersionFile}' with version '{version}'." );
+
+                return false;
+            }
+
+            var document = XDocument.Load( mainVersionFile );
+            var project = document.Root;
+            var properties = project!.Element( "PropertyGroup" );
+            var mainVersionElement = properties!.Element( "MainVersion" );
+            var packageVersionSuffixElement = properties?.Element( "PackageVersionSuffix" );
+            
+            mainVersionElement!.Value = version.ToString();
+            packageVersionSuffixElement!.Value = packageVersionSuffix;
+
+            // Using settings to keep the indentation as well as encoding identical to original MainVersion.props.
+            var xmlWriterSettings = new XmlWriterSettings { OmitXmlDeclaration = true, Indent = true, IndentChars = "    ", Encoding = new UTF8Encoding( false ) };
+
+            using ( var xmlWriter = XmlWriter.Create( mainVersionFile, xmlWriterSettings ) )
+            {
+                document.Save( xmlWriter );
+            }
+
+            context.Console.WriteMessage( $"Writing '{mainVersionFile}'." );
 
             return true;
         }

@@ -8,7 +8,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.swabra
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.powerShell
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
 
-version = "2019.2"
+version = "2021.2"
 
 project {
 
@@ -55,6 +55,8 @@ object DebugBuild : BuildType({
         vcs {
             watchChangesInDependencies = true
             branchFilter = "+:<default>"
+            // Build will not trigger automatically if the commit message contains comment value.
+            triggerRules = "-:comment=<<VERSION_BUMP>>:**"
         }        
 
     }
