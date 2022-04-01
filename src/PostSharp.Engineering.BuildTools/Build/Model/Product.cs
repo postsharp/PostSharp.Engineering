@@ -1102,8 +1102,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var hasTarget = false;
             var configurationInfo = this.Configurations.GetValue( configuration );
 
-            Console.WriteLine( settings.Force );
-            
             // Get the location of MainVersion.props file.
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,
@@ -1177,10 +1175,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteSuccess( "Publishing has succeeded." );
             }
 
+            // TODO: should following 3 steps affect publishing (hence the 'falses')
             // After successful artifact publishing the last commit is tagged with current version tag.
             if ( !AddTagToLastCommit( context, currentVersion, packageVersionSuffix ) )
             {
                 return false;
+            }
+
+            // TODO: Should merge fail affect the Publishing?
+            // TODO: Does it really have to be before BumpVersion, because if it is, the version bump commit will be bound to 'dev' branch and only previous changes will be merged
+            if ( RequiresMergeOfBranches( context, out var currentBranch ) )
+            {
+                context.Console.WriteImportantMessage( $"Branch '{currentBranch}' requires merging to master." );
+                
+                if ( !MergeBranches( context, currentBranch ) )
+                {
+                    return false;
+                }
             }
 
             // Finally the MainVersion.props version is bumped.
@@ -1479,6 +1490,160 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteSuccess( $"Tagging the latest commit with version '{versionTag}' was successful." );
 
+            return true;
+        }
+
+        private static bool RequiresMergeOfBranches( BuildContext context, [NotNullWhen( true )] out string? currentBranch )
+        {
+            // Fetch all remotes to make sure the merge has not already been done.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"fetch --all",
+                context.RepoDirectory );
+
+            // Returns the reference name of the current branch.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"branch --show-current",
+                context.RepoDirectory,
+                out var gitExitCode,
+                out var gitOutput );
+            
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOutput );
+                currentBranch = null;
+
+                return false;
+            }
+
+            currentBranch = gitOutput.Trim();
+            
+            // Returns the last commit on the current branch in the commit hash format.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"log -n 1 --pretty=format:\"%H\"",
+                context.RepoDirectory,
+                out gitExitCode,
+                out gitOutput );
+            
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOutput );
+
+                return false;
+            }
+
+            var lastCurrentBranchCommitHash = gitOutput;
+            
+            // Returns hash of as good common ancestor commit as possible between master and current branch.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"merge-base master {currentBranch}",
+                context.RepoDirectory,
+                out gitExitCode,
+                out gitOutput );
+            
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOutput );
+
+                return false;
+            }
+
+            var lastCommonCommitHash = gitOutput;
+
+            // If the commit hashes are equal, there haven't been any unmerged commits.
+            return !lastCurrentBranchCommitHash.Equals( lastCommonCommitHash, StringComparison.Ordinal );
+        }
+        
+        private static bool MergeBranches( BuildContext context, string currentBranch )
+        {
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console, 
+                    "git",
+                    $"checkout master",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            // Attempts merging current branch into master.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"merge {currentBranch} --no-ff -m \"Merge '{currentBranch}' to 'master'.\"",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            // Returns the remote origin.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"remote get-url origin",
+                context.RepoDirectory,
+                out var gitExitCode,
+                out var gitOutput );
+
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOutput );
+                
+                return false;
+            }
+
+            var gitOrigin = gitOutput.Trim();
+            
+            var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
+
+            // When on TeamCity, origin will be updated to form including Git authentication credentials.
+            if ( TeamCityHelper.IsTeamCityBuild )
+            {
+                if ( isHttps )
+                {
+                    if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken( out var teamcitySourceWriteTokenEnvironmentVariableName, out var teamcitySourceCodeWritingToken ) )
+                    {
+                        context.Console.WriteImportantMessage( $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
+                    }
+                    else
+                    {
+                        gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
+                    }
+                }
+            }
+
+            // Push merge operation to origin
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console, 
+                    "git",
+                    $"push {gitOrigin}",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+            
+            context.Console.WriteSuccess( $"Merging '{currentBranch}' into 'master' branch was successful." );
+
+            return true;
+        }
+
+        private bool RemoveTagFromLastCommit( BuildContext context, string tag )
+        {
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console, 
+                    "git",
+                    $"push --delete origin",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+            
             return true;
         }
 
