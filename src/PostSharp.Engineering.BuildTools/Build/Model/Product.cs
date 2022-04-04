@@ -1108,7 +1108,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 this.MainVersionFile );
 
             // Get the current version from MainVersion.props.
-            if ( !TryLoadMainVersion( mainVersionFile, out var currentVersion, out var packageVersionSuffix ) )
+            if ( !this.TryLoadMainVersion( context, configuration, mainVersionFile, out var currentVersion, out var packageVersionSuffix ) )
             {
                 return false;
             }
@@ -1181,10 +1181,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // Finally the MainVersion.props version is bumped.
-            if ( !this.BumpVersion( context, mainVersionFile, currentVersion, packageVersionSuffix ) )
+            // Finally the MainVersion.props version is bumped, if there is no MainVersionDependency defined in the Product.
+            if ( this.MainVersionDependency == null )
             {
-                return false;
+                if ( !this.BumpVersion( context, mainVersionFile, currentVersion, packageVersionSuffix ) )
+                {
+                    return false;
+                }
             }
 
             return true;
@@ -1614,24 +1617,67 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool TryLoadMainVersion( string mainVersionFile, [NotNullWhen( true )] out Version? currentVersion, out string packageVersionSuffix )
+        private bool TryLoadMainVersion( BuildContext context, BuildConfiguration configuration, string mainVersionFile, [NotNullWhen( true )] out Version? currentVersion, out string packageVersionSuffix )
         {
-            var document = XDocument.Load( mainVersionFile );
-            var project = document.Root;
-            var properties = project?.Element( "PropertyGroup" );
-            var mainVersionString = properties?.Element( "MainVersion" )?.Value;
-            packageVersionSuffix = properties?.Element( "PackageVersionSuffix" )?.Value ?? string.Empty;
+            var version = ReadMainVersionFile( mainVersionFile );
+            var patchVersion = version.PatchVersion;
+            packageVersionSuffix = version.PackageVersionSuffix;
 
-            if ( mainVersionString == null )
+            currentVersion = null;
+
+            // If the MainVersionDependency is not set, the version is set to MainVersion.props value.
+            if ( this.MainVersionDependency == null )
             {
-                currentVersion = null;
+                Console.WriteLine( "MVD is not set, doing the normal VersionLoad" );
+                var document = XDocument.Load( mainVersionFile );
+                var project = document.Root;
+                var properties = project?.Element( "PropertyGroup" );
+                var mainVersionString = properties?.Element( "MainVersion" )?.Value;
+                packageVersionSuffix = properties?.Element( "PackageVersionSuffix" )?.Value ?? string.Empty;
+                
+                if ( mainVersionString == null )
+                {
+                    return false;
+                }
 
-                return false;
+                currentVersion = Version.Parse( mainVersionString );
+
+                return true;
             }
+            else
+            {
+                Console.WriteLine( "MVD" );
+                if ( patchVersion != null )
+                {
+                    Console.WriteLine( "patch set" );
+                    currentVersion = new Version( patchVersion );
 
-            currentVersion = Version.Parse( mainVersionString );
+                    return true;
+                }
 
-            return true;
+                // If there is no patch version defined in the MainVersion.props, the version will be set to MainVersionDependency value.
+                Console.WriteLine( "patch not set" );
+                
+                if ( !VersionsOverrideFile.TryLoad( context, configuration, out var versionsOverrideFile ) )
+                {
+                    Console.WriteLine( "failed to load versions" );
+                    
+                    return false;
+                }
+
+                Console.WriteLine( "depe" );
+                var dependencyVersion = versionsOverrideFile.Dependencies[this.MainVersionDependency.Name].Version;
+
+                if ( dependencyVersion == null )
+                {
+                    return false;
+                }
+
+                Console.WriteLine( "setting" );
+                currentVersion = new Version( dependencyVersion );
+
+                return true;
+            }
         }
 
         private static bool TrySaveMainVersion( BuildContext context, string mainVersionFile, Version version, string packageVersionSuffix )
