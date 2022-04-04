@@ -15,7 +15,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
         public override bool Pack( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "pack", "--no-restore" );
 
-        public override bool Test( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "test", "--no-restore" );
+        public override bool Test( BuildContext context, BuildSettings settings )
+        {
+            var resultsDirectory = context.Product.TestResultsDirectory.ToString( new BuildInfo( null!, settings.BuildConfiguration, context.Product ) );
+            
+            return this.RunDotNet( context, settings, "test", $"--no-restore --logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory {resultsDirectory}" );
+        }
 
         public override bool Restore( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "restore", "--no-cache" );
 
