@@ -1,7 +1,5 @@
-﻿using Microsoft.Build.Construction;
-using Microsoft.Build.Definition;
+﻿using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
-using Microsoft.CodeAnalysis;
 using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
@@ -1154,18 +1152,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteSuccess( "Publishing has succeeded." );
             }
 
-            // After successful artifact publishing the last commit is tagged with current version tag.
-            if ( !AddTagToLastCommit( context, currentVersion, packageVersionSuffix ) )
+            // Only Public build will tag and version bump. This is to prevent changes in the original repository by publishing beta packages of PostSharp.Engineering under Debug configuration used for testing on TeamCity.
+            if ( configuration == BuildConfiguration.Public )
             {
-                return false;
-            }
-
-            // Finally the MainVersion.props version is bumped, but only if there is no MainVersionDependency defined in the Product.
-            if ( this.MainVersionDependency == null )
-            {
-                if ( !this.BumpVersion( context, mainVersionFile, currentVersion, ourPatchVersion, packageVersionSuffix ) )
+                // After successful artifact publishing the last commit is tagged with current version tag.
+                if ( !AddTagToLastCommit( context, currentVersion, packageVersionSuffix ) )
                 {
                     return false;
+                }
+
+                // If MainVersionDependency is defined we don't do the VersionBump.
+                if ( this.MainVersionDependency == null )
+                {
+                    // MainVersion.props version is bumped and pushed to the repository.
+                    if ( !this.BumpVersion( context, mainVersionFile, currentVersion, ourPatchVersion, packageVersionSuffix ) )
+                    {
+                        return false;
+                    }
                 }
             }
 
