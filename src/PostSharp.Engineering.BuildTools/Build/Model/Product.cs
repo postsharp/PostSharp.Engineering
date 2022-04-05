@@ -239,7 +239,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     File.Copy( Path.Combine( privateArtifactsDir, file.Path ), targetFile, true );
                 }
 
-                // Sign public artifacts.
                 var signSuccess = true;
 
                 if ( buildConfigurationInfo.RequiresSigning && !settings.NoSign )
@@ -1645,12 +1644,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var mainVersion = version.MainVersion;
             var overriddenPatchVersion = version.OverriddenPatchVersion;
             packageVersionSuffix = version.PackageVersionSuffix;
+            currentVersion = null;
             ourPatchVersion = -1;
 
-            var mainVersionDependency = this.MainVersionDependency;
-            
             // The MainVersionDependency is not defined.
-            if ( mainVersionDependency == null )
+            if ( this.MainVersionDependency == null )
             {
                 var document = XDocument.Load( mainVersionFile );
                 var project = document.Root;
@@ -1671,14 +1669,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             else
             {
                 // If MainVersionDependency and OverriddenPatchVersion properties are defined, we use OverriddenPatchVersion value.
-                if ( version.OverriddenPatchVersion != null )
+                if ( overriddenPatchVersion != null )
                 {
                     currentVersion = new Version( overriddenPatchVersion );
 
                     return true;
                 }
 
-                // TODO: Load version number from artifacts instead of this
+                // If no OverridenPatchVersion is defined, we use MainVersion property from private artifact.
                 var artifactVersionFile = Path.Combine(
                     context.RepoDirectory,
                     context.Product.PrivateArtifactsDirectory.ToString(),
@@ -1687,13 +1685,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var document = XDocument.Load( artifactVersionFile );
                 var project = document.Root;
                 var properties = project?.Element( "PropertyGroup" );
-                var ver = properties?.Element( $"{context.Product.ProductNameWithoutDot}MainVersion" )?.Value;
-                Console.WriteLine( ver );
+                mainVersion = properties?.Element( $"{context.Product.ProductNameWithoutDot}MainVersion" )?.Value;
 
                 // Set the current version to dependency version.
-                currentVersion = new Version( ver );
+                if ( mainVersion != null )
+                {
+                    currentVersion = new Version( mainVersion );
 
-                return true;
+                    return true;
+                }
+
+                return false;
             }
         }
 
