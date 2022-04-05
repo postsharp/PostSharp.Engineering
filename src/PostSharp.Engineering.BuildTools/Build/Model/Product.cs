@@ -113,8 +113,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var configuration = settings.BuildConfiguration;
             var buildConfigurationInfo = this.Configurations[configuration];
 
-            // The build for public configuration will not run if there are no changes since the last version tag.
-            if ( configuration == BuildConfiguration.Public )
+            // The build for public configuration will not be run on TeamCity if there are no changes since the last version tag.
+            if ( TeamCityHelper.IsTeamCityBuild && configuration == BuildConfiguration.Public )
             {
                 if ( !settings.Force )
                 {
@@ -124,6 +124,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     // If there are no changes since the last tag (i.e. last publishing) the build will end successfully here.
                     if ( !AreChangesSinceLastVersionTag( context, versionTag ) )
                     {
+                        context.Console.WriteError( "Public build cannot be done because there are no new unpublished changes since the last version tag. Use --force." );
+
                         return true;
                     }
                 }
@@ -430,7 +432,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return new BuildInfo( packageVersion, Enum.Parse<BuildConfiguration>( configuration ), this );
         }
 
-        private static (string MainVersion, string? PatchVersion, string PackageVersionSuffix) ReadMainVersionFile( string path )
+        private static (string MainVersion, string? PatchedVersion, string PackageVersionSuffix) ReadMainVersionFile( string path )
         {
             var versionFilePath = path;
             var versionFile = Project.FromFile( versionFilePath, new ProjectOptions() );
@@ -440,9 +442,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 .SingleOrDefault( p => p.Name == "MainVersion" )
                 ?.EvaluatedValue;
 
-            var patchVersion = versionFile
+            var patchedVersion = versionFile
                 .Properties
-                .SingleOrDefault( p => p.Name == "PatchVersion" )
+                .SingleOrDefault( p => p.Name == "PatchedVersion" )
                 ?.EvaluatedValue;
 
             if ( string.IsNullOrEmpty( mainVersion ) )
@@ -460,7 +462,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
-            return (mainVersion, patchVersion, suffix);
+            return (mainVersion, patchedVersion, suffix);
         }
 
         /// <summary>
@@ -740,9 +742,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             version = null;
             string? mainVersion;
             string? mainPackageVersionSuffix;
-            string? patchVersion;
+            string? patchedVersion;
 
-            (mainVersion, patchVersion, mainPackageVersionSuffix) =
+            (mainVersion, patchedVersion, mainPackageVersionSuffix) =
                 ReadMainVersionFile(
                     Path.Combine(
                         context.RepoDirectory,
@@ -785,10 +787,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
             }
 
-            if ( !string.IsNullOrWhiteSpace( patchVersion ) && !patchVersion.StartsWith( mainVersion + ".", StringComparison.Ordinal ) )
+            if ( !string.IsNullOrWhiteSpace( patchedVersion ) && !patchedVersion.StartsWith( mainVersion + ".", StringComparison.Ordinal ) )
             {
                 context.Console.WriteError(
-                    $"The PatchVersion property in MainVersion.props ({patchVersion}) does not match the MainVersion property value ({mainVersion})." );
+                    $"The PatchedVersion property in MainVersion.props ({patchedVersion}) does not match the MainVersion property value ({mainVersion})." );
 
                 return false;
             }
@@ -860,10 +862,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     versionSuffix = mainPackageVersionSuffix.TrimStart( '-' );
                     patchNumber = 0;
 
-                    if ( !string.IsNullOrWhiteSpace( patchVersion ) )
+                    if ( !string.IsNullOrWhiteSpace( patchedVersion ) )
                     {
-                        var parsedPatchVersion = Version.Parse( patchVersion );
-                        patchNumber = parsedPatchVersion.Revision;
+                        var parsedPatchedVersion = Version.Parse( patchedVersion );
+                        patchNumber = parsedPatchedVersion.Revision;
                     }
 
                     break;
@@ -1108,11 +1110,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 this.MainVersionFile );
 
             // Get the current version from MainVersion.props.
-            if ( !this.TryLoadMainVersion( context, configuration, mainVersionFile, out var currentVersion, out var packageVersionSuffix ) )
+            if ( !this.TryLoadMainVersion( context, configuration, mainVersionFile, out var currentVersion, out var ourPatchVersion, out var packageVersionSuffix ) )
             {
                 return false;
             }
-            
+
             // Get the latest version tag.
             if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
             {
@@ -1125,6 +1127,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // If there are no changes since the last tag (i.e. last publishing) the publishing will end successfully here.
                 if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
                 {
+                    context.Console.WriteError( "Publishing cannot be done because there are no new unpublished changes since the last version tag. Use --force." );
+
                     return true;
                 }
 
@@ -1134,7 +1138,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     return false;
                 }
             }
-            
+
             if ( configuration == BuildConfiguration.Public )
             {
                 this.Verify( context, settings );
@@ -1181,10 +1185,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // Finally the MainVersion.props version is bumped, if there is no MainVersionDependency defined in the Product.
+            // Finally the MainVersion.props version is bumped, but only if there is no MainVersionDependency defined in the Product.
             if ( this.MainVersionDependency == null )
             {
-                if ( !this.BumpVersion( context, mainVersionFile, currentVersion, packageVersionSuffix ) )
+                if ( !this.BumpVersion( context, mainVersionFile, currentVersion, ourPatchVersion, packageVersionSuffix ) )
                 {
                     return false;
                 }
@@ -1388,8 +1392,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return true;
             }
 
-            context.Console.WriteWarning( "There are no unpublished changes since the last version tag. Use --force." );
-
             return false;
         }
 
@@ -1483,7 +1485,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool BumpVersion( BuildContext context, string mainVersionFile, Version currentVersion, string packageVersionSuffix )
+        private bool BumpVersion( BuildContext context, string mainVersionFile, Version currentVersion, int ourPatchVersion, string packageVersionSuffix )
         {
             if ( !File.Exists( mainVersionFile ) )
             {
@@ -1493,7 +1495,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Increment the version.
-            if ( !IncrementVersion( context, currentVersion, out var newVersion ) )
+            if ( !IncrementVersion( currentVersion, out var newVersion, ref ourPatchVersion ) )
             {
                 context.Console.WriteError( $"Could not increment version '{currentVersion}'." );
 
@@ -1501,7 +1503,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Save the MainVersion.props with new version.
-            if ( !TrySaveMainVersion( context, mainVersionFile, newVersion, packageVersionSuffix ) )
+            if ( !TrySaveMainVersion( context, mainVersionFile, newVersion, ourPatchVersion, packageVersionSuffix ) )
             {
                 return false;
             }
@@ -1604,11 +1606,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool IncrementVersion( BuildContext context, Version currentVersion, out Version newVersion )
+        private static bool IncrementVersion( Version currentVersion, out Version newVersion, ref int ourPatchNumber )
         {
             var major = currentVersion.Major;
             var minor = currentVersion.Minor;
             var build = currentVersion.Build;
+
+            // If our patch version has any positive value including zero, it is incremented.
+            if ( ourPatchNumber != -1 )
+            {
+                ourPatchNumber++;
+            }
 
             build++;
 
@@ -1617,70 +1625,86 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool TryLoadMainVersion( BuildContext context, BuildConfiguration configuration, string mainVersionFile, [NotNullWhen( true )] out Version? currentVersion, out string packageVersionSuffix )
+        private bool TryLoadMainVersion(
+            BuildContext context,
+            BuildConfiguration configuration,
+            string mainVersionFile,
+            [NotNullWhen( true )] out Version? currentVersion,
+            out int ourPatchVersion,
+            out string packageVersionSuffix )
         {
             var version = ReadMainVersionFile( mainVersionFile );
-            var patchVersion = version.PatchVersion;
+            var mainVersion = version.MainVersion;
+            var patchedVersion = version.PatchedVersion;
             packageVersionSuffix = version.PackageVersionSuffix;
 
             currentVersion = null;
+            ourPatchVersion = -1;
 
-            // If the MainVersionDependency is not set, the version is set to MainVersion.props value.
+            // If the MainVersionDependency is not defined, the version defaults to MainVersion value.
             if ( this.MainVersionDependency == null )
             {
-                Console.WriteLine( "MVD is not set, doing the normal VersionLoad" );
                 var document = XDocument.Load( mainVersionFile );
                 var project = document.Root;
                 var properties = project?.Element( "PropertyGroup" );
-                var mainVersionString = properties?.Element( "MainVersion" )?.Value;
-                packageVersionSuffix = properties?.Element( "PackageVersionSuffix" )?.Value ?? string.Empty;
-                
-                if ( mainVersionString == null )
-                {
-                    return false;
-                }
+                var ourPatchVersionString = properties?.Element( "OurPatchVersion" )?.Value;
 
-                currentVersion = Version.Parse( mainVersionString );
+                currentVersion = Version.Parse( mainVersion );
+                
+                // Our patch version is defined.
+                if ( ourPatchVersionString != null )
+                {
+                    ourPatchVersion = int.Parse( ourPatchVersionString, CultureInfo.InvariantCulture );
+                }
 
                 return true;
             }
             else
             {
-                Console.WriteLine( "MVD" );
-                if ( patchVersion != null )
+                // If MainVersionDependency and PatchedVersion properties are defined, we use PatchedVersion value.
+                if ( patchedVersion != null )
                 {
-                    Console.WriteLine( "patch set" );
-                    currentVersion = new Version( patchVersion );
+                    currentVersion = new Version( patchedVersion );
 
                     return true;
                 }
 
-                // If there is no patch version defined in the MainVersion.props, the version will be set to MainVersionDependency value.
-                Console.WriteLine( "patch not set" );
-                
+                // If there is no PatchedVersion property defined in the MainVersion.props, the version will default to version from MainVersionDependency.
                 if ( !VersionsOverrideFile.TryLoad( context, configuration, out var versionsOverrideFile ) )
                 {
-                    Console.WriteLine( "failed to load versions" );
+                    return false;
+                }
+
+                // Get the version file of the MainVersionDependency.
+                var mainVersionDependencyName = this.MainVersionDependency.Name;
+                var dependencyVersionFile = versionsOverrideFile.Dependencies[mainVersionDependencyName].VersionFile;
+
+                if ( dependencyVersionFile == null )
+                {
+                    context.Console.WriteError( $"The main version dependency '{mainVersionDependencyName}' is not defined." );
                     
                     return false;
                 }
 
-                Console.WriteLine( "depe" );
-                var dependencyVersion = versionsOverrideFile.Dependencies[this.MainVersionDependency.Name].Version;
+                // Read the dependency version from the file.
+                var versionDocument = XDocument.Load( dependencyVersionFile );
+                var dependencyVersionElementName = this.MainVersionDependency.NameWithoutDot + "MainVersion";
+                var dependencyVersion = versionDocument.Root?.Element( "PropertyGroup" )?.Element( dependencyVersionElementName )?.Value;
 
                 if ( dependencyVersion == null )
                 {
+                    context.Console.WriteError( $"The property '{mainVersionDependencyName}' is not defined." );
+                    
                     return false;
                 }
-
-                Console.WriteLine( "setting" );
+                
                 currentVersion = new Version( dependencyVersion );
 
                 return true;
             }
         }
 
-        private static bool TrySaveMainVersion( BuildContext context, string mainVersionFile, Version version, string packageVersionSuffix )
+        private static bool TrySaveMainVersion( BuildContext context, string mainVersionFile, Version version, int ourPatchVersion, string packageVersionSuffix )
         {
             if ( !File.Exists( mainVersionFile ) )
             {
@@ -1693,9 +1717,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var project = document.Root;
             var properties = project!.Element( "PropertyGroup" );
             var mainVersionElement = properties!.Element( "MainVersion" );
-            var packageVersionSuffixElement = properties?.Element( "PackageVersionSuffix" );
+            var ourPatchVersionElement = properties.Element( "OurPatchVersion" );
+            var packageVersionSuffixElement = properties.Element( "PackageVersionSuffix" );
+
+            // If OurPatchVersion is defined in MainVersion.props, we write the incremented patch number to it.
+            if ( ourPatchVersion != -1 && ourPatchVersionElement != null )
+            {
+                ourPatchVersionElement.Value = ourPatchVersion.ToString( CultureInfo.InvariantCulture );
+            }
             
-            mainVersionElement!.Value = version.ToString();
+            // Otherwise we replace the whole MainVersion with new version.
+            else
+            {
+                mainVersionElement!.Value = version.ToString();
+            }
+
             packageVersionSuffixElement!.Value = packageVersionSuffix;
 
             // Using settings to keep the indentation as well as encoding identical to original MainVersion.props.
