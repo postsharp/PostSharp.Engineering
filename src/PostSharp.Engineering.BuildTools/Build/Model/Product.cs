@@ -434,7 +434,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return new BuildInfo( packageVersion, Enum.Parse<BuildConfiguration>( configuration ), this );
         }
 
-        private static (string MainVersion, string? PatchedVersion, string PackageVersionSuffix) ReadMainVersionFile( string path )
+        private static (string MainVersion, string? OverriddenPatchVersion, string PackageVersionSuffix) ReadMainVersionFile( string path )
         {
             var versionFilePath = path;
             var versionFile = Project.FromFile( versionFilePath, new ProjectOptions() );
@@ -444,9 +444,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 .SingleOrDefault( p => p.Name == "MainVersion" )
                 ?.EvaluatedValue;
 
-            var patchedVersion = versionFile
+            var overriddenPatchVersion = versionFile
                 .Properties
-                .SingleOrDefault( p => p.Name == "PatchedVersion" )
+                .SingleOrDefault( p => p.Name == "OverriddenPatchVersion" )
                 ?.EvaluatedValue;
 
             if ( string.IsNullOrEmpty( mainVersion ) )
@@ -464,7 +464,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
-            return (mainVersion, patchedVersion, suffix);
+            return (mainVersion, overriddenPatchVersion, suffix);
         }
 
         /// <summary>
@@ -744,9 +744,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             version = null;
             string? mainVersion;
             string? mainPackageVersionSuffix;
-            string? patchedVersion;
+            string? overriddenPatchVersion;
 
-            (mainVersion, patchedVersion, mainPackageVersionSuffix) =
+            (mainVersion, overriddenPatchVersion, mainPackageVersionSuffix) =
                 ReadMainVersionFile(
                     Path.Combine(
                         context.RepoDirectory,
@@ -762,10 +762,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            if ( !string.IsNullOrWhiteSpace( patchedVersion ) && !patchedVersion.StartsWith( mainVersion + ".", StringComparison.Ordinal ) )
+            if ( !string.IsNullOrWhiteSpace( overriddenPatchVersion ) && !overriddenPatchVersion.StartsWith( mainVersion + ".", StringComparison.Ordinal ) )
             {
                 context.Console.WriteError(
-                    $"The PatchedVersion property in MainVersion.props ({patchedVersion}) does not match the MainVersion property value ({mainVersion})." );
+                    $"The OverriddenPatchVersion property in MainVersion.props ({overriddenPatchVersion}) does not match the MainVersion property value ({mainVersion})." );
 
                 return false;
             }
@@ -837,10 +837,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     versionSuffix = mainPackageVersionSuffix.TrimStart( '-' );
                     patchNumber = 0;
 
-                    if ( !string.IsNullOrWhiteSpace( patchedVersion ) )
+                    if ( !string.IsNullOrWhiteSpace( overriddenPatchVersion ) )
                     {
-                        var parsedPatchedVersion = Version.Parse( patchedVersion );
-                        patchNumber = parsedPatchedVersion.Revision;
+                        var parsedOverriddenPatchedVersion = Version.Parse( overriddenPatchVersion );
+                        patchNumber = parsedOverriddenPatchedVersion.Revision;
                     }
 
                     break;
@@ -1613,7 +1613,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             var version = ReadMainVersionFile( mainVersionFile );
             var mainVersion = version.MainVersion;
-            var patchedVersion = version.PatchedVersion;
+            var overriddenPatchVersion = version.OverriddenPatchVersion;
             packageVersionSuffix = version.PackageVersionSuffix;
 
             currentVersion = null;
@@ -1642,15 +1642,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
             else
             {
-                // If MainVersionDependency and PatchedVersion properties are defined, we use PatchedVersion value.
-                if ( patchedVersion != null )
+                // If MainVersionDependency and OverriddenPatchVersion properties are defined, we use OverriddenPatchVersion value.
+                if ( overriddenPatchVersion != null )
                 {
-                    currentVersion = new Version( patchedVersion );
+                    currentVersion = new Version( overriddenPatchVersion );
 
                     return true;
                 }
 
-                // If there is no PatchedVersion property defined in the MainVersion.props, the current version will default to version from MainVersionDependency.
+                // If there is no OverriddenPatchVersion property defined in the MainVersion.props, the current version will default to version from MainVersionDependency.
                 if ( !VersionsOverrideFile.TryLoad( context, configuration, out var versionsOverrideFile ) )
                 {
                     return false;
