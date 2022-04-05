@@ -1645,8 +1645,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var mainVersion = version.MainVersion;
             var overriddenPatchVersion = version.OverriddenPatchVersion;
             packageVersionSuffix = version.PackageVersionSuffix;
-
-            currentVersion = null;
             ourPatchVersion = -1;
 
             var mainVersionDependency = this.MainVersionDependency;
@@ -1673,7 +1671,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             else
             {
                 // If MainVersionDependency and OverriddenPatchVersion properties are defined, we use OverriddenPatchVersion value.
-                if ( overriddenPatchVersion != null )
+                if ( version.OverriddenPatchVersion != null )
                 {
                     currentVersion = new Version( overriddenPatchVersion );
 
@@ -1684,17 +1682,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var artifactVersionFile = Path.Combine(
                     context.RepoDirectory,
                     context.Product.PrivateArtifactsDirectory.ToString(),
-                    context.Product.ProductName,
-                    ".version.props" );
+                    context.Product.ProductName + ".version.props" );
 
                 var document = XDocument.Load( artifactVersionFile );
                 var project = document.Root;
                 var properties = project?.Element( "PropertyGroup" );
-                var ver = properties?.Element( $"{context.Product.ProductNameWithoutDot}Version" )?.Value;
+                var ver = properties?.Element( $"{context.Product.ProductNameWithoutDot}MainVersion" )?.Value;
                 Console.WriteLine( ver );
 
                 // Set the current version to dependency version.
-                currentVersion = new Version( mainVersion );
+                currentVersion = new Version( ver );
 
                 return true;
             }
