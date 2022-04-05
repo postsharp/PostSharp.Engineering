@@ -76,6 +76,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public Pattern PublicArtifacts { get; init; } = Pattern.Empty;
 
+        public bool PublishTestResults { get; init; }
+
         public bool KeepEditorConfig { get; init; }
 
         public string BuildAgentType { get; init; } = "caravela02";
@@ -753,11 +755,40 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( this.MainVersionDependency != null )
             {
-                // If the MainVersionDependency is defined, we set the MainVersion to dependency version.
-                if ( !GetMainVersionDependencyVersion( context, this.MainVersionDependency, versionsOverrideFile, ref mainVersion ) )
+                var mainVersionDependencyName = this.MainVersionDependency.Name;
+
+                // The main version is defined in a dependency. Load the import file.
+
+                if ( !versionsOverrideFile.Dependencies.TryGetValue( mainVersionDependencyName, out var dependencySource ) )
                 {
+                    context.Console.WriteError( $"Cannot find a dependency named '{mainVersionDependencyName}'." );
+
                     return false;
                 }
+                else if ( dependencySource.VersionFile == null )
+                {
+                    context.Console.WriteError( $"The dependency '{mainVersionDependencyName}' is not resolved." );
+
+                    return false;
+                }
+
+                var versionFile = Project.FromFile( dependencySource.VersionFile, new ProjectOptions() );
+
+                var propertyName = this.MainVersionDependency!.NameWithoutDot + "MainVersion";
+
+                mainVersion = versionFile.Properties.SingleOrDefault( p => p.Name == propertyName )
+                    ?.UnevaluatedValue;
+
+                if ( string.IsNullOrWhiteSpace( mainVersion ) )
+                {
+                    context.Console.WriteError( $"The file '{dependencySource.VersionFile}' does not contain the {propertyName}." );
+
+                    return false;
+                }
+
+                // Note that the version suffix is not copied from the dependency, only the main version. 
+
+                ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
             }
 
             if ( !string.IsNullOrWhiteSpace( overriddenPatchVersion ) && !overriddenPatchVersion.StartsWith( mainVersion + ".", StringComparison.Ordinal ) )
@@ -1246,7 +1277,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     context.Product.TestResultsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
                 var artifactRules =
-                    $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}";
+                    $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}{(this.PublishTestResults ? $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}" : "")}";
 
                 var buildTeamCityConfiguration = new TeamCityBuildConfiguration(
                     objectName: $"{configuration}Build",
@@ -1649,73 +1680,24 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     return true;
                 }
 
-                // If there is no OverriddenPatchVersion property defined in the MainVersion.props, the current version will default to version from MainVersionDependency.
-                if ( !VersionsOverrideFile.TryLoad( context, configuration, out var versionsOverrideFile ) )
-                {
-                    return false;
-                }
+                // TODO: Load version number from artifacts instead of this
+                var artifactVersionFile = Path.Combine(
+                    context.RepoDirectory,
+                    context.Product.PrivateArtifactsDirectory.ToString(),
+                    context.Product.ProductName,
+                    ".version.props" );
 
-                if ( !GetMainVersionDependencyVersion( context, mainVersionDependency, versionsOverrideFile, ref mainVersion ) )
-                {
-                    return false;
-                }
-                
+                var document = XDocument.Load( artifactVersionFile );
+                var project = document.Root;
+                var properties = project?.Element( "PropertyGroup" );
+                var ver = properties?.Element( $"{context.Product.ProductNameWithoutDot}Version" )?.Value;
+                Console.WriteLine( ver );
+
                 // Set the current version to dependency version.
                 currentVersion = new Version( mainVersion );
 
                 return true;
             }
-        }
-
-        private static bool GetMainVersionDependencyVersion(
-            BuildContext context,
-            DependencyDefinition? mainVersionDependency,
-            VersionsOverrideFile versionsOverrideFile,
-            [NotNullWhen( true )] ref string? mainVersion )
-        {
-            if ( mainVersionDependency == null )
-            {
-                context.Console.WriteError( "The MainVersionDependency is not defined." );
-                
-                return false;
-            }
-
-            var mainVersionDependencyName = mainVersionDependency.Name;
-
-            // The main version is defined in a dependency. Load the import file.
-
-            if ( !versionsOverrideFile.Dependencies.TryGetValue( mainVersionDependencyName, out var dependencySource ) )
-            {
-                context.Console.WriteError( $"Cannot find a dependency named '{mainVersionDependencyName}'." );
-
-                return false;
-            }
-            else if ( dependencySource.VersionFile == null )
-            {
-                context.Console.WriteError( $"The dependency '{mainVersionDependencyName}' is not resolved." );
-
-                return false;
-            }
-
-            var versionFile = Project.FromFile( dependencySource.VersionFile, new ProjectOptions() );
-
-            var propertyName = mainVersionDependency!.NameWithoutDot + "MainVersion";
-
-            mainVersion = versionFile.Properties.SingleOrDefault( p => p.Name == propertyName )
-                ?.UnevaluatedValue;
-
-            if ( string.IsNullOrWhiteSpace( mainVersion ) )
-            {
-                context.Console.WriteError( $"The file '{dependencySource.VersionFile}' does not contain the {propertyName}." );
-
-                return false;
-            }
-
-            // Note that the version suffix is not copied from the dependency, only the main version. 
-
-            ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
-
-            return true;
         }
 
         private static bool TrySaveMainVersion( BuildContext context, string mainVersionFile, Version version, int ourPatchVersion, string packageVersionSuffix )
