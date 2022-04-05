@@ -755,7 +755,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( this.MainVersionDependency != null )
             {
-                // If the MainVersionDependency is defined, we set the MainVersion to dependency MainVersion.
+                // If the MainVersionDependency is defined, we set the MainVersion to dependency version.
                 if ( !GetMainVersionDependencyVersion( context, this.MainVersionDependency, versionsOverrideFile, ref mainVersion ) )
                 {
                     return false;
