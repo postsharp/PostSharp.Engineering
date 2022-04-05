@@ -11,11 +11,6 @@
         <PackageOutputPath>$([MSBuild]::NormalizeDirectory(`$(RepoDirectory)\artifacts\publish\private`))</PackageOutputPath>
     </PropertyGroup>
 
-    <!-- Obfuscation -->
-    <PropertyGroup>
-        <Obfuscate Condition="'$(Obfuscate)'=='' AND '$(Configuration)'=='Release'">True</Obfuscate>
-    </PropertyGroup>
-
     <Target Name="VerifyRepoDirectory">
         <Error
                 Text="The RepoDirectory property has not been set. it must be set to %24(MSBuildThisFileDirectory) in Directory.Build.props "
