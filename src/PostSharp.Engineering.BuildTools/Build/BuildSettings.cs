@@ -30,6 +30,10 @@ namespace PostSharp.Engineering.BuildTools.Build
         [Description( "Disables concurrent processing" )]
         [CommandOption( "--no-concurrency" )]
         public bool NoConcurrency { get; set; }
+        
+        [Description("Simulate a continuous integration build by setting the build ContinuousIntegrationBuild properyt to TRUE.")]
+        [CommandOption("--ci")]
+        public bool ContinuousIntegration { get; set; }
 
         public BuildSettings WithIncludeTests( bool value )
         {
@@ -59,7 +63,7 @@ namespace PostSharp.Engineering.BuildTools.Build
 
             return clone;
         }
-
+        
         public VersionSpec GetVersionSpec( BuildConfiguration configuration )
             => configuration == Build.BuildConfiguration.Public
                 ? new VersionSpec( VersionKind.Public )
