@@ -4,6 +4,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     internal class TeamCityBuildConfiguration
     {
+        public Product Product { get; }
         public string ObjectName { get; }
 
         public string Name { get; }
@@ -13,11 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string BuildAgentType { get; }
 
         public bool IsDeployment { get; init; }
-
-        public string? ProductName { get; init; }
-
-        public bool SshAgentRequired { get; init; }
-
+   
         public string? ArtifactRules { get; init; }
 
         public string[]? AdditionalArtifactRules { get; init; }
@@ -28,8 +25,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public (string ObjectName, string ArtifactRules)[]? ArtifactDependencies { get; init; }
 
-        public TeamCityBuildConfiguration( string objectName, string name, string buildArguments, string buildAgentType )
+        public TeamCityBuildConfiguration( Product product, string objectName, string name, string buildArguments, string buildAgentType )
         {
+            this.Product = product;
             this.ObjectName = objectName;
             this.Name = name;
             this.BuildArguments = buildArguments;
@@ -89,11 +87,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             verbose = true
         }}" );
 
-            if ( this.IsDeployment && this.SshAgentRequired )
+            if ( this.IsDeployment && this.Product.VcsProvider.SshAgentRequired )
             {
                 writer.WriteLine(
                     $@"        sshAgent {{
-            teamcitySshKey = ""{this.ProductName}""
+            // By convention, the ssh key name is the same as the product name.
+            teamcitySshKey = ""{this.Product.ProductName}""
         }}" );
             }
 

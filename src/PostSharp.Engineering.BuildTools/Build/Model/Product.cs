@@ -1290,6 +1290,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}{(this.PublishTestResults ? $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}" : "")}";
 
                 var buildTeamCityConfiguration = new TeamCityBuildConfiguration(
+                    this,
                     objectName: $"{configuration}Build",
                     name: configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
                     buildArguments: $"test --configuration {configuration} --buildNumber %build.number%",
@@ -1312,13 +1313,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                      || configurationInfo.PublicPublishers != null )
                 {
                     teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
+                        this,
                         objectName: $"{configuration}Deployment",
                         name: configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
                         buildArguments: $"publish --configuration {configuration}",
                         buildAgentType: this.BuildAgentType )
                     {
-                        ProductName = context.Product.ProductName,
-                        SshAgentRequired = this.VcsProvider == VcsProvider.GitHub,
                         IsDeployment = true,
                         ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
                     };
@@ -1330,6 +1330,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     teamCityBuildConfigurations.Add(
                         new TeamCityBuildConfiguration(
+                            this,
                             objectName: $"{configuration}Swap",
                             name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
                             buildArguments: $"swap --configuration {configuration}",
