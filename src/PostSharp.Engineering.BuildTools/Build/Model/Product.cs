@@ -17,8 +17,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Xml;
 using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
@@ -32,6 +30,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public Product()
         {
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
+
+            // We set the VcsProvider to field of the same name RepoKind value. This is used for determining what kind of repository the Product has.
+            var directoryBuildPropsFile = XDocument.Load( "Directory.Build.Props" );
+            var repoKind = directoryBuildPropsFile.Root!.Element( "PropertyGroup" )!.Element( "RepoKind" )!.Value;
+            var field = typeof(VcsProvider).GetField( repoKind );
+
+            if ( field != null )
+            {
+                this.VcsProvider = (VcsProvider?) field!.GetValue( null )!;
+            }
+            else
+            {
+                throw new InvalidOperationException( $"The value '{repoKind}' kind is invalid name for VcsProvider." );
+            }
         }
 
         public string BuildExePath { get; }
@@ -79,7 +91,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool RequiresBranchMerging { get; init; }
 
-        public VcsProvider? VcsProvider { get; init; }
+        public VcsProvider? VcsProvider { get; }
 
         public bool KeepEditorConfig { get; init; }
 
@@ -1199,15 +1211,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
+            // TODO: Bug #30165
             // If MainVersionDependency is not defined we do the VersionBump.
-            if ( this.MainVersionDependency == null )
-            {
-                // MainVersion.props version is bumped and pushed to the repository.
-                if ( !this.TryBumpVersion( context, mainVersionFile, mainVersionInfo, settings ) )
-                {
-                    return false;
-                }
-            }
+            // if ( this.MainVersionDependency == null )
+            // {
+            //     // MainVersion.props version is bumped and pushed to the repository.
+            //     if ( !this.TryBumpVersion( context, mainVersionFile, mainVersionInfo, settings ) )
+            //     {
+            //         return false;
+            //     }
+            // }
 
             return true;
         }
@@ -1652,135 +1665,137 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool TryBumpVersion(
-            BuildContext context,
-            string mainVersionFile,
-            MainVersionInfo currentMainVersionInfo,
-            PublishSettings settings )
-        {
-            if ( !File.Exists( mainVersionFile ) )
-            {
-                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
+        // TODO: Bug #30165
+        // private bool TryBumpVersion(
+        //     BuildContext context,
+        //     string mainVersionFile,
+        //     MainVersionInfo currentMainVersionInfo,
+        //     PublishSettings settings )
+        // {
+        //     if ( !File.Exists( mainVersionFile ) )
+        //     {
+        //         context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
+        //
+        //         return false;
+        //     }
+        //
+        //     // Increment the version.
+        //     var newVersion = new Version(
+        //         currentMainVersionInfo.Version.Major,
+        //         currentMainVersionInfo.Version.Minor,
+        //         currentMainVersionInfo.Version.Build + 1 );
+        //
+        //     var newPatchNumber = currentMainVersionInfo.OurPatchVersion != null ? currentMainVersionInfo.OurPatchVersion + 1 : null;
+        //     var newMainVersionInfo = new MainVersionInfo( newVersion, currentMainVersionInfo.PackageVersionSuffix, newPatchNumber );
+        //
+        //     // Save the MainVersion.props with new version.
+        //     if ( !TrySaveMainVersion( context, mainVersionFile, newMainVersionInfo ) )
+        //     {
+        //         return false;
+        //     }
+        //
+        //     // Commit the version bump.
+        //     if ( !this.TryCommitVersionBump( context, currentMainVersionInfo.Version, newVersion, settings ) )
+        //     {
+        //         return false;
+        //     }
+        //
+        //     context.Console.WriteSuccess(
+        //         $"Bumping the '{context.Product.ProductName}' version from '{currentMainVersionInfo.Version}{currentMainVersionInfo.PackageVersionSuffix}' to '{newMainVersionInfo.Version}{newMainVersionInfo.PackageVersionSuffix}' was successful." );
+        //
+        //     return true;
+        // }
 
-                return false;
-            }
-
-            // Increment the version.
-            var newVersion = new Version(
-                currentMainVersionInfo.Version.Major,
-                currentMainVersionInfo.Version.Minor,
-                currentMainVersionInfo.Version.Build + 1 );
-
-            var newPatchNumber = currentMainVersionInfo.OurPatchVersion != null ? currentMainVersionInfo.OurPatchVersion + 1 : null;
-            var newMainVersionInfo = new MainVersionInfo( newVersion, currentMainVersionInfo.PackageVersionSuffix, newPatchNumber );
-
-            // Save the MainVersion.props with new version.
-            if ( !TrySaveMainVersion( context, mainVersionFile, newMainVersionInfo ) )
-            {
-                return false;
-            }
-
-            // Commit the version bump.
-            if ( !this.TryCommitVersionBump( context, currentMainVersionInfo.Version, newVersion, settings ) )
-            {
-                return false;
-            }
-
-            context.Console.WriteSuccess(
-                $"Bumping the '{context.Product.ProductName}' version from '{currentMainVersionInfo.Version}{currentMainVersionInfo.PackageVersionSuffix}' to '{newMainVersionInfo.Version}{newMainVersionInfo.PackageVersionSuffix}' was successful." );
-
-            return true;
-        }
-
-        private bool TryCommitVersionBump( BuildContext context, Version currentVersion, Version newVersion, BaseBuildSettings settings )
-        {
-            // Adds bumped MainVersion.props to Git staging area.
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"add {this.MainVersionFile}",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
-
-            // Returns the remote origin.
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"remote get-url origin",
-                context.RepoDirectory,
-                out var gitExitCode,
-                out var gitOrigin );
-
-            if ( gitExitCode != 0 )
-            {
-                context.Console.WriteError( gitOrigin );
-
-                return false;
-            }
-
-            gitOrigin = gitOrigin.Trim();
-            var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
-
-            // When on TeamCity, Git user credentials are set to TeamCity and if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
-            {
-                // Following configurations are set only for the current operations in the repository.
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        "config user.name TeamCity",
-                        context.RepoDirectory ) )
-                {
-                    return false;
-                }
-
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        "config user.email teamcity@postsharp.net",
-                        context.RepoDirectory ) )
-                {
-                    return false;
-                }
-
-                if ( isHttps )
-                {
-                    if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
-                            out var teamcitySourceWriteTokenEnvironmentVariableName,
-                            out var teamcitySourceCodeWritingToken ) )
-                    {
-                        context.Console.WriteImportantMessage(
-                            $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
-                    }
-                    else
-                    {
-                        gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
-                    }
-                }
-            }
-
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"commit -m \"<<VERSION_BUMP>> {currentVersion} to {newVersion}\"",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
-
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"push {gitOrigin}",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
-
-            return true;
-        }
+        // TODO: Bug #30165
+        // private bool TryCommitVersionBump( BuildContext context, Version currentVersion, Version newVersion, BaseBuildSettings settings )
+        // {
+        //     // Adds bumped MainVersion.props to Git staging area.
+        //     if ( !ToolInvocationHelper.InvokeTool(
+        //             context.Console,
+        //             "git",
+        //             $"add {this.MainVersionFile}",
+        //             context.RepoDirectory ) )
+        //     {
+        //         return false;
+        //     }
+        //
+        //     // Returns the remote origin.
+        //     ToolInvocationHelper.InvokeTool(
+        //         context.Console,
+        //         "git",
+        //         $"remote get-url origin",
+        //         context.RepoDirectory,
+        //         out var gitExitCode,
+        //         out var gitOrigin );
+        //
+        //     if ( gitExitCode != 0 )
+        //     {
+        //         context.Console.WriteError( gitOrigin );
+        //
+        //         return false;
+        //     }
+        //
+        //     gitOrigin = gitOrigin.Trim();
+        //     var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
+        //
+        //     // When on TeamCity, Git user credentials are set to TeamCity and if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
+        //     if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+        //     {
+        //         // Following configurations are set only for the current operations in the repository.
+        //         if ( !ToolInvocationHelper.InvokeTool(
+        //                 context.Console,
+        //                 "git",
+        //                 "config user.name TeamCity",
+        //                 context.RepoDirectory ) )
+        //         {
+        //             return false;
+        //         }
+        //
+        //         if ( !ToolInvocationHelper.InvokeTool(
+        //                 context.Console,
+        //                 "git",
+        //                 "config user.email teamcity@postsharp.net",
+        //                 context.RepoDirectory ) )
+        //         {
+        //             return false;
+        //         }
+        //
+        //         if ( isHttps )
+        //         {
+        //             if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
+        //                     out var teamcitySourceWriteTokenEnvironmentVariableName,
+        //                     out var teamcitySourceCodeWritingToken ) )
+        //             {
+        //                 context.Console.WriteImportantMessage(
+        //                     $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
+        //             }
+        //             else
+        //             {
+        //                 gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
+        //             }
+        //         }
+        //     }
+        //
+        //     if ( !ToolInvocationHelper.InvokeTool(
+        //             context.Console,
+        //             "git",
+        //             $"commit -m \"<<VERSION_BUMP>> {currentVersion} to {newVersion}\"",
+        //             context.RepoDirectory ) )
+        //     {
+        //         return false;
+        //     }
+        //
+        //     if ( !ToolInvocationHelper.InvokeTool(
+        //             context.Console,
+        //             "git",
+        //             $"push {gitOrigin}",
+        //             context.RepoDirectory ) )
+        //     {
+        //         return false;
+        //     }
+        //
+        //     return true;
+        // }
 
         private record MainVersionInfo( Version Version, string PackageVersionSuffix, int? OurPatchVersion );
 
@@ -1843,51 +1858,52 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool TrySaveMainVersion(
-            BuildContext context,
-            string mainVersionFile,
-            MainVersionInfo mainVersionInfo )
-        {
-            if ( !File.Exists( mainVersionFile ) )
-            {
-                context.Console.WriteError( $"Could not save '{mainVersionFile}': the file does not exist." );
-
-                return false;
-            }
-
-            var document = XDocument.Load( mainVersionFile );
-            var project = document.Root;
-            var properties = project!.Element( "PropertyGroup" );
-            var mainVersionElement = properties!.Element( "MainVersion" );
-            var ourPatchVersionElement = properties.Element( "OurPatchVersion" );
-            var packageVersionSuffixElement = properties.Element( "PackageVersionSuffix" );
-
-            // If OurPatchVersion is defined in MainVersion.props, we write the incremented patch number to it.
-            if ( mainVersionInfo.OurPatchVersion != null && ourPatchVersionElement != null )
-            {
-                ourPatchVersionElement.Value = mainVersionInfo.OurPatchVersion.Value.ToString( CultureInfo.InvariantCulture );
-            }
-
-            // Otherwise we replace the whole MainVersion with new version.
-            else
-            {
-                mainVersionElement!.Value = mainVersionInfo.Version.ToString();
-            }
-
-            packageVersionSuffixElement!.Value = mainVersionInfo.PackageVersionSuffix;
-
-            // Using settings to keep the indentation as well as encoding identical to original MainVersion.props.
-            var xmlWriterSettings =
-                new XmlWriterSettings { OmitXmlDeclaration = true, Indent = true, IndentChars = "    ", Encoding = new UTF8Encoding( false ) };
-
-            using ( var xmlWriter = XmlWriter.Create( mainVersionFile, xmlWriterSettings ) )
-            {
-                document.Save( xmlWriter );
-            }
-
-            context.Console.WriteMessage( $"Writing '{mainVersionFile}'." );
-
-            return true;
-        }
+        // TODO: Bug #30165
+        // private static bool TrySaveMainVersion(
+        //     BuildContext context,
+        //     string mainVersionFile,
+        //     MainVersionInfo mainVersionInfo )
+        // {
+        //     if ( !File.Exists( mainVersionFile ) )
+        //     {
+        //         context.Console.WriteError( $"Could not save '{mainVersionFile}': the file does not exist." );
+        //
+        //         return false;
+        //     }
+        //
+        //     var document = XDocument.Load( mainVersionFile );
+        //     var project = document.Root;
+        //     var properties = project!.Element( "PropertyGroup" );
+        //     var mainVersionElement = properties!.Element( "MainVersion" );
+        //     var ourPatchVersionElement = properties.Element( "OurPatchVersion" );
+        //     var packageVersionSuffixElement = properties.Element( "PackageVersionSuffix" );
+        //
+        //     // If OurPatchVersion is defined in MainVersion.props, we write the incremented patch number to it.
+        //     if ( mainVersionInfo.OurPatchVersion != null && ourPatchVersionElement != null )
+        //     {
+        //         ourPatchVersionElement.Value = mainVersionInfo.OurPatchVersion.Value.ToString( CultureInfo.InvariantCulture );
+        //     }
+        //
+        //     // Otherwise we replace the whole MainVersion with new version.
+        //     else
+        //     {
+        //         mainVersionElement!.Value = mainVersionInfo.Version.ToString();
+        //     }
+        //
+        //     packageVersionSuffixElement!.Value = mainVersionInfo.PackageVersionSuffix;
+        //
+        //     // Using settings to keep the indentation as well as encoding identical to original MainVersion.props.
+        //     var xmlWriterSettings =
+        //         new XmlWriterSettings { OmitXmlDeclaration = true, Indent = true, IndentChars = "    ", Encoding = new UTF8Encoding( false ) };
+        //
+        //     using ( var xmlWriter = XmlWriter.Create( mainVersionFile, xmlWriterSettings ) )
+        //     {
+        //         document.Save( xmlWriter );
+        //     }
+        //
+        //     context.Console.WriteMessage( $"Writing '{mainVersionFile}'." );
+        //
+        //     return true;
+        // }
     }
 }

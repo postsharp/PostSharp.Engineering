@@ -3,7 +3,6 @@
 using PostSharp.Engineering.BuildTools;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Solutions;
-using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using Spectre.Console.Cli;
 
 var product = new Product
@@ -14,8 +13,7 @@ var product = new Product
         "PostSharp.Engineering.Sdk.$(PackageVersion).nupkg",
         "PostSharp.Engineering.BuildTools.$(PackageVersion).nupkg",
         "PostSharp.Engineering.BuildTools.AWS.$(PackageVersion).nupkg" ),
-    RequiresEngineeringSdk = false,
-    VcsProvider = VcsProvider.GitHub
+    RequiresEngineeringSdk = false
 };
 
 var commandApp = new CommandApp();
