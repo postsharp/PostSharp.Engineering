@@ -77,6 +77,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool PublishTestResults { get; init; }
 
+        public bool RequiresBranchMerging { get; init; }
+
         public bool KeepEditorConfig { get; init; }
 
         public string BuildAgentType { get; init; } = "caravela02";
@@ -728,7 +730,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var configurationLowerCase = configuration.ToString().ToLowerInvariant();
 
             version = null;
-            string? mainVersion;
+            string? mainVersion = null;
             string? mainPackageVersionSuffix;
             string? overriddenPatchVersion;
 
@@ -778,10 +780,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             if ( !string.IsNullOrWhiteSpace( mainVersionFile.OverriddenPatchVersion )
-                 && !mainVersionFile.OverriddenPatchVersion.StartsWith( mainVersionFile.MainVersion + ".", StringComparison.Ordinal ) )
+                 && !mainVersionFile.OverriddenPatchVersion.StartsWith( mainVersion ?? mainVersionFile.MainVersion + ".", StringComparison.Ordinal ) )
             {
                 context.Console.WriteError(
-                    $"The OverriddenPatchVersion property in MainVersion.props ({mainVersionFile.OverriddenPatchVersion}) does not match the MainVersion property value ({mainVersionFile.MainVersion})." );
+                    $"The OverriddenPatchVersion property in MainVersion.props ({mainVersionFile.OverriddenPatchVersion}) does not match the MainVersion property value ({mainVersion ?? mainVersionFile.MainVersion})." );
 
                 return false;
             }
@@ -1181,7 +1183,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // If MainVersionDependency is not defined we don't do the VersionBump.
+            // If Product doesn't require merging changes into master branch, we skip merging.
+            if ( this.RequiresBranchMerging )
+            {
+                // Checks if the current branch really needs to be merged to master. Someone might have merged it from outside.
+                if ( TryRequiresMergeOfBranches( context, out var currentBranch ) )
+                {
+                    context.Console.WriteImportantMessage( $"Branch '{currentBranch}' requires merging to master." );
+
+                    // Merge current branch.
+                    if ( !MergeBranchToMaster( context, settings, currentBranch ) )
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            // If MainVersionDependency is not defined we do the VersionBump.
             if ( this.MainVersionDependency == null )
             {
                 // MainVersion.props version is bumped and pushed to the repository.
@@ -1485,6 +1503,147 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             context.Console.WriteSuccess( $"Tagging the latest commit with version '{versionTag}' was successful." );
+
+            return true;
+        }
+
+        private static bool TryRequiresMergeOfBranches( BuildContext context, [NotNullWhen( true )] out string? currentBranch )
+        {
+            // Fetch all remotes to make sure the merge has not already been done.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"fetch --all",
+                context.RepoDirectory );
+
+            // Returns the reference name of the current branch.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"branch --show-current",
+                context.RepoDirectory,
+                out var gitExitCode,
+                out var gitOutput );
+
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOutput );
+                currentBranch = null;
+
+                return false;
+            }
+
+            currentBranch = gitOutput.Trim();
+
+            // Returns the last commit on the current branch in the commit hash format.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"log -n 1 --pretty=format:\"%H\"",
+                context.RepoDirectory,
+                out gitExitCode,
+                out gitOutput );
+            
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOutput );
+
+                return false;
+            }
+
+            var lastCurrentBranchCommitHash = gitOutput;
+
+            // Returns hash of as good common ancestor commit as possible between master and current branch.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"merge-base master {currentBranch}",
+                context.RepoDirectory,
+                out gitExitCode,
+                out gitOutput );
+            
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOutput );
+
+                return false;
+            }
+
+            var lastCommonCommitHash = gitOutput;
+
+            // If the commit hashes are equal, there haven't been any unmerged commits, or the current branch is actually master.
+            return !lastCurrentBranchCommitHash.Equals( lastCommonCommitHash, StringComparison.Ordinal );
+        }
+
+        private static bool MergeBranchToMaster( BuildContext context, BaseBuildSettings settings, string branchToMerge )
+        {
+            // Change to the master branch before we do merge.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console, 
+                    "git",
+                    $"checkout master",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            // Attempts merging branch to master with custom merge message. --no-ff option is to force merge commit to be created.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"merge {branchToMerge}",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            // Returns the remote origin.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"remote get-url origin",
+                context.RepoDirectory,
+                out var gitExitCode,
+                out var gitOutput );
+
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOutput );
+                
+                return false;
+            }
+
+            var gitOrigin = gitOutput.Trim();
+
+            var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
+
+            // When on TeamCity, origin will be updated to form including Git authentication credentials.
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                if ( isHttps )
+                {
+                    if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken( out var teamcitySourceWriteTokenEnvironmentVariableName, out var teamcitySourceCodeWritingToken ) )
+                    {
+                        context.Console.WriteImportantMessage( $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
+                    }
+                    else
+                    {
+                        gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
+                    }
+                }
+            }
+
+            // Push completed merge operation to remote.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console, 
+                    "git",
+                    $"push {gitOrigin}",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            context.Console.WriteSuccess( $"Merging '{branchToMerge}' into 'master' branch was successful." );
 
             return true;
         }
