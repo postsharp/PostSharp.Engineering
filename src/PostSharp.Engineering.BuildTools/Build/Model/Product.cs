@@ -731,8 +731,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             version = null;
             string? mainVersion = null;
-            string? mainPackageVersionSuffix;
-            string? overriddenPatchVersion;
 
             var mainVersionFile =
                 ReadMainVersionFile(
