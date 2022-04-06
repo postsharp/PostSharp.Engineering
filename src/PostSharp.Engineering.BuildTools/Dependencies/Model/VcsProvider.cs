@@ -4,8 +4,8 @@
     {
         public bool SshAgentRequired { get; init; }
 
-        public static VcsProvider None = new VcsProvider();
-        public static VcsProvider GitHub = new VcsProvider() { SshAgentRequired = true };
-        public static VcsProvider AzureRepos = new VcsProvider();
+        public static readonly VcsProvider None = new VcsProvider();
+        public static readonly VcsProvider GitHub = new VcsProvider() { SshAgentRequired = true };
+        public static readonly VcsProvider AzureRepos = new VcsProvider();
     }
 }

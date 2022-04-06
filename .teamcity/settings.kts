@@ -160,6 +160,7 @@ object PublicDeployment : BuildType({
             verbose = true
         }
         sshAgent {
+            // By convention, the SSH key name is the same as the product name.
             teamcitySshKey = "PostSharp.Engineering"
         }
     }
