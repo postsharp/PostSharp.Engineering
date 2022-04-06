@@ -78,6 +78,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool PublishTestResults { get; init; }
 
         public bool RequiresBranchMerging { get; init; }
+        
+        public VcsProvider VcsProvider { get; init; }
 
         public bool KeepEditorConfig { get; init; }
 
@@ -1315,7 +1317,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         buildArguments: $"publish --configuration {configuration}",
                         buildAgentType: this.BuildAgentType )
                     {
-                        IsDeployment = true, ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
+                        ProductName = context.Product.ProductName,
+                        SshAgentRequired = this.VcsProvider == VcsProvider.GitHub,
+                        IsDeployment = true,
+                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
                     };
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );

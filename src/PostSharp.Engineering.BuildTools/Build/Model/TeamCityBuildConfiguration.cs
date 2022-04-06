@@ -14,6 +14,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool IsDeployment { get; init; }
 
+        public string? ProductName { get; init; }
+
+        public bool SshAgentRequired { get; init; }
+
         public string? ArtifactRules { get; init; }
 
         public string[]? AdditionalArtifactRules { get; init; }
@@ -83,8 +87,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         swabra {{
             lockingProcesses = Swabra.LockingProcessPolicy.KILL
             verbose = true
-        }}
-    }}" );
+        }}" );
+
+            if ( this.IsDeployment && this.SshAgentRequired )
+            {
+                writer.WriteLine(
+                    $@"        sshAgent {{
+            teamcitySshKey = ""{this.ProductName}""
+        }}" );
+            }
+
+            writer.WriteLine(
+                $@"    }}" );
 
             // Triggers.
             if ( this.BuildTriggers is { Length: > 0 } )
