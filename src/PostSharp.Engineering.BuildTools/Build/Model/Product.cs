@@ -79,6 +79,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool RequiresBranchMerging { get; init; }
 
+        public VcsProvider? VcsProvider { get; init; }
+
         public bool KeepEditorConfig { get; init; }
 
         public string BuildAgentType { get; init; } = "caravela02";
@@ -1288,6 +1290,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}{(this.PublishTestResults ? $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}" : "")}";
 
                 var buildTeamCityConfiguration = new TeamCityBuildConfiguration(
+                    this,
                     objectName: $"{configuration}Build",
                     name: configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
                     buildArguments: $"test --configuration {configuration} --buildNumber %build.number%",
@@ -1310,12 +1313,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                      || configurationInfo.PublicPublishers != null )
                 {
                     teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
+                        this,
                         objectName: $"{configuration}Deployment",
                         name: configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
                         buildArguments: $"publish --configuration {configuration}",
                         buildAgentType: this.BuildAgentType )
                     {
-                        IsDeployment = true, ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
+                        IsDeployment = true,
+                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
                     };
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -1325,6 +1330,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     teamCityBuildConfigurations.Add(
                         new TeamCityBuildConfiguration(
+                            this,
                             objectName: $"{configuration}Swap",
                             name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
                             buildArguments: $"swap --configuration {configuration}",

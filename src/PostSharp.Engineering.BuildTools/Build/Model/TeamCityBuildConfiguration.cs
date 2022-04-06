@@ -4,6 +4,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     internal class TeamCityBuildConfiguration
     {
+        public Product Product { get; }
+
         public string ObjectName { get; }
 
         public string Name { get; }
@@ -13,7 +15,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string BuildAgentType { get; }
 
         public bool IsDeployment { get; init; }
-
+   
         public string? ArtifactRules { get; init; }
 
         public string[]? AdditionalArtifactRules { get; init; }
@@ -24,8 +26,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public (string ObjectName, string ArtifactRules)[]? ArtifactDependencies { get; init; }
 
-        public TeamCityBuildConfiguration( string objectName, string name, string buildArguments, string buildAgentType )
+        public TeamCityBuildConfiguration( Product product, string objectName, string name, string buildArguments, string buildAgentType )
         {
+            this.Product = product;
             this.ObjectName = objectName;
             this.Name = name;
             this.BuildArguments = buildArguments;
@@ -83,8 +86,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         swabra {{
             lockingProcesses = Swabra.LockingProcessPolicy.KILL
             verbose = true
-        }}
-    }}" );
+        }}" );
+
+            var productVcsProvider = this.Product.VcsProvider;
+            
+            // The SSH agent is added only for the Deployment and only if TeamCity needs it to use Git operations on the VCS repository.
+            if ( productVcsProvider != null && this.IsDeployment && productVcsProvider.SshAgentRequired )
+            {
+                writer.WriteLine(
+                    $@"        sshAgent {{
+            // By convention, the SSH key name is the same as the product name.
+            teamcitySshKey = ""{this.Product.ProductName}""
+        }}" );
+            }
+
+            writer.WriteLine(
+                $@"    }}" );
 
             // Triggers.
             if ( this.BuildTriggers is { Length: > 0 } )
