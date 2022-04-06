@@ -12,7 +12,7 @@ public class BaseBuildSettings : CommonCommandSettings
 {
     private BuildConfiguration? _resolvedConfiguration;
 
-    [Obsolete("Use the BuildConfiguration property. ")]
+    [Obsolete( "Use the BuildConfiguration property. " )]
     [Description( "Sets the build configuration (Debug | Release | Public)" )]
     [CommandOption( "-c|--configuration" )]
     public BuildConfiguration? ExplicitBuildConfiguration { get; set; }
@@ -33,6 +33,10 @@ public class BaseBuildSettings : CommonCommandSettings
 
     [Obsolete( "Use the BuildConfiguration property." )]
     public BuildConfiguration ResolvedBuildConfiguration => this.BuildConfiguration;
+
+    [Description( "Simulate a continuous integration build by setting the build ContinuousIntegrationBuild properyt to TRUE." )]
+    [CommandOption( "--ci" )]
+    public bool ContinuousIntegration { get; set; }
 
     public override void Initialize( BuildContext context )
     {

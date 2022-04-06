@@ -1,12 +1,14 @@
-﻿using System;
+﻿using PostSharp.Engineering.BuildTools.Build;
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 namespace PostSharp.Engineering.BuildTools.Utilities;
 
 public static class TeamCityHelper
 {
-    public static bool IsTeamCityBuild { get; } = Environment.GetEnvironmentVariable( "TEAMCITY_GIT_PATH" ) != null;
-    
+    public static bool IsTeamCityBuild( BaseBuildSettings settings )
+        => settings.ContinuousIntegration || Environment.GetEnvironmentVariable( "TEAMCITY_GIT_PATH" ) != null;
+
     public static bool TryGetTeamCitySourceWriteToken( out string environmentVariableName, [NotNullWhen( true )] out string? teamCitySourceWriteToken )
     {
         environmentVariableName = "TEAMCITY_SOURCE_WRITE_TOKEN";
