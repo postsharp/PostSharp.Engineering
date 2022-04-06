@@ -77,6 +77,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool PublishTestResults { get; init; }
 
+        public bool RequiresBranchMerging { get; init; }
+
         public bool KeepEditorConfig { get; init; }
 
         public string BuildAgentType { get; init; } = "caravela02";
@@ -728,7 +730,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var configurationLowerCase = configuration.ToString().ToLowerInvariant();
 
             version = null;
-            string? mainVersion;
+            string? mainVersion = null;
             string? mainPackageVersionSuffix;
             string? overriddenPatchVersion;
 
@@ -778,10 +780,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             if ( !string.IsNullOrWhiteSpace( mainVersionFile.OverriddenPatchVersion )
-                 && !mainVersionFile.OverriddenPatchVersion.StartsWith( mainVersionFile.MainVersion + ".", StringComparison.Ordinal ) )
+                 && !mainVersionFile.OverriddenPatchVersion.StartsWith( mainVersion ?? mainVersionFile.MainVersion + ".", StringComparison.Ordinal ) )
             {
                 context.Console.WriteError(
-                    $"The OverriddenPatchVersion property in MainVersion.props ({mainVersionFile.OverriddenPatchVersion}) does not match the MainVersion property value ({mainVersionFile.MainVersion})." );
+                    $"The OverriddenPatchVersion property in MainVersion.props ({mainVersionFile.OverriddenPatchVersion}) does not match the MainVersion property value ({mainVersion ?? mainVersionFile.MainVersion})." );
 
                 return false;
             }
@@ -1181,19 +1183,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // Checks if the current branch needs to be merged to master.
-            if ( RequiresMergeOfBranches( context, out var currentBranch ) )
+            // If Product doesn't require merging changes into master branch, we skip merging.
+            if ( this.RequiresBranchMerging )
             {
-                context.Console.WriteImportantMessage( $"Branch '{currentBranch}' requires merging to master." );
-
-                // Merge current branch.
-                if ( !MergeBranchToMaster( context, settings, currentBranch ) )
+                // Checks if the current branch really needs to be merged to master. Someone might have merged it from outside.
+                if ( TryRequiresMergeOfBranches( context, out var currentBranch ) )
                 {
-                    return false;
+                    context.Console.WriteImportantMessage( $"Branch '{currentBranch}' requires merging to master." );
+
+                    // Merge current branch.
+                    if ( !MergeBranchToMaster( context, settings, currentBranch ) )
+                    {
+                        return false;
+                    }
                 }
             }
 
-            // If MainVersionDependency is not defined we don't do the VersionBump.
+            // If MainVersionDependency is not defined we do the VersionBump.
             if ( this.MainVersionDependency == null )
             {
                 // MainVersion.props version is bumped and pushed to the repository.
@@ -1501,7 +1507,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool RequiresMergeOfBranches( BuildContext context, [NotNullWhen( true )] out string? currentBranch )
+        private static bool TryRequiresMergeOfBranches( BuildContext context, [NotNullWhen( true )] out string? currentBranch )
         {
             // Fetch all remotes to make sure the merge has not already been done.
             ToolInvocationHelper.InvokeTool(
