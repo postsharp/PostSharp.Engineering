@@ -30,20 +30,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public Product()
         {
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
-
-            // We set the VcsProvider to field of the same name RepoKind value. This is used for determining what kind of repository the Product has.
-            var directoryBuildPropsFile = XDocument.Load( "Directory.Build.Props" );
-            var repoKind = directoryBuildPropsFile.Root!.Element( "PropertyGroup" )!.Element( "RepoKind" )!.Value;
-            var field = typeof(VcsProvider).GetField( repoKind );
-
-            if ( field != null )
-            {
-                this.VcsProvider = (VcsProvider?) field!.GetValue( null )!;
-            }
-            else
-            {
-                throw new InvalidOperationException( $"The value '{repoKind}' kind is invalid name for VcsProvider." );
-            }
         }
 
         public string BuildExePath { get; }
@@ -91,7 +77,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool RequiresBranchMerging { get; init; }
 
-        public VcsProvider? VcsProvider { get; }
+        public VcsProvider? VcsProvider { get; init; }
 
         public bool KeepEditorConfig { get; init; }
 
@@ -800,7 +786,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            var versionPrefix = mainVersionFile.MainVersion;
+            var versionPrefix = mainVersion ?? mainVersionFile.MainVersion;
             string versionSuffix;
             int patchNumber;
 
@@ -879,7 +865,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     throw new InvalidOperationException();
             }
 
-            version = new VersionComponents( mainVersionFile.MainVersion, versionPrefix, patchNumber, versionSuffix );
+            version = new VersionComponents( mainVersion ?? mainVersionFile.MainVersion, versionPrefix, patchNumber, versionSuffix );
 
             return true;
         }
