@@ -1367,7 +1367,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         this,
                         objectName: "VersionBump",
                         name: $"Version Bump",
-                        buildArguments: $"--version bump",
+                        buildArguments: $"bump version",
                         buildAgentType: this.BuildAgentType )
                     {
                         BuildTriggers = this.DependencyDefinition.IsVersioned ? new IBuildTrigger[] { new VersionBumpTrigger( this.DependencyDefinition ) } : null

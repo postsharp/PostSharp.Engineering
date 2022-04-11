@@ -215,7 +215,7 @@ object VersionBump : BuildType({
     triggers {
 
         finishBuildTrigger {
-            buildType = "postsharp_PostSharpEngineering_VersionBump"
+            buildType = "postsharp_PostSharpEngineering_PublicDeployment"
             // Only successful deployment will trigger the version bump.
             successfulOnly = true
             branchFilter = "+:<default>"

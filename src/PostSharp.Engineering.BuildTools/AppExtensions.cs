@@ -139,7 +139,7 @@ namespace PostSharp.Engineering.BuildTools
                                 "bump",
                                 bump => bump.AddCommand<BumpCommand>( "version" )
                                     .WithData( product )
-                                    .WithDescription( "Bumps the version of this product." ) );
+                                    .WithDescription( "Bumps the version of this product" ) );
                         }
                     } );
             }
