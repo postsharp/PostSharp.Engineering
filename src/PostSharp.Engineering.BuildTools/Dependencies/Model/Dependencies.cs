@@ -13,17 +13,17 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencyDefinition MetalamaCompiler { get; } = new(
             "Metalama.Compiler",
             VcsProvider.AzureRepos,
-            "Metalama",
-
+            "Metalama" )
+        {
             // The release build is intentionally used for the debug configuration because we want dependencies to consume the release
             // build, for performance reasons. The debug build will be used only locally, and for this we don't need a configuration here.
-            ("Metalama_MetalamaCompiler_ReleaseBuild", "Metalama_MetalamaCompiler_ReleaseBuild", "Metalama_MetalamaCompiler_PublicBuild") );
+            CiBuildTypes = new( "Metalama_MetalamaCompiler_ReleaseBuild", "Metalama_MetalamaCompiler_ReleaseBuild", "Metalama_MetalamaCompiler_PublicBuild" )
+        };
 
         public static DependencyDefinition Metalama { get; } = new(
             "Metalama",
             VcsProvider.AzureRepos,
-            "Metalama",
-            ("Metalama_Metalama_DebugBuild", "Metalama_Metalama_ReleaseBuild", "Metalama_Metalama_PublicBuild") );
+            "Metalama");
 
         public static DependencyDefinition MetalamaSamples { get; } = new( "Metalama.Samples", VcsProvider.GitHub, "postsharp" );
 
@@ -34,24 +34,24 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencyDefinition PostSharpEngineering { get; } = new(
             "PostSharp.Engineering",
             VcsProvider.GitHub,
-            "postsharp",
+            "postsharp" )
+        {
+            GenerateSnapshotDependency = false,
 
             // We always use the debug build for engineering.
-            ("PostSharpEngineering_DebugBuild", "PostSharpEngineering_DebugBuild", "PostSharpEngineering_DebugBuild") ) { GenerateSnapshotDependency = false };
+            CiBuildTypes= new( "PostSharpEngineering_DebugBuild", "PostSharpEngineering_DebugBuild", "PostSharpEngineering_DebugBuild" )
+        };
 
         [Obsolete( "Renamed to MetalamaBackstage" )]
         public static DependencyDefinition PostSharpBackstageSettings { get; } = new(
             "PostSharp.Backstage.Settings",
             VcsProvider.AzureRepos,
-            "Metalama",
-            ("Metalama_PostSharpBackstageSettings_DebugBuild", "Metalama_PostSharpBackstageSettings_ReleaseBuild",
-             "Metalama_PostSharpBackstageSettings_PublicBuild") );
+            "Metalama" );
 
         public static DependencyDefinition MetalamaBackstage { get; } = new(
             "Metalama.Backstage",
             VcsProvider.AzureRepos,
-            "Metalama",
-            ("Metalama_MetalamaBackstage_DebugBuild", "Metalama_MetalamaBackstage_ReleaseBuild", "Metalama_MetalamaBackstage_PublicBuild") );
+            "Metalama" );
 
         public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
             Roslyn,

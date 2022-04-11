@@ -132,6 +132,11 @@ namespace PostSharp.Engineering.BuildTools
                                     "xmldoc",
                                     xmldoc => xmldoc.AddCommand<RemoveInternalsCommand>( "clean" ).WithDescription( "Remove internals." ).WithData( product ) );
                             } );
+
+                        if ( product.DependencyDefinition.IsVersioned )
+                        {
+                            // TODO: add branch + command
+                        }
                     } );
             }
         }
