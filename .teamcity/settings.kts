@@ -197,7 +197,7 @@ object VersionBump : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "--version bump")
+            param("jetbrains_powershell_scriptArguments", "bump version")
         }
     }
 
