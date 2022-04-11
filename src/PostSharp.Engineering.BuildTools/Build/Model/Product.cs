@@ -1,5 +1,6 @@
 ﻿using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
@@ -34,6 +35,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public Product( DependencyDefinition dependencyDefinition )
         {
             this.DependencyDefinition = dependencyDefinition;
+            this.VcsProvider = this.DependencyDefinition.Provider;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
         }
 
@@ -82,7 +84,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool RequiresBranchMerging { get; init; }
 
-        public VcsProvider? VcsProvider { get; init; }
+        public VcsProvider? VcsProvider { get; }
 
         public bool KeepEditorConfig { get; init; }
 
@@ -421,7 +423,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return new BuildInfo( packageVersion, Enum.Parse<BuildConfiguration>( configuration ), this );
         }
 
-        private static (string MainVersion, string? OverriddenPatchVersion, string PackageVersionSuffix, int? OutPatchVersion ) ReadMainVersionFile(
+        private static (string MainVersion, string? OverriddenPatchVersion, string PackageVersionSuffix, int? OurPatchVersion ) ReadMainVersionFile(
             string path )
         {
             var versionFilePath = path;
@@ -1108,7 +1110,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Get the current version from MainVersion.props.
             if ( !this.TryLoadMainVersion(
                     context,
-                    configuration,
                     mainVersionFile,
                     out var mainVersionInfo ) )
             {
@@ -1258,6 +1259,27 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             return success;
         }
+        
+        public bool BumpVersion( BuildContext context, BaseBuildSettings settings )
+        {
+            var mainVersionFile = Path.Combine(
+                context.RepoDirectory,
+                this.MainVersionFile );
+
+            this.TryLoadMainVersion( context, mainVersionFile, out var mainVersionInfo );
+
+            if ( mainVersionInfo == null )
+            {
+                return false;
+            }
+
+            if ( !this.TryBumpVersion( context, settings, mainVersionFile, mainVersionInfo ) )
+            {
+                return false;
+            }
+
+            return true;
+        }
 
         private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )
         {
@@ -1314,7 +1336,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     {
                         IsDeployment = true,
                         ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
-                        BuildTriggers = this.DependencyDefinition.IsVersioned ? new IBuildTrigger[] { new VersionBumpTrigger( this.DependencyDefinition ) } : null
                     };
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -1338,14 +1359,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         } );
                 }
             }
-            
-            // TODO: if versioned product, generate bump target.
-            /*
-             * finishBuildTrigger {
-    buildType = "Metalama_Metalama_DebugBuild"
-    successfulOnly = true
-}
-             */
+
+            if ( this.DependencyDefinition.IsVersioned )
+            {
+                teamCityBuildConfigurations.Add( 
+                    new TeamCityBuildConfiguration( 
+                        this,
+                        objectName: "VersionBump",
+                        name: $"Version Bump",
+                        buildArguments: $"--version bump",
+                        buildAgentType: this.BuildAgentType )
+                    {
+                        BuildTriggers = this.DependencyDefinition.IsVersioned ? new IBuildTrigger[] { new VersionBumpTrigger( this.DependencyDefinition ) } : null
+                    } );
+            }
 
             var teamCityProject = new TeamCityProject( teamCityBuildConfigurations.ToArray() );
             var content = new StringWriter();
@@ -1654,17 +1681,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        public bool BumpVersion( BuildContext context, BaseBuildSettings settings )
-        {
-            // TODO: call TryBumpVersion
-            return true;
-        }
-
         private bool TryBumpVersion(
             BuildContext context,
+            BaseBuildSettings settings,
             string mainVersionFile,
-            MainVersionInfo currentMainVersionInfo,
-            BaseBuildSettings settings )
+            MainVersionInfo currentMainVersionInfo )
         {
             if ( !File.Exists( mainVersionFile ) )
             {
@@ -1794,7 +1815,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private bool TryLoadMainVersion(
             BuildContext context,
-            BuildConfiguration configuration,
             string mainVersionFile,
             [NotNullWhen( true )] out MainVersionInfo? mainVersionInfo )
         {
@@ -1846,7 +1866,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            mainVersionInfo = new MainVersionInfo( currentVersion, version.PackageVersionSuffix, version.OutPatchVersion );
+            mainVersionInfo = new MainVersionInfo( currentVersion, version.PackageVersionSuffix, version.OurPatchVersion );
 
             return true;
         }

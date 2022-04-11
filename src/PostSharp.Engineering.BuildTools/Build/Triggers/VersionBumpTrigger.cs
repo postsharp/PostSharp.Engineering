@@ -23,9 +23,9 @@ public class VersionBumpTrigger : IBuildTrigger
         writer.WriteLine(
             $@"
         finishBuildTrigger {{
-            buildType = ""{this.DependencyDefinition.VcsProjectName}_{this.DependencyDefinition.NameWithoutDot}_Bump""
-            // Only successful build will trigger version bump.
-            watchChangesInDependencies = {this.SuccessfulOnly.ToString().ToLowerInvariant()}
+            buildType = ""{this.DependencyDefinition.VcsProjectName}_{this.DependencyDefinition.NameWithoutDot}_PublicDeployment""
+            // Only successful deployment will trigger the version bump.
+            successfulOnly = {this.SuccessfulOnly.ToString().ToLowerInvariant()}
             branchFilter = ""+:<default>""
         }}        " );
     }

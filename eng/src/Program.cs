@@ -14,8 +14,7 @@ var product = new Product( Dependencies.PostSharpEngineering )
         "PostSharp.Engineering.Sdk.$(PackageVersion).nupkg",
         "PostSharp.Engineering.BuildTools.$(PackageVersion).nupkg",
         "PostSharp.Engineering.BuildTools.AWS.$(PackageVersion).nupkg" ),
-    RequiresEngineeringSdk = false,
-    VcsProvider = VcsProvider.GitHub
+    RequiresEngineeringSdk = false
 };
 
 var commandApp = new CommandApp();

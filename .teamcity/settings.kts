@@ -17,7 +17,8 @@ project {
    buildType(ReleaseBuild)
    buildType(PublicBuild)
    buildType(PublicDeployment)
-   buildTypesOrder = arrayListOf(DebugBuild,ReleaseBuild,PublicBuild,PublicDeployment)
+   buildType(VersionBump)
+   buildTypesOrder = arrayListOf(DebugBuild,ReleaseBuild,PublicBuild,PublicDeployment,VersionBump)
 }
 
 object DebugBuild : BuildType({
@@ -165,17 +166,6 @@ object PublicDeployment : BuildType({
         }
     }
 
-    triggers {
-
-        finishBuildTrigger {
-            buildType = "postsharp_PostSharpEngineering_Bump"
-            // Only successful build will trigger version bump.
-            watchChangesInDependencies = true
-            branchFilter = "+:<default>"
-        }        
-
-    }
-
   dependencies {
 
         dependency(PublicBuild) {
@@ -190,6 +180,48 @@ object PublicDeployment : BuildType({
         }
 
      }
+
+})
+
+object VersionBump : BuildType({
+
+    name = "Version Bump"
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+
+    steps {
+        powerShell {
+            scriptMode = file {
+                path = "Build.ps1"
+            }
+            noProfile = false
+            param("jetbrains_powershell_scriptArguments", "--version bump")
+        }
+    }
+
+    requirements {
+        equals("env.BuildAgentType", "caravela02")
+    }
+
+    features {
+        swabra {
+            lockingProcesses = Swabra.LockingProcessPolicy.KILL
+            verbose = true
+        }
+    }
+
+    triggers {
+
+        finishBuildTrigger {
+            buildType = "postsharp_PostSharpEngineering_VersionBump"
+            // Only successful deployment will trigger the version bump.
+            successfulOnly = true
+            branchFilter = "+:<default>"
+        }        
+
+    }
 
 })
 

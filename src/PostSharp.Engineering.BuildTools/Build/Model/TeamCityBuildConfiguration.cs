@@ -89,14 +89,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         }}" );
 
             var productVcsProvider = this.Product.VcsProvider;
-            
-            // The SSH agent is added only for the Deployment and only if TeamCity uses SSH for Git operations over the VCS repository.
+
+            // The SSH agent is added only for the Deployment and only if TeamCity uses SSH for Git operations over the product VCS repository.
             if ( productVcsProvider != null && this.IsDeployment && productVcsProvider.SshAgentRequired )
             {
                 writer.WriteLine(
                     $@"        sshAgent {{
             // By convention, the SSH key name is always PostSharp.Engineering for all repositories using SSH to connect.
-            teamcitySshKey = ""{this.Product.ProductName}""
+            teamcitySshKey = ""PostSharp.Engineering""
         }}" );
             }
 

@@ -135,7 +135,11 @@ namespace PostSharp.Engineering.BuildTools
 
                         if ( product.DependencyDefinition.IsVersioned )
                         {
-                            // TODO: add branch + command
+                            root.AddBranch(
+                                "bump",
+                                bump => bump.AddCommand<BumpCommand>( "version" )
+                                    .WithData( product )
+                                    .WithDescription( "Bumps the version of this product." ) );
                         }
                     } );
             }
