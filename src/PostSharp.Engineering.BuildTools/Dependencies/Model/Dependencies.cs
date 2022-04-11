@@ -23,7 +23,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencyDefinition Metalama { get; } = new(
             "Metalama",
             VcsProvider.AzureRepos,
-            "Metalama");
+            "Metalama" );
 
         public static DependencyDefinition MetalamaSamples { get; } = new( "Metalama.Samples", VcsProvider.GitHub, "postsharp" );
 
@@ -39,7 +39,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             GenerateSnapshotDependency = false,
 
             // We always use the debug build for engineering.
-            CiBuildTypes= new( "PostSharpEngineering_DebugBuild", "PostSharpEngineering_DebugBuild", "PostSharpEngineering_DebugBuild" )
+            CiBuildTypes = new( "PostSharpEngineering_DebugBuild", "PostSharpEngineering_DebugBuild", "PostSharpEngineering_DebugBuild" )
         };
 
         [Obsolete( "Renamed to MetalamaBackstage" )]

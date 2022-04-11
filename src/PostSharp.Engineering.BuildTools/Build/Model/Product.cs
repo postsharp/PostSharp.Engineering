@@ -1313,7 +1313,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         buildAgentType: this.BuildAgentType )
                     {
                         IsDeployment = true,
-                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
+                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
+                        BuildTriggers = this.DependencyDefinition.IsVersioned ? new IBuildTrigger[] { new VersionBumpTrigger( this.DependencyDefinition ) } : null
                     };
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -1656,7 +1657,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool BumpVersion( BuildContext context, BaseBuildSettings settings )
         {
             // TODO: call TryBumpVersion
+            return true;
         }
+
         private bool TryBumpVersion(
             BuildContext context,
             string mainVersionFile,

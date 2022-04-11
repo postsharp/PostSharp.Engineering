@@ -160,9 +160,20 @@ object PublicDeployment : BuildType({
             verbose = true
         }
         sshAgent {
-            // By convention, the SSH key name is the same as the product name.
+            // By convention, the SSH key name is always PostSharp.Engineering for all repositories using SSH to connect.
             teamcitySshKey = "PostSharp.Engineering"
         }
+    }
+
+    triggers {
+
+        finishBuildTrigger {
+            buildType = "postsharp_PostSharpEngineering_Bump"
+            // Only successful build will trigger version bump.
+            watchChangesInDependencies = true
+            branchFilter = "+:<default>"
+        }        
+
     }
 
   dependencies {

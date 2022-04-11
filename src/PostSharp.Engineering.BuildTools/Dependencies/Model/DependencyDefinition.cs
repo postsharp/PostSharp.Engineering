@@ -44,7 +44,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             }
         }
 
-
         public override string ToString() => this.Name;
     }
 }
