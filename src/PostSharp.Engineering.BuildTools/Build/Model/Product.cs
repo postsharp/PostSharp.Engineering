@@ -1273,6 +1273,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
+            context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
+
             if ( !this.TryBumpVersion( context, settings, mainVersionFile, mainVersionInfo ) )
             {
                 return false;
@@ -1370,6 +1372,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         buildArguments: $"bump version",
                         buildAgentType: this.BuildAgentType )
                     {
+                        IsDeployment = true,
                         BuildTriggers = this.DependencyDefinition.IsVersioned ? new IBuildTrigger[] { new VersionBumpTrigger( this.DependencyDefinition ) } : null
                     } );
             }
