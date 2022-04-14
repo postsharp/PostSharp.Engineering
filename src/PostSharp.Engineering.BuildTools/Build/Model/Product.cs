@@ -1781,10 +1781,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var versionNumbers = new List<string>();
 
             // For each stored version file we add the version number to list.
-            foreach ( var file in versionFiles )
+            foreach ( var dependencySources in dependencies.Values )
             {
+                var file = dependencySources.VersionFile;
+
                 if ( file == null )
                 {
+                    var versionNumber = dependencySources.Version;
+
+                    if ( versionNumber != null )
+                    {
+                        // For comparison below we need only numeric part of the version number.
+                        versionNumbers.Add( versionNumber.Substring( 0, versionNumber.IndexOf( '-', StringComparison.InvariantCulture ) ) );
+                    }
+
                     continue;
                 }
 
