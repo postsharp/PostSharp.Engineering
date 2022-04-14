@@ -671,7 +671,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Save BumpInfo.txt
             if ( !this.GetDependenciesVersions( context, versionsOverrideFile.Dependencies, out _ ) )
             {
-                context.Console.WriteImportantMessage( $"The product '{context.Product.ProductName}' doesn't have any dependencies to read versions from." );
+                context.Console.WriteWarning( $"The product '{context.Product.ProductName}' doesn't have any dependencies to read versions from, BumpInfo file was not created." );
             }
 
             // We always save the Versions.g.props because it may not exist and it may have been changed by the previous step.
@@ -1286,7 +1286,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // If there are no changes since the last tag (i.e. last publishing) and the dependency version hasn't changed the bump will be skipped.
                 if ( !this.IsDependencyVersionDifferent( context, directDependency, buildServerDependencyVersion ) )
                 {
-                    return true;
+                    Console.WriteLine( $"Skipping version bump as dependency '{directDependency.Name}' wasn't bumped recently." );
                 }
             }
 
@@ -1525,8 +1525,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 return true;
             }
-
-            Console.WriteLine( $"Skipping version bump as dependency '{dependency.Key}' wasn't bumped recently." );
 
             return false;
         }
@@ -1780,7 +1778,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var versionFiles = dependencies.Values.Select( d => d.VersionFile );
             var versionNumbers = new List<string>();
 
-            // For each stored version file we add the version number to list.
+            // For each stored dependency we add the version number to list.
             foreach ( var dependencySources in dependencies.Values )
             {
                 var file = dependencySources.VersionFile;
