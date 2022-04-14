@@ -1766,7 +1766,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             versionsByDependency = null;
 
             // If project doesn't have any dependency other than PostSharp.Engineering, reading version files is skipped.
-            if ( dependencies.All( d => d.Key == "PostSharp.Engineering" ) )
+            if ( dependencies.Count == 0 )
             {
                 return false;
             }
