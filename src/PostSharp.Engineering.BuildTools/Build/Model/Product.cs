@@ -1,6 +1,5 @@
 ﻿using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
@@ -112,7 +111,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public DependencyDefinition? GetDependency( string name )
             => this.Dependencies.SingleOrDefault( d => d.Name == name )
-               ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name );
+               ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name )
+               ?? TestDependencies.All.SingleOrDefault( d => d.Name == name );
 
         public Dictionary<string, string> SupportedProperties { get; init; } = new();
 
@@ -668,6 +668,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 versionsOverrideFile.LocalBuildFile = propsFilePath;
             }
 
+            // Save BumpInfo.txt
+            if ( !this.GetDependenciesVersions( context, versionsOverrideFile.Dependencies, out _ ) )
+            {
+                context.Console.WriteImportantMessage( $"The product '{context.Product.ProductName}' doesn't have any dependencies to read versions from." );
+            }
+
             // We always save the Versions.g.props because it may not exist and it may have been changed by the previous step.
             versionsOverrideFile.LocalBuildFile = propsFilePath;
 
@@ -772,7 +778,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 mainVersion = versionFile.Properties.SingleOrDefault( p => p.Name == propertyName )
                     ?.UnevaluatedValue;
 
-                if ( string.IsNullOrWhiteSpace( mainVersion ) )
+                if ( string.IsNullOrEmpty( mainVersion ) )
                 {
                     context.Console.WriteError( $"The file '{dependencySource.VersionFile}' does not contain the {propertyName}." );
 
@@ -784,7 +790,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
             }
 
-            if ( !string.IsNullOrWhiteSpace( mainVersionFile.OverriddenPatchVersion )
+            if ( !string.IsNullOrEmpty( mainVersionFile.OverriddenPatchVersion )
                  && !mainVersionFile.OverriddenPatchVersion.StartsWith( mainVersion ?? mainVersionFile.MainVersion + ".", StringComparison.Ordinal ) )
             {
                 context.Console.WriteError(
@@ -1266,6 +1272,31 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.RepoDirectory,
                 this.MainVersionFile );
 
+            if ( !VersionsOverrideFile.TryLoad( context, settings.BuildConfiguration, out var versionsOverrideFile ) )
+            {
+                return false;
+            }
+            
+            var directDependency = this.Dependencies.SingleOrDefault( d => d.Name != "PostSharp.Engineering" );
+
+            if ( this.GetDependenciesVersions( context, versionsOverrideFile.Dependencies, out var versionsByDependency ) && directDependency != null )
+            {
+                if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
+                {
+                    return false;
+                }
+
+                var buildServerDependencyVersion = versionsByDependency.SingleOrDefault( d => d.Key == directDependency.Name ).Value;
+
+                // If there are no changes since the last tag (i.e. last publishing) and the dependency version hasn't changed the bump will be skipped.
+                if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) || !this.IsDependencyVersionDifferent( context, directDependency, buildServerDependencyVersion ) )
+                {
+                    context.Console.WriteWarning( "Skipping version bump as there are no changes since the last version tag." );
+
+                    return true;
+                }
+            }
+
             this.TryLoadMainVersion( context, mainVersionFile, out var mainVersionInfo );
 
             if ( mainVersionInfo == null )
@@ -1336,8 +1367,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         buildArguments: $"publish --configuration {configuration}",
                         buildAgentType: this.BuildAgentType )
                     {
-                        IsDeployment = true,
-                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
+                        IsDeployment = true, ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
                     };
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -1362,19 +1392,35 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            if ( this.DependencyDefinition.IsVersioned )
+            // Only versioned products can be bumped and only if they don't have MainVersionDependency.
+            if ( this.DependencyDefinition.IsVersioned && this.MainVersionDependency == null )
             {
-                teamCityBuildConfigurations.Add( 
-                    new TeamCityBuildConfiguration( 
-                        this,
-                        objectName: "VersionBump",
-                        name: $"Version Bump",
-                        buildArguments: $"bump version",
-                        buildAgentType: this.BuildAgentType )
-                    {
-                        IsDeployment = true,
-                        BuildTriggers = this.DependencyDefinition.IsVersioned ? new IBuildTrigger[] { new VersionBumpTrigger( this.DependencyDefinition ) } : null
-                    } );
+                var dependencyDefinitions = this.Dependencies;
+
+                if ( dependencyDefinitions != null )
+                {
+                    teamCityBuildConfigurations.Add(
+                        new TeamCityBuildConfiguration(
+                            this,
+                            objectName: "VersionBump",
+                            name: $"Version Bump",
+                            buildArguments: $"bump version",
+                            buildAgentType: this.BuildAgentType )
+                        {
+                            IsDeployment = true,
+                            BuildTriggers = this.DependencyDefinition.IsVersioned
+
+                                // The first direct dependency after except for PostSharp.Engineering or Roslyn is the one that triggers this product's version bump.
+                                ? new IBuildTrigger[]
+                                {
+                                    new VersionBumpTrigger(
+                                        dependencyDefinitions.SingleOrDefault(
+                                            d => d != PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.PostSharpEngineering
+                                                 && d != PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.Roslyn ) )
+                                }
+                                : null
+                        } );
+                }
             }
 
             var teamCityProject = new TeamCityProject( teamCityBuildConfigurations.ToArray() );
@@ -1446,6 +1492,36 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 return true;
             }
+
+            return false;
+        }
+
+        private bool IsDependencyVersionDifferent( BuildContext context, DependencyDefinition localDependency, string dependencyBuildServerVersionString )
+        {
+            var bumpInfoFile = Path.Combine( context.RepoDirectory, this.EngineeringDirectory, "BumpInfo.txt" );
+
+            if ( !File.Exists( bumpInfoFile ) )
+            {
+                context.Console.WriteWarning( $"Could not find '{bumpInfoFile}'. " );
+
+                return false;
+            }
+
+            var dependencies = File.ReadLines( bumpInfoFile );
+            var versionsByDependencies = dependencies.Select( line => line.Split( ":" ) ).ToDictionary( part => part[0], part => part[1] );
+            var dependency = versionsByDependencies.SingleOrDefault( d => d.Key == localDependency.Name );
+
+            var locallySavedVersion = new Version( dependency.Value );
+            var buildServerVersion = new Version( dependencyBuildServerVersionString );
+            
+            if ( locallySavedVersion < buildServerVersion )
+            {
+                context.Console.WriteImportantMessage( $"The '{dependency.Key}' locally saved version '{locallySavedVersion}' is outdated, newer version '{buildServerVersion}' has been found." );
+
+                return true;
+            }
+
+            Console.WriteLine( $"Skipping version bump as dependency '{dependency.Key}' wasn't bumped recently." );
 
             return false;
         }
@@ -1684,6 +1760,63 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
+        private bool GetDependenciesVersions( BuildContext context, Dictionary<string, DependencySource> dependencies, [NotNullWhen( true )] out Dictionary<string, string>? versionsByDependency )
+        {
+            var bumpInfoFile = Path.Combine( context.RepoDirectory, this.EngineeringDirectory, "BumpInfo.txt" );
+            versionsByDependency = null;
+
+            // If project doesn't have any dependency other than PostSharp.Engineering, reading version files is skipped.
+            if ( dependencies.All( d => d.Key == "PostSharp.Engineering" ) )
+            {
+                return false;
+            }
+
+            // We get version file locations of all dependencies.
+            var versionFiles = dependencies.Values.Select( d => d.VersionFile );
+            var versionNumbers = new List<string>();
+
+            // For each stored version file we add the version number to list.
+            foreach ( var file in versionFiles )
+            {
+                if ( file == null )
+                {
+                    continue;
+                }
+
+                var fileToLoad = file;
+
+                // If the dependencies are local, the version file is referred in Product.Import.props file.
+                if ( file.Contains( "Import", StringComparison.InvariantCulture ) )
+                {
+                    var artifactsDirectory = XDocument.Load( file ).Root!.Element( "Import" )!.FirstAttribute!.Value;
+        
+                    var repositoryPath = file.Substring( 0, file.LastIndexOf( '\\' ) );
+                    fileToLoad = Path.Combine( repositoryPath, artifactsDirectory );
+                }
+
+                var document = XDocument.Load( fileToLoad );
+                var props = document.Root!.Element( "PropertyGroup" );
+
+                if ( props != null )
+                {
+                    // First node is always MainVersion of dependency.
+                    versionNumbers.Add( ((XElement) props.FirstNode!).Value );
+                }
+            }
+
+            // We create Product:VersionNumber pairs.
+            versionsByDependency = dependencies.Keys.Zip( versionNumbers ).ToDictionary( name => name.First, version => version.Second );
+
+            var dependencyVersions =
+                string.Join( '\n', versionsByDependency.Select( dependencyVersion => dependencyVersion.Key + ":" + dependencyVersion.Value ) );
+
+            File.WriteAllText( bumpInfoFile, dependencyVersions );
+
+            context.Console.WriteMessage( $"Writing '{bumpInfoFile}." );
+
+            return true;
+        }
+
         private bool TryBumpVersion(
             BuildContext context,
             BaseBuildSettings settings,
@@ -1836,7 +1969,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             else
             {
                 // If MainVersionDependency and OverriddenPatchVersion properties are defined, we use OverriddenPatchVersion value.
-                if ( overriddenPatchVersion != null )
+                if ( !string.IsNullOrEmpty( overriddenPatchVersion) )
                 {
                     currentVersion = new Version( overriddenPatchVersion );
                 }

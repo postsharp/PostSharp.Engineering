@@ -367,7 +367,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     case DependencySourceKind.BuildServer:
                         {
                             var dependencyDefinition = context.Product.Dependencies.SingleOrDefault( p => p.Name == dependency.Key )
-                                                       ?? Model.Dependencies.All.SingleOrDefault( d => d.Name == dependency.Key );
+                                                       ?? Model.Dependencies.All.SingleOrDefault( d => d.Name == dependency.Key )
+                                                       ?? TestDependencies.All.SingleOrDefault( d => d.Name == dependency.Key );
 
                             if ( dependencyDefinition == null )
                             {

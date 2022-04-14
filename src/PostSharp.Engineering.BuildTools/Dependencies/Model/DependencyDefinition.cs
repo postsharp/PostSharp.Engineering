@@ -36,11 +36,15 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             this.RepoName = name;
             this.DefaultBranch = "master";
             this.IsVersioned = isVersioned;
-            this.CiBuildTypes = new ConfigurationSpecific<string>( $"{this.VcsProjectName}_{this.NameWithoutDot}_DebugBuild", $"{this.VcsProjectName}_{this.NameWithoutDot}ReleaseBuild", $"{this.VcsProjectName}_{this.NameWithoutDot}_PublicBuild" );
+
+            this.CiBuildTypes = new ConfigurationSpecific<string>(
+                $"{this.VcsProjectName}_{this.NameWithoutDot}_DebugBuild",
+                $"{this.VcsProjectName}_{this.NameWithoutDot}_ReleaseBuild",
+                $"{this.VcsProjectName}_{this.NameWithoutDot}_PublicBuild" );
 
             if ( this.IsVersioned )
             {
-                this.BumpBuildType = $"{this.VcsProjectName}_{this.NameWithoutDot}_Bump";
+                this.BumpBuildType = $"{this.VcsProjectName}_{this.NameWithoutDot}_VersionBump";
             }
         }
 

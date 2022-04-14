@@ -172,7 +172,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     }
 
                     // Get the DependencyDefinition.
-                    var dependencyDefinition = Model.Dependencies.All.SingleOrDefault( d => d.Name == name );
+                    var dependencyDefinition = Model.Dependencies.All.SingleOrDefault( d => d.Name == name )
+                                               ?? TestDependencies.All.SingleOrDefault( d => d.Name == name );
 
                     if ( dependencyDefinition == null )
                     {

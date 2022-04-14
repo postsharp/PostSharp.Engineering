@@ -9,24 +9,27 @@ namespace PostSharp.Engineering.BuildTools.Build.Triggers;
 /// </summary>
 public class VersionBumpTrigger : IBuildTrigger
 {
-    public VersionBumpTrigger( DependencyDefinition dependencyDefinition )
+    public VersionBumpTrigger( DependencyDefinition? dependencyDefinition )
     {
         this.DependencyDefinition = dependencyDefinition;
     }
 
-    public DependencyDefinition DependencyDefinition { get; }
+    public DependencyDefinition? DependencyDefinition { get; }
 
     public bool SuccessfulOnly { get; set; } = true;
 
     public void GenerateTeamcityCode( TextWriter writer )
     {
-        writer.WriteLine(
-            $@"
+        if ( this.DependencyDefinition != null )
+        {
+            writer.WriteLine(
+                $@"
         finishBuildTrigger {{
-            buildType = ""{this.DependencyDefinition.VcsProjectName}_{this.DependencyDefinition.NameWithoutDot}_PublicDeployment""
-            // Only successful deployment will trigger the version bump.
+            buildType = ""{this.DependencyDefinition.BumpBuildType}""
+            // Only successful dependency version bump will trigger version bump of this product.
             successfulOnly = {this.SuccessfulOnly.ToString().ToLowerInvariant()}
             branchFilter = ""+:<default>""
         }}        " );
+        }
     }
 }
