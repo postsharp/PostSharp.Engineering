@@ -1281,20 +1281,25 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( this.GetDependenciesVersions( context, versionsOverrideFile.Dependencies, out var versionsByDependency ) && directDependency != null )
             {
-                if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
-                {
-                    return false;
-                }
-
                 var buildServerDependencyVersion = versionsByDependency.SingleOrDefault( d => d.Key == directDependency.Name ).Value;
 
                 // If there are no changes since the last tag (i.e. last publishing) and the dependency version hasn't changed the bump will be skipped.
-                if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) || !this.IsDependencyVersionDifferent( context, directDependency, buildServerDependencyVersion ) )
+                if ( !this.IsDependencyVersionDifferent( context, directDependency, buildServerDependencyVersion ) )
                 {
-                    context.Console.WriteWarning( "Skipping version bump as there are no changes since the last version tag." );
-
                     return true;
                 }
+            }
+
+            if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
+            {
+                return false;
+            }
+
+            if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
+            {
+                context.Console.WriteWarning( "Skipping version bump as there are no changes since the last version tag." );
+
+                return true;
             }
 
             this.TryLoadMainVersion( context, mainVersionFile, out var mainVersionInfo );
