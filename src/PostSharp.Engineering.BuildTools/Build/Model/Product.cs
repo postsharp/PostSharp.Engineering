@@ -1286,7 +1286,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // If there are no changes since the last tag (i.e. last publishing) and the dependency version hasn't changed the bump will be skipped.
                 if ( !this.IsDependencyVersionDifferent( context, directDependency, buildServerDependencyVersion ) )
                 {
-                    Console.WriteLine( $"Skipping version bump as dependency '{directDependency.Name}' wasn't bumped recently." );
+                    context.Console.WriteWarning( $"Skipping version bump as dependency '{directDependency.Name}' wasn't bumped recently." );
                 }
             }
 
@@ -1299,7 +1299,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 context.Console.WriteWarning( "Skipping version bump as there are no changes since the last version tag." );
 
-                return true;
+                return false;
             }
 
             this.TryLoadMainVersion( context, mainVersionFile, out var mainVersionInfo );
