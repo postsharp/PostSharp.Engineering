@@ -2,7 +2,6 @@ using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Solutions
 {
@@ -20,8 +19,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
         public override bool Test( BuildContext context, BuildSettings settings )
         {
             var resultsDirectory = context.Product.TestResultsDirectory.ToString( new BuildInfo( null!, settings.BuildConfiguration, context.Product ) );
-            
-            return this.RunDotNet( context, settings, "test", $"--no-restore --logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory {resultsDirectory}" );
+
+            return this.RunDotNet(
+                context,
+                settings,
+                "test",
+                $"--no-restore --logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory {resultsDirectory}" );
         }
 
         public override bool Restore( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "restore", "--no-cache" );
@@ -34,7 +37,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             {
                 allArguments.Add( "-p:ContinuousIntegrationBuild=True" );
             }
-            
+
             return DotNetHelper.Run(
                 context,
                 settings,
