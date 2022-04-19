@@ -31,6 +31,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private readonly string? _mainVersionFile;
 
+        private readonly string? _bumpInfoFile;
+
         public Product( DependencyDefinition dependencyDefinition )
         {
             this.DependencyDefinition = dependencyDefinition;
@@ -52,6 +54,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             get => this._mainVersionFile ?? Path.Combine( this.EngineeringDirectory, "MainVersion.props" );
             init => this._mainVersionFile = value;
+        }
+
+        public string BumpInfoFile
+        {
+            get => this._bumpInfoFile ?? Path.Combine( this.EngineeringDirectory, "BumpInfo.txt" );
+            init => this._bumpInfoFile = value;
         }
 
         /// <summary>
@@ -1268,8 +1276,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             
             var bumpInfoFile = Path.Combine(
                 context.RepoDirectory,
-                this.EngineeringDirectory,
-                "BumpInfo.txt" );
+                this.BumpInfoFile );
 
             if ( !VersionsOverrideFile.TryLoad( context, settings.BuildConfiguration, out var versionsOverrideFile ) )
             {
@@ -1318,11 +1325,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
-
-            if ( !this.TryBumpVersion( context, settings, mainVersionFile, mainVersionInfo ) )
-            {
-                return false;
-            }
             
             if ( versionsByDependency != null )
             {
@@ -1332,6 +1334,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 File.WriteAllText( bumpInfoFile, dependencyVersions );
                 
                 context.Console.WriteMessage( $"Writing '{bumpInfoFile}'." );
+            }
+
+            if ( !this.TryBumpVersion( context, settings, mainVersionFile, mainVersionInfo ) )
+            {
+                return false;
             }
 
             return true;
@@ -1936,11 +1943,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private bool TryCommitVersionBump( BuildContext context, Version currentVersion, Version newVersion, BaseBuildSettings settings )
         {
-            // Adds bumped MainVersion.props to Git staging area.
+            // Adds bumped MainVersion.props and updated BumpInfo.txt to Git staging area.
             if ( !ToolInvocationHelper.InvokeTool(
                     context.Console,
                     "git",
-                    $"add {this.MainVersionFile}",
+                    $"add {this.MainVersionFile} {this.BumpInfoFile}",
                     context.RepoDirectory ) )
             {
                 return false;
