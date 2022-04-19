@@ -1768,7 +1768,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var bumpInfoFile = Path.Combine( context.RepoDirectory, this.EngineeringDirectory, "BumpInfo.txt" );
             versionsByDependency = null;
 
-            // If project doesn't have any dependency other than PostSharp.Engineering, reading version files is skipped.
+            // If product doesn't have any dependency other than PostSharp.Engineering, reading version files is skipped.
             if ( dependencies.All( d => d.Key == "PostSharp.Engineering" ) )
             {
                 return false;
@@ -1777,9 +1777,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var versionNumbers = new List<string>();
 
             // For each dependency we add the version number to list.
-            foreach ( var dependencySource in dependencies.Values )
+            foreach ( var dependency in dependencies )
             {
                 string? file = null;
+                var dependencySource = dependency.Value;
                 var versionFile = dependencySource.VersionFile;
                 var versionNumber = dependencySource.Version;
 
@@ -1811,30 +1812,32 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     var tc = new TeamcityClient( token );
 
-                    var dependencyName = dependencies.FirstOrDefault( d => d.Value == dependencySource ).Key;
+                    var dependencyName = dependency.Key;
                     var versionProperties = $"{dependencyName}.version.props";
                     var savedFile = Path.Combine( context.RepoDirectory, this.EngineeringDirectory, versionProperties );
-                    
-                    var ciBuildType = dependencySource.BuildServerSource as CiBuildId;
 
-                    if ( ciBuildType == null )
+                    if ( dependencySource.BuildServerSource is not CiBuildId ciBuildType )
                     {
-                        context.Console.WriteError( "CI Build Type is not defined." );
+                        context.Console.WriteError( $"Build server source of '{dependencyName}' is not CI build ID source." );
 
                         return false;
                     }
 
-                    if ( ciBuildType.BuildTypeId != null )
+                    if ( ciBuildType.BuildTypeId == null )
                     {
-                        tc.DownloadSingleArtifact(
-                            ciBuildType.BuildTypeId,
-                            ciBuildType.BuildNumber,
-                            $"/artifacts/publish/private/{versionProperties}",
-                            savedFile,
-                            ConsoleHelper.CancellationToken );
+                        context.Console.WriteError( $"Build Type ID is not defined." );
+                        
+                        return false;
                     }
+                    
+                    tc.DownloadSingleArtifact(
+                        ciBuildType.BuildTypeId,
+                        ciBuildType.BuildNumber,
+                        $"/artifacts/publish/private/{versionProperties}",
+                        savedFile,
+                        ConsoleHelper.CancellationToken );
 
-                    context.Console.WriteMessage( $"Writing '{savedFile}'" );
+                    context.Console.WriteMessage( $"Writing '{savedFile}'." );
 
                     file = savedFile;
                 }
@@ -1853,12 +1856,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 if ( props != null )
                 {
-                    // First node is always MainVersion of dependency.
+                    // First property node is always MainVersion of dependency.
                     versionNumbers.Add( ((XElement) props.FirstNode!).Value );
                 }
             }
 
-            // We create Product:VersionNumber pairs.
+            // We create pairs of version by dependency name.
             versionsByDependency = dependencies.Keys.Zip( versionNumbers ).ToDictionary( name => name.First, version => version.Second );
 
             var dependencyVersions =
