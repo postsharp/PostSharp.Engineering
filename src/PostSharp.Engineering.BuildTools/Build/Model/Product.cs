@@ -668,12 +668,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 versionsOverrideFile.LocalBuildFile = propsFilePath;
             }
 
-            // Save BumpInfo.txt
-            if ( !this.GetDependenciesVersions( context, versionsOverrideFile.Dependencies, out _ ) )
-            {
-                context.Console.WriteWarning( $"The product '{context.Product.ProductName}' doesn't have any dependencies to read versions from, BumpInfo file was not created." );
-            }
-
             // We always save the Versions.g.props because it may not exist and it may have been changed by the previous step.
             versionsOverrideFile.LocalBuildFile = propsFilePath;
 
@@ -1277,29 +1271,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
             
+            // We take first direct dependency, but not PostSharp.Engineering dependency.
             var directDependency = this.Dependencies.SingleOrDefault( d => d.Name != "PostSharp.Engineering" );
 
             if ( this.GetDependenciesVersions( context, versionsOverrideFile.Dependencies, out var versionsByDependency ) && directDependency != null )
             {
                 var buildServerDependencyVersion = versionsByDependency.SingleOrDefault( d => d.Key == directDependency.Name ).Value;
 
-                // If there are no changes since the last tag (i.e. last publishing) and the dependency version hasn't changed the bump will be skipped.
-                if ( !this.IsDependencyVersionDifferent( context, directDependency, buildServerDependencyVersion ) )
+                if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
                 {
-                    context.Console.WriteWarning( $"Skipping version bump as dependency '{directDependency.Name}' wasn't bumped recently." );
+                    return false;
                 }
-            }
 
-            if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
-            {
-                return false;
-            }
-
-            if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
-            {
-                context.Console.WriteWarning( "Skipping version bump as there are no changes since the last version tag." );
-
-                return false;
+                // If there are no changes since the last tag (i.e. last publishing) and the dependency version hasn't changed the bump will be skipped.
+                if ( !this.IsDependencyVersionDifferent( context, directDependency, buildServerDependencyVersion ) & !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
+                {
+                    return false;
+                }
             }
 
             this.TryLoadMainVersion( context, mainVersionFile, out var mainVersionInfo );
@@ -1498,10 +1486,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return true;
             }
 
+            context.Console.WriteWarning( "There are no changes since the last version tag." );
+
             return false;
         }
 
-        private bool IsDependencyVersionDifferent( BuildContext context, DependencyDefinition localDependency, string dependencyBuildServerVersionString )
+        private bool IsDependencyVersionDifferent( BuildContext context, DependencyDefinition directDependency, string dependencyBuildServerVersionString )
         {
             var bumpInfoFile = Path.Combine( context.RepoDirectory, this.EngineeringDirectory, "BumpInfo.txt" );
 
@@ -1512,19 +1502,29 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
+            var localDependencyName = directDependency.Name;
+
             var dependencies = File.ReadLines( bumpInfoFile );
             var versionsByDependencies = dependencies.Select( line => line.Split( ":" ) ).ToDictionary( part => part[0], part => part[1] );
-            var dependency = versionsByDependencies.SingleOrDefault( d => d.Key == localDependency.Name );
 
-            var locallySavedVersion = new Version( dependency.Value );
+            if ( !versionsByDependencies.ContainsKey( localDependencyName ) )
+            {
+                context.Console.WriteError( $"BumpInfo.txt doesn't contain version information about {localDependencyName}." );
+
+                return false;
+            }
+
+            var localDependencyVersion = new Version( versionsByDependencies[localDependencyName] );
             var buildServerVersion = new Version( dependencyBuildServerVersionString );
             
-            if ( locallySavedVersion < buildServerVersion )
+            if ( localDependencyVersion < buildServerVersion )
             {
-                context.Console.WriteImportantMessage( $"The '{dependency.Key}' locally saved version '{locallySavedVersion}' is outdated, newer version '{buildServerVersion}' has been found." );
+                context.Console.WriteImportantMessage( $"The '{localDependencyName}' locally saved version '{localDependencyVersion}' is outdated, newer version '{buildServerVersion}' has been found." );
 
                 return true;
             }
+
+            context.Console.WriteWarning( $"Dependency '{localDependencyName}' wasn't bumped recently." );
 
             return false;
         }
@@ -1769,34 +1769,75 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             versionsByDependency = null;
 
             // If project doesn't have any dependency other than PostSharp.Engineering, reading version files is skipped.
-            if ( dependencies.Count == 0 )
+            if ( dependencies.All( d => d.Key == "PostSharp.Engineering" ) )
             {
                 return false;
             }
 
-            // We get version file locations of all dependencies.
-            var versionFiles = dependencies.Values.Select( d => d.VersionFile );
             var versionNumbers = new List<string>();
 
-            // For each stored dependency we add the version number to list.
-            foreach ( var dependencySources in dependencies.Values )
+            // For each dependency we add the version number to list.
+            foreach ( var dependencySource in dependencies.Values )
             {
-                var file = dependencySources.VersionFile;
+                string? file = null;
+                var versionFile = dependencySource.VersionFile;
+                var versionNumber = dependencySource.Version;
 
-                if ( file == null )
+                // If version number is defined, we save it and skip rest of the operations.
+                if ( versionNumber != null )
                 {
-                    var versionNumber = dependencySources.Version;
-
-                    if ( versionNumber != null )
-                    {
-                        // For comparison below we need only numeric part of the version number.
-                        versionNumbers.Add( versionNumber.Substring( 0, versionNumber.IndexOf( '-', StringComparison.InvariantCulture ) ) );
-                    }
+                    // For comparison below we need only numeric part of the version number.
+                    versionNumbers.Add( versionNumber.Substring( 0, versionNumber.IndexOf( '-', StringComparison.InvariantCulture ) ) );
 
                     continue;
                 }
+                
+                if ( versionFile != null )
+                {
+                    file = versionFile;
+                }
 
-                var fileToLoad = file;
+                // If version or version file do not exist we download dependency's version.props of the latest TeamCity build to take version number from.
+                if ( string.IsNullOrEmpty( file ) )
+                {
+                    var token = Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" );
+
+                    if ( string.IsNullOrEmpty( token ) )
+                    {
+                        context.Console.WriteError( "The TEAMCITY_TOKEN environment variable is not defined." );
+
+                        return false;
+                    }
+
+                    var tc = new TeamcityClient( token );
+
+                    var dependencyName = dependencies.FirstOrDefault( d => d.Value == dependencySource ).Key;
+                    var versionProperties = $"{dependencyName}.version.props";
+                    var savedFile = Path.Combine( context.RepoDirectory, this.EngineeringDirectory, versionProperties );
+                    
+                    var ciBuildType = dependencySource.BuildServerSource as CiBuildId;
+
+                    if ( ciBuildType == null )
+                    {
+                        context.Console.WriteError( "CI Build Type is not defined." );
+
+                        return false;
+                    }
+
+                    if ( ciBuildType.BuildTypeId != null )
+                    {
+                        tc.DownloadSingleArtifact(
+                            ciBuildType.BuildTypeId,
+                            ciBuildType.BuildNumber,
+                            $"/artifacts/publish/private/{versionProperties}",
+                            savedFile,
+                            ConsoleHelper.CancellationToken );
+                    }
+
+                    context.Console.WriteMessage( $"Writing '{savedFile}'" );
+
+                    file = savedFile;
+                }
 
                 // If the dependencies are local, the version file is referred in Product.Import.props file.
                 if ( file.Contains( "Import", StringComparison.InvariantCulture ) )
@@ -1804,10 +1845,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     var artifactsDirectory = XDocument.Load( file ).Root!.Element( "Import" )!.FirstAttribute!.Value;
         
                     var repositoryPath = file.Substring( 0, file.LastIndexOf( '\\' ) );
-                    fileToLoad = Path.Combine( repositoryPath, artifactsDirectory );
+                    file = Path.Combine( repositoryPath, artifactsDirectory );
                 }
 
-                var document = XDocument.Load( fileToLoad );
+                var document = XDocument.Load( file );
                 var props = document.Root!.Element( "PropertyGroup" );
 
                 if ( props != null )

@@ -92,6 +92,22 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             zip.ExtractToDirectory( directory, true );
         }
 
+        public void DownloadSingleArtifact( string buildTypeId, int buildNumber, string artifactPath, string saveLocation, CancellationToken cancellationToken )
+        {
+            var url = $"https://tc.postsharp.net/repository/download/{buildTypeId}/{buildNumber}/{artifactPath}";
+            var httpResponse = this._httpClient.GetAsync( url, cancellationToken ).Result;
+
+            using ( var stream = httpResponse.Content.ReadAsStreamAsync( cancellationToken ).Result )
+            {
+                var fileInfo = new FileInfo( saveLocation );
+
+                using ( var fileStream = fileInfo.OpenWrite() )
+                {
+                    stream.CopyToAsync( fileStream, cancellationToken );
+                }
+            }
+        }
+
         public void Dispose()
         {
             this._httpClient.Dispose();
