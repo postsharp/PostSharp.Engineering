@@ -1848,16 +1848,31 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     var dependencyName = dependency.Key;
                     var versionProperties = $"{dependencyName}.version.props";
-                    var savedFile = Path.Combine( context.RepoDirectory, this.EngineeringDirectory, versionProperties );
+                    var downloadedDependencyVersionFile = Path.Combine( context.RepoDirectory, this.EngineeringDirectory, versionProperties );
+
+                    CiBuildId? ciBuildId = null;
 
                     if ( dependencySource.BuildServerSource is not CiBuildId ciBuildType )
                     {
-                        context.Console.WriteError( $"Build server source of '{dependencyName}' is not CI build ID source." );
+                        context.Console.WriteError( $"Build server source of '{dependencyName}' is not CiBuildId type." );
+
+                        // Public build is the one with most stable changes.
+                        var buildTypeId = BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == dependencyName )?.CiBuildTypes.Public;
+
+                        if ( buildTypeId != null )
+                        {
+                            ciBuildId = tc.GetLatestBuildNumber( buildTypeId, "master", ConsoleHelper.CancellationToken );
+                        }
+                    }
+                    
+                    if ( ciBuildId == null )
+                    {
+                        context.Console.WriteError( $"The '{dependencyName}' source is neither CiBuildId or CiLatestBuildOfBranch." );
 
                         return false;
                     }
 
-                    if ( ciBuildType.BuildTypeId == null )
+                    if ( ciBuildId.BuildTypeId == null )
                     {
                         context.Console.WriteError( $"Build Type ID is not defined." );
                         
@@ -1865,15 +1880,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     }
                     
                     tc.DownloadSingleArtifact(
-                        ciBuildType.BuildTypeId,
-                        ciBuildType.BuildNumber,
+                        ciBuildId.BuildTypeId,
+                        ciBuildId.BuildNumber,
                         $"/artifacts/publish/private/{versionProperties}",
-                        savedFile,
+                        downloadedDependencyVersionFile,
                         ConsoleHelper.CancellationToken );
 
-                    context.Console.WriteMessage( $"Writing '{savedFile}'." );
+                    context.Console.WriteMessage( $"Writing '{downloadedDependencyVersionFile}'." );
 
-                    file = savedFile;
+                    file = downloadedDependencyVersionFile;
                 }
 
                 // If the dependencies are local, the version file is referred in Product.Import.props file.
