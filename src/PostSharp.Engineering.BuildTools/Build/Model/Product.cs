@@ -1265,26 +1265,46 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,
                 this.MainVersionFile );
+            
+            var bumpInfoFile = Path.Combine(
+                context.RepoDirectory,
+                this.EngineeringDirectory,
+                "BumpInfo.txt" );
 
             if ( !VersionsOverrideFile.TryLoad( context, settings.BuildConfiguration, out var versionsOverrideFile ) )
             {
                 return false;
             }
+
+            if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
+            {
+                return false;
+            }
             
             // We take first direct dependency, but not PostSharp.Engineering dependency.
+            var onlyEngineeringDependency = this.Dependencies.All( d => d.Name == "PostSharp.Engineering" );
             var directDependency = this.Dependencies.SingleOrDefault( d => d.Name != "PostSharp.Engineering" );
+            Dictionary<string, string>? versionsByDependency = null;
 
-            if ( this.GetDependenciesVersions( context, versionsOverrideFile.Dependencies, out var versionsByDependency ) && directDependency != null )
+            if ( !onlyEngineeringDependency )
             {
-                var buildServerDependencyVersion = versionsByDependency.SingleOrDefault( d => d.Key == directDependency.Name ).Value;
-
-                if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
+                if ( this.GetDependenciesVersions( context, versionsOverrideFile.Dependencies, out versionsByDependency ) && directDependency != null )
                 {
-                    return false;
-                }
+                    // We assume there is only one direct dependency that is not PostSharp.Engineering.
+                    var restoredDependencyVersion = versionsByDependency.SingleOrDefault( d => d.Key == directDependency.Name ).Value;
 
-                // If there are no changes since the last tag (i.e. last publishing) and the dependency version hasn't changed the bump will be skipped.
-                if ( !this.IsDependencyVersionDifferent( context, directDependency, buildServerDependencyVersion ) & !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
+                    // If the dependency version hasn't changed and if there are no changes since the last tag (i.e. last publishing) the bump will be skipped.
+                    if ( !IsDependencyVersionDifferent( context, bumpInfoFile, directDependency, restoredDependencyVersion ) & !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
+                    {
+                        return false;
+                    }
+                }
+            }
+            else
+            {
+                context.Console.WriteMessage( $"The product '{context.Product.ProductName}' has only PostSharp.Engineering dependency." );
+
+                if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
                 {
                     return false;
                 }
@@ -1302,6 +1322,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !this.TryBumpVersion( context, settings, mainVersionFile, mainVersionInfo ) )
             {
                 return false;
+            }
+            
+            if ( versionsByDependency != null )
+            {
+                var dependencyVersions =
+                    string.Join( '\n', versionsByDependency.Select( dependencyVersion => dependencyVersion.Key + ":" + dependencyVersion.Value ) );
+
+                File.WriteAllText( bumpInfoFile, dependencyVersions );
+                
+                context.Console.WriteMessage( $"Writing '{bumpInfoFile}'." );
             }
 
             return true;
@@ -1491,10 +1521,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return false;
         }
 
-        private bool IsDependencyVersionDifferent( BuildContext context, DependencyDefinition directDependency, string dependencyBuildServerVersionString )
+        private static bool IsDependencyVersionDifferent( BuildContext context, string bumpInfoFile, DependencyDefinition directDependency, string restoreDependencyVersionString )
         {
-            var bumpInfoFile = Path.Combine( context.RepoDirectory, this.EngineeringDirectory, "BumpInfo.txt" );
-
             if ( !File.Exists( bumpInfoFile ) )
             {
                 context.Console.WriteWarning( $"Could not find '{bumpInfoFile}'. " );
@@ -1515,11 +1543,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             var localDependencyVersion = new Version( versionsByDependencies[localDependencyName] );
-            var buildServerVersion = new Version( dependencyBuildServerVersionString );
+            var restoredDependencyVersion = new Version( restoreDependencyVersionString );
             
-            if ( localDependencyVersion < buildServerVersion )
+            if ( localDependencyVersion < restoredDependencyVersion )
             {
-                context.Console.WriteImportantMessage( $"The '{localDependencyName}' locally saved version '{localDependencyVersion}' is outdated, newer version '{buildServerVersion}' has been found." );
+                context.Console.WriteWarning( $"The '{localDependencyName}' locally saved version '{localDependencyVersion}' is outdated, newer version '{restoredDependencyVersion}' has been found." );
 
                 return true;
             }
@@ -1765,7 +1793,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private bool GetDependenciesVersions( BuildContext context, Dictionary<string, DependencySource> dependencies, [NotNullWhen( true )] out Dictionary<string, string>? versionsByDependency )
         {
-            var bumpInfoFile = Path.Combine( context.RepoDirectory, this.EngineeringDirectory, "BumpInfo.txt" );
             versionsByDependency = null;
 
             // If product doesn't have any dependency other than PostSharp.Engineering, reading version files is skipped.
@@ -1863,13 +1890,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             // We create pairs of version by dependency name.
             versionsByDependency = dependencies.Keys.Zip( versionNumbers ).ToDictionary( name => name.First, version => version.Second );
-
-            var dependencyVersions =
-                string.Join( '\n', versionsByDependency.Select( dependencyVersion => dependencyVersion.Key + ":" + dependencyVersion.Value ) );
-
-            File.WriteAllText( bumpInfoFile, dependencyVersions );
-
-            context.Console.WriteMessage( $"Writing '{bumpInfoFile}." );
 
             return true;
         }
