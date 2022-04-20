@@ -1,6 +1,4 @@
-﻿using Microsoft.Build.Definition;
-using Microsoft.Build.Evaluation;
-using PostSharp.Engineering.BuildTools.Build;
+﻿using PostSharp.Engineering.BuildTools.Build;
 using Spectre.Console;
 using System;
 using System.Collections.Generic;
@@ -8,28 +6,22 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
-    public class VersionsOverrideFile
+    /// <summary>
+    /// Represents the <c>MyProduct.Configuration.g.props</c> file that contains the dependencies as configured by the <c>dependencies set</c> command.
+    /// </summary>
+    public class DependenciesOverrideFile
     {
-        private static readonly Regex _dependencyVersionRegex = new(
-            "^(?<Kind>[^:]+):(?<Arguments>.+)$",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant );
-
-        private static readonly Regex _buildSettingsRegex = new(
-            @"^Number=(?<Number>\d+)(;TypeId=(?<TypeId>[^;]+))?(;TypeId=(?<Branch>[^;]+))?$",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant );
-
         public Dictionary<string, DependencySource> Dependencies { get; } = new();
 
         public string? LocalBuildFile { get; set; }
 
         public string FilePath { get; }
 
-        private VersionsOverrideFile( string path )
+        private DependenciesOverrideFile( string path )
         {
             this.FilePath = path;
         }
@@ -39,149 +31,54 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// </summary>
         /// <param name="context"></param>
         /// <returns></returns>
-        private bool TryLoadDefaultVersions( BuildContext context )
+        private bool TryLoadDefaultDependencies( BuildContext context )
         {
-            var versionsPath = Path.Combine( context.RepoDirectory, context.Product.VersionsFile );
-
-            if ( !File.Exists( versionsPath ) )
+            if ( !VersionFile.TryRead( context, out var versionFile ) )
             {
-                context.Console.WriteError( $"The file '{versionsPath}' does not exist." );
-
                 return false;
             }
 
-            var projectOptions = new ProjectOptions { GlobalProperties = new Dictionary<string, string>() { ["VcsBranch"] = context.Branch } };
-            var versionFile = Project.FromFile( versionsPath, projectOptions );
-
-            var defaultDependencyProperties = context.Product.Dependencies
-                .ToDictionary(
-                    d => d.Name,
-                    d => versionFile.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" )
-                        ?.EvaluatedValue );
-
-            ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
-
-            foreach ( var dependencyDefinition in context.Product.Dependencies )
+            foreach ( var dependency in versionFile.Dependencies )
             {
-                var dependencyVersion = defaultDependencyProperties[dependencyDefinition.Name];
-
-                if ( string.IsNullOrEmpty( dependencyVersion ) )
-                {
-                    context.Console.WriteError( $"There is no {dependencyDefinition.NameWithoutDot}Version property in '{versionsPath}'." );
-
-                    return false;
-                }
-
-                DependencySource dependencySource;
-
-                if ( string.Compare( dependencyVersion, "local", StringComparison.OrdinalIgnoreCase ) == 0 )
-                {
-                    dependencySource = DependencySource.CreateLocal( DependencyConfigurationOrigin.Default );
-                }
-                else
-                {
-                    var dependencyVersionMatch = _dependencyVersionRegex.Match( dependencyVersion );
-
-                    if ( dependencyVersionMatch.Success )
-                    {
-                        switch ( dependencyVersionMatch.Groups["Kind"].Value.ToLowerInvariant() )
-                        {
-                            case "branch":
-                                {
-                                    var branch = dependencyVersionMatch.Groups["Arguments"].Value;
-
-                                    dependencySource = DependencySource.CreateBuildServerSource(
-                                        new CiLatestBuildOfBranch( branch ),
-                                        DependencyConfigurationOrigin.Default );
-
-                                    break;
-                                }
-
-                            case "build":
-                                {
-                                    var arguments = dependencyVersionMatch.Groups["Arguments"].Value;
-
-                                    var buildSettingsMatch = _buildSettingsRegex.Match( arguments );
-
-                                    if ( !buildSettingsMatch.Success )
-                                    {
-                                        context.Console.WriteError(
-                                            $"The TeamCity build configuration '{arguments}' of dependency '{dependencyDefinition.Name}' does not have a correct format." );
-
-                                        return false;
-                                    }
-
-                                    var buildNumber = int.Parse( buildSettingsMatch.Groups["Number"].Value, CultureInfo.InvariantCulture );
-                                    var ciBuildTypeId = buildSettingsMatch.Groups.GetValueOrDefault( "TypeId" )?.Value;
-
-                                    if ( string.IsNullOrEmpty( ciBuildTypeId ) )
-                                    {
-                                        context.Console.WriteError(
-                                            $"The TypeId property of dependency '{dependencyDefinition.Name}' does is required in '{versionsPath}'." );
-                                    }
-
-                                    dependencySource = DependencySource.CreateBuildServerSource(
-                                        new CiBuildId( buildNumber, ciBuildTypeId ),
-                                        DependencyConfigurationOrigin.Default );
-
-                                    break;
-                                }
-
-                            case "transitive":
-                                {
-                                    context.Console.WriteError( $"Error in '{versionsPath}': explicit transitive dependencies are no longer supported." );
-
-                                    return false;
-                                }
-
-                            default:
-                                {
-                                    context.Console.WriteError(
-                                        $"Error in '{versionsPath}': cannot parse the value '{dependencyVersion}' for dependency '{dependencyDefinition.Name}' in '{versionsPath}'." );
-
-                                    return false;
-                                }
-                        }
-                    }
-                    else if ( char.IsDigit( dependencyVersion[0] ) )
-                    {
-                        dependencySource = DependencySource.CreateFeed( dependencyVersion, DependencyConfigurationOrigin.Default );
-                    }
-                    else
-                    {
-                        context.Console.WriteError(
-                            $"Error in '{versionsPath}': cannot parse the dependency '{dependencyDefinition.Name}' from '{versionsPath}'." );
-
-                        return false;
-                    }
-                }
-
-                this.Dependencies[dependencyDefinition.Name] = dependencySource;
+                this.Dependencies[dependency.Key] = dependency.Value;
             }
 
             return true;
         }
 
-        public static bool TryLoad( BuildContext context, BuildConfiguration configuration, [NotNullWhen( true )] out VersionsOverrideFile? file )
+        public static bool TryLoadDefaultsOnly(
+            BuildContext context,
+            BuildConfiguration configuration,
+            [NotNullWhen( true )] out DependenciesOverrideFile? file )
         {
             var configurationSpecificVersionFilePath = Path.Combine(
                 context.RepoDirectory,
                 context.Product.EngineeringDirectory,
                 $"Versions.{configuration}.g.props" );
 
-            file = new VersionsOverrideFile( configurationSpecificVersionFilePath );
+            file = new DependenciesOverrideFile( configurationSpecificVersionFilePath );
 
-            if ( !file.TryLoadDefaultVersions( context ) )
+            if ( !file.TryLoadDefaultDependencies( context ) )
             {
                 file = null;
 
                 return false;
             }
 
-            // Override defaults from the version file.
-            if ( File.Exists( configurationSpecificVersionFilePath ) )
+            return true;
+        }
+
+        public static bool TryLoad( BuildContext context, BuildConfiguration configuration, [NotNullWhen( true )] out DependenciesOverrideFile? file )
+        {
+            if ( !TryLoadDefaultsOnly( context, configuration, out file ) )
             {
-                var document = XDocument.Load( configurationSpecificVersionFilePath );
+                return false;
+            }
+
+            // Override defaults from the version file.
+            if ( File.Exists( file.FilePath ) )
+            {
+                var document = XDocument.Load( file.FilePath );
                 var project = document.Root!;
 
                 var localImport = project.Elements( "Import" )
@@ -208,7 +105,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         if ( !Enum.TryParse<DependencySourceKind>( kindString, out var kind ) )
                         {
                             context.Console.WriteWarning(
-                                $"The dependency kind '{kindString}' defined in '{configurationSpecificVersionFilePath}' is not supported. Skipping the parsing of this dependency." );
+                                $"The dependency kind '{kindString}' defined in '{file.FilePath}' is not supported. Skipping the parsing of this dependency." );
 
                             continue;
                         }
@@ -260,8 +157,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                     {
                                         if ( string.IsNullOrEmpty( ciBuildTypeId ) )
                                         {
-                                            context.Console.WriteError(
-                                                $"The property CiBuildTypeId of dependency {name} is required in '{configurationSpecificVersionFilePath}'." );
+                                            context.Console.WriteError( $"The property CiBuildTypeId of dependency {name} is required in '{file.FilePath}'." );
 
                                             return false;
                                         }
@@ -275,7 +171,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                     else
                                     {
                                         context.Console.WriteError(
-                                            $"The dependency {name}  in '{configurationSpecificVersionFilePath}' requires one of these properties: Branch or BuildNumber." );
+                                            $"The dependency {name}  in '{file.FilePath}' requires one of these properties: Branch or BuildNumber." );
 
                                         return false;
                                     }

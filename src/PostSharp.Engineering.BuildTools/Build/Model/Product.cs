@@ -44,19 +44,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string EngineeringDirectory { get; init; } = "eng";
 
-        public string VersionsFile
+        public string VersionsFilePath
         {
             get => this._versionsFile ?? Path.Combine( this.EngineeringDirectory, "Versions.props" );
             init => this._versionsFile = value;
         }
 
-        public string MainVersionFile
+        public string MainVersionFilePath
         {
             get => this._mainVersionFile ?? Path.Combine( this.EngineeringDirectory, "MainVersion.props" );
             init => this._mainVersionFile = value;
         }
 
-        public string BumpInfoFile
+        public string BumpInfoFilePath
         {
             get => this._bumpInfoFile ?? Path.Combine( this.EngineeringDirectory, "BumpInfo.txt" );
             init => this._bumpInfoFile = value;
@@ -111,6 +111,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
                         new VsixPublisher( Pattern.Create( "*.vsix" ) )
                     } ) );
+
+        /// <summary>
+        /// List of properties that must be exported into the *.version.props. These properties must be defined in MainVersion.props.
+        /// </summary>
+        public string[] ExportedProperties { get; init; } = Array.Empty<string>();
 
         /// <summary>
         /// Gets the set of dependencies of this product. Some commands expect the dependency to exist in <see cref="PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.All"/>.
@@ -301,12 +306,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteMessage( $"Creating '{consolidatedDirectory}'." );
 
                 // Copy dependencies.
-                if ( !VersionsOverrideFile.TryLoad( context, configuration, out var versionsOverrideFile ) )
+                if ( !DependenciesOverrideFile.TryLoad( context, configuration, out var dependenciesOverrideFile ) )
                 {
                     return false;
                 }
 
-                foreach ( var dependency in versionsOverrideFile.Dependencies )
+                foreach ( var dependency in dependenciesOverrideFile.Dependencies )
                 {
                     if ( dependency.Value.VersionFile != null )
                     {
@@ -431,8 +436,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return new BuildInfo( packageVersion, Enum.Parse<BuildConfiguration>( configuration ), this );
         }
 
-        private static (string MainVersion, string? OverriddenPatchVersion, string PackageVersionSuffix, int? OurPatchVersion ) ReadMainVersionFile(
-            string path )
+        private record MainVersionFileInfo(
+            string MainVersion,
+            string? OverriddenPatchVersion,
+            string PackageVersionSuffix,
+            int? OurPatchVersion,
+            ImmutableDictionary<string, string?> ExportedProperties );
+
+        /// <summary>
+        /// Reads MainVersion.props but does not interpret anything.
+        /// </summary>
+        private MainVersionFileInfo ReadMainVersionFile( string path )
         {
             var versionFilePath = path;
             var versionFile = Project.FromFile( versionFilePath, new ProjectOptions() );
@@ -465,9 +479,27 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             // Empty suffixes are allowed and mean RTM.
 
+            // Read exported properties.
+            var exportedProperties = ImmutableDictionary.CreateBuilder<string, string?>();
+
+            foreach ( var exportedPropertyName in this.ExportedProperties )
+            {
+                var exportedPropertyValue = versionFile
+                    .Properties
+                    .SingleOrDefault( p => string.Equals( p.Name, exportedPropertyName, StringComparison.OrdinalIgnoreCase ) )
+                    ?.EvaluatedValue;
+
+                exportedProperties[exportedPropertyName] = exportedPropertyValue;
+            }
+
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
-            return (mainVersion, overriddenPatchVersion, suffix, ourPatchVersion != null ? int.Parse( ourPatchVersion, CultureInfo.InvariantCulture ) : null);
+            return new MainVersionFileInfo(
+                mainVersion,
+                overriddenPatchVersion,
+                suffix,
+                ourPatchVersion != null ? int.Parse( ourPatchVersion, CultureInfo.InvariantCulture ) : null,
+                exportedProperties.ToImmutable() );
         }
 
         /// <summary>
@@ -663,35 +695,41 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var propsFilePath = Path.Combine( artifactsDir, propsFileName );
 
             // Load Versions.g.props.
-            if ( !VersionsOverrideFile.TryLoad( context, configuration, out var versionsOverrideFile ) )
+            if ( !DependenciesOverrideFile.TryLoad( context, configuration, out var dependenciesOverrideFile ) )
             {
                 return false;
             }
 
             // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 
-            if ( versionsOverrideFile.Dependencies.Any( d => d.Value.SourceKind != DependencySourceKind.Feed && d.Value.VersionFile == null ) )
+            if ( dependenciesOverrideFile.Dependencies.Any( d => d.Value.SourceKind != DependencySourceKind.Feed && d.Value.VersionFile == null ) )
             {
-                FetchDependencyCommand.FetchDependencies( context, configuration, versionsOverrideFile );
+                FetchDependencyCommand.FetchDependencies( context, configuration, dependenciesOverrideFile );
 
-                versionsOverrideFile.LocalBuildFile = propsFilePath;
+                dependenciesOverrideFile.LocalBuildFile = propsFilePath;
             }
 
             // We always save the Versions.g.props because it may not exist and it may have been changed by the previous step.
-            versionsOverrideFile.LocalBuildFile = propsFilePath;
+            dependenciesOverrideFile.LocalBuildFile = propsFilePath;
 
-            if ( !versionsOverrideFile.TrySave( context ) )
+            if ( !dependenciesOverrideFile.TrySave( context ) )
             {
                 return false;
             }
 
             // Read the main version number.
-            if ( !this.TryComputeVersion( context, settings, configuration, versionsOverrideFile, out var version ) )
+            var mainVersionFileInfo = this.ReadMainVersionFile(
+                Path.Combine(
+                    context.RepoDirectory,
+                    this.EngineeringDirectory,
+                    "MainVersion.props" ) );
+
+            if ( !this.TryComputeVersion( context, settings, configuration, mainVersionFileInfo, dependenciesOverrideFile, out var version ) )
             {
                 return false;
             }
 
             // Generate Versions.g.props.
-            var props = this.GenerateVersionFile( version, configuration, versionsOverrideFile, out var packageVersion );
+            var props = this.GenerateManifestFile( version, configuration, mainVersionFileInfo, dependenciesOverrideFile, out var packageVersion );
             context.Console.WriteMessage( $"Writing '{propsFilePath}'." );
             File.WriteAllText( propsFilePath, props );
 
@@ -739,7 +777,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             BuildContext context,
             BuildSettings settings,
             BuildConfiguration configuration,
-            VersionsOverrideFile versionsOverrideFile,
+            MainVersionFileInfo mainVersionFileInfo,
+            DependenciesOverrideFile dependenciesOverrideFile,
             [NotNullWhen( true )] out VersionComponents? version )
         {
             var configurationLowerCase = configuration.ToString().ToLowerInvariant();
@@ -747,20 +786,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             version = null;
             string? mainVersion = null;
 
-            var mainVersionFile =
-                ReadMainVersionFile(
-                    Path.Combine(
-                        context.RepoDirectory,
-                        this.EngineeringDirectory,
-                        "MainVersion.props" ) );
-
             if ( this.MainVersionDependency != null )
             {
                 var mainVersionDependencyName = this.MainVersionDependency.Name;
 
                 // The main version is defined in a dependency. Load the import file.
 
-                if ( !versionsOverrideFile.Dependencies.TryGetValue( mainVersionDependencyName, out var dependencySource ) )
+                if ( !dependenciesOverrideFile.Dependencies.TryGetValue( mainVersionDependencyName, out var dependencySource ) )
                 {
                     context.Console.WriteError( $"Cannot find a dependency named '{mainVersionDependencyName}'." );
 
@@ -792,16 +824,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
             }
 
-            if ( !string.IsNullOrEmpty( mainVersionFile.OverriddenPatchVersion )
-                 && !mainVersionFile.OverriddenPatchVersion.StartsWith( mainVersion ?? mainVersionFile.MainVersion + ".", StringComparison.Ordinal ) )
+            if ( !string.IsNullOrEmpty( mainVersionFileInfo.OverriddenPatchVersion )
+                 && !mainVersionFileInfo.OverriddenPatchVersion.StartsWith( mainVersion ?? mainVersionFileInfo.MainVersion + ".", StringComparison.Ordinal ) )
             {
                 context.Console.WriteError(
-                    $"The OverriddenPatchVersion property in MainVersion.props ({mainVersionFile.OverriddenPatchVersion}) does not match the MainVersion property value ({mainVersion ?? mainVersionFile.MainVersion})." );
+                    $"The OverriddenPatchVersion property in MainVersion.props ({mainVersionFileInfo.OverriddenPatchVersion}) does not match the MainVersion property value ({mainVersion ?? mainVersionFileInfo.MainVersion})." );
 
                 return false;
             }
 
-            var versionPrefix = mainVersion ?? mainVersionFile.MainVersion;
+            var versionPrefix = mainVersion ?? mainVersionFileInfo.MainVersion;
             string versionSuffix;
             int patchNumber;
 
@@ -865,12 +897,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 case VersionKind.Public:
                     // Public build
-                    versionSuffix = mainVersionFile.PackageVersionSuffix.TrimStart( '-' );
+                    versionSuffix = mainVersionFileInfo.PackageVersionSuffix.TrimStart( '-' );
                     patchNumber = 0;
 
-                    if ( !string.IsNullOrWhiteSpace( mainVersionFile.OverriddenPatchVersion ) )
+                    if ( !string.IsNullOrWhiteSpace( mainVersionFileInfo.OverriddenPatchVersion ) )
                     {
-                        var parsedOverriddenPatchedVersion = Version.Parse( mainVersionFile.OverriddenPatchVersion );
+                        var parsedOverriddenPatchedVersion = Version.Parse( mainVersionFileInfo.OverriddenPatchVersion );
                         patchNumber = parsedOverriddenPatchedVersion.Revision;
                     }
 
@@ -880,15 +912,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     throw new InvalidOperationException();
             }
 
-            version = new VersionComponents( mainVersion ?? mainVersionFile.MainVersion, versionPrefix, patchNumber, versionSuffix );
+            version = new VersionComponents( mainVersion ?? mainVersionFileInfo.MainVersion, versionPrefix, patchNumber, versionSuffix );
 
             return true;
         }
 
-        private string GenerateVersionFile(
+        private string GenerateManifestFile(
             VersionComponents version,
             BuildConfiguration configuration,
-            VersionsOverrideFile versionsOverrideFile,
+            MainVersionFileInfo mainVersionFileInfo,
+            DependenciesOverrideFile dependenciesOverrideFile,
             out string packageVersion )
         {
             var props = $@"
@@ -955,12 +988,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         <{this.ProductNameWithoutDot}PublicArtifactsDirectory>{this.PublicArtifactsDirectory}</{this.ProductNameWithoutDot}PublicArtifactsDirectory>
         <{this.ProductNameWithoutDot}PrivateArtifactsDirectory>{this.PrivateArtifactsDirectory}</{this.ProductNameWithoutDot}PrivateArtifactsDirectory>
         <{this.ProductNameWithoutDot}EngineeringVersion>{VersionHelper.EngineeringVersion}</{this.ProductNameWithoutDot}EngineeringVersion>
-        <{this.ProductNameWithoutDot}VersionFilePath>{this.VersionsFile}</{this.ProductNameWithoutDot}VersionFilePath>
+        <{this.ProductNameWithoutDot}VersionFilePath>{this.VersionsFilePath}</{this.ProductNameWithoutDot}VersionFilePath>
         <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);$(MSBuildThisFileDirectory)</RestoreAdditionalProjectSources>
     </PropertyGroup>
     <ItemGroup>";
 
-            foreach ( var dependency in versionsOverrideFile.Dependencies )
+            foreach ( var dependency in dependenciesOverrideFile.Dependencies )
             {
                 var buildSpec = dependency.Value.BuildServerSource;
 
@@ -1000,12 +1033,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     <PropertyGroup>
 ";
 
-            foreach ( var dependency in versionsOverrideFile.Dependencies.Where( d => d.Value.SourceKind == DependencySourceKind.Feed ) )
+            foreach ( var dependency in dependenciesOverrideFile.Dependencies.Where( d => d.Value.SourceKind == DependencySourceKind.Feed ) )
             {
                 var nameWithoutDot = dependency.Key.Replace( ".", "", StringComparison.OrdinalIgnoreCase );
 
                 props += $@"
         <{nameWithoutDot}Version Condition=""'$({nameWithoutDot}Version)'==''"">{dependency.Value.Version}</{nameWithoutDot}Version>";
+            }
+
+            foreach ( var exportedProperty in mainVersionFileInfo.ExportedProperties )
+            {
+                props += $@"
+        <{exportedProperty.Key} Condition=""'$({exportedProperty.Key}Version)'==''"">{exportedProperty.Value}</{exportedProperty.Key}>";
             }
 
             props += @"
@@ -1113,10 +1152,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Get the location of MainVersion.props file.
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,
-                this.MainVersionFile );
+                this.MainVersionFilePath );
 
             // Get the current version from MainVersion.props.
-            if ( !this.TryLoadMainVersion(
+            if ( !this.TryLoadPreparedVersionInfo(
                     context,
                     mainVersionFile,
                     out var mainVersionInfo ) )
@@ -1210,7 +1249,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     }
                 }
             }
-            
+
             return true;
         }
 
@@ -1267,57 +1306,55 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             return success;
         }
-        
+
         public bool BumpVersion( BuildContext context, BaseBuildSettings settings )
         {
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,
-                this.MainVersionFile );
-            
+                this.MainVersionFilePath );
+
             var bumpInfoFile = Path.Combine(
                 context.RepoDirectory,
-                this.BumpInfoFile );
-
-            if ( !VersionsOverrideFile.TryLoad( context, settings.BuildConfiguration, out var versionsOverrideFile ) )
-            {
-                return false;
-            }
+                this.BumpInfoFilePath );
 
             if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
             {
                 return false;
             }
-            
-            // We take first direct dependency, but not PostSharp.Engineering dependency.
-            var onlyEngineeringDependency = this.Dependencies.All( d => d.Name == "PostSharp.Engineering" );
-            var directDependency = this.Dependencies.SingleOrDefault( d => d.Name != "PostSharp.Engineering" );
-            Dictionary<string, string>? versionsByDependency = null;
 
-            if ( !onlyEngineeringDependency )
+            // Load Versions.props but not Versions.Debug.g.props. We need a mutable DependenciesOverrideFile file for use with FetchDependencies.
+            if ( !DependenciesOverrideFile.TryLoadDefaultsOnly( context, BuildConfiguration.Public, out var dependenciesOverrideFile ) )
             {
-                if ( this.GetDependenciesVersions( context, versionsOverrideFile.Dependencies, out versionsByDependency ) && directDependency != null )
-                {
-                    // We assume there is only one direct dependency that is not PostSharp.Engineering.
-                    var restoredDependencyVersion = versionsByDependency.SingleOrDefault( d => d.Key == directDependency.Name ).Value;
-
-                    // If the dependency version hasn't changed and if there are no changes since the last tag (i.e. last publishing) the bump will be skipped.
-                    if ( !IsDependencyVersionDifferent( context, bumpInfoFile, directDependency, restoredDependencyVersion ) & !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
-                    {
-                        return false;
-                    }
-                }
-            }
-            else
-            {
-                context.Console.WriteMessage( $"The product '{context.Product.ProductName}' has only PostSharp.Engineering dependency." );
-
-                if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
-                {
-                    return false;
-                }
+                return false;
             }
 
-            this.TryLoadMainVersion( context, mainVersionFile, out var mainVersionInfo );
+            // Fetch the latest dependencies, even if we have fetched before in a local build.
+            if ( !FetchDependencyCommand.FetchDependencies(
+                    context,
+                    BuildConfiguration.Public,
+                    dependenciesOverrideFile,
+                    new FetchDependenciesCommandSettings() { Update = true } ) )
+            {
+                return false;
+            }
+
+            var newBumpFileContent =
+                string.Join(
+                    ";",
+                    dependenciesOverrideFile.Dependencies.Where( d => d.Value.SourceKind != DependencySourceKind.Feed )
+                        .OrderBy( d => d.Key )
+                        .Select( d => $"{d.Key}={d.Value.Version!}" ) );
+
+            var oldBumpFileContent = File.ReadAllText( bumpInfoFile );
+
+            if ( newBumpFileContent == oldBumpFileContent && !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
+            {
+                context.Console.WriteWarning( "There are no changes since the last version tag." );
+
+                return true;
+            }
+
+            this.TryLoadPreparedVersionInfo( context, mainVersionFile, out var mainVersionInfo );
 
             if ( mainVersionInfo == null )
             {
@@ -1325,21 +1362,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
-            
-            if ( versionsByDependency != null )
-            {
-                var dependencyVersions =
-                    string.Join( '\n', versionsByDependency.Select( dependencyVersion => dependencyVersion.Key + ":" + dependencyVersion.Value ) );
-
-                File.WriteAllText( bumpInfoFile, dependencyVersions );
-                
-                context.Console.WriteMessage( $"Writing '{bumpInfoFile}'." );
-            }
 
             if ( !this.TryBumpVersion( context, settings, mainVersionFile, mainVersionInfo ) )
             {
                 return false;
             }
+
+            File.WriteAllText( bumpInfoFile, newBumpFileContent );
 
             return true;
         }
@@ -1397,7 +1426,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         buildArguments: $"publish --configuration {configuration}",
                         buildAgentType: this.BuildAgentType )
                     {
-                        IsDeployment = true, ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
+                        IsDeployment = true, ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
                     };
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -1444,9 +1473,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                 ? new IBuildTrigger[]
                                 {
                                     new VersionBumpTrigger(
-                                        dependencyDefinitions.SingleOrDefault(
-                                            d => d != PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.PostSharpEngineering
-                                                 && d != PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.Roslyn ) )
+                                        dependencyDefinitions.SingleOrDefault( d => d != BuildTools.Dependencies.Model.Dependencies.PostSharpEngineering ) )
                                 }
                                 : null
                         } );
@@ -1523,44 +1550,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return true;
             }
 
-            context.Console.WriteWarning( "There are no changes since the last version tag." );
-
-            return false;
-        }
-
-        private static bool IsDependencyVersionDifferent( BuildContext context, string bumpInfoFile, DependencyDefinition directDependency, string restoreDependencyVersionString )
-        {
-            if ( !File.Exists( bumpInfoFile ) )
-            {
-                context.Console.WriteWarning( $"Could not find '{bumpInfoFile}'. " );
-
-                return false;
-            }
-
-            var localDependencyName = directDependency.Name;
-
-            var dependencies = File.ReadLines( bumpInfoFile );
-            var versionsByDependencies = dependencies.Select( line => line.Split( ":" ) ).ToDictionary( part => part[0], part => part[1] );
-
-            if ( !versionsByDependencies.ContainsKey( localDependencyName ) )
-            {
-                context.Console.WriteError( $"BumpInfo.txt doesn't contain version information about {localDependencyName}." );
-
-                return false;
-            }
-
-            var localDependencyVersion = new Version( versionsByDependencies[localDependencyName] );
-            var restoredDependencyVersion = new Version( restoreDependencyVersionString );
-            
-            if ( localDependencyVersion < restoredDependencyVersion )
-            {
-                context.Console.WriteWarning( $"The '{localDependencyName}' locally saved version '{localDependencyVersion}' is outdated, newer version '{restoredDependencyVersion}' has been found." );
-
-                return true;
-            }
-
-            context.Console.WriteWarning( $"Dependency '{localDependencyName}' wasn't bumped recently." );
-
             return false;
         }
 
@@ -1594,9 +1583,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool AddTagToLastCommit( BuildContext context, MainVersionInfo mainVersionInfo, BaseBuildSettings settings )
+        private static bool AddTagToLastCommit( BuildContext context, PreparedVersionInfo preparedVersionInfo, BaseBuildSettings settings )
         {
-            var versionTag = string.Concat( mainVersionInfo.Version, mainVersionInfo.PackageVersionSuffix );
+            var versionTag = string.Concat( preparedVersionInfo.Version, preparedVersionInfo.PackageVersionSuffix );
 
             // Tagging the last commit with version.
             if ( !ToolInvocationHelper.InvokeTool(
@@ -1693,7 +1682,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.RepoDirectory,
                 out gitExitCode,
                 out gitOutput );
-            
+
             if ( gitExitCode != 0 )
             {
                 context.Console.WriteError( gitOutput );
@@ -1711,7 +1700,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.RepoDirectory,
                 out gitExitCode,
                 out gitOutput );
-            
+
             if ( gitExitCode != 0 )
             {
                 context.Console.WriteError( gitOutput );
@@ -1729,7 +1718,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             // Change to the master branch before we do merge.
             if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console, 
+                    context.Console,
                     "git",
                     $"checkout master",
                     context.RepoDirectory ) )
@@ -1759,7 +1748,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( gitExitCode != 0 )
             {
                 context.Console.WriteError( gitOutput );
-                
+
                 return false;
             }
 
@@ -1770,245 +1759,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // When on TeamCity, origin will be updated to form including Git authentication credentials.
             if ( TeamCityHelper.IsTeamCityBuild( settings ) )
             {
-                if ( isHttps )
-                {
-                    if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken( out var teamcitySourceWriteTokenEnvironmentVariableName, out var teamcitySourceCodeWritingToken ) )
-                    {
-                        context.Console.WriteImportantMessage( $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
-                    }
-                    else
-                    {
-                        gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
-                    }
-                }
-            }
-
-            // Push completed merge operation to remote.
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console, 
-                    "git",
-                    $"push {gitOrigin}",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
-
-            context.Console.WriteSuccess( $"Merging '{branchToMerge}' into 'master' branch was successful." );
-
-            return true;
-        }
-
-        private bool GetDependenciesVersions( BuildContext context, Dictionary<string, DependencySource> dependencies, [NotNullWhen( true )] out Dictionary<string, string>? versionsByDependency )
-        {
-            versionsByDependency = null;
-
-            // If product doesn't have any dependency other than PostSharp.Engineering, reading version files is skipped.
-            if ( dependencies.All( d => d.Key == "PostSharp.Engineering" ) )
-            {
-                return false;
-            }
-
-            var versionNumbers = new List<string>();
-
-            // For each dependency we add the version number to list.
-            foreach ( var dependency in dependencies )
-            {
-                string? file = null;
-                var dependencySource = dependency.Value;
-                var versionFile = dependencySource.VersionFile;
-                var versionNumber = dependencySource.Version;
-
-                // If version number is defined, we save it and skip rest of the operations.
-                if ( versionNumber != null )
-                {
-                    // For comparison below we need only numeric part of the version number.
-                    versionNumbers.Add( versionNumber.Substring( 0, versionNumber.IndexOf( '-', StringComparison.InvariantCulture ) ) );
-
-                    continue;
-                }
-                
-                if ( versionFile != null )
-                {
-                    file = versionFile;
-                }
-
-                // If version or version file do not exist we download dependency's version.props of the latest TeamCity build to take version number from.
-                if ( string.IsNullOrEmpty( file ) )
-                {
-                    var token = Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" );
-
-                    if ( string.IsNullOrEmpty( token ) )
-                    {
-                        context.Console.WriteError( "The TEAMCITY_TOKEN environment variable is not defined." );
-
-                        return false;
-                    }
-
-                    var tc = new TeamcityClient( token );
-
-                    var dependencyName = dependency.Key;
-                    var versionProperties = $"{dependencyName}.version.props";
-                    var downloadedDependencyVersionFile = Path.Combine( context.RepoDirectory, this.EngineeringDirectory, versionProperties );
-
-                    CiBuildId? ciBuildId = null;
-
-                    if ( dependencySource.BuildServerSource is not CiBuildId ciBuildType )
-                    {
-                        context.Console.WriteError( $"Build server source of '{dependencyName}' is not CiBuildId type." );
-
-                        // Public build is the one with most stable changes.
-                        var buildTypeId = BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == dependencyName )?.CiBuildTypes.Public;
-
-                        if ( buildTypeId != null )
-                        {
-                            ciBuildId = tc.GetLatestBuildNumber( buildTypeId, "master", ConsoleHelper.CancellationToken );
-                        }
-                    }
-                    
-                    if ( ciBuildId == null )
-                    {
-                        context.Console.WriteError( $"The '{dependencyName}' source is neither CiBuildId or CiLatestBuildOfBranch." );
-
-                        return false;
-                    }
-
-                    if ( ciBuildId.BuildTypeId == null )
-                    {
-                        context.Console.WriteError( $"Build Type ID is not defined." );
-                        
-                        return false;
-                    }
-                    
-                    tc.DownloadSingleArtifact(
-                        ciBuildId.BuildTypeId,
-                        ciBuildId.BuildNumber,
-                        $"/artifacts/publish/private/{versionProperties}",
-                        downloadedDependencyVersionFile,
-                        ConsoleHelper.CancellationToken );
-
-                    context.Console.WriteMessage( $"Writing '{downloadedDependencyVersionFile}'." );
-
-                    file = downloadedDependencyVersionFile;
-                }
-
-                // If the dependencies are local, the version file is referred in Product.Import.props file.
-                if ( file.Contains( "Import", StringComparison.InvariantCulture ) )
-                {
-                    var artifactsDirectory = XDocument.Load( file ).Root!.Element( "Import" )!.FirstAttribute!.Value;
-        
-                    var repositoryPath = file.Substring( 0, file.LastIndexOf( '\\' ) );
-                    file = Path.Combine( repositoryPath, artifactsDirectory );
-                }
-
-                var document = XDocument.Load( file );
-                var props = document.Root!.Element( "PropertyGroup" );
-
-                if ( props != null )
-                {
-                    // First property node is always MainVersion of dependency.
-                    versionNumbers.Add( ((XElement) props.FirstNode!).Value );
-                }
-            }
-
-            // We create pairs of version by dependency name.
-            versionsByDependency = dependencies.Keys.Zip( versionNumbers ).ToDictionary( name => name.First, version => version.Second );
-
-            return true;
-        }
-
-        private bool TryBumpVersion(
-            BuildContext context,
-            BaseBuildSettings settings,
-            string mainVersionFile,
-            MainVersionInfo currentMainVersionInfo )
-        {
-            if ( !File.Exists( mainVersionFile ) )
-            {
-                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
-        
-                return false;
-            }
-        
-            // Increment the version.
-            var newVersion = new Version(
-                currentMainVersionInfo.Version.Major,
-                currentMainVersionInfo.Version.Minor,
-                currentMainVersionInfo.Version.Build + 1 );
-        
-            var newPatchNumber = currentMainVersionInfo.OurPatchVersion != null ? currentMainVersionInfo.OurPatchVersion + 1 : null;
-            var newMainVersionInfo = new MainVersionInfo( newVersion, currentMainVersionInfo.PackageVersionSuffix, newPatchNumber );
-        
-            // Save the MainVersion.props with new version.
-            if ( !TrySaveMainVersion( context, mainVersionFile, newMainVersionInfo ) )
-            {
-                return false;
-            }
-        
-            // Commit the version bump.
-            if ( !this.TryCommitVersionBump( context, currentMainVersionInfo.Version, newVersion, settings ) )
-            {
-                return false;
-            }
-        
-            context.Console.WriteSuccess(
-                $"Bumping the '{context.Product.ProductName}' version from '{currentMainVersionInfo.Version}{currentMainVersionInfo.PackageVersionSuffix}' to '{newMainVersionInfo.Version}{newMainVersionInfo.PackageVersionSuffix}' was successful." );
-        
-            return true;
-        }
-
-        private bool TryCommitVersionBump( BuildContext context, Version currentVersion, Version newVersion, BaseBuildSettings settings )
-        {
-            // Adds bumped MainVersion.props and updated BumpInfo.txt to Git staging area.
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"add {this.MainVersionFile} {this.BumpInfoFile}",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
-        
-            // Returns the remote origin.
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"remote get-url origin",
-                context.RepoDirectory,
-                out var gitExitCode,
-                out var gitOrigin );
-        
-            if ( gitExitCode != 0 )
-            {
-                context.Console.WriteError( gitOrigin );
-        
-                return false;
-            }
-        
-            gitOrigin = gitOrigin.Trim();
-            var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
-        
-            // When on TeamCity, Git user credentials are set to TeamCity and if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
-            {
-                // Following configurations are set only for the current operations in the repository.
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        "config user.name TeamCity",
-                        context.RepoDirectory ) )
-                {
-                    return false;
-                }
-        
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        "config user.email teamcity@postsharp.net",
-                        context.RepoDirectory ) )
-                {
-                    return false;
-                }
-        
                 if ( isHttps )
                 {
                     if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
@@ -2024,16 +1774,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     }
                 }
             }
-        
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"commit -m \"<<VERSION_BUMP>> {currentVersion} to {newVersion}\"",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
-        
+
+            // Push completed merge operation to remote.
             if ( !ToolInvocationHelper.InvokeTool(
                     context.Console,
                     "git",
@@ -2042,18 +1784,153 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
-        
+
+            context.Console.WriteSuccess( $"Merging '{branchToMerge}' into 'master' branch was successful." );
+
             return true;
         }
 
-        private record MainVersionInfo( Version Version, string PackageVersionSuffix, int? OurPatchVersion );
+        private bool TryBumpVersion(
+            BuildContext context,
+            BaseBuildSettings settings,
+            string mainVersionFile,
+            PreparedVersionInfo currentPreparedVersionInfo )
+        {
+            if ( !File.Exists( mainVersionFile ) )
+            {
+                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
 
-        private bool TryLoadMainVersion(
+                return false;
+            }
+
+            // Increment the version.
+            var newVersion = new Version(
+                currentPreparedVersionInfo.Version.Major,
+                currentPreparedVersionInfo.Version.Minor,
+                currentPreparedVersionInfo.Version.Build + 1 );
+
+            var newPatchNumber = currentPreparedVersionInfo.OurPatchVersion != null ? currentPreparedVersionInfo.OurPatchVersion + 1 : null;
+            var newMainVersionInfo = new PreparedVersionInfo( newVersion, currentPreparedVersionInfo.PackageVersionSuffix, newPatchNumber );
+
+            // Save the MainVersion.props with new version.
+            if ( !TrySaveMainVersion( context, mainVersionFile, newMainVersionInfo ) )
+            {
+                return false;
+            }
+
+            // Commit the version bump.
+            if ( !this.TryCommitVersionBump( context, currentPreparedVersionInfo.Version, newVersion, settings ) )
+            {
+                return false;
+            }
+
+            context.Console.WriteSuccess(
+                $"Bumping the '{context.Product.ProductName}' version from '{currentPreparedVersionInfo.Version}{currentPreparedVersionInfo.PackageVersionSuffix}' to '{newMainVersionInfo.Version}{newMainVersionInfo.PackageVersionSuffix}' was successful." );
+
+            return true;
+        }
+
+        private bool TryCommitVersionBump( BuildContext context, Version currentVersion, Version newVersion, BaseBuildSettings settings )
+        {
+            // Adds bumped MainVersion.props and updated BumpInfo.txt to Git staging area.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"add {this.MainVersionFilePath} {this.BumpInfoFilePath}",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            // Returns the remote origin.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"remote get-url origin",
+                context.RepoDirectory,
+                out var gitExitCode,
+                out var gitOrigin );
+
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOrigin );
+
+                return false;
+            }
+
+            gitOrigin = gitOrigin.Trim();
+            var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
+
+            // When on TeamCity, Git user credentials are set to TeamCity and if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                // Following configurations are set only for the current operations in the repository.
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        "config user.name TeamCity",
+                        context.RepoDirectory ) )
+                {
+                    return false;
+                }
+
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        "config user.email teamcity@postsharp.net",
+                        context.RepoDirectory ) )
+                {
+                    return false;
+                }
+
+                if ( isHttps )
+                {
+                    if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
+                            out var teamcitySourceWriteTokenEnvironmentVariableName,
+                            out var teamcitySourceCodeWritingToken ) )
+                    {
+                        context.Console.WriteImportantMessage(
+                            $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
+                    }
+                    else
+                    {
+                        gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
+                    }
+                }
+            }
+
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"commit -m \"<<VERSION_BUMP>> {currentVersion} to {newVersion}\"",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"push {gitOrigin}",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private record PreparedVersionInfo( Version Version, string PackageVersionSuffix, int? OurPatchVersion );
+
+        /// <summary>
+        /// Reads MainVersion.props and uses the output of the Prepare step to resolve MainVersion dependency.
+        /// </summary>
+        private bool TryLoadPreparedVersionInfo(
             BuildContext context,
             string mainVersionFile,
-            [NotNullWhen( true )] out MainVersionInfo? mainVersionInfo )
+            [NotNullWhen( true )] out PreparedVersionInfo? mainVersionInfo )
         {
-            var version = ReadMainVersionFile( mainVersionFile );
+            var version = this.ReadMainVersionFile( mainVersionFile );
             var mainVersion = version.MainVersion;
             var overriddenPatchVersion = version.OverriddenPatchVersion;
             Version? currentVersion;
@@ -2068,7 +1945,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             else
             {
                 // If MainVersionDependency and OverriddenPatchVersion properties are defined, we use OverriddenPatchVersion value.
-                if ( !string.IsNullOrEmpty( overriddenPatchVersion) )
+                if ( !string.IsNullOrEmpty( overriddenPatchVersion ) )
                 {
                     currentVersion = new Version( overriddenPatchVersion );
                 }
@@ -2101,7 +1978,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            mainVersionInfo = new MainVersionInfo( currentVersion, version.PackageVersionSuffix, version.OurPatchVersion );
+            mainVersionInfo = new PreparedVersionInfo( currentVersion, version.PackageVersionSuffix, version.OurPatchVersion );
 
             return true;
         }
@@ -2109,47 +1986,47 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private static bool TrySaveMainVersion(
             BuildContext context,
             string mainVersionFile,
-            MainVersionInfo mainVersionInfo )
+            PreparedVersionInfo preparedVersionInfo )
         {
             if ( !File.Exists( mainVersionFile ) )
             {
                 context.Console.WriteError( $"Could not save '{mainVersionFile}': the file does not exist." );
-        
+
                 return false;
             }
-        
+
             var document = XDocument.Load( mainVersionFile );
             var project = document.Root;
             var properties = project!.Element( "PropertyGroup" );
             var mainVersionElement = properties!.Element( "MainVersion" );
             var ourPatchVersionElement = properties.Element( "OurPatchVersion" );
             var packageVersionSuffixElement = properties.Element( "PackageVersionSuffix" );
-        
+
             // If OurPatchVersion is defined in MainVersion.props, we write the incremented patch number to it.
-            if ( mainVersionInfo.OurPatchVersion != null && ourPatchVersionElement != null )
+            if ( preparedVersionInfo.OurPatchVersion != null && ourPatchVersionElement != null )
             {
-                ourPatchVersionElement.Value = mainVersionInfo.OurPatchVersion.Value.ToString( CultureInfo.InvariantCulture );
+                ourPatchVersionElement.Value = preparedVersionInfo.OurPatchVersion.Value.ToString( CultureInfo.InvariantCulture );
             }
-        
+
             // Otherwise we replace the whole MainVersion with new version.
             else
             {
-                mainVersionElement!.Value = mainVersionInfo.Version.ToString();
+                mainVersionElement!.Value = preparedVersionInfo.Version.ToString();
             }
-        
-            packageVersionSuffixElement!.Value = mainVersionInfo.PackageVersionSuffix;
-        
+
+            packageVersionSuffixElement!.Value = preparedVersionInfo.PackageVersionSuffix;
+
             // Using settings to keep the indentation as well as encoding identical to original MainVersion.props.
             var xmlWriterSettings =
                 new XmlWriterSettings { OmitXmlDeclaration = true, Indent = true, IndentChars = "    ", Encoding = new UTF8Encoding( false ) };
-        
+
             using ( var xmlWriter = XmlWriter.Create( mainVersionFile, xmlWriterSettings ) )
             {
                 document.Save( xmlWriter );
             }
-        
+
             context.Console.WriteMessage( $"Writing '{mainVersionFile}'." );
-        
+
             return true;
         }
     }

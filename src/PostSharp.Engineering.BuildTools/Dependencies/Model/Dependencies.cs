@@ -5,11 +5,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
     public static class Dependencies
     {
-        public static DependencyDefinition Roslyn { get; } = new(
-            "Roslyn",
-            VcsProvider.None,
-            "Roslyn" );
-
         public static DependencyDefinition MetalamaCompiler { get; } = new(
             "Metalama.Compiler",
             VcsProvider.AzureRepos,
@@ -17,7 +12,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         {
             // The release build is intentionally used for the debug configuration because we want dependencies to consume the release
             // build, for performance reasons. The debug build will be used only locally, and for this we don't need a configuration here.
-            CiBuildTypes = new( "Metalama_MetalamaCompiler_ReleaseBuild", "Metalama_MetalamaCompiler_ReleaseBuild", "Metalama_MetalamaCompiler_PublicBuild" )
+            CiBuildTypes = new ConfigurationSpecific<string>(
+                "Metalama_MetalamaCompiler_ReleaseBuild",
+                "Metalama_MetalamaCompiler_ReleaseBuild",
+                "Metalama_MetalamaCompiler_PublicBuild" )
         };
 
         public static DependencyDefinition Metalama { get; } = new(
@@ -39,7 +37,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             GenerateSnapshotDependency = false,
 
             // We always use the debug build for engineering.
-            CiBuildTypes = new( "PostSharpEngineering_DebugBuild", "PostSharpEngineering_DebugBuild", "PostSharpEngineering_DebugBuild" )
+            CiBuildTypes = new ConfigurationSpecific<string>(
+                "PostSharpEngineering_DebugBuild",
+                "PostSharpEngineering_DebugBuild",
+                "PostSharpEngineering_DebugBuild" )
         };
 
         [Obsolete( "Renamed to MetalamaBackstage" )]
@@ -54,7 +55,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "Metalama" );
 
         public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
-            Roslyn,
             MetalamaCompiler,
             Metalama,
             MetalamaDocumentation,

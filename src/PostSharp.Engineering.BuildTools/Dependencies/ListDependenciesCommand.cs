@@ -25,12 +25,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     return false;
                 }
 
-                if ( !VersionsOverrideFile.TryLoad( context, configuration, out var versionsOverrideFile ) )
+                if ( !DependenciesOverrideFile.TryLoad( context, configuration, out var dependenciesOverrideFile ) )
                 {
                     return false;
                 }
 
-                versionsOverrideFile.Print( context );
+                dependenciesOverrideFile.Print( context );
             }
 
             return true;
