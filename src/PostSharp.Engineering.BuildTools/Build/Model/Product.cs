@@ -1307,7 +1307,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return success;
         }
 
-        public bool BumpVersion( BuildContext context, BaseBuildSettings settings )
+        public bool BumpVersion( BuildContext context, BuildSettings settings )
         {
             // When bumping locally, the product with MainVersionDependency is not allowed to be manually bumped.
             if ( this.MainVersionDependency != null )
@@ -1330,18 +1330,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // Load Versions.props but not Versions.Debug.g.props. We need a mutable DependenciesOverrideFile file for use with FetchDependencies.
-            if ( !DependenciesOverrideFile.TryLoadDefaultsOnly( context, BuildConfiguration.Public, out var dependenciesOverrideFile ) )
+            // Dependencies versions to compare with BumpInfo file are from Public build.
+            settings.BuildConfiguration = BuildConfiguration.Public;
+
+            // Do prepare step to get Version.Public.g.props.
+            if ( !this.Prepare( context, settings ) )
             {
                 return false;
             }
 
-            // Fetch the latest dependencies, even if we have fetched before in a local build.
-            if ( !FetchDependencyCommand.FetchDependencies(
-                    context,
-                    BuildConfiguration.Public,
-                    dependenciesOverrideFile,
-                    new FetchDependenciesCommandSettings() { Update = true } ) )
+            // Get dependenciesOverrideFile from Versions.Public.g.props.
+            if ( !DependenciesOverrideFile.TryLoadDefaultsOnly( context, settings.BuildConfiguration, out var dependenciesOverrideFile ) )
             {
                 return false;
             }

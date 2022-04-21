@@ -1,8 +1,8 @@
 ﻿namespace PostSharp.Engineering.BuildTools.Build;
 
-public class BumpCommand : BaseCommand<BaseBuildSettings>
+public class BumpCommand : BaseCommand<BuildSettings>
 {
-    protected override bool ExecuteCore( BuildContext context, BaseBuildSettings settings )
+    protected override bool ExecuteCore( BuildContext context, BuildSettings settings )
     {
         return context.Product.BumpVersion( context, settings );
     }
