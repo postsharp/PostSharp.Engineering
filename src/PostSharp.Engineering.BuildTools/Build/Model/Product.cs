@@ -1309,6 +1309,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool BumpVersion( BuildContext context, BaseBuildSettings settings )
         {
+            // When bumping locally, the product with MainVersionDependency is not allowed to be manually bumped.
+            if ( this.MainVersionDependency != null )
+            {
+                context.Console.WriteError( "Version of a product derived from MainVersionDependency cannot be bumped." );
+
+                return false;
+            }
+
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,
                 this.MainVersionFilePath );
@@ -1341,7 +1349,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var newBumpFileContent =
                 string.Join(
                     ";",
-                    dependenciesOverrideFile.Dependencies.Where( d => d.Value.SourceKind != DependencySourceKind.Feed )
+                    dependenciesOverrideFile.Dependencies
                         .OrderBy( d => d.Key )
                         .Select( d => $"{d.Key}={d.Value.Version!}" ) );
 
@@ -1363,12 +1371,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
 
-            if ( !this.TryBumpVersion( context, settings, mainVersionFile, mainVersionInfo ) )
+            if ( !this.TryBumpVersion( context, settings, mainVersionFile, mainVersionInfo, bumpInfoFile, newBumpFileContent ) )
             {
                 return false;
             }
-
-            File.WriteAllText( bumpInfoFile, newBumpFileContent );
 
             return true;
         }
@@ -1469,7 +1475,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             IsDeployment = true,
                             BuildTriggers = this.DependencyDefinition.IsVersioned
 
-                                // The first direct dependency after except for PostSharp.Engineering or Roslyn is the one that triggers this product's version bump.
+                                // The first direct dependency after except for PostSharp.Engineering is the one that triggers this product's version bump.
                                 ? new IBuildTrigger[]
                                 {
                                     new VersionBumpTrigger(
@@ -1794,7 +1800,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             BuildContext context,
             BaseBuildSettings settings,
             string mainVersionFile,
-            PreparedVersionInfo currentPreparedVersionInfo )
+            PreparedVersionInfo currentPreparedVersionInfo,
+            string bumpInfoFile,
+            string newBumpFileContent )
         {
             if ( !File.Exists( mainVersionFile ) )
             {
@@ -1817,6 +1825,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
+            
+            // Updates changes to BumpInfo.txt.
+            File.WriteAllText( bumpInfoFile, newBumpFileContent );
+            
+            context.Console.WriteMessage( $"Writing '{bumpInfoFile}'." );
 
             // Commit the version bump.
             if ( !this.TryCommitVersionBump( context, currentPreparedVersionInfo.Version, newVersion, settings ) )
