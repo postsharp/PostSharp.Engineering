@@ -141,6 +141,23 @@ namespace PostSharp.Engineering.BuildTools
                                     .WithData( product )
                                     .WithDescription( "Bumps the version of this product" ) );
                         }
+
+                        root.AddBranch( 
+                            "teamcity",
+                            teamcity =>
+                            {
+                                teamcity.AddCommand<TeamCityDeployCommand>( "deploy" )
+                                    .WithData( product )
+                                    .WithDescription( "Trigger deployment of current product (or specified product) on TeamCity." )
+                                    .WithExample( new[] { "deploy" } )
+                                    .WithExample( new[] { "deploy", $@"""{product.ProductName}"" [-b|--bump] [-c config]" } );
+
+                                teamcity.AddCommand<TeamCityBumpCommand>( "bump" )
+                                    .WithData( product )
+                                    .WithDescription( "Trigger version bump of current product (or specified product) on TeamCity." )
+                                    .WithExample( new[] { "bump" } )
+                                    .WithExample( new[] { "bump", $@"""{product.ProductName}""" } );
+                            } );
                     } );
             }
         }
