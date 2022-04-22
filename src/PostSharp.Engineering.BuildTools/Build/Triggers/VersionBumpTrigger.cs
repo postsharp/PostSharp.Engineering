@@ -5,7 +5,7 @@ using System.IO;
 namespace PostSharp.Engineering.BuildTools.Build.Triggers;
 
 /// <summary>
-/// Generates a build trigger that triggers the build when the source code has changed in the default branch.
+/// Generates a build trigger that triggers this product's version bump when the dependency product's version has been successfully bumped.
 /// </summary>
 public class VersionBumpTrigger : IBuildTrigger
 {
