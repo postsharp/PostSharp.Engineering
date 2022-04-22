@@ -49,6 +49,13 @@ namespace PostSharp.Engineering.BuildTools
                             .WithData( product )
                             .WithDescription( "Swaps deployment slots" );
 
+                        if ( product.DependencyDefinition.IsVersioned )
+                        {
+                            root.AddCommand<BumpCommand>( "bump" )
+                                .WithData( product )
+                                .WithDescription( "Bumps the version of this product" );
+                        }
+
                         root.AddBranch(
                             "dependencies",
                             dependencies =>

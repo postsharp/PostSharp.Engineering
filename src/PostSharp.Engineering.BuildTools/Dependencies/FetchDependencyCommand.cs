@@ -26,17 +26,17 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return false;
             }
 
-            if ( !VersionsOverrideFile.TryLoad( context, configuration, out var versionsOverrideFile ) )
+            if ( !DependenciesOverrideFile.TryLoad( context, configuration, out var dependenciesOverrideFile ) )
             {
                 return false;
             }
 
-            if ( !FetchDependencies( context, configuration, versionsOverrideFile, settings ) )
+            if ( !FetchDependencies( context, configuration, dependenciesOverrideFile, settings ) )
             {
                 return false;
             }
 
-            if ( !versionsOverrideFile.TrySave( context ) )
+            if ( !dependenciesOverrideFile.TrySave( context ) )
             {
                 return false;
             }
@@ -47,7 +47,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         public static bool FetchDependencies(
             BuildContext context,
             BuildConfiguration configuration,
-            VersionsOverrideFile versionsOverrideFile,
+            DependenciesOverrideFile dependenciesOverrideFile,
             FetchDependenciesCommandSettings? settings = null )
         {
             settings ??= new FetchDependenciesCommandSettings();
@@ -64,7 +64,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return dependencyDefinition;
             }
 
-            var dependencies = versionsOverrideFile
+            var dependencies = dependenciesOverrideFile
                 .Dependencies
                 .Where( d => d.Value.Origin != DependencyConfigurationOrigin.Transitive )
                 .Select( d => (d.Value, GetDependencyDefinition( d )) )
@@ -112,7 +112,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         context,
                         dependencyDictionary,
                         iterationDependencies,
-                        versionsOverrideFile,
+                        dependenciesOverrideFile,
                         out var newDependencies ) )
                 {
                     return false;
@@ -133,7 +133,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             BuildContext context,
             ImmutableDictionary<string, Dependency> allDependencies,
             ImmutableArray<Dependency> directDependencies,
-            VersionsOverrideFile versionsOverrideFile,
+            DependenciesOverrideFile dependenciesOverrideFile,
             out ImmutableArray<Dependency> newDependencies )
         {
             var newDependenciesBuilder = ImmutableArray.CreateBuilder<Dependency>();
@@ -172,7 +172,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     }
 
                     // Get the DependencyDefinition.
-                    var dependencyDefinition = Model.Dependencies.All.SingleOrDefault( d => d.Name == name );
+                    var dependencyDefinition = Model.Dependencies.All.SingleOrDefault( d => d.Name == name )
+                                               ?? TestDependencies.All.SingleOrDefault( d => d.Name == name );
 
                     if ( dependencyDefinition == null )
                     {
@@ -230,7 +231,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                     var newDependency = new Dependency( dependencySource, dependencyDefinition );
                     newDependenciesBuilder.Add( newDependency );
-                    versionsOverrideFile.Dependencies[name] = dependencySource;
+                    dependenciesOverrideFile.Dependencies[name] = dependencySource;
                 }
 
                 ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
@@ -373,7 +374,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                             dependency.Definition.Name,
                             dependency.Definition.Name + ".Import.props" ) );
                 }
-                
+
                 if ( !File.Exists( dependency.Source.VersionFile ) )
                 {
                     context.Console.WriteError( $"The file '{dependency.Source.VersionFile}' does not exist. Check that the product has been built." );

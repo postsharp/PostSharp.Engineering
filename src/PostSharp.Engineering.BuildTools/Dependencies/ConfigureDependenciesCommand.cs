@@ -37,7 +37,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         }
 
         // Loads the current version file.
-        if ( !VersionsOverrideFile.TryLoad( context, configuration, out var versionsOverrideFile ) )
+        if ( !DependenciesOverrideFile.TryLoad( context, configuration, out var dependenciesOverrideFile ) )
         {
             return false;
         }
@@ -77,7 +77,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
             }
 
             // Executes the logic itself.
-            if ( !this.ConfigureDependency( context, versionsOverrideFile, dependencyDefinition, settings ) )
+            if ( !this.ConfigureDependency( context, dependenciesOverrideFile, dependencyDefinition, settings ) )
             {
                 return false;
             }
@@ -86,22 +86,22 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         // Fetching dependencies.
         context.Console.WriteImportantMessage( "Fetching dependencies" );
 
-        if ( !FetchDependencyCommand.FetchDependencies( context, configuration, versionsOverrideFile ) )
+        if ( !FetchDependencyCommand.FetchDependencies( context, configuration, dependenciesOverrideFile ) )
         {
             return false;
         }
 
         // Writing the version file.
-        context.Console.WriteImportantMessage( $"Writing '{versionsOverrideFile.FilePath}'" );
+        context.Console.WriteImportantMessage( $"Writing '{dependenciesOverrideFile.FilePath}'" );
 
-        if ( !versionsOverrideFile.TrySave( context ) )
+        if ( !dependenciesOverrideFile.TrySave( context ) )
         {
             return false;
         }
 
         context.Console.Out.WriteLine();
 
-        versionsOverrideFile.Print( context );
+        dependenciesOverrideFile.Print( context );
 
         context.Console.WriteSuccess( "Setting dependencies was successful." );
 
@@ -110,7 +110,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
 
     protected abstract bool ConfigureDependency(
         BuildContext context,
-        VersionsOverrideFile versionsOverrideFile,
+        DependenciesOverrideFile dependenciesOverrideFile,
         DependencyDefinition dependencyDefinition,
         T settings );
 }

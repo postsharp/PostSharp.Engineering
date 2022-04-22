@@ -10,11 +10,11 @@ public class ResetDependenciesCommand : ConfigureDependenciesCommand<ResetDepend
 {
     protected override bool ConfigureDependency(
         BuildContext context,
-        VersionsOverrideFile versionsOverrideFile,
+        DependenciesOverrideFile dependenciesOverrideFile,
         DependencyDefinition dependencyDefinition,
         ResetDependenciesCommandSettings settings )
     {
-        versionsOverrideFile.Dependencies.Remove( dependencyDefinition.Name );
+        dependenciesOverrideFile.Dependencies.Remove( dependencyDefinition.Name );
 
         return true;
     }
