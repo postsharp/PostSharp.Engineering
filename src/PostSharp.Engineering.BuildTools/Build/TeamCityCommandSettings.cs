@@ -12,7 +12,7 @@ public class TeamCityCommandSettings : CommonCommandSettings
 
     [Description( "Set specific ProductName to deploy/bump." )]
     [CommandArgument( 0, "[ProductName]" )]
-    public string? ProductName { get; protected set; }
+    public string? ProductName { get; set; }
 
     private BuildConfiguration? _resolvedConfiguration;
 

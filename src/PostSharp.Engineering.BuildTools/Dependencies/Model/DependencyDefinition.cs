@@ -17,6 +17,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public bool IsVersioned { get; }
         
         public string? BumpBuildType { get; init; }
+        
+        public string DeploymentBuildType { get; }
 
         public string VcsProjectName { get; }
 
@@ -46,6 +48,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             {
                 this.BumpBuildType = $"{this.VcsProjectName}_{this.NameWithoutDot}_VersionBump";
             }
+            
+            this.DeploymentBuildType = $"{this.VcsProjectName}_{this.NameWithoutDot}_PublicDeployment";
         }
 
         public override string ToString() => this.Name;
