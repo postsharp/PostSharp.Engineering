@@ -750,7 +750,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 " );
 
             // Generating the TeamCity file.
-            if ( !this.GenerateTeamcityConfiguration( context, packageVersion ) )
+            if ( !this.GenerateTeamcityConfiguration( context, packageVersion, dependenciesOverrideFile ) )
             {
                 return false;
             }
@@ -1158,7 +1158,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !this.TryLoadPreparedVersionInfo(
                     context,
                     mainVersionFile,
-                    out var mainVersionInfo ) )
+                    out var preparedVersionInfo ) )
             {
                 return false;
             }
@@ -1182,7 +1182,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
 
                 // If version has not been bumped since the last publish, it requires manual bump and therefore the version can't be published.
-                if ( !RequiresBumpedVersion( context, mainVersionInfo.Version, lastVersionTag ) )
+                if ( !RequiresBumpedVersion( context, preparedVersionInfo.Version, lastVersionTag ) )
                 {
                     return false;
                 }
@@ -1229,7 +1229,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // After successful artifact publishing the last commit is tagged with current version tag.
-            if ( !AddTagToLastCommit( context, mainVersionInfo, settings ) )
+            if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
             {
                 return false;
             }
@@ -1312,9 +1312,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // When bumping locally, the product with MainVersionDependency is not allowed to be manually bumped.
             if ( this.MainVersionDependency != null )
             {
-                context.Console.WriteError( "Version of a product derived from MainVersionDependency cannot be bumped." );
+                context.Console.WriteWarning( "Version of a product derived from MainVersionDependency cannot be bumped." );
 
-                return false;
+                return true;
             }
 
             var mainVersionFile = Path.Combine(
@@ -1361,16 +1361,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return true;
             }
 
-            this.TryLoadPreparedVersionInfo( context, mainVersionFile, out var mainVersionInfo );
+            this.TryLoadPreparedVersionInfo( context, mainVersionFile, out var preparedVersionInfo );
 
-            if ( mainVersionInfo == null )
+            if ( preparedVersionInfo == null )
             {
                 return false;
             }
 
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
 
-            if ( !this.TryBumpVersion( context, settings, mainVersionFile, mainVersionInfo, bumpInfoFile, newBumpFileContent ) )
+            if ( !this.TryBumpVersion( context, settings, mainVersionFile, preparedVersionInfo, bumpInfoFile, newBumpFileContent ) )
             {
                 return false;
             }
@@ -1378,7 +1378,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )
+        private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion, DependenciesOverrideFile dependenciesOverrideFile )
         {
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
 
@@ -1460,6 +1460,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( this.DependencyDefinition.IsVersioned && this.MainVersionDependency == null )
             {
                 var dependencyDefinitions = this.Dependencies;
+                var bumpTriggeringDependencyName = dependenciesOverrideFile.Dependencies.FirstOrDefault( d => d.Value.SourceKind != DependencySourceKind.Feed ).Key; 
 
                 if ( dependencyDefinitions != null )
                 {
@@ -1468,7 +1469,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             this,
                             objectName: "VersionBump",
                             name: $"Version Bump",
-                            buildArguments: $"bump version",
+                            buildArguments: $"bump",
                             buildAgentType: this.BuildAgentType )
                         {
                             IsDeployment = true,
@@ -1478,7 +1479,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                 ? new IBuildTrigger[]
                                 {
                                     new VersionBumpTrigger(
-                                        dependencyDefinitions.SingleOrDefault( d => d != BuildTools.Dependencies.Model.Dependencies.PostSharpEngineering ) )
+                                        dependencyDefinitions.SingleOrDefault(
+                                            d => d.Name == bumpTriggeringDependencyName ) )
                                 }
                                 : null
                         } );
@@ -1817,10 +1819,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 currentPreparedVersionInfo.Version.Build + 1 );
 
             var newPatchNumber = currentPreparedVersionInfo.OurPatchVersion != null ? currentPreparedVersionInfo.OurPatchVersion + 1 : null;
-            var newMainVersionInfo = new PreparedVersionInfo( newVersion, currentPreparedVersionInfo.PackageVersionSuffix, newPatchNumber );
+            var newPreparedVersionInfo = new PreparedVersionInfo( newVersion, currentPreparedVersionInfo.PackageVersionSuffix, newPatchNumber );
 
             // Save the MainVersion.props with new version.
-            if ( !TrySaveMainVersion( context, mainVersionFile, newMainVersionInfo ) )
+            if ( !TrySaveMainVersion( context, mainVersionFile, newPreparedVersionInfo ) )
             {
                 return false;
             }
@@ -1837,7 +1839,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             context.Console.WriteSuccess(
-                $"Bumping the '{context.Product.ProductName}' version from '{currentPreparedVersionInfo.Version}{currentPreparedVersionInfo.PackageVersionSuffix}' to '{newMainVersionInfo.Version}{newMainVersionInfo.PackageVersionSuffix}' was successful." );
+                $"Bumping the '{context.Product.ProductName}' version from '{currentPreparedVersionInfo.Version}{currentPreparedVersionInfo.PackageVersionSuffix}' to '{newPreparedVersionInfo.Version}{newPreparedVersionInfo.PackageVersionSuffix}' was successful." );
 
             return true;
         }
@@ -1940,7 +1942,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private bool TryLoadPreparedVersionInfo(
             BuildContext context,
             string mainVersionFile,
-            [NotNullWhen( true )] out PreparedVersionInfo? mainVersionInfo )
+            [NotNullWhen( true )] out PreparedVersionInfo? preparedVersionInfo )
         {
             var version = this.ReadMainVersionFile( mainVersionFile );
             var mainVersion = version.MainVersion;
@@ -1980,7 +1982,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     {
                         context.Console.WriteError( $"The property '{propertyName}' in '{artifactVersionFile}' is not defined." );
 
-                        mainVersionInfo = null;
+                        preparedVersionInfo = null;
 
                         return false;
                     }
@@ -1990,7 +1992,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            mainVersionInfo = new PreparedVersionInfo( currentVersion, version.PackageVersionSuffix, version.OurPatchVersion );
+            preparedVersionInfo = new PreparedVersionInfo( currentVersion, version.PackageVersionSuffix, version.OurPatchVersion );
 
             return true;
         }
