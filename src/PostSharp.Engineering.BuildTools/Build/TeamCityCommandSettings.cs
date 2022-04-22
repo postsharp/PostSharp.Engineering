@@ -9,7 +9,11 @@ public class TeamCityCommandSettings : CommonCommandSettings
     [Description( "Bump the product before Deployment" )]
     [CommandOption( "--bump" )]
     public bool Bump { get; protected set; }
-    
+
+    [Description( "Set specific ProductName to deploy/bump." )]
+    [CommandArgument( 0, "[ProductName]" )]
+    public string? ProductName { get; protected set; }
+
     private BuildConfiguration? _resolvedConfiguration;
 
     [Obsolete( "Use the BuildConfiguration property. " )]

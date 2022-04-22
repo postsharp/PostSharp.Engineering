@@ -1,6 +1,7 @@
 ﻿using PostSharp.Engineering.BuildTools.Build;
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 
@@ -8,7 +9,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities;
 
 public static class TeamCityHelper
 {
-    public static HttpClient Client = new()
+    private static readonly HttpClient _httpClient = new()
     {
         DefaultRequestHeaders = { Authorization = new AuthenticationHeaderValue( "Bearer", Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" )! ) }
     };
@@ -31,6 +32,9 @@ public static class TeamCityHelper
 
     public static bool TriggerTeamCityDeploy( BuildContext context, TeamCityCommandSettings settings )
     {
+        var productName = string.IsNullOrEmpty( settings.ProductName ) ? context.Product.ProductName : settings.ProductName;
+        context.Console.WriteHeading( $"Deploying {productName}" );
+
         if ( settings.Bump )
         {
             if ( !TriggerTeamCityVersionBump( context, settings ) )
@@ -44,17 +48,30 @@ public static class TeamCityHelper
 
     public static bool TriggerTeamCityVersionBump( BuildContext context, TeamCityCommandSettings settings )
     {
+        var productName = string.IsNullOrEmpty( settings.ProductName ) ? context.Product.ProductName : settings.ProductName;
+        context.Console.WriteHeading( $"Bumping {productName}" );
+
         return true;
     }
 
     public static bool TriggerTeamCityBuild( BuildContext context, TeamCityCommandSettings settings )
     {
-        var build = settings.BuildConfiguration.ToString();
-        var requestContent = $@"<build branchName=""master""><buildType id=""Test_PostSharpEngineeringTestTransitiveDependency_{build}Build""/></build>";
-        Console.WriteLine( requestContent );
-        var response = Client.PostAsync( "https://tc.postsharp.net/app/rest/buildQueue", new StringContent( requestContent ) ).Result;
+        var buildTypeId = "none";
 
-        Console.WriteLine( response );
+        if ( !string.IsNullOrEmpty( settings.ProductName ) )
+        {
+            buildTypeId = Dependencies.Model.Dependencies.All
+                .Where( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) )
+                .Select( d => d.CiBuildTypes[settings.BuildConfiguration] )
+                .FirstOrDefault();
+
+            if ( string.IsNullOrEmpty( buildTypeId ) )
+            {
+                context.Console.WriteError( $"Dependency definition for '{settings.ProductName}' doesn't exist." );
+
+                return false;
+            }
+        }
 
         return true;
     }

@@ -1,7 +1,4 @@
 ﻿using PostSharp.Engineering.BuildTools.Utilities;
-using Spectre.Console.Cli;
-using System;
-using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Build;
 
