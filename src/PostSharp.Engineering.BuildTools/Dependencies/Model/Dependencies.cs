@@ -25,9 +25,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public static DependencyDefinition MetalamaSamples { get; } = new( "Metalama.Samples", VcsProvider.GitHub, "postsharp" );
 
-        public static DependencyDefinition MetalamaDocumentation { get; } = new( "Metalama.Documentation", VcsProvider.GitHub, "postsharp" );
+        public static DependencyDefinition MetalamaDocumentation { get; } = new( "Metalama.Documentation", VcsProvider.GitHub, "postsharp", false );
 
         public static DependencyDefinition MetalamaTry { get; } = new( "Metalama.Try", VcsProvider.AzureRepos, "Metalama" );
+
+        public static DependencyDefinition MetalamaVsx { get; } = new( "Metalama.Vsx", VcsProvider.AzureRepos, "Metalama" );
 
         public static DependencyDefinition PostSharpEngineering { get; } = new(
             "PostSharp.Engineering",
@@ -60,6 +62,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             MetalamaDocumentation,
             MetalamaSamples,
             MetalamaTry,
+            MetalamaVsx,
             PostSharpEngineering,
             MetalamaBackstage );
     }
