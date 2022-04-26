@@ -50,6 +50,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public BuildMethod? BuildMethod { get; init; }
 
         /// <summary>
+        /// Gets or sets the method (typically <see cref="Test"/> or <c>None</c>) that must be invoked when executing the <c>test</c> command.
+        /// </summary>
+        public BuildMethod? TestMethod { get; init; }
+
+        /// <summary>
         /// Gets the method (<see cref="Build"/>, <see cref="Test"/> or <see cref="Pack"/>) that must be invoked when executing the <c>build</c> command.
         /// This method returns <see cref="Pack"/> by default. If the <see cref="BuildMethod"/> property has been defined, it returns its value.
         /// If <see cref="IsTestOnly"/> is <c>true</c>, this method returns <see cref="Build"/>.

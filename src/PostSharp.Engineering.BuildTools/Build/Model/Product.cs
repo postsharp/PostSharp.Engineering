@@ -530,42 +530,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     var buildMethod = solution.GetBuildMethod();
 
-                    switch ( buildMethod )
+                    if ( !TryExecuteBuildMethod( context, settings, solution, buildMethod ) )
                     {
-                        case BuildMethod.Build:
-                            if ( !solution.Build( context, settings ) )
-                            {
-                                return false;
-                            }
-
-                            break;
-
-                        case BuildMethod.Pack:
-                            if ( solution.PackRequiresExplicitBuild && !settings.NoDependencies )
-                            {
-                                if ( !solution.Build( context, settings ) )
-                                {
-                                    return false;
-                                }
-                            }
-
-                            if ( !solution.Pack( context, settings ) )
-                            {
-                                return false;
-                            }
-
-                            break;
-
-                        case BuildMethod.Test:
-                            if ( !solution.Test( context, settings ) )
-                            {
-                                return false;
-                            }
-
-                            break;
-
-                        default:
-                            throw new NotImplementedException( $"Build method '{buildMethod}' is not implemented." );
+                        return false;
                     }
 
                     context.Console.WriteSuccess( $"Building {solution.Name} was successful." );
@@ -573,6 +540,35 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             return true;
+        }
+
+        private static bool TryExecuteBuildMethod( BuildContext context, BuildSettings settings, Solution solution, BuildMethod buildMethod )
+        {
+            switch ( buildMethod )
+            {
+                case BuildMethod.None:
+                    return true;
+
+                case BuildMethod.Build:
+                    return solution.Build( context, settings );
+
+                case BuildMethod.Pack:
+                    if ( solution.PackRequiresExplicitBuild && !settings.NoDependencies )
+                    {
+                        if ( !solution.Build( context, settings ) )
+                        {
+                            return false;
+                        }
+                    }
+
+                    return solution.Pack( context, settings );
+
+                case BuildMethod.Test:
+                    return solution.Test( context, settings );
+
+                default:
+                    throw new NotImplementedException( $"Build method '{buildMethod}' is not implemented." );
+            }
         }
 
         public bool Test( BuildContext context, BuildSettings settings )
@@ -606,17 +602,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             foreach ( var solution in this.Solutions )
             {
-                var solutionOptions = settings;
+                var solutionSettings = settings;
 
                 if ( settings.AnalyzeCoverage && solution.SupportsTestCoverage )
                 {
-                    solutionOptions =
+                    solutionSettings =
                         settings.WithAdditionalProperties( properties ).WithoutConcurrency();
                 }
 
                 context.Console.WriteHeading( $"Testing {solution.Name}." );
 
-                if ( !solution.Test( context, solutionOptions ) )
+                if ( !TryExecuteBuildMethod( context, solutionSettings, solution, solution.TestMethod ?? BuildMethod.Test ) )
                 {
                     return false;
                 }
@@ -1460,7 +1456,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( this.DependencyDefinition.IsVersioned && this.MainVersionDependency == null )
             {
                 var dependencyDefinitions = this.Dependencies;
-                var bumpTriggeringDependencyName = dependenciesOverrideFile.Dependencies.FirstOrDefault( d => d.Value.SourceKind != DependencySourceKind.Feed ).Key; 
+
+                var bumpTriggeringDependencyName =
+                    dependenciesOverrideFile.Dependencies.FirstOrDefault( d => d.Value.SourceKind != DependencySourceKind.Feed ).Key;
 
                 if ( dependencyDefinitions != null )
                 {
@@ -1478,9 +1476,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                 // The first direct dependency after except for PostSharp.Engineering is the one that triggers this product's version bump.
                                 ? new IBuildTrigger[]
                                 {
-                                    new VersionBumpTrigger(
-                                        dependencyDefinitions.SingleOrDefault(
-                                            d => d.Name == bumpTriggeringDependencyName ) )
+                                    new VersionBumpTrigger( dependencyDefinitions.SingleOrDefault( d => d.Name == bumpTriggeringDependencyName ) )
                                 }
                                 : null
                         } );
@@ -1826,10 +1822,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
-            
+
             // Updates changes to BumpInfo.txt.
             File.WriteAllText( bumpInfoFile, newBumpFileContent );
-            
+
             context.Console.WriteMessage( $"Writing '{bumpInfoFile}'." );
 
             // Commit the version bump.
