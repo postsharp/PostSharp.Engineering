@@ -7,6 +7,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     public enum BuildMethod
     {
         /// <summary>
+        /// No action is executed.
+        /// </summary>
+        None,
+
+        /// <summary>
         /// Building should call <see cref="Solution.Build"/>.
         /// </summary>
         Build,
