@@ -1243,20 +1243,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // If Product doesn't require merging changes into master branch, we skip merging.
             if ( this.RequiresBranchMerging )
             {
-                // Checks if the current branch really needs to be merged to master. Someone might have merged it from outside.
-                if ( !TryRequiresMergeOfBranches( context, out var currentBranch ) )
+                // Attempts to get the latest intersection of master and currentBranch in form of each branches' commit hash.
+                if ( !TryGetLatestBranchesIntersectionCommitHashes( context, out var currentBranch, out var lastCurrentBranchCommitHash, out var lastCommonCommitHash ) )
                 {
-                    context.Console.WriteError( $"Could not get intersecting commit between '{currentBranch}' and master branch." );
-                    
                     return false;
                 }
 
-                context.Console.WriteImportantMessage( $"Branch '{currentBranch}' requires merging to master." );
-
-                // Merge current branch.
-                if ( !MergeBranchToMaster( context, settings, currentBranch ) )
+                // Defines if we need to do a merge. If the commit hashes are equal, there haven't been any unmerged commits, or the current branch is actually master.
+                if ( !lastCurrentBranchCommitHash.Equals( lastCommonCommitHash, StringComparison.Ordinal ) )
                 {
-                    return false;
+                    context.Console.WriteWarning( $"Branch '{currentBranch}' requires merging to master." );
+
+                    // Merge current branch.
+                    if ( !MergeBranchToMaster( context, settings, currentBranch ) )
+                    {
+                        return false;
+                    }
                 }
             }
 
@@ -1658,8 +1660,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool TryRequiresMergeOfBranches( BuildContext context, [NotNullWhen( true )] out string? currentBranch )
+        private static bool TryGetLatestBranchesIntersectionCommitHashes(
+            BuildContext context,
+            [NotNullWhen( true )] out string? currentBranch,
+            [NotNullWhen( true )] out string? lastCurrentBranchCommitHash,
+            [NotNullWhen( true )] out string? lastCommonCommitHash )
         {
+            lastCurrentBranchCommitHash = null;
+            lastCommonCommitHash = null;
+
             // Fetch all remotes to make sure the merge has not already been done.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -1702,13 +1711,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            var lastCurrentBranchCommitHash = gitOutput;
+            lastCurrentBranchCommitHash = gitOutput;
 
-            // Returns hash of as good common ancestor commit as possible between master and current branch.
+            // Returns hash of as good common ancestor commit as possible between origin/master and current branch.
+            // We use origin/master, because master may not be present as a local branch.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"merge-base master {currentBranch}",
+                $"merge-base origin/master {currentBranch}",
                 context.RepoDirectory,
                 out gitExitCode,
                 out gitOutput );
@@ -1720,10 +1730,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            var lastCommonCommitHash = gitOutput;
+            lastCommonCommitHash = gitOutput;
 
-            // If the commit hashes are equal, there haven't been any unmerged commits, or the current branch is actually master.
-            return !lastCurrentBranchCommitHash.Equals( lastCommonCommitHash, StringComparison.Ordinal );
+            return true;
         }
 
         private static bool MergeBranchToMaster( BuildContext context, BaseBuildSettings settings, string branchToMerge )
