@@ -1,4 +1,5 @@
 ﻿using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Globalization;
 using System.IO;
@@ -6,10 +7,11 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Threading;
 using System.Xml.Linq;
 
-namespace PostSharp.Engineering.BuildTools.Utilities
+namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 {
     public class TeamcityClient : IDisposable
     {
@@ -106,6 +108,94 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     stream.CopyToAsync( fileStream, cancellationToken );
                 }
             }
+        }
+
+        public string? ScheduleBuild( string buildTypeId )
+        {
+            Console.WriteLine( $"Scheduling: {buildTypeId}" );
+            var payload = $"<build><buildType id=\"{buildTypeId}\" /><comment><text>This build was triggered from console command.</text></comment></build>";
+
+            var content = new StringContent( payload, Encoding.UTF8, "application/xml" );
+
+            var httpResponseResult = this._httpClient.PostAsync( TeamCityHelper.TeamcityApiBuildQueueUri, content ).Result;
+        
+            if ( !httpResponseResult.IsSuccessStatusCode )
+            {
+                Console.WriteLine( $"Failed to trigger '{buildTypeId}' on TeamCity." );
+                Console.WriteLine( httpResponseResult.ToString() );
+
+                return null;
+            }
+
+            Console.WriteLine( httpResponseResult.ToString() );
+            Console.WriteLine( $"'{buildTypeId}' was added to build queue on TeamCity." );
+
+            var httpResponseMessageContentString = httpResponseResult.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
+
+            var document = XDocument.Parse( httpResponseMessageContentString );
+            var build = document.Root;
+            
+            return build!.Attribute( "id" )!.Value;
+        }
+
+        public int PollRunningBuildStatus( string buildId )
+        {
+            var status = -1;
+            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiRunningBuildsUri ).Result;
+
+            var httpResponseMessageContentString = httpResponseResult.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
+
+            var document = XDocument.Parse( httpResponseMessageContentString );
+            var builds = document.Root!;
+
+            Console.WriteLine( builds );
+
+            if ( !builds.Attribute( "count" )!.Value.Equals( "0" ) )
+            {
+                var buildsArray = builds.Elements().ToArray();
+
+                foreach ( var build in buildsArray )
+                {
+                    Console.WriteLine( build );
+
+                    if ( build.Attribute( "id" )!.Value.Equals( buildId ) )
+                    {
+                        status = int.Parse( build.Attribute( "percentageComplete" )!.Value );
+
+                        break;
+                    }
+                }
+            }
+
+            return status;
+        }
+
+        // TODO: Check if failed or not and inform about it.
+        public bool HasBuildFinishedSuccessfully( string buildId )
+        {
+            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiBuildsUri ).Result;
+
+            var httpResponseMessageContentString = httpResponseResult.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
+
+            var document = XDocument.Parse( httpResponseMessageContentString );
+            var builds = document.Root!;
+
+            if ( builds.Attribute( "count" )!.Value.Equals( "0" ) )
+            {
+                return false;
+            }
+            
+            var buildsArray = builds.Elements().ToArray();
+
+            foreach ( var build in buildsArray )
+            {
+                if ( build.Attribute( "id" )!.Value.Equals( buildId ) )
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public void Dispose()

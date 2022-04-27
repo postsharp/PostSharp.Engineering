@@ -1,4 +1,4 @@
-﻿using PostSharp.Engineering.BuildTools.Utilities;
+﻿using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 namespace PostSharp.Engineering.BuildTools.Build;
 

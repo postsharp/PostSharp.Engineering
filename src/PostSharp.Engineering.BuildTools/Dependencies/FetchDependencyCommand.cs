@@ -1,6 +1,7 @@
 ﻿using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
