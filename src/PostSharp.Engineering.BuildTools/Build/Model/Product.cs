@@ -1244,15 +1244,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( this.RequiresBranchMerging )
             {
                 // Checks if the current branch really needs to be merged to master. Someone might have merged it from outside.
-                if ( TryRequiresMergeOfBranches( context, out var currentBranch ) )
+                if ( !TryRequiresMergeOfBranches( context, out var currentBranch ) )
                 {
-                    context.Console.WriteImportantMessage( $"Branch '{currentBranch}' requires merging to master." );
+                    context.Console.WriteError( $"Could not get intersecting commit between '{currentBranch}' and master branch." );
+                    
+                    return false;
+                }
 
-                    // Merge current branch.
-                    if ( !MergeBranchToMaster( context, settings, currentBranch ) )
-                    {
-                        return false;
-                    }
+                context.Console.WriteImportantMessage( $"Branch '{currentBranch}' requires merging to master." );
+
+                // Merge current branch.
+                if ( !MergeBranchToMaster( context, settings, currentBranch ) )
+                {
+                    return false;
                 }
             }
 
@@ -1327,6 +1331,46 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.RepoDirectory,
                 this.MainVersionFilePath );
 
+            var bumpInfoFile = Path.Combine(
+                context.RepoDirectory,
+                this.BumpInfoFilePath );
+
+            if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
+            {
+                return false;
+            }
+
+            // Dependencies versions to compare with BumpInfo file are from Public build.
+            settings.BuildConfiguration = BuildConfiguration.Public;
+
+            // Do prepare step to get Version.Public.g.props.
+            if ( !this.Prepare( context, settings ) )
+            {
+                return false;
+            }
+
+            // Get dependenciesOverrideFile from Versions.Public.g.props.
+            if ( !DependenciesOverrideFile.TryLoadDefaultsOnly( context, settings.BuildConfiguration, out var dependenciesOverrideFile ) )
+            {
+                return false;
+            }
+
+            var newBumpFileContent =
+                string.Join(
+                    ";",
+                    dependenciesOverrideFile.Dependencies
+                        .OrderBy( d => d.Key )
+                        .Select( d => $"{d.Key}={d.Value.Version!}" ) );
+
+            var oldBumpFileContent = File.ReadAllText( bumpInfoFile );
+
+            if ( newBumpFileContent == oldBumpFileContent && !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
+            {
+                context.Console.WriteWarning( "There are no changes since the last version tag." );
+
+                return true;
+            }
+
             this.TryLoadPreparedVersionInfo( context, mainVersionFile, out var preparedVersionInfo );
 
             if ( preparedVersionInfo == null )
@@ -1336,7 +1380,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
 
-            if ( !this.TryBumpVersion( context, settings, mainVersionFile, preparedVersionInfo ) )
+            if ( !this.TryBumpVersion( context, settings, mainVersionFile, preparedVersionInfo, bumpInfoFile, newBumpFileContent ) )
             {
                 return false;
             }
@@ -1694,13 +1738,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // Attempts merging branch to master with custom merge message. --no-ff option is to force merge commit to be created.
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"merge {branchToMerge}",
-                    context.RepoDirectory ) )
+            // Attempts merging branch to master.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"merge {branchToMerge}",
+                context.RepoDirectory,
+                out var gitExitCode,
+                out var gitOutput );
+
+            if ( gitExitCode != 0 )
             {
+                context.Console.WriteError( gitOutput );
+
                 return false;
             }
 
@@ -1710,8 +1760,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 "git",
                 $"remote get-url origin",
                 context.RepoDirectory,
-                out var gitExitCode,
-                out var gitOutput );
+                out gitExitCode,
+                out gitOutput );
 
             if ( gitExitCode != 0 )
             {
@@ -1762,7 +1812,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             BuildContext context,
             BaseBuildSettings settings,
             string mainVersionFile,
-            PreparedVersionInfo currentPreparedVersionInfo )
+            PreparedVersionInfo currentPreparedVersionInfo,
+            string bumpInfoFile,
+            string newBumpFileContent )
         {
             if ( !File.Exists( mainVersionFile ) )
             {
@@ -1785,6 +1837,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
+
+            // Updates changes to BumpInfo.txt.
+            File.WriteAllText( bumpInfoFile, newBumpFileContent );
+
+            context.Console.WriteMessage( $"Writing '{bumpInfoFile}'." );
 
             // Commit the version bump.
             if ( !this.TryCommitVersionBump( context, currentPreparedVersionInfo.Version, newVersion, settings ) )
