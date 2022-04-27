@@ -1159,28 +1159,35 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // Get the latest version tag.
-            if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
+            if ( this.DependencyDefinition.IsVersioned )
             {
-                return false;
-            }
-
-            // Using --force flag ignores checks for changes and version bump.
-            if ( !settings.Force )
-            {
-                // If there are no changes since the last tag (i.e. last publishing) the publishing will end successfully here.
-                if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
-                {
-                    context.Console.WriteWarning(
-                        "Publishing is skipped because there are no new unpublished changes since the last version tag. Use --force." );
-
-                    return true;
-                }
-
-                // If version has not been bumped since the last publish, it requires manual bump and therefore the version can't be published.
-                if ( !RequiresBumpedVersion( context, preparedVersionInfo.Version, lastVersionTag ) )
+                // Get the latest version tag.
+                if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
                 {
                     return false;
+                }
+
+                // Using --force flag ignores checks for changes and version bump.
+                if ( !settings.Force )
+                {
+                    // If there are no changes since the last tag (i.e. last publishing) the publishing will end successfully here.
+                    if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
+                    {
+                        context.Console.WriteWarning(
+                            "Publishing is skipped because there are no new unpublished changes since the last version tag. Use --force." );
+
+                        return true;
+                    }
+
+                    // Only versioned products require versions bumped.
+                    if ( context.Product.DependencyDefinition.IsVersioned )
+                    {
+                        // If version has not been bumped since the last publish, it requires manual bump and therefore the version can't be published.
+                        if ( !RequiresBumpedVersion( context, preparedVersionInfo.Version, lastVersionTag ) )
+                        {
+                            return false;
+                        }
+                    }
                 }
             }
 
@@ -1224,10 +1231,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteSuccess( "Publishing has succeeded." );
             }
 
-            // After successful artifact publishing the last commit is tagged with current version tag.
-            if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
+            if ( this.DependencyDefinition.IsVersioned )
             {
-                return false;
+                // After successful artifact publishing the last commit is tagged with current version tag.
+                if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
+                {
+                    return false;
+                }
             }
 
             // If Product doesn't require merging changes into master branch, we skip merging.
@@ -1317,46 +1327,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.RepoDirectory,
                 this.MainVersionFilePath );
 
-            var bumpInfoFile = Path.Combine(
-                context.RepoDirectory,
-                this.BumpInfoFilePath );
-
-            if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
-            {
-                return false;
-            }
-
-            // Dependencies versions to compare with BumpInfo file are from Public build.
-            settings.BuildConfiguration = BuildConfiguration.Public;
-
-            // Do prepare step to get Version.Public.g.props.
-            if ( !this.Prepare( context, settings ) )
-            {
-                return false;
-            }
-
-            // Get dependenciesOverrideFile from Versions.Public.g.props.
-            if ( !DependenciesOverrideFile.TryLoadDefaultsOnly( context, settings.BuildConfiguration, out var dependenciesOverrideFile ) )
-            {
-                return false;
-            }
-
-            var newBumpFileContent =
-                string.Join(
-                    ";",
-                    dependenciesOverrideFile.Dependencies
-                        .OrderBy( d => d.Key )
-                        .Select( d => $"{d.Key}={d.Value.Version!}" ) );
-
-            var oldBumpFileContent = File.ReadAllText( bumpInfoFile );
-
-            if ( newBumpFileContent == oldBumpFileContent && !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
-            {
-                context.Console.WriteWarning( "There are no changes since the last version tag." );
-
-                return true;
-            }
-
             this.TryLoadPreparedVersionInfo( context, mainVersionFile, out var preparedVersionInfo );
 
             if ( preparedVersionInfo == null )
@@ -1366,7 +1336,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
 
-            if ( !this.TryBumpVersion( context, settings, mainVersionFile, preparedVersionInfo, bumpInfoFile, newBumpFileContent ) )
+            if ( !this.TryBumpVersion( context, settings, mainVersionFile, preparedVersionInfo ) )
             {
                 return false;
             }
@@ -1379,6 +1349,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
 
             var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
+            var bumpSnapshotDependencyObjectName = string.Empty;
 
             foreach ( var configuration in configurations )
             {
@@ -1431,6 +1402,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     };
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
+                    bumpSnapshotDependencyObjectName = teamCityDeploymentConfiguration.ObjectName;
                 }
 
                 if ( configurationInfo.Swappers != null )
@@ -1457,9 +1429,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 var dependencyDefinitions = this.Dependencies;
 
-                var bumpTriggeringDependencyName =
-                    dependenciesOverrideFile.Dependencies.FirstOrDefault( d => d.Value.SourceKind != DependencySourceKind.Feed ).Key;
-
                 if ( dependencyDefinitions != null )
                 {
                     teamCityBuildConfigurations.Add(
@@ -1471,14 +1440,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             buildAgentType: this.BuildAgentType )
                         {
                             IsDeployment = true,
-                            BuildTriggers = this.DependencyDefinition.IsVersioned
-
-                                // The first direct dependency after except for PostSharp.Engineering is the one that triggers this product's version bump.
-                                ? new IBuildTrigger[]
-                                {
-                                    new VersionBumpTrigger( dependencyDefinitions.SingleOrDefault( d => d.Name == bumpTriggeringDependencyName ) )
-                                }
-                                : null
+                            SnapshotDependencyObjectNames = string.IsNullOrEmpty( bumpSnapshotDependencyObjectName )
+                                ? null
+                                : new[] { bumpSnapshotDependencyObjectName },
+                            BumpSnapshotDependency = true
                         } );
                 }
             }
@@ -1797,9 +1762,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             BuildContext context,
             BaseBuildSettings settings,
             string mainVersionFile,
-            PreparedVersionInfo currentPreparedVersionInfo,
-            string bumpInfoFile,
-            string newBumpFileContent )
+            PreparedVersionInfo currentPreparedVersionInfo )
         {
             if ( !File.Exists( mainVersionFile ) )
             {
@@ -1822,11 +1785,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
-
-            // Updates changes to BumpInfo.txt.
-            File.WriteAllText( bumpInfoFile, newBumpFileContent );
-
-            context.Console.WriteMessage( $"Writing '{bumpInfoFile}'." );
 
             // Commit the version bump.
             if ( !this.TryCommitVersionBump( context, currentPreparedVersionInfo.Version, newVersion, settings ) )

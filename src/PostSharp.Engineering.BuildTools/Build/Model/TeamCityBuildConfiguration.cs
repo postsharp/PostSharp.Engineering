@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
@@ -23,6 +24,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public IBuildTrigger[]? BuildTriggers { get; init; }
 
         public string[]? SnapshotDependencyObjectNames { get; init; }
+
+        public bool BumpSnapshotDependency { get; init; }
 
         public (string ObjectName, string ArtifactRules)[]? ArtifactDependencies { get; init; }
 
@@ -129,19 +132,33 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 writer.WriteLine(
                     $@"
-  dependencies {{" );
+    dependencies {{" );
             }
 
             // Snapshot dependencies.
             if ( hasSnapshotDependencies )
             {
-                foreach ( var dependency in this.SnapshotDependencyObjectNames! )
+                if ( this.SnapshotDependencyObjectNames != null && this.BumpSnapshotDependency )
                 {
                     writer.WriteLine(
                         $@"
+        dependency({this.SnapshotDependencyObjectNames.FirstOrDefault()}) {{
+            snapshot {{
+                reuseBuilds = ReuseBuilds.NO
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }}
+        }}" );
+                }
+                else
+                {
+                    foreach ( var dependency in this.SnapshotDependencyObjectNames! )
+                    {
+                        writer.WriteLine(
+                            $@"
         snapshot(AbsoluteId(""{dependency}"")) {{
                      onDependencyFailure = FailureAction.FAIL_TO_START
                 }}" );
+                    }
                 }
             }
 
