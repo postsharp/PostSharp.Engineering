@@ -49,7 +49,7 @@ namespace PostSharp.Engineering.BuildTools
                             .WithData( product )
                             .WithDescription( "Swaps deployment slots" );
 
-                        if ( product.DependencyDefinition.IsVersioned )
+                        if ( product.DependencyDefinition.IsVersioned && product.MainVersionDependency == null )
                         {
                             root.AddCommand<BumpCommand>( "bump" )
                                 .WithData( product )
@@ -138,6 +138,23 @@ namespace PostSharp.Engineering.BuildTools
                                 tools.AddBranch(
                                     "xmldoc",
                                     xmldoc => xmldoc.AddCommand<RemoveInternalsCommand>( "clean" ).WithDescription( "Remove internals." ).WithData( product ) );
+                            } );
+
+                        root.AddBranch( 
+                            "teamcity",
+                            teamcity =>
+                            {
+                                teamcity.AddCommand<TeamCityDeployCommand>( "deploy" )
+                                    .WithData( product )
+                                    .WithDescription( "Trigger deployment of current product (or specified product) on TeamCity." )
+                                    .WithExample( new[] { "deploy" } )
+                                    .WithExample( new[] { "deploy", @"<Product.Name> [-b|--bump] [-c config]" } );
+
+                                teamcity.AddCommand<TeamCityBumpCommand>( "bump" )
+                                    .WithData( product )
+                                    .WithDescription( "Trigger version bump of current product (or specified product) on TeamCity." )
+                                    .WithExample( new[] { "bump" } )
+                                    .WithExample( new[] { "bump", @"<Product.Name>" } );
                             } );
                     } );
             }
