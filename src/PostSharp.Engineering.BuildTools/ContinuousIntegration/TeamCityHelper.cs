@@ -79,7 +79,12 @@ public static class TeamCityHelper
             {
                 context.Console.WriteMessage( tc.PollRunningBuildStatus( scheduledBuildId, out var buildNumber ) );
                 scheduledBuildNumber = buildNumber;
-                context.Console.Out.Cursor.MoveUp();
+
+                // TeamCity build log doesn't allow moving cursor up as it is not a console.
+                if ( !IsTeamCityBuild( settings ) )
+                {
+                    context.Console.Out.Cursor.MoveUp();
+                }
             }
 
             Thread.Sleep( 5000 );
