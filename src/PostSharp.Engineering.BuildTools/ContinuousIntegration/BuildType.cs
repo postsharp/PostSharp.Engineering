@@ -1,19 +1,23 @@
-﻿using PostSharp.Engineering.BuildTools.Build;
-
-namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
+﻿namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 /// <summary>
-/// Enumerates the method that determines what <see cref="BuildTools.Build.TeamCityBuildCommand"/> or <see cref="BuildTools.Build.TeamCityDeployCommand"/> or <see cref="TeamCityBuildCommand"/> 
-/// should do.
+/// Enumerates the method that determines what <see cref="BuildTools.Build.TeamCityBuildCommand"/> should do.
 /// </summary>
 public enum BuildType
 {
+    /// <summary>
+    /// The build will be triggered by TeamCity. <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TriggerTeamCityBuild"/>
+    /// and <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TryGetBuildTypeIdFromProductName"/>
+    /// </summary>
     Build,
     
+    /// <summary>
+    /// The deployment will be triggered by TeamCity. <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TriggerTeamCityBuild"/>
+    /// and <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TryGetBuildTypeIdFromProductName"/>
     Deploy,
     
-    Bump,
-    
-    // TODO: remove after
-    Test
+    /// <summary>
+    /// The version bump will be triggered by TeamCity. <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TriggerTeamCityBuild"/>
+    /// and <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TryGetBuildTypeIdFromProductName"/>
+    Bump
 }

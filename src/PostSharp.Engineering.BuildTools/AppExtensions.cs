@@ -142,24 +142,7 @@ namespace PostSharp.Engineering.BuildTools
 
                         root.AddCommand<TeamCityBuildCommand>( "teamcity" )
                             .WithData( product )
-                            .WithDescription( "Trigger chosen build" );
-
-                        root.AddBranch( 
-                            "teamcity",
-                            teamcity =>
-                            {
-                                teamcity.AddCommand<TeamCityDeployCommand>( "deploy" )
-                                    .WithData( product )
-                                    .WithDescription( "Trigger deployment of current product (or specified product) on TeamCity." )
-                                    .WithExample( new[] { "deploy" } )
-                                    .WithExample( new[] { "deploy", @"<Product.Name> [-b|--bump] [-c config]" } );
-
-                                teamcity.AddCommand<TeamCityBuildCommand>( "bump" )
-                                    .WithData( product )
-                                    .WithDescription( "Trigger version bump of current product (or specified product) on TeamCity." )
-                                    .WithExample( new[] { "bump" } )
-                                    .WithExample( new[] { "bump", @"<Product.Name>" } );
-                            } );
+                            .WithDescription( "Triggers specified build type of specified product on TeamCity." );
                     } );
             }
         }

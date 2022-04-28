@@ -56,15 +56,15 @@ public static class TeamCityHelper
         TeamcityClient tc = new( token );
 
         var scheduledBuildId = tc.ScheduleBuild( buildTypeId );
-
-        context.Console.WriteMessage( $"Scheduling build '{buildTypeId}' with build ID '{scheduledBuildId}'." );
-
+        
         if ( string.IsNullOrEmpty( scheduledBuildId ) )
         {
-            context.Console.WriteError( $"Scheduling build returned invalid values for buildId '{scheduledBuildId}'." );
+            context.Console.WriteError( $"Failed to schedule build '{buildTypeId}'." );
 
             return false;
         }
+
+        context.Console.WriteMessage( $"Scheduling build '{buildTypeId}' with build ID '{scheduledBuildId}'." );
 
         var scheduledBuildNumber = string.Empty;
 
@@ -105,10 +105,13 @@ public static class TeamCityHelper
 
     public static bool TryGetBuildTypeIdFromProductName( BuildContext context, TeamCityCommandSettings settings, BuildType buildType, [NotNullWhen( true )] out string? buildTypeId )
     {
-        // No Product name specified in command means we are triggering current product.
+        // Product name must be specified.
         if ( string.IsNullOrEmpty( settings.ProductName ) )
         {
-            settings.ProductName = context.Product.ProductName;
+            context.Console.WriteError( $"No product specified for {buildType}." );
+            buildTypeId = null;
+
+            return false;
         }
 
         // DependencyDefinition is found by its product name.

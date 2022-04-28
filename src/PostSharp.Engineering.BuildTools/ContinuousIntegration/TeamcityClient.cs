@@ -113,21 +113,15 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
         public string? ScheduleBuild( string buildTypeId )
         {
             var payload = $"<build><buildType id=\"{buildTypeId}\" /><comment><text>This build was triggered by command.</text></comment></build>";
-
             var content = new StringContent( payload, Encoding.UTF8, "application/xml" );
-
             var httpResponseResult = this._httpClient.PostAsync( TeamCityHelper.TeamcityApiBuildQueueUri, content ).Result;
         
             if ( !httpResponseResult.IsSuccessStatusCode )
             {
-                Console.WriteLine( $"Failed to schedule '{buildTypeId}' build on TeamCity." );
-                Console.WriteLine( httpResponseResult.ToString() );
-
                 return null;
             }
 
             var httpResponseMessageContentString = httpResponseResult.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
-
             var document = XDocument.Parse( httpResponseMessageContentString );
             var build = document.Root;
 
@@ -157,7 +151,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                         buildNumber = build.Attribute( "number" )!.Value;
                     }
 
-                    status = $"Build #{buildNumber} in progress: {build.Attribute( "percentageComplete" )!.Value}%.";
+                    status = $"Build #{buildNumber} in progress: {build.Attribute( "percentageComplete" )!.Value}%";
                 }
 
                 return status;
@@ -169,7 +163,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
         public bool IsBuildQueued( string buildId )
         {
             var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamcityApiBuildQueueUri ).Result;
-
             var httpResponseMessageContentString = httpResponseResult.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
 
             var document = XDocument.Parse( httpResponseMessageContentString );
@@ -193,7 +186,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
         public bool IsBuildRunning( string buildId )
         {
             var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiRunningBuildsUri ).Result;
-
             var httpResponseMessageContentString = httpResponseResult.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
 
             var document = XDocument.Parse( httpResponseMessageContentString );
@@ -217,7 +209,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
         public bool HasBuildFinishedSuccessfully( string buildId )
         {
             var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiFinishedBuildsUri ).Result;
-
             var httpResponseMessageContentString = httpResponseResult.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
 
             var document = XDocument.Parse( httpResponseMessageContentString );
