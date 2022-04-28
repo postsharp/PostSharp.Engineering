@@ -34,6 +34,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencyDefinition MetalamaOpenAutoCancellationToken { get; } =
             new( "Metalama.Open.AutoCancellationToken", VcsProvider.GitHub, "postsharp" )
             {
+                // Metalama.Open.AutoCancellationToken is part of Metalama.Open products, which is propagated to build type string.
                 CiBuildTypes = new ConfigurationSpecific<string>(
                     "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_DebugBuild",
                     "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_ReleaseBuild",
