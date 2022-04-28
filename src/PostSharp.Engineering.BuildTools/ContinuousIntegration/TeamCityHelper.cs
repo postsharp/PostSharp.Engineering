@@ -1,7 +1,10 @@
 ﻿using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
+using Spectre.Console;
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Drawing;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -13,14 +16,9 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 public static class TeamCityHelper
 {
-    private static readonly HttpClient _httpClient = new()
-    {
-        DefaultRequestHeaders = { Authorization = new AuthenticationHeaderValue( "Bearer", Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" )! ) }
-    };
-
-    public static readonly string TeamCityApiBuildsUri = "https://tc.postsharp.net/app/rest/builds";
     public static readonly string TeamcityApiBuildQueueUri = "https://tc.postsharp.net/app/rest/buildQueue";
-    public static readonly string TeamCityApiRunningBuildsUri = "https://tc.postsharp.net/app/rest/builds?locator=running:true";
+    public static readonly string TeamCityApiRunningBuildsUri = "https://tc.postsharp.net/app/rest/builds?locator=state:running";
+    public static readonly string TeamCityApiFinishedBuildsUri = "https://tc.postsharp.net/app/rest/builds?locator=state:finished";
 
     public static bool IsTeamCityBuild( BaseBuildSettings settings )
         => settings.ContinuousIntegration || Environment.GetEnvironmentVariable( "TEAMCITY_GIT_PATH" ) != null;
@@ -38,14 +36,14 @@ public static class TeamCityHelper
         return true;
     }
 
-    public static string GetTeamCityBuildQueuePayloadStringInXml( string buildTypeId )
+    public static bool TriggerTeamCityBuild( BuildContext context, TeamCityCommandSettings settings, BuildType buildType )
     {
-        return $"<build><buildType id=\"{buildTypeId}\" /><comment><text>This build was triggered from console command.</text></comment></build>";
-    }
-
-    public static bool ScheduleBuild( BuildContext context, string buildTypeId, out string? buildId )
-    {
-        buildId = null;
+        // We get build type ID of the product from its DependencyDefinition by finding the definition by product name.
+        if ( !TryGetBuildTypeIdFromProductName( context, settings, buildType, out var buildTypeId ) )
+        {
+            return false;
+        }
+        
         var token = Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" );
 
         if ( string.IsNullOrEmpty( token ) )
@@ -57,120 +55,50 @@ public static class TeamCityHelper
 
         TeamcityClient tc = new( token );
 
-        buildId = tc.ScheduleBuild( buildTypeId );
+        var scheduledBuildId = tc.ScheduleBuild( buildTypeId );
 
-        return true;
-    }
-    
-    public static bool TriggerTeamCityDeploy( BuildContext context, TeamCityCommandSettings settings )
-    {
-        // TODO: Make sure to wait for the finish of this thing.
-        if ( settings.Bump )
+        context.Console.WriteMessage( $"Scheduling build '{buildTypeId}' with build ID '{scheduledBuildId}'." );
+
+        if ( string.IsNullOrEmpty( scheduledBuildId ) )
         {
-            if ( !TriggerTeamCityVersionBump( context, settings ) )
+            context.Console.WriteError( $"Scheduling build returned invalid values for buildId '{scheduledBuildId}'." );
+
+            return false;
+        }
+
+        var scheduledBuildNumber = string.Empty;
+
+        if ( tc.IsBuildQueued( scheduledBuildId ) )
+        {
+            context.Console.WriteMessage( "Waiting for build to start..." );
+        }
+
+        while ( tc.IsBuildRunning( scheduledBuildId ) || tc.IsBuildQueued( scheduledBuildId ) )
+        {
+            if ( tc.IsBuildRunning( scheduledBuildId ) )
             {
-                return false;
+                context.Console.WriteMessage( tc.PollRunningBuildStatus( scheduledBuildId, out var buildNumber ) );
+                scheduledBuildNumber = buildNumber;
+                context.Console.Out.Cursor.MoveUp();
             }
+
+            Thread.Sleep( 5000 );
         }
 
-        if ( settings.Bump )
+        if ( !tc.HasBuildFinishedSuccessfully( scheduledBuildId ) )
         {
-            var r = _httpClient.GetAsync( TeamcityApiBuildQueueUri ).Result;
-            var x = r.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
-            Console.WriteLine( x );
-
-            return true;
-        }
-
-        // No Product name specified in command means we are triggering current product.
-        if ( string.IsNullOrEmpty( settings.ProductName ) )
-        {
-            settings.ProductName = context.Product.ProductName;
-        }
-
-        // We get build type ID of the product from its DependencyDefinition by finding the definition by product name.
-        if ( !GetBumpBuildTypeIdFromProductName( context, settings, out var buildTypeId ) )
-        {
-            return false;
-        }
-
-        context.Console.WriteImportantMessage( $"Triggering '{buildTypeId}' on TeamCity." );
-
-        var payload = GetTeamCityBuildQueuePayloadStringInXml( buildTypeId );
-        var content = new StringContent( payload, Encoding.UTF8, "application/xml" );
-
-        var httpResponseResult = _httpClient.PostAsync( TeamcityApiBuildQueueUri, content ).Result;
-        
-        if ( !httpResponseResult.IsSuccessStatusCode )
-        {
-            context.Console.WriteError( $"Failed to trigger '{buildTypeId}' on TeamCity." );
-            context.Console.WriteMessage( httpResponseResult.ToString() );
+            context.Console.WriteError( $"Build #{scheduledBuildNumber} of '{buildTypeId}' failed." );
 
             return false;
         }
 
-        context.Console.WriteMessage( httpResponseResult.ToString() );
-        context.Console.WriteSuccess( $"'{buildTypeId}' was added to build queue on TeamCity." );
-
-        return true;
-    }
-    
-    public static bool TriggerTeamCityVersionBump( BuildContext context, TeamCityCommandSettings settings )
-    {
-        // We get build type ID of the product from its DependencyDefinition by finding the definition by product name.
-        if ( !GetBuildBuildTypeIdFromProductName( context, settings, out var buildTypeId ) )
-        {
-            return false;
-        }
-        
-        var token = Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" );
-
-        if ( string.IsNullOrEmpty( token ) )
-        {
-            context.Console.WriteError( "The TEAMCITY_TOKEN environment variable is not defined." );
-
-            return false;
-        }
-
-        TeamcityClient tc = new( token );
-
-        var buildId = tc.ScheduleBuild( buildTypeId );
-
-        Console.WriteLine( buildId );
-
-        if ( string.IsNullOrEmpty( buildId ) )
-        {
-            context.Console.WriteError( $"No buildId was returned for scheduling '{buildTypeId}'." );
-
-            return false;
-        }
-
-        // TODO: While true, if NOT in queue, poll, if not finished, poll. or something.
-        while ( !tc.HasBuildFinishedSuccessfully( buildId ) )
-        {
-            context.Console.WriteMessage( tc.PollRunningBuildStatus( buildId ).ToString() );
-            Thread.Sleep( 2000 );
-        }
-
-        // var payload = GetTeamCityBuildQueuePayloadStringInXml( buildTypeId );
-        // var content = new StringContent( payload, Encoding.UTF8, "application/xml" );
-        //
-        // var httpResponseResult = _httpClient.PostAsync( _teamcityApiBuildUri, content ).Result;
-        //
-        // if ( !httpResponseResult.IsSuccessStatusCode )
-        // {
-        //     context.Console.WriteError( $"Failed to trigger '{buildTypeId}' on TeamCity." );
-        //     context.Console.WriteMessage( httpResponseResult.ToString() );
-        //
-        //     return false;
-        // }
-
-        context.Console.WriteSuccess( $"'{buildTypeId}' was added to build queue on TeamCity." );
+        context.Console.WriteMessage( $"Build #{scheduledBuildNumber} in progress: 100%" );
+        context.Console.WriteSuccess( $"Build #{scheduledBuildNumber} of '{buildTypeId}' build has finished successfully." );
 
         return true;
     }
 
-    public static bool GetBumpBuildTypeIdFromProductName( BuildContext context, TeamCityCommandSettings settings, [NotNullWhen( true )] out string? buildTypeId )
+    public static bool TryGetBuildTypeIdFromProductName( BuildContext context, TeamCityCommandSettings settings, BuildType buildType, [NotNullWhen( true )] out string? buildTypeId )
     {
         // No Product name specified in command means we are triggering current product.
         if ( string.IsNullOrEmpty( settings.ProductName ) )
@@ -178,62 +106,49 @@ public static class TeamCityHelper
             settings.ProductName = context.Product.ProductName;
         }
 
-        buildTypeId = Dependencies.Model.Dependencies.All
-            .Where( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) )
-            .Select( d => d.BumpBuildType )
-            .FirstOrDefault() ?? Dependencies.Model.TestDependencies.All
-            .Where( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) )
-            .Select( d => d.BumpBuildType )
-            .FirstOrDefault();
+        // DependencyDefinition is found by its product name.
+        var dependencyDefinition = Dependencies.Model.Dependencies.All.FirstOrDefault( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) )
+                                   ?? Dependencies.Model.TestDependencies.All.FirstOrDefault( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) );
 
-        if ( string.IsNullOrEmpty( buildTypeId ) )
+        if ( dependencyDefinition == null )
         {
             context.Console.WriteError( $"Dependency definition for '{settings.ProductName}' doesn't exist." );
+            buildTypeId = null;
+
+            return false;
+        }
+
+        // We get the required build type ID of the product from its DependencyDefinition.
+        switch ( buildType )
+        {
+            case BuildType.Build:
+                buildTypeId = dependencyDefinition.CiBuildTypes[settings.BuildConfiguration];
+
+                break;
+
+            case BuildType.Deploy:
+                buildTypeId = dependencyDefinition.DeploymentBuildType;
+
+                break;
+
+            case BuildType.Bump:
+                buildTypeId = dependencyDefinition.BumpBuildType;
+
+                break;
+
+            default:
+                buildTypeId = null;
+
+                return false;
+        }
+
+        if ( buildTypeId == null )
+        {
+            context.Console.WriteError( $"'{settings.ProductName}' has no known build type ID for build type '{buildType}'." );
 
             return false;
         }
 
         return true;
     }
-
-    public static bool GetBuildBuildTypeIdFromProductName( BuildContext context, TeamCityCommandSettings settings, [NotNullWhen( true )] out string? buildTypeId )
-    {
-        // No Product name specified in command means we are triggering current product.
-        if ( string.IsNullOrEmpty( settings.ProductName ) )
-        {
-            settings.ProductName = context.Product.ProductName;
-        }
-
-        buildTypeId = Dependencies.Model.Dependencies.All
-            .Where( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) )
-            .Select( d => d.CiBuildTypes[settings.BuildConfiguration] )
-            .FirstOrDefault() ?? Dependencies.Model.TestDependencies.All
-            .Where( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) )
-            .Select( d => d.CiBuildTypes[settings.BuildConfiguration] )
-            .FirstOrDefault();
-
-        if ( string.IsNullOrEmpty( buildTypeId ) )
-        {
-            context.Console.WriteError( $"Dependency definition for '{settings.ProductName}' doesn't exist." );
-
-            return false;
-        }
-
-        return true;
-    }
-    
-    // TODO: read buildId
-    public static string? GetBuildIdFromHttpResponse( BuildContext context, HttpResponseMessage httpResponseMessage )
-    {
-        var httpResponseMessageContentString = httpResponseMessage.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
-
-        var document = XDocument.Parse( httpResponseMessageContentString );
-        var build = document.Root;
-
-        return build!.Attribute( "id" )!.Value;
-    }
-    
-    // TODO: check whether buildId is enqueued
-    
-    // TODO: check whether buildId has finished SUCCESSFULLY
 }

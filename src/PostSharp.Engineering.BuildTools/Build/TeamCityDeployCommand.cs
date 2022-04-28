@@ -6,6 +6,6 @@ public class TeamCityDeployCommand : BaseCommand<TeamCityCommandSettings>
 {
     protected override bool ExecuteCore( BuildContext context, TeamCityCommandSettings settings )
     {
-        return TeamCityHelper.TriggerTeamCityDeploy( context, settings );
+        return TeamCityHelper.TriggerTeamCityBuild( context, settings, BuildType.Deploy );
     }
 }

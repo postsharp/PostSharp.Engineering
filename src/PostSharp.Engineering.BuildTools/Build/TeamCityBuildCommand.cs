@@ -2,10 +2,10 @@
 
 namespace PostSharp.Engineering.BuildTools.Build;
 
-public class TeamCityBumpCommand : BaseCommand<TeamCityCommandSettings>
+public class TeamCityBuildCommand : BaseCommand<TeamCityCommandSettings>
 {
     protected override bool ExecuteCore( BuildContext context, TeamCityCommandSettings settings )
     {
-        return TeamCityHelper.TriggerTeamCityVersionBump( context, settings );
+        return TeamCityHelper.TriggerTeamCityBuild( context, settings, settings.BuildType );
     }
 }

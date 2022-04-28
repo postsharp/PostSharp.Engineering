@@ -112,8 +112,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public string? ScheduleBuild( string buildTypeId )
         {
-            Console.WriteLine( $"Scheduling: {buildTypeId}" );
-            var payload = $"<build><buildType id=\"{buildTypeId}\" /><comment><text>This build was triggered from console command.</text></comment></build>";
+            var payload = $"<build><buildType id=\"{buildTypeId}\" /><comment><text>This build was triggered by command.</text></comment></build>";
 
             var content = new StringContent( payload, Encoding.UTF8, "application/xml" );
 
@@ -121,26 +120,25 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
         
             if ( !httpResponseResult.IsSuccessStatusCode )
             {
-                Console.WriteLine( $"Failed to trigger '{buildTypeId}' on TeamCity." );
+                Console.WriteLine( $"Failed to schedule '{buildTypeId}' build on TeamCity." );
                 Console.WriteLine( httpResponseResult.ToString() );
 
                 return null;
             }
 
-            Console.WriteLine( httpResponseResult.ToString() );
-            Console.WriteLine( $"'{buildTypeId}' was added to build queue on TeamCity." );
-
             var httpResponseMessageContentString = httpResponseResult.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
 
             var document = XDocument.Parse( httpResponseMessageContentString );
             var build = document.Root;
-            
+
             return build!.Attribute( "id" )!.Value;
         }
 
-        public int PollRunningBuildStatus( string buildId )
+        public string PollRunningBuildStatus( string buildId, out string buildNumber )
         {
-            var status = -1;
+            var status = $"Build starting...";
+            buildNumber = string.Empty;
+            
             var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiRunningBuildsUri ).Result;
 
             var httpResponseMessageContentString = httpResponseResult.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
@@ -148,54 +146,101 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             var document = XDocument.Parse( httpResponseMessageContentString );
             var builds = document.Root!;
 
-            Console.WriteLine( builds );
-
-            if ( !builds.Attribute( "count" )!.Value.Equals( "0" ) )
+            if ( !builds.Attribute( "count" )!.Value.Equals( "0", StringComparison.Ordinal ) )
             {
-                var buildsArray = builds.Elements().ToArray();
+                var build = builds.Elements().ToArray().FirstOrDefault( e => e.Attribute( "id" )!.Value.Equals( buildId, StringComparison.Ordinal ) );
 
-                foreach ( var build in buildsArray )
+                if ( build != null && build.Attribute( "percentageComplete" ) != null )
                 {
-                    Console.WriteLine( build );
-
-                    if ( build.Attribute( "id" )!.Value.Equals( buildId ) )
+                    if ( build.Attribute( "number" ) != null )
                     {
-                        status = int.Parse( build.Attribute( "percentageComplete" )!.Value );
-
-                        break;
+                        buildNumber = build.Attribute( "number" )!.Value;
                     }
+
+                    status = $"Build #{buildNumber} in progress: {build.Attribute( "percentageComplete" )!.Value}%.";
                 }
+
+                return status;
             }
 
             return status;
         }
 
-        // TODO: Check if failed or not and inform about it.
-        public bool HasBuildFinishedSuccessfully( string buildId )
+        public bool IsBuildQueued( string buildId )
         {
-            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiBuildsUri ).Result;
+            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamcityApiBuildQueueUri ).Result;
 
             var httpResponseMessageContentString = httpResponseResult.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
 
             var document = XDocument.Parse( httpResponseMessageContentString );
             var builds = document.Root!;
 
-            if ( builds.Attribute( "count" )!.Value.Equals( "0" ) )
+            if ( builds.Attribute( "count" )!.Value.Equals( "0", StringComparison.Ordinal ) )
             {
                 return false;
             }
-            
-            var buildsArray = builds.Elements().ToArray();
 
-            foreach ( var build in buildsArray )
+            var build = builds.Elements().ToArray().FirstOrDefault( e => e.Attribute( "id" )!.Value.Equals( buildId, StringComparison.Ordinal ) );
+
+            if ( build == null )
             {
-                if ( build.Attribute( "id" )!.Value.Equals( buildId ) )
-                {
-                    return true;
-                }
+                return false;
             }
 
-            return false;
+            return true;
+        }
+
+        public bool IsBuildRunning( string buildId )
+        {
+            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiRunningBuildsUri ).Result;
+
+            var httpResponseMessageContentString = httpResponseResult.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
+
+            var document = XDocument.Parse( httpResponseMessageContentString );
+            var builds = document.Root!;
+
+            if ( builds.Attribute( "count" )!.Value.Equals( "0", StringComparison.Ordinal ) )
+            {
+                return false;
+            }
+
+            var build = builds.Elements().ToArray().FirstOrDefault( e => e.Attribute( "id" )!.Value.Equals( buildId, StringComparison.Ordinal ) );
+
+            if ( build == null )
+            {
+                return false;
+            }
+
+            return true;
+        }
+        
+        public bool HasBuildFinishedSuccessfully( string buildId )
+        {
+            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiFinishedBuildsUri ).Result;
+
+            var httpResponseMessageContentString = httpResponseResult.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
+
+            var document = XDocument.Parse( httpResponseMessageContentString );
+            var builds = document.Root!;
+
+            if ( builds.Attribute( "count" )!.Value.Equals( "0", StringComparison.Ordinal ) )
+            {
+                return false;
+            }
+                
+            var build = builds.Elements().ToArray().FirstOrDefault( e => e.Attribute( "id" )!.Value.Equals( buildId, StringComparison.Ordinal ) );
+
+            if ( build == null )
+            {
+                return false;
+            }
+
+            if ( !build.Attribute( "status" )!.Value.Equals( "SUCCESS", StringComparison.OrdinalIgnoreCase ) )
+            {
+                return false;
+            }
+
+            return true;
         }
 
         public void Dispose()

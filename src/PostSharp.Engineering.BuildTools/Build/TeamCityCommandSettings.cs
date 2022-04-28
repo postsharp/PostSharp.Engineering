@@ -1,4 +1,5 @@
-﻿using Spectre.Console.Cli;
+﻿using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using Spectre.Console.Cli;
 using System;
 using System.ComponentModel;
 
@@ -9,9 +10,13 @@ public class TeamCityCommandSettings : CommonCommandSettings
     [Description( "Bump the product before Deployment" )]
     [CommandOption( "--bump" )]
     public bool Bump { get; protected set; }
+    
+    [Description( "Set specific ProductName to deploy/bump." )]
+    [CommandArgument( 0, "<BuildType>" )]
+    public BuildType BuildType { get; set; }
 
     [Description( "Set specific ProductName to deploy/bump." )]
-    [CommandArgument( 0, "[ProductName]" )]
+    [CommandArgument( 1, "[ProductName]" )]
     public string? ProductName { get; set; }
 
     private BuildConfiguration? _resolvedConfiguration;

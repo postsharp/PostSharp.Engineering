@@ -140,6 +140,10 @@ namespace PostSharp.Engineering.BuildTools
                                     xmldoc => xmldoc.AddCommand<RemoveInternalsCommand>( "clean" ).WithDescription( "Remove internals." ).WithData( product ) );
                             } );
 
+                        root.AddCommand<TeamCityBuildCommand>( "teamcity" )
+                            .WithData( product )
+                            .WithDescription( "Trigger chosen build" );
+
                         root.AddBranch( 
                             "teamcity",
                             teamcity =>
@@ -150,7 +154,7 @@ namespace PostSharp.Engineering.BuildTools
                                     .WithExample( new[] { "deploy" } )
                                     .WithExample( new[] { "deploy", @"<Product.Name> [-b|--bump] [-c config]" } );
 
-                                teamcity.AddCommand<TeamCityBumpCommand>( "bump" )
+                                teamcity.AddCommand<TeamCityBuildCommand>( "bump" )
                                     .WithData( product )
                                     .WithDescription( "Trigger version bump of current product (or specified product) on TeamCity." )
                                     .WithExample( new[] { "bump" } )
