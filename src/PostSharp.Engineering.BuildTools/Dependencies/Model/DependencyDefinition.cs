@@ -18,7 +18,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         
         public string? BumpBuildType { get; init; }
         
-        public string DeploymentBuildType { get; }
+        public string DeploymentBuildType { get; init; }
 
         public string VcsProjectName { get; }
 

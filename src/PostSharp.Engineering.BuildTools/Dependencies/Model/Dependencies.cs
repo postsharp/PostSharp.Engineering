@@ -31,6 +31,17 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public static DependencyDefinition MetalamaVsx { get; } = new( "Metalama.Vsx", VcsProvider.AzureRepos, "Metalama" );
 
+        public static DependencyDefinition MetalamaOpenAutoCancellationToken { get; } =
+            new( "Metalama.Open.AutoCancellationToken", VcsProvider.GitHub, "postsharp" )
+            {
+                CiBuildTypes = new ConfigurationSpecific<string>(
+                    "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_DebugBuild",
+                    "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_ReleaseBuild",
+                    "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_PublicBuild" ),
+                DeploymentBuildType = "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_PublicDeployment",
+                BumpBuildType = "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_VersionBump"
+            };
+
         public static DependencyDefinition PostSharpEngineering { get; } = new(
             "PostSharp.Engineering",
             VcsProvider.GitHub,
@@ -63,6 +74,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             MetalamaSamples,
             MetalamaTry,
             MetalamaVsx,
+            MetalamaOpenAutoCancellationToken,
             PostSharpEngineering,
             MetalamaBackstage );
     }
