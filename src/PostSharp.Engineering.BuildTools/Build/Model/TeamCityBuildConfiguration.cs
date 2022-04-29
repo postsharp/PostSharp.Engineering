@@ -25,8 +25,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string[]? SnapshotDependencyObjectNames { get; init; }
 
-        public bool BumpSnapshotDependency { get; init; }
-
         public (string ObjectName, string ArtifactRules)[]? ArtifactDependencies { get; init; }
 
         public TeamCityBuildConfiguration( Product product, string objectName, string name, string buildArguments, string buildAgentType )
@@ -138,27 +136,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Snapshot dependencies.
             if ( hasSnapshotDependencies )
             {
-                if ( this.SnapshotDependencyObjectNames != null && this.BumpSnapshotDependency )
+                foreach ( var dependency in this.SnapshotDependencyObjectNames! )
                 {
                     writer.WriteLine(
                         $@"
-        dependency({this.SnapshotDependencyObjectNames.FirstOrDefault()}) {{
-            snapshot {{
-                reuseBuilds = ReuseBuilds.NO
-                onDependencyFailure = FailureAction.FAIL_TO_START
-            }}
-        }}" );
-                }
-                else
-                {
-                    foreach ( var dependency in this.SnapshotDependencyObjectNames! )
-                    {
-                        writer.WriteLine(
-                            $@"
         snapshot(AbsoluteId(""{dependency}"")) {{
                      onDependencyFailure = FailureAction.FAIL_TO_START
                 }}" );
-                    }
                 }
             }
 

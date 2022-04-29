@@ -166,14 +166,7 @@ object PublicDeployment : BuildType({
         }
     }
 
-    dependencies {
-
-        dependency(VersionBump) {
-            snapshot {
-                reuseBuilds = ReuseBuilds.NO
-                onDependencyFailure = FailureAction.FAIL_TO_START
-            }
-        }
+  dependencies {
 
         dependency(PublicBuild) {
             snapshot {

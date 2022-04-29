@@ -1394,7 +1394,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
 
             var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
-            var bumpSnapshotDependencyObjectName = "VersionBump";
 
             foreach ( var configuration in configurations )
             {
@@ -1444,9 +1443,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         buildAgentType: this.BuildAgentType )
                     {
                         IsDeployment = true,
-                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
-                        BumpSnapshotDependency = true,
-                        SnapshotDependencyObjectNames = new[] { bumpSnapshotDependencyObjectName }
+                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
                     };
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
