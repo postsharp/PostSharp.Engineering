@@ -168,6 +168,13 @@ object PublicDeployment : BuildType({
 
     dependencies {
 
+        dependency(VersionBump) {
+            snapshot {
+                reuseBuilds = ReuseBuilds.NO
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
+        }
+
         dependency(PublicBuild) {
             snapshot {
                 onDependencyFailure = FailureAction.FAIL_TO_START
@@ -217,17 +224,6 @@ object VersionBump : BuildType({
             teamcitySshKey = "PostSharp.Engineering"
         }
     }
-
-    dependencies {
-
-        dependency(PublicDeployment) {
-            snapshot {
-                reuseBuilds = ReuseBuilds.NO
-                onDependencyFailure = FailureAction.FAIL_TO_START
-            }
-        }
-
-     }
 
 })
 

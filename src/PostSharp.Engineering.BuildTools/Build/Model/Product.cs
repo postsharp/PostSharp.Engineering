@@ -747,7 +747,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 " );
 
             // Generating the TeamCity file.
-            if ( !this.GenerateTeamcityConfiguration( context, packageVersion, dependenciesOverrideFile ) )
+            if ( !this.GenerateTeamcityConfiguration( context, packageVersion ) )
             {
                 return false;
             }
@@ -1160,6 +1160,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
+            // Only versioned products require version bump.
             if ( this.DependencyDefinition.IsVersioned )
             {
                 // Get the latest version tag.
@@ -1180,14 +1181,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         return true;
                     }
 
-                    // Only versioned products require versions bumped.
-                    if ( context.Product.DependencyDefinition.IsVersioned )
+                    // If version has not been bumped since the last publish, it requires manual bump and therefore the version can't be published.
+                    if ( !VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
                     {
-                        // If version has not been bumped since the last publish, it requires manual bump and therefore the version can't be published.
-                        if ( !RequiresBumpedVersion( context, preparedVersionInfo.Version, lastVersionTag ) )
-                        {
-                            return false;
-                        }
+                        return false;
                     }
                 }
             }
@@ -1232,6 +1229,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteSuccess( "Publishing has succeeded." );
             }
 
+            // Only versioned products use version tags.
             if ( this.DependencyDefinition.IsVersioned )
             {
                 // After successful artifact publishing the last commit is tagged with current version tag.
@@ -1369,7 +1367,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( newBumpFileContent == oldBumpFileContent && !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
             {
-                context.Console.WriteWarning( "There are no changes since the last version tag." );
+                context.Console.WriteWarning( $"There are no changes since the last version tag '{lastVersionTag}'." );
 
                 return true;
             }
@@ -1391,12 +1389,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion, DependenciesOverrideFile dependenciesOverrideFile )
+        private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )
         {
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
 
             var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
-            var bumpSnapshotDependencyObjectName = string.Empty;
+            var bumpSnapshotDependencyObjectName = "VersionBump";
 
             foreach ( var configuration in configurations )
             {
@@ -1445,11 +1443,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         buildArguments: $"publish --configuration {configuration}",
                         buildAgentType: this.BuildAgentType )
                     {
-                        IsDeployment = true, ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
+                        IsDeployment = true,
+                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
+                        BumpSnapshotDependency = true,
+                        SnapshotDependencyObjectNames = new[] { bumpSnapshotDependencyObjectName }
                     };
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
-                    bumpSnapshotDependencyObjectName = teamCityDeploymentConfiguration.ObjectName;
                 }
 
                 if ( configurationInfo.Swappers != null )
@@ -1486,11 +1486,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             buildArguments: $"bump",
                             buildAgentType: this.BuildAgentType )
                         {
-                            IsDeployment = true,
-                            SnapshotDependencyObjectNames = string.IsNullOrEmpty( bumpSnapshotDependencyObjectName )
-                                ? null
-                                : new[] { bumpSnapshotDependencyObjectName },
-                            BumpSnapshotDependency = true
+                            IsDeployment = true
                         } );
                 }
             }
@@ -1568,7 +1564,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return false;
         }
 
-        private static bool RequiresBumpedVersion( BuildContext context, Version currentVersion, string lastVersionTag )
+        private static bool VersionHasBeenBumped( BuildContext context, Version currentVersion, string lastVersionTag )
         {
             var version = lastVersionTag;
 
