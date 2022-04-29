@@ -53,8 +53,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             // We always use the debug build for engineering.
             CiBuildTypes = new ConfigurationSpecific<string>(
                 "PostSharpEngineering_DebugBuild",
-                "PostSharpEngineering_ReleaseBuild",
-                "PostSharpEngineering_PublicBuild" )
+                "PostSharpEngineering_DebugBuild",
+                "PostSharpEngineering_DebugBuild" )
         };
 
         [Obsolete( "Renamed to MetalamaBackstage" )]
