@@ -2,9 +2,9 @@
 
 namespace PostSharp.Engineering.BuildTools.Build;
 
-public class TeamCityBuildCommand : BaseCommand<TeamCityCommandSettings>
+public class TeamCityBuildCommand : BaseCommand<TeamCityBuildCommandSettings>
 {
-    protected override bool ExecuteCore( BuildContext context, TeamCityCommandSettings settings )
+    protected override bool ExecuteCore( BuildContext context, TeamCityBuildCommandSettings settings )
     {
         return TeamCityHelper.TriggerTeamCityBuild( context, settings, settings.BuildType );
     }

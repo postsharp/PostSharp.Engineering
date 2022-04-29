@@ -4,7 +4,7 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Build;
 
-public class TeamCityCommandSettings : BaseBuildSettings
+public class TeamCityBuildCommandSettings : BaseBuildSettings
 {
     [Description( $"Set specific type of TeamCity build to schedule (Build | Deploy | Bump)" )]
     [CommandArgument( 0, "<BuildType>" )]

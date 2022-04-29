@@ -36,10 +36,10 @@ public static class TeamCityHelper
         return true;
     }
 
-    public static bool TriggerTeamCityBuild( BuildContext context, TeamCityCommandSettings settings, BuildType buildType )
+    public static bool TriggerTeamCityBuild( BuildContext context, TeamCityBuildCommandSettings settings, BuildType buildType )
     {
         // We get build type ID of the product from its DependencyDefinition by finding the definition by product name.
-        if ( !TryGetBuildTypeIdFromProductName( context, settings, buildType, out var buildTypeId ) )
+        if ( !TryGetBuildTypeIdFromDependencyDefinition( context, settings, buildType, out var buildTypeId ) )
         {
             return false;
         }
@@ -80,7 +80,7 @@ public static class TeamCityHelper
                 context.Console.WriteMessage( tc.PollRunningBuildStatus( scheduledBuildId, out var buildNumber ) );
                 scheduledBuildNumber = buildNumber;
 
-                // TeamCity build log doesn't allow moving cursor up as it is not a console.
+                // TeamCity doesn't allow moving cursor up to rewrite the line as its build log is only a console output.
                 if ( !IsTeamCityBuild( settings ) )
                 {
                     context.Console.Out.Cursor.MoveUp();
@@ -103,7 +103,7 @@ public static class TeamCityHelper
         return true;
     }
 
-    public static bool TryGetBuildTypeIdFromProductName( BuildContext context, TeamCityCommandSettings settings, BuildType buildType, [NotNullWhen( true )] out string? buildTypeId )
+    private static bool TryGetBuildTypeIdFromDependencyDefinition( BuildContext context, TeamCityBuildCommandSettings settings, BuildType buildType, [NotNullWhen( true )] out string? buildTypeId )
     {
         // Product name must be specified.
         if ( string.IsNullOrEmpty( settings.ProductName ) )
@@ -126,7 +126,7 @@ public static class TeamCityHelper
             return false;
         }
 
-        // We get the required build type ID of the product from its DependencyDefinition.
+        // We get the required build type ID of the product from the DependencyDefinition.
         switch ( buildType )
         {
             case BuildType.Build:
