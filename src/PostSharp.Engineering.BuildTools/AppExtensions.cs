@@ -140,9 +140,14 @@ namespace PostSharp.Engineering.BuildTools
                                     xmldoc => xmldoc.AddCommand<RemoveInternalsCommand>( "clean" ).WithDescription( "Remove internals." ).WithData( product ) );
                             } );
 
-                        root.AddCommand<TeamCityBuildCommand>( "teamcity" )
-                            .WithData( product )
-                            .WithDescription( "Triggers specified build type of specified product on TeamCity." );
+                        root.AddBranch(
+                            "teamcity",
+                            codestyle =>
+                            {
+                                codestyle.AddCommand<TeamCityBuildCommand>( "run" )
+                                    .WithData( product )
+                                    .WithDescription( "Triggers specified build type of specified product on TeamCity." );
+                            } );
                     } );
             }
         }

@@ -6,11 +6,8 @@ using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using Spectre.Console.Cli;
 
-var productDependencyDefinition = Dependencies.PostSharpEngineering;
-
-var product = new Product( productDependencyDefinition )
+var product = new Product( Dependencies.PostSharpEngineering )
 {
-    ProductName = productDependencyDefinition.Name,
     Solutions = new Solution[] { new DotNetSolution( "PostSharp.Engineering.sln" ) { SupportsTestCoverage = true, CanFormatCode = true } },
     PublicArtifacts = Pattern.Create(
         "PostSharp.Engineering.Sdk.$(PackageVersion).nupkg",

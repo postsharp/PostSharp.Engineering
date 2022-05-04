@@ -89,7 +89,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return false;
             }
 
-            var teamcity = new TeamcityClient( token );
+            var teamcity = new TeamCityClient( token );
 
             var iterationDependencies = dependencies.ToImmutableArray();
             var dependencyDictionary = dependencies.ToImmutableDictionary( d => d.Definition.Name, d => d );
@@ -246,7 +246,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         private static bool ResolveBuildNumbersFromBranches(
             BuildContext context,
             BuildConfiguration configuration,
-            TeamcityClient teamcity,
+            TeamCityClient teamCity,
             ImmutableArray<Dependency> dependencies,
             bool update )
         {
@@ -281,7 +281,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         // In this case, we do not change the BuildIdType.
 
                         ciBuildType = buildId.BuildTypeId ?? dependency.Definition.CiBuildTypes[configuration];
-                        var previousBranchName = teamcity.GetBranchFromBuildNumber( buildId, ConsoleHelper.CancellationToken );
+                        var previousBranchName = teamCity.GetBranchFromBuildNumber( buildId, ConsoleHelper.CancellationToken );
 
                         if ( previousBranchName == null )
                         {
@@ -298,7 +298,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         branchName = dependency.Definition.DefaultBranch;
                     }
 
-                    var latestBuildNumber = teamcity.GetLatestBuildNumber(
+                    var latestBuildNumber = teamCity.GetLatestBuildNumber(
                         ciBuildType,
                         branchName,
                         ConsoleHelper.CancellationToken );
@@ -322,7 +322,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
         private static bool DownloadArtifacts(
             BuildContext context,
-            TeamcityClient teamcity,
+            TeamCityClient teamCity,
             ImmutableArray<Dependency> dependencies )
         {
             foreach ( var dependency in dependencies )
@@ -348,7 +348,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                 if ( !DownloadBuild(
                         context,
-                        teamcity,
+                        teamCity,
                         dependency.Source,
                         dependency.Definition.Name,
                         dependency.Definition.RepoName,
@@ -389,7 +389,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
         private static bool DownloadBuild(
             BuildContext context,
-            TeamcityClient teamcity,
+            TeamCityClient teamCity,
             DependencySource dependencySource,
             string dependencyName,
             string repoName,
@@ -414,7 +414,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                 Directory.CreateDirectory( restoreDirectory );
                 context.Console.WriteMessage( $"Downloading {dependencyName} build #{buildNumber} of {ciBuildTypeId}" );
-                teamcity.DownloadArtifacts( ciBuildTypeId, buildNumber, restoreDirectory, ConsoleHelper.CancellationToken );
+                teamCity.DownloadArtifacts( ciBuildTypeId, buildNumber, restoreDirectory, ConsoleHelper.CancellationToken );
 
                 File.WriteAllText( completedFile, "Completed" );
             }

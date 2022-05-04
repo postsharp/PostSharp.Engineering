@@ -34,11 +34,17 @@ public static class TestDependencies
         VcsProvider.AzureRepos,
         "Test" );
 
+    public static DependencyDefinition NopCommerce { get; } = new(
+        "Metalama.Tests.NopCommerce",
+        VcsProvider.GitHub,
+        "Metalama" );
+
     public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
         TestProduct,
         Dependency,
         TransitiveDependency,
         GitHub,
         MainVersionDependency,
-        PatchVersion );
+        PatchVersion,
+        NopCommerce );
 }

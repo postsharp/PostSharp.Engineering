@@ -36,10 +36,10 @@ public static class TeamCityHelper
         return true;
     }
 
-    public static bool TriggerTeamCityBuild( BuildContext context, TeamCityBuildCommandSettings settings, BuildType buildType )
+    public static bool TriggerTeamCityBuild( BuildContext context, TeamCityBuildCommandSettings settings, TeamCityBuildType teamCityBuildType )
     {
         // We get build type ID of the product from its DependencyDefinition by finding the definition by product name.
-        if ( !TryGetBuildTypeIdFromDependencyDefinition( context, settings, buildType, out var buildTypeId ) )
+        if ( !TryGetBuildTypeIdFromDependencyDefinition( context, settings, teamCityBuildType, out var buildTypeId ) )
         {
             return false;
         }
@@ -53,7 +53,7 @@ public static class TeamCityHelper
             return false;
         }
 
-        TeamcityClient tc = new( token );
+        TeamCityClient tc = new( token );
 
         var scheduledBuildId = tc.ScheduleBuild( buildTypeId );
         
@@ -103,12 +103,12 @@ public static class TeamCityHelper
         return true;
     }
 
-    private static bool TryGetBuildTypeIdFromDependencyDefinition( BuildContext context, TeamCityBuildCommandSettings settings, BuildType buildType, [NotNullWhen( true )] out string? buildTypeId )
+    private static bool TryGetBuildTypeIdFromDependencyDefinition( BuildContext context, TeamCityBuildCommandSettings settings, TeamCityBuildType teamCityBuildType, [NotNullWhen( true )] out string? buildTypeId )
     {
         // Product name must be specified.
         if ( string.IsNullOrEmpty( settings.ProductName ) )
         {
-            context.Console.WriteError( $"No product specified for {buildType}." );
+            context.Console.WriteError( $"No product specified for {teamCityBuildType}." );
             buildTypeId = null;
 
             return false;
@@ -127,19 +127,19 @@ public static class TeamCityHelper
         }
 
         // We get the required build type ID of the product from the DependencyDefinition.
-        switch ( buildType )
+        switch ( teamCityBuildType )
         {
-            case BuildType.Build:
+            case TeamCityBuildType.Build:
                 buildTypeId = dependencyDefinition.CiBuildTypes[settings.BuildConfiguration];
 
                 break;
 
-            case BuildType.Deploy:
+            case TeamCityBuildType.Deploy:
                 buildTypeId = dependencyDefinition.DeploymentBuildType;
 
                 break;
 
-            case BuildType.Bump:
+            case TeamCityBuildType.Bump:
                 buildTypeId = dependencyDefinition.BumpBuildType;
 
                 break;
@@ -152,7 +152,7 @@ public static class TeamCityHelper
 
         if ( buildTypeId == null )
         {
-            context.Console.WriteError( $"'{settings.ProductName}' has no known build type ID for build type '{buildType}'." );
+            context.Console.WriteError( $"'{settings.ProductName}' has no known build type ID for build type '{teamCityBuildType}'." );
 
             return false;
         }

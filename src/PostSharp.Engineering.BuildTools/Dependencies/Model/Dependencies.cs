@@ -23,16 +23,16 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             VcsProvider.AzureRepos,
             "Metalama" );
 
-        public static DependencyDefinition MetalamaSamples { get; } = new( "Metalama.Samples", VcsProvider.GitHub, "postsharp", false );
+        public static DependencyDefinition MetalamaSamples { get; } = new( "Metalama.Samples", VcsProvider.GitHub, "Metalama", false );
 
-        public static DependencyDefinition MetalamaDocumentation { get; } = new( "Metalama.Documentation", VcsProvider.GitHub, "postsharp", false );
+        public static DependencyDefinition MetalamaDocumentation { get; } = new( "Metalama.Documentation", VcsProvider.GitHub, "Metalama", false );
 
         public static DependencyDefinition MetalamaTry { get; } = new( "Metalama.Try", VcsProvider.AzureRepos, "Metalama", false );
 
         public static DependencyDefinition MetalamaVsx { get; } = new( "Metalama.Vsx", VcsProvider.AzureRepos, "Metalama" );
 
         public static DependencyDefinition MetalamaOpenAutoCancellationToken { get; } =
-            new( "Metalama.Open.AutoCancellationToken", VcsProvider.GitHub, "postsharp" )
+            new( "Metalama.Open.AutoCancellationToken", VcsProvider.GitHub, "Metalama" )
             {
                 // Metalama.Open.AutoCancellationToken is part of Metalama.Open products, which is propagated to build type string.
                 CiBuildTypes = new ConfigurationSpecific<string>(

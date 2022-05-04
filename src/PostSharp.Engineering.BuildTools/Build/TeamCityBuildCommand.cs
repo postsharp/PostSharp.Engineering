@@ -6,6 +6,6 @@ public class TeamCityBuildCommand : BaseCommand<TeamCityBuildCommandSettings>
 {
     protected override bool ExecuteCore( BuildContext context, TeamCityBuildCommandSettings settings )
     {
-        return TeamCityHelper.TriggerTeamCityBuild( context, settings, settings.BuildType );
+        return TeamCityHelper.TriggerTeamCityBuild( context, settings, settings.TeamCityBuildType );
     }
 }

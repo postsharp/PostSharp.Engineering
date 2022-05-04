@@ -13,11 +13,11 @@ using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 {
-    public class TeamcityClient : IDisposable
+    public class TeamCityClient : IDisposable
     {
         private readonly HttpClient _httpClient;
 
-        public TeamcityClient( string token )
+        public TeamCityClient( string token )
         {
             this._httpClient = new HttpClient();
             this._httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Bearer", token );
