@@ -166,7 +166,7 @@ object PublicDeployment : BuildType({
         }
     }
 
-  dependencies {
+    dependencies {
 
         dependency(PublicBuild) {
             snapshot {

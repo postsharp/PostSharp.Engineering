@@ -98,7 +98,7 @@ public static class TeamCityHelper
         }
 
         context.Console.WriteMessage( $"Build #{scheduledBuildNumber} in progress: 100%" );
-        context.Console.WriteSuccess( $"Build #{scheduledBuildNumber} of '{buildTypeId}' build has finished successfully." );
+        context.Console.WriteSuccess( $"Build #{scheduledBuildNumber} of '{buildTypeId}' has finished successfully." );
 
         return true;
     }
