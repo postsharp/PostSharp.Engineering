@@ -142,9 +142,9 @@ namespace PostSharp.Engineering.BuildTools
 
                         root.AddBranch(
                             "teamcity",
-                            codestyle =>
+                            teamcity =>
                             {
-                                codestyle.AddCommand<TeamCityBuildCommand>( "run" )
+                                teamcity.AddCommand<TeamCityBuildCommand>( "run" )
                                     .WithData( product )
                                     .WithDescription( "Triggers specified build type of specified product on TeamCity." );
                             } );
