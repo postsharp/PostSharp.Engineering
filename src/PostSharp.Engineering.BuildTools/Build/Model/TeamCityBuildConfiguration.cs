@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
@@ -129,7 +130,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 writer.WriteLine(
                     $@"
-  dependencies {{" );
+    dependencies {{" );
             }
 
             // Snapshot dependencies.

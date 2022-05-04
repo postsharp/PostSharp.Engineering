@@ -8,7 +8,6 @@ using Spectre.Console.Cli;
 
 var product = new Product( Dependencies.PostSharpEngineering )
 {
-    ProductName = "PostSharp.Engineering",
     Solutions = new Solution[] { new DotNetSolution( "PostSharp.Engineering.sln" ) { SupportsTestCoverage = true, CanFormatCode = true } },
     PublicArtifacts = Pattern.Create(
         "PostSharp.Engineering.Sdk.$(PackageVersion).nupkg",

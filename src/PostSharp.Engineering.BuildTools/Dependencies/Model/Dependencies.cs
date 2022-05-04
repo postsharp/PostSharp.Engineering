@@ -23,11 +23,25 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             VcsProvider.AzureRepos,
             "Metalama" );
 
-        public static DependencyDefinition MetalamaSamples { get; } = new( "Metalama.Samples", VcsProvider.GitHub, "postsharp" );
+        public static DependencyDefinition MetalamaSamples { get; } = new( "Metalama.Samples", VcsProvider.GitHub, "Metalama", false );
 
-        public static DependencyDefinition MetalamaDocumentation { get; } = new( "Metalama.Documentation", VcsProvider.GitHub, "postsharp" );
+        public static DependencyDefinition MetalamaDocumentation { get; } = new( "Metalama.Documentation", VcsProvider.GitHub, "Metalama", false );
 
-        public static DependencyDefinition MetalamaTry { get; } = new( "Metalama.Try", VcsProvider.AzureRepos, "Metalama" );
+        public static DependencyDefinition MetalamaTry { get; } = new( "Metalama.Try", VcsProvider.AzureRepos, "Metalama", false );
+
+        public static DependencyDefinition MetalamaVsx { get; } = new( "Metalama.Vsx", VcsProvider.AzureRepos, "Metalama" );
+
+        public static DependencyDefinition MetalamaOpenAutoCancellationToken { get; } =
+            new( "Metalama.Open.AutoCancellationToken", VcsProvider.GitHub, "Metalama" )
+            {
+                // Metalama.Open.AutoCancellationToken is part of Metalama.Open products, which is propagated to build type string.
+                CiBuildTypes = new ConfigurationSpecific<string>(
+                    "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_DebugBuild",
+                    "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_ReleaseBuild",
+                    "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_PublicBuild" ),
+                DeploymentBuildType = "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_PublicDeployment",
+                BumpBuildType = "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_VersionBump"
+            };
 
         public static DependencyDefinition PostSharpEngineering { get; } = new(
             "PostSharp.Engineering",
@@ -60,6 +74,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             MetalamaDocumentation,
             MetalamaSamples,
             MetalamaTry,
+            MetalamaVsx,
+            MetalamaOpenAutoCancellationToken,
             PostSharpEngineering,
             MetalamaBackstage );
     }

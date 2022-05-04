@@ -166,7 +166,7 @@ object PublicDeployment : BuildType({
         }
     }
 
-  dependencies {
+    dependencies {
 
         dependency(PublicBuild) {
             snapshot {
@@ -216,10 +216,6 @@ object VersionBump : BuildType({
             // By convention, the SSH key name is always PostSharp.Engineering for all repositories using SSH to connect.
             teamcitySshKey = "PostSharp.Engineering"
         }
-    }
-
-    triggers {
-
     }
 
 })

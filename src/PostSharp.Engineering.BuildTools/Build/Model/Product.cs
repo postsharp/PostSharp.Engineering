@@ -3,6 +3,7 @@ using Microsoft.Build.Evaluation;
 using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Coverage;
 using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -11,6 +12,7 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
@@ -36,6 +38,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public Product( DependencyDefinition dependencyDefinition )
         {
             this.DependencyDefinition = dependencyDefinition;
+#pragma warning disable CS0618 // Obsolete init accessor should cause warning only outside constructor.
+            this.ProductName = dependencyDefinition.Name;
+#pragma warning restore CS0618
             this.VcsProvider = this.DependencyDefinition.Provider;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
         }
@@ -67,7 +72,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// </summary>
         public DependencyDefinition? MainVersionDependency { get; init; }
 
-        public string ProductName { get; init; } = "Unnamed";
+        public string ProductName
+        {
+            get;
+            [Obsolete( "Product name is set in constructor using DependencyDefinition." )]
+            init;
+        }
 
         public string ProductNameWithoutDot => this.ProductName.Replace( ".", "", StringComparison.OrdinalIgnoreCase );
 
@@ -746,7 +756,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 " );
 
             // Generating the TeamCity file.
-            if ( !this.GenerateTeamcityConfiguration( context, packageVersion, dependenciesOverrideFile ) )
+            if ( !this.GenerateTeamcityConfiguration( context, packageVersion ) )
             {
                 return false;
             }
@@ -1159,28 +1169,32 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // Get the latest version tag.
-            if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
+            // Only versioned products require version bump.
+            if ( this.DependencyDefinition.IsVersioned )
             {
-                return false;
-            }
-
-            // Using --force flag ignores checks for changes and version bump.
-            if ( !settings.Force )
-            {
-                // If there are no changes since the last tag (i.e. last publishing) the publishing will end successfully here.
-                if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
-                {
-                    context.Console.WriteWarning(
-                        "Publishing is skipped because there are no new unpublished changes since the last version tag. Use --force." );
-
-                    return true;
-                }
-
-                // If version has not been bumped since the last publish, it requires manual bump and therefore the version can't be published.
-                if ( !RequiresBumpedVersion( context, preparedVersionInfo.Version, lastVersionTag ) )
+                // Get the latest version tag.
+                if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
                 {
                     return false;
+                }
+
+                // Using --force flag ignores checks for changes and version bump.
+                if ( !settings.Force )
+                {
+                    // If there are no changes since the last tag (i.e. last publishing) the publishing will end successfully here.
+                    if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
+                    {
+                        context.Console.WriteWarning(
+                            "Publishing is skipped because there are no new unpublished changes since the last version tag. Use --force." );
+
+                        return true;
+                    }
+
+                    // If version has not been bumped since the last publish, it requires manual bump and therefore the version can't be published.
+                    if ( !VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
+                    {
+                        return false;
+                    }
                 }
             }
 
@@ -1224,19 +1238,29 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteSuccess( "Publishing has succeeded." );
             }
 
-            // After successful artifact publishing the last commit is tagged with current version tag.
-            if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
+            // Only versioned products use version tags.
+            if ( this.DependencyDefinition.IsVersioned )
             {
-                return false;
+                // After successful artifact publishing the last commit is tagged with current version tag.
+                if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
+                {
+                    return false;
+                }
             }
 
             // If Product doesn't require merging changes into master branch, we skip merging.
             if ( this.RequiresBranchMerging )
             {
-                // Checks if the current branch really needs to be merged to master. Someone might have merged it from outside.
-                if ( TryRequiresMergeOfBranches( context, out var currentBranch ) )
+                // Attempts to get the latest intersection of master and currentBranch in form of each branches' commit hash.
+                if ( !TryGetLatestBranchesIntersectionCommitHashes( context, out var currentBranch, out var lastCurrentBranchCommitHash, out var lastCommonCommitHash ) )
                 {
-                    context.Console.WriteImportantMessage( $"Branch '{currentBranch}' requires merging to master." );
+                    return false;
+                }
+
+                // Defines if we need to do a merge. If the commit hashes are equal, there haven't been any unmerged commits, or the current branch is actually master.
+                if ( !lastCurrentBranchCommitHash.Equals( lastCommonCommitHash, StringComparison.Ordinal ) )
+                {
+                    context.Console.WriteWarning( $"Branch '{currentBranch}' requires merging to master." );
 
                     // Merge current branch.
                     if ( !MergeBranchToMaster( context, settings, currentBranch ) )
@@ -1352,7 +1376,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( newBumpFileContent == oldBumpFileContent && !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
             {
-                context.Console.WriteWarning( "There are no changes since the last version tag." );
+                context.Console.WriteWarning( $"There are no changes since the last version tag '{lastVersionTag}'." );
 
                 return true;
             }
@@ -1374,7 +1398,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion, DependenciesOverrideFile dependenciesOverrideFile )
+        private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )
         {
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
 
@@ -1427,7 +1451,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         buildArguments: $"publish --configuration {configuration}",
                         buildAgentType: this.BuildAgentType )
                     {
-                        IsDeployment = true, ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
+                        IsDeployment = true,
+                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
                     };
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -1457,9 +1482,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 var dependencyDefinitions = this.Dependencies;
 
-                var bumpTriggeringDependencyName =
-                    dependenciesOverrideFile.Dependencies.FirstOrDefault( d => d.Value.SourceKind != DependencySourceKind.Feed ).Key;
-
                 if ( dependencyDefinitions != null )
                 {
                     teamCityBuildConfigurations.Add(
@@ -1470,15 +1492,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             buildArguments: $"bump",
                             buildAgentType: this.BuildAgentType )
                         {
-                            IsDeployment = true,
-                            BuildTriggers = this.DependencyDefinition.IsVersioned
-
-                                // The first direct dependency after except for PostSharp.Engineering is the one that triggers this product's version bump.
-                                ? new IBuildTrigger[]
-                                {
-                                    new VersionBumpTrigger( dependencyDefinitions.SingleOrDefault( d => d.Name == bumpTriggeringDependencyName ) )
-                                }
-                                : null
+                            IsDeployment = true
                         } );
                 }
             }
@@ -1556,7 +1570,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return false;
         }
 
-        private static bool RequiresBumpedVersion( BuildContext context, Version currentVersion, string lastVersionTag )
+        private static bool VersionHasBeenBumped( BuildContext context, Version currentVersion, string lastVersionTag )
         {
             var version = lastVersionTag;
 
@@ -1649,8 +1663,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool TryRequiresMergeOfBranches( BuildContext context, [NotNullWhen( true )] out string? currentBranch )
+        private static bool TryGetLatestBranchesIntersectionCommitHashes(
+            BuildContext context,
+            [NotNullWhen( true )] out string? currentBranch,
+            [NotNullWhen( true )] out string? lastCurrentBranchCommitHash,
+            [NotNullWhen( true )] out string? lastCommonCommitHash )
         {
+            lastCurrentBranchCommitHash = null;
+            lastCommonCommitHash = null;
+
             // Fetch all remotes to make sure the merge has not already been done.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -1693,13 +1714,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            var lastCurrentBranchCommitHash = gitOutput;
+            lastCurrentBranchCommitHash = gitOutput;
 
-            // Returns hash of as good common ancestor commit as possible between master and current branch.
+            // Returns hash of as good common ancestor commit as possible between origin/master and current branch.
+            // We use origin/master, because master may not be present as a local branch.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"merge-base master {currentBranch}",
+                $"merge-base origin/master {currentBranch}",
                 context.RepoDirectory,
                 out gitExitCode,
                 out gitOutput );
@@ -1711,10 +1733,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            var lastCommonCommitHash = gitOutput;
+            lastCommonCommitHash = gitOutput;
 
-            // If the commit hashes are equal, there haven't been any unmerged commits, or the current branch is actually master.
-            return !lastCurrentBranchCommitHash.Equals( lastCommonCommitHash, StringComparison.Ordinal );
+            return true;
         }
 
         private static bool MergeBranchToMaster( BuildContext context, BaseBuildSettings settings, string branchToMerge )
@@ -1729,13 +1750,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // Attempts merging branch to master with custom merge message. --no-ff option is to force merge commit to be created.
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"merge {branchToMerge}",
-                    context.RepoDirectory ) )
+            // Attempts merging branch to master.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"merge {branchToMerge}",
+                context.RepoDirectory,
+                out var gitExitCode,
+                out var gitOutput );
+
+            if ( gitExitCode != 0 )
             {
+                context.Console.WriteError( gitOutput );
+
                 return false;
             }
 
@@ -1745,8 +1772,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 "git",
                 $"remote get-url origin",
                 context.RepoDirectory,
-                out var gitExitCode,
-                out var gitOutput );
+                out gitExitCode,
+                out gitOutput );
 
             if ( gitExitCode != 0 )
             {

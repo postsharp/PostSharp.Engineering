@@ -49,7 +49,7 @@ namespace PostSharp.Engineering.BuildTools
                             .WithData( product )
                             .WithDescription( "Swaps deployment slots" );
 
-                        if ( product.DependencyDefinition.IsVersioned )
+                        if ( product.DependencyDefinition.IsVersioned && product.MainVersionDependency == null )
                         {
                             root.AddCommand<BumpCommand>( "bump" )
                                 .WithData( product )
@@ -138,6 +138,15 @@ namespace PostSharp.Engineering.BuildTools
                                 tools.AddBranch(
                                     "xmldoc",
                                     xmldoc => xmldoc.AddCommand<RemoveInternalsCommand>( "clean" ).WithDescription( "Remove internals." ).WithData( product ) );
+                            } );
+
+                        root.AddBranch(
+                            "teamcity",
+                            teamcity =>
+                            {
+                                teamcity.AddCommand<TeamCityBuildCommand>( "run" )
+                                    .WithData( product )
+                                    .WithDescription( "Triggers specified build type of specified product on TeamCity." );
                             } );
                     } );
             }
