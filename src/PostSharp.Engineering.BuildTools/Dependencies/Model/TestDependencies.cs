@@ -37,7 +37,8 @@ public static class TestDependencies
     public static DependencyDefinition NopCommerce { get; } = new(
         "Metalama.Tests.NopCommerce",
         VcsProvider.GitHub,
-        "Metalama" );
+        "Metalama",
+        false );
 
     public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
         TestProduct,
