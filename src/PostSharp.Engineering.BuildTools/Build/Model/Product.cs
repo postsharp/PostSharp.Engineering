@@ -1178,23 +1178,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     return false;
                 }
 
-                // Using --force flag ignores checks for changes and version bump.
-                if ( !settings.Force )
+                // If there are no changes since the last tag (i.e. last publishing), we get a warning about publishing the same version.
+                if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
                 {
-                    // If there are no changes since the last tag (i.e. last publishing) the publishing will end successfully here.
-                    if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
-                    {
-                        context.Console.WriteWarning(
-                            "Publishing is skipped because there are no new unpublished changes since the last version tag. Use --force." );
+                    context.Console.WriteWarning(
+                        $"There are no new unpublished changes since the last version tag '{lastVersionTag}'." );
+                }
 
-                        return true;
-                    }
-
-                    // If version has not been bumped since the last publish, it requires manual bump and therefore the version can't be published.
-                    if ( !VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
-                    {
-                        return false;
-                    }
+                // If version has not been bumped since the last publish, we get a warning about publishing the same version.
+                if ( !VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
+                {
+                    context.Console.WriteWarning(
+                        $"Publishing a product with already published version '{preparedVersionInfo.Version}{preparedVersionInfo.PackageVersionSuffix}'." );
                 }
             }
 
@@ -1244,7 +1239,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // After successful artifact publishing the last commit is tagged with current version tag.
                 if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
                 {
-                    return false;
+                    context.Console.WriteWarning(
+                        $"Could not tag the latest commit with version  '{preparedVersionInfo.Version}{preparedVersionInfo.PackageVersionSuffix}'." );
                 }
             }
 
@@ -1514,6 +1510,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private static bool TryGetLastVersionTag( BuildContext context, [NotNullWhen( true )] out string? lastVersionTag )
         {
+            // Fetch remote for tags and commits to make sure we have the full history to compare tags against.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                "fetch",
+                context.RepoDirectory,
+                out _,
+                out var gitOutput );
+
+            // We don't write the output to console if we don't fetch anything.
+            if ( !string.IsNullOrWhiteSpace( gitOutput ) )
+            {
+                context.Console.WriteMessage( gitOutput );
+            }
+
             // Returns the list of tag reference names treated as versions in descending order.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -1542,14 +1553,32 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private static bool AreChangesSinceLastVersionTag( BuildContext context, string? lastVersionTag )
         {
-            // Gets the count from list of committed changes between last version tag and current HEAD excluding version bumps.
+            // Gets the current branch name.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"rev-list --count \"{lastVersionTag}..HEAD\" --invert-grep --grep=\"<<VERSION_BUMP>>\"",
+                $"rev-parse --abbrev-ref HEAD",
                 context.RepoDirectory,
                 out var gitExitCode,
                 out var gitOutput );
+
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOutput );
+
+                return false;
+            }
+
+            var branchName = gitOutput.Trim();
+
+            // Gets the count from list of committed changes between last version tag and current HEAD on the current branch excluding version bumps.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"rev-list --count \"{lastVersionTag}..HEAD\" origin/{branchName} --invert-grep --grep=\"<<VERSION_BUMP>>\"",
+                context.RepoDirectory,
+                out gitExitCode,
+                out gitOutput );
 
             if ( gitExitCode != 0 )
             {
@@ -1592,7 +1621,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( lastVersion == currentVersion )
             {
-                context.Console.WriteError( $"The '{context.Product.ProductName}' version has not been bumped. Use --force." );
+                context.Console.WriteWarning( $"The '{context.Product.ProductName}' version has not been bumped." );
 
                 return false;
             }
