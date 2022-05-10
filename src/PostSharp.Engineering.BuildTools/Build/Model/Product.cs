@@ -1240,7 +1240,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
                 {
                     context.Console.WriteWarning(
-                        $"Could not tag the latest commit with version  '{preparedVersionInfo.Version}{preparedVersionInfo.PackageVersionSuffix}'." );
+                        $"Could not tag the latest commit with version '{preparedVersionInfo.Version}{preparedVersionInfo.PackageVersionSuffix}'." );
                 }
             }
 
