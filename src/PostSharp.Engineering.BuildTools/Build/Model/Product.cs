@@ -688,6 +688,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteHeading( "Preparing the version file" );
 
+            if ( settings.BuildConfiguration == BuildConfiguration.Public && !TeamCityHelper.IsTeamCityBuild( settings ) && !settings.Force )
+            {
+                context.Console.WriteError( "Cannot do a public build on a local machine without --force because it may corrupt the package cache." );
+
+                return false;
+            }
+
             var privateArtifactsRelativeDir =
                 this.PrivateArtifactsDirectory.ToString( new BuildInfo( null!, configuration, this ) );
 
