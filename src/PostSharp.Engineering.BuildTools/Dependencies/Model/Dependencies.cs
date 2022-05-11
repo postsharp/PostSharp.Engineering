@@ -34,13 +34,37 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencyDefinition MetalamaOpenAutoCancellationToken { get; } =
             new( "Metalama.Open.AutoCancellationToken", VcsProvider.GitHub, "Metalama" )
             {
-                // Metalama.Open.AutoCancellationToken is part of Metalama.Open products, which is propagated to build type string.
+                // Metalama.Open.AutoCancellationToken is part of Metalama.Open products group, which is propagated to build types string.
                 CiBuildTypes = new ConfigurationSpecific<string>(
                     "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_DebugBuild",
                     "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_ReleaseBuild",
                     "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_PublicBuild" ),
                 DeploymentBuildType = "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_PublicDeployment",
                 BumpBuildType = "Metalama_MetalamaOpen_MetalamaOpenAutoCancellationToken_VersionBump"
+            };
+
+        public static DependencyDefinition MetalamaOpenDependencyEmbedder { get; } =
+            new( "Metalama.Open.DependencyEmbedder", VcsProvider.GitHub, "Metalama" )
+            {
+                // Metalama.Open.DependencyEmbedder is part of Metalama.Open products group, which is propagated to build types string.
+                CiBuildTypes = new ConfigurationSpecific<string>(
+                    "Metalama_MetalamaOpen_MetalamaOpenDependencyEmbedder_DebugBuild",
+                    "Metalama_MetalamaOpen_MetalamaOpenDependencyEmbedder_ReleaseBuild",
+                    "Metalama_MetalamaOpen_MetalamaOpenDependencyEmbedder_PublicBuild" ),
+                DeploymentBuildType = "Metalama_MetalamaOpen_MetalamaOpenDependencyEmbedder_PublicDeployment",
+                BumpBuildType = "Metalama_MetalamaOpen_MetalamaOpenDependencyEmbedder_VersionBump"
+            };
+
+        public static DependencyDefinition MetalamaOpenVirtuosity { get; } =
+            new( "Metalama.Open.Virtuosity", VcsProvider.GitHub, "Metalama" )
+            {
+                // Metalama.Open.Virtuosity is part of Metalama.Open products group, which is propagated to build types string.
+                CiBuildTypes = new ConfigurationSpecific<string>(
+                    "Metalama_MetalamaOpen_MetalamaOpenVirtuosity_DebugBuild",
+                    "Metalama_MetalamaOpen_MetalamaOpenVirtuosity_ReleaseBuild",
+                    "Metalama_MetalamaOpen_MetalamaOpenVirtuosity_PublicBuild" ),
+                DeploymentBuildType = "Metalama_MetalamaOpen_MetalamaOpenVirtuosity_PublicDeployment",
+                BumpBuildType = "Metalama_MetalamaOpen_MetalamaOpenVirtuosity_VersionBump"
             };
 
         public static DependencyDefinition PostSharpEngineering { get; } = new(
@@ -76,6 +100,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             MetalamaTry,
             MetalamaVsx,
             MetalamaOpenAutoCancellationToken,
+            MetalamaOpenDependencyEmbedder,
+            MetalamaOpenVirtuosity,
             PostSharpEngineering,
             MetalamaBackstage );
     }

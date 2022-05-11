@@ -12,7 +12,6 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
@@ -133,9 +132,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public DependencyDefinition[] Dependencies { get; init; } = Array.Empty<DependencyDefinition>();
 
         public DependencyDefinition? GetDependency( string name )
-            => this.Dependencies.SingleOrDefault( d => d.Name == name )
-               ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name )
-               ?? TestDependencies.All.SingleOrDefault( d => d.Name == name );
+        {
+            return this.Dependencies.SingleOrDefault( d => d.Name == name )
+                          ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name )
+                          ?? TestDependencies.All.SingleOrDefault( d => d.Name == name );
+        }
 
         public Dictionary<string, string> SupportedProperties { get; init; } = new();
 
@@ -687,6 +688,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteHeading( "Preparing the version file" );
 
+            if ( settings.BuildConfiguration == BuildConfiguration.Public && !TeamCityHelper.IsTeamCityBuild( settings ) && !settings.Force )
+            {
+                context.Console.WriteError( "Cannot prepare a public configuration on a local machine without --force because it may corrupt the package cache." );
+
+                return false;
+            }
+
             var privateArtifactsRelativeDir =
                 this.PrivateArtifactsDirectory.ToString( new BuildInfo( null!, configuration, this ) );
 
@@ -1178,19 +1186,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     return false;
                 }
 
-                // Using --force flag ignores checks for changes and version bump.
-                if ( !settings.Force )
+                // If there are no changes since the last tag (i.e. last publishing), we get a warning about publishing the same version only.
+                if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
                 {
-                    // If there are no changes since the last tag (i.e. last publishing) the publishing will end successfully here.
-                    if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
-                    {
-                        context.Console.WriteWarning(
-                            "Publishing is skipped because there are no new unpublished changes since the last version tag. Use --force." );
-
-                        return true;
-                    }
-
-                    // If version has not been bumped since the last publish, it requires manual bump and therefore the version can't be published.
+                    context.Console.WriteWarning(
+                        $"There are no new unpublished changes since the last version tag '{lastVersionTag}'." );
+                }
+                else
+                {
+                    // If there are changes and the version has not been bumped since the last publish, publishing fails.
                     if ( !VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
                     {
                         return false;
@@ -1244,7 +1248,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // After successful artifact publishing the last commit is tagged with current version tag.
                 if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
                 {
-                    return false;
+                    context.Console.WriteWarning(
+                        $"Could not tag the latest commit with version '{preparedVersionInfo.Version}{preparedVersionInfo.PackageVersionSuffix}'." );
                 }
             }
 
@@ -1452,7 +1457,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         buildAgentType: this.BuildAgentType )
                     {
                         IsDeployment = true,
-                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
+                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
+                        SnapshotDependencyObjectNames = this.Dependencies?
+                            .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
+                            .Select( d => d.DeploymentBuildType )
+                            .ToArray()
                     };
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -1514,6 +1523,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private static bool TryGetLastVersionTag( BuildContext context, [NotNullWhen( true )] out string? lastVersionTag )
         {
+            // Fetch remote for tags and commits to make sure we have the full history to compare tags against.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                "fetch",
+                context.RepoDirectory,
+                out _,
+                out var gitOutput );
+
+            // We don't write the output to console if we don't fetch anything.
+            if ( !string.IsNullOrWhiteSpace( gitOutput ) )
+            {
+                context.Console.WriteMessage( gitOutput );
+            }
+
             // Returns the list of tag reference names treated as versions in descending order.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -1542,14 +1566,32 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private static bool AreChangesSinceLastVersionTag( BuildContext context, string? lastVersionTag )
         {
-            // Gets the count from list of committed changes between last version tag and current HEAD excluding version bumps.
+            // Gets the current branch name.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"rev-list --count \"{lastVersionTag}..HEAD\" --invert-grep --grep=\"<<VERSION_BUMP>>\"",
+                $"rev-parse --abbrev-ref HEAD",
                 context.RepoDirectory,
                 out var gitExitCode,
                 out var gitOutput );
+
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOutput );
+
+                return false;
+            }
+
+            var branchName = gitOutput.Trim();
+
+            // Gets the count from list of committed changes between last version tag and current HEAD on the current branch excluding version bumps.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"rev-list --count \"{lastVersionTag}..HEAD\" origin/{branchName} --invert-grep --grep=\"<<VERSION_BUMP>>\"",
+                context.RepoDirectory,
+                out gitExitCode,
+                out gitOutput );
 
             if ( gitExitCode != 0 )
             {
@@ -1592,7 +1634,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( lastVersion == currentVersion )
             {
-                context.Console.WriteError( $"The '{context.Product.ProductName}' version has not been bumped. Use --force." );
+                context.Console.WriteError( $"The '{context.Product.ProductName}' version has not been bumped." );
 
                 return false;
             }
