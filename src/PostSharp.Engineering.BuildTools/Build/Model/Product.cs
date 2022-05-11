@@ -1186,17 +1186,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     return false;
                 }
 
-                // If there are no changes since the last tag (i.e. last publishing), we get a warning about publishing the same version.
+                // If there are no changes since the last tag (i.e. last publishing), we get a warning about publishing the same version only.
                 if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
                 {
                     context.Console.WriteWarning(
                         $"There are no new unpublished changes since the last version tag '{lastVersionTag}'." );
                 }
-
-                // If version has not been bumped since the last publish, we get a warning about publishing the same version.
-                if ( !VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
+                else
                 {
-                    return false;
+                    // If there are changes and the version has not been bumped since the last publish, publishing fails.
+                    if ( !VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
+                    {
+                        return false;
+                    }
                 }
             }
 
