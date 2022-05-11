@@ -690,7 +690,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( settings.BuildConfiguration == BuildConfiguration.Public && !TeamCityHelper.IsTeamCityBuild( settings ) && !settings.Force )
             {
-                context.Console.WriteError( "Cannot do a public build on a local machine without --force because it may corrupt the package cache." );
+                context.Console.WriteError( "Cannot prepare a public configuration on a local machine without --force because it may corrupt the package cache." );
 
                 return false;
             }
