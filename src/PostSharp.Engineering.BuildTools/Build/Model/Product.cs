@@ -12,7 +12,6 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
@@ -133,9 +132,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public DependencyDefinition[] Dependencies { get; init; } = Array.Empty<DependencyDefinition>();
 
         public DependencyDefinition? GetDependency( string name )
-            => this.Dependencies.SingleOrDefault( d => d.Name == name )
-               ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name )
-               ?? TestDependencies.All.SingleOrDefault( d => d.Name == name );
+        {
+            return this.Dependencies.SingleOrDefault( d => d.Name == name )
+                          ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name )
+                          ?? TestDependencies.All.SingleOrDefault( d => d.Name == name );
+        }
 
         public Dictionary<string, string> SupportedProperties { get; init; } = new();
 
@@ -1188,8 +1189,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // If version has not been bumped since the last publish, we get a warning about publishing the same version.
                 if ( !VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
                 {
-                    context.Console.WriteWarning(
-                        $"Publishing a product with already published version '{preparedVersionInfo.Version}{preparedVersionInfo.PackageVersionSuffix}'." );
+                    return false;
                 }
             }
 
@@ -1448,7 +1448,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         buildAgentType: this.BuildAgentType )
                     {
                         IsDeployment = true,
-                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
+                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
+                        SnapshotDependencyObjectNames = this.Dependencies?
+                            .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
+                            .Select( d => d.DeploymentBuildType )
+                            .ToArray()
                     };
 
                     teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -1621,7 +1625,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( lastVersion == currentVersion )
             {
-                context.Console.WriteWarning( $"The '{context.Product.ProductName}' version has not been bumped." );
+                context.Console.WriteError( $"The '{context.Product.ProductName}' version has not been bumped." );
 
                 return false;
             }
