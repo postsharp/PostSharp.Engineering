@@ -37,8 +37,16 @@ public static class TestDependencies
     public static DependencyDefinition NopCommerce { get; } = new(
         "Metalama.Tests.NopCommerce",
         VcsProvider.GitHub,
-        "Metalama",
-        false );
+        "postsharp",
+        false )
+    {
+        CiBuildTypes = new ConfigurationSpecific<string>(
+            "Metalama_MetalamaTests_MetalamaTestsNopCommerce_DebugBuild",
+            "Metalama_MetalamaTests_MetalamaTestsNopCommerce_ReleaseBuild",
+            "Metalama_MetalamaTests_MetalamaTestsNopCommerce_PublicBuild" ),
+        DeploymentBuildType = "Metalama_MetalamaTests_MetalamaTestsNopCommerce_PublicDeployment",
+        BumpBuildType = "Metalama_MetalamaTests_MetalamaTestsNopCommerce_VersionBump"
+    };
 
     public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
         TestProduct,
