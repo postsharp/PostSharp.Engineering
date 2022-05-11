@@ -56,7 +56,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             };
 
         public static DependencyDefinition MetalamaOpenVirtuosity { get; } =
-            new( "Metalama.Open.AutoCancellationToken", VcsProvider.GitHub, "Metalama" )
+            new( "Metalama.Open.Virtuosity", VcsProvider.GitHub, "Metalama" )
             {
                 // Metalama.Open.Virtuosity is part of Metalama.Open products group, which is propagated to build types string.
                 CiBuildTypes = new ConfigurationSpecific<string>(
