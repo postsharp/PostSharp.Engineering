@@ -1799,6 +1799,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
+            // Pull changes because local master may not contain all changes.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"pull",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
             // Attempts merging branch to master.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
