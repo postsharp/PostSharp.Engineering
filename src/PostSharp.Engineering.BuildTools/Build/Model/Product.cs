@@ -1393,6 +1393,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
+            if ( VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
+            {
+                context.Console.WriteWarning( "Version has already been bumped." );
+
+                return true;
+            }
+
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
 
             if ( !this.TryBumpVersion( context, settings, mainVersionFile, preparedVersionInfo, bumpInfoFile, newBumpFileContent ) )
