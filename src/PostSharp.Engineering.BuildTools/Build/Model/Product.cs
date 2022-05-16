@@ -1248,7 +1248,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // After successful artifact publishing the last commit is tagged with current version tag.
                 if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
                 {
-                    context.Console.WriteWarning(
+                    context.Console.WriteError(
                         $"Could not tag the latest commit with version '{preparedVersionInfo.Version}{preparedVersionInfo.PackageVersionSuffix}'." );
                 }
             }
