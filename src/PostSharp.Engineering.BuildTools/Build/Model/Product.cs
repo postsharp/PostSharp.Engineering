@@ -679,14 +679,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Prepare( BuildContext context, BuildSettings settings )
         {
-            var configuration = settings.BuildConfiguration;
-
             if ( !settings.NoDependencies )
             {
                 this.Clean( context, settings );
             }
-
-            context.Console.WriteHeading( "Preparing the version file" );
 
             if ( settings.BuildConfiguration == BuildConfiguration.Public && !TeamCityHelper.IsTeamCityBuild( settings ) && !settings.Force )
             {
@@ -694,6 +690,43 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 return false;
             }
+
+            // Prepare the versions file.
+            if ( !this.PrepareVersionsFile( context, settings, out var packageVersion ) )
+            {
+                return false;
+            }
+
+            // Generating the TeamCity file.
+            if ( !this.GenerateTeamcityConfiguration( context, packageVersion ) )
+            {
+                return false;
+            }
+
+            // Execute the event.
+            if ( this.PrepareCompleted != null )
+            {
+                var eventArgs = new PrepareCompletedEventArgs( context, settings );
+                this.PrepareCompleted( eventArgs );
+
+                if ( eventArgs.IsFailed )
+                {
+                    return false;
+                }
+            }
+
+            context.Console.WriteSuccess(
+                $"Preparing the build was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) ).PackageVersion}" );
+
+            return true;
+        }
+
+        public bool PrepareVersionsFile( BuildContext context, BuildSettings settings, out string preparedPackageVersion )
+        {
+            var configuration = settings.BuildConfiguration;
+            preparedPackageVersion = string.Empty;
+            
+            context.Console.WriteHeading( "Preparing the version file" );
 
             var privateArtifactsRelativeDir =
                 this.PrivateArtifactsDirectory.ToString( new BuildInfo( null!, configuration, this ) );
@@ -762,27 +795,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     <Import Project=""Versions.{settings.BuildConfiguration}.g.props"" />
 </Project>
 " );
-
-            // Generating the TeamCity file.
-            if ( !this.GenerateTeamcityConfiguration( context, packageVersion ) )
-            {
-                return false;
-            }
-
-            // Execute the event.
-            if ( this.PrepareCompleted != null )
-            {
-                var eventArgs = new PrepareCompletedEventArgs( context, settings );
-                this.PrepareCompleted( eventArgs );
-
-                if ( eventArgs.IsFailed )
-                {
-                    return false;
-                }
-            }
-
-            context.Console.WriteSuccess(
-                $"Preparing the build was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) ).PackageVersion}" );
 
             return true;
         }
@@ -1336,8 +1348,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Dependencies versions to compare with BumpInfo file are from Public build.
             settings.BuildConfiguration = BuildConfiguration.Public;
 
-            // Do prepare step to get Version.Public.g.props.
-            if ( !this.Prepare( context, settings ) )
+            // Prepare Version.Public.g.props to read dependencies versions from.
+            if ( !this.PrepareVersionsFile( context, settings, out _ ) )
             {
                 return false;
             }
