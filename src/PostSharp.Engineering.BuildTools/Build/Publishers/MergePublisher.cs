@@ -23,57 +23,53 @@ public class MergePublisher : Publisher
         BuildInfo buildInfo,
         BuildConfigurationInfo configuration )
     {
-        context.Console.WriteMessage( "Merging dev to master after publishing." );
-
-        // If Product doesn't require merging changes into master branch, we skip merging.
-        if ( context.Product.RequiresBranchMerging )
+        // Attempts to get the latest intersection of master and currentBranch in form of each branches' commit hash.
+        if ( !TryGetLatestBranchesIntersectionCommitHashes(
+                context,
+                out var currentBranch,
+                out var lastCurrentBranchCommitHash,
+                out var lastCommonCommitHash ) )
         {
-            // Attempts to get the latest intersection of master and currentBranch in form of each branches' commit hash.
-            if ( !TryGetLatestBranchesIntersectionCommitHashes(
-                    context,
-                    out var currentBranch,
-                    out var lastCurrentBranchCommitHash,
-                    out var lastCommonCommitHash ) )
+            return SuccessCode.Error;
+        }
+        
+        context.Console.WriteMessage( $"Merging branch '{currentBranch}' to 'master' after publishing artifacts." );
+
+        // Change to the master branch before we do merge.
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"checkout master",
+                context.RepoDirectory ) )
+        {
+            return SuccessCode.Error;
+        }
+
+        // Determines if we need to do a merge: If the commit hashes are equal, there haven't been any unmerged commits, or the current branch is actually master.
+        if ( !lastCurrentBranchCommitHash.Equals( lastCommonCommitHash, StringComparison.Ordinal ) )
+        {
+            context.Console.WriteWarning( $"Branch '{currentBranch}' requires merging to master." );
+        
+            // Merge current branch.
+            if ( !MergeBranchToMaster( context, settings, currentBranch ) )
             {
                 return SuccessCode.Error;
             }
+        }
 
-            // Change to the master branch before we do merge.
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"checkout master",
-                    context.RepoDirectory ) )
+        // Go through all dependencies and update their fixed version in Versions.props file.
+        if ( !UpdateDependenciesVersions( context, settings, out var dependenciesUpdated ) )
+        {
+            return SuccessCode.Error;
+        }
+
+        // If we updated any dependencies, commit the changes.
+        if ( dependenciesUpdated )
+        {
+            // Commit changes made to Versions.props.
+            if ( !TryCommitDependenciesVersionsBumped( context ) )
             {
                 return SuccessCode.Error;
-            }
-
-            // Determines if we need to do a merge: If the commit hashes are equal, there haven't been any unmerged commits, or the current branch is actually master.
-            if ( !lastCurrentBranchCommitHash.Equals( lastCommonCommitHash, StringComparison.Ordinal ) )
-            {
-                context.Console.WriteWarning( $"Branch '{currentBranch}' requires merging to master." );
-            
-                // Merge current branch.
-                if ( !MergeBranchToMaster( context, settings, currentBranch ) )
-                {
-                    return SuccessCode.Error;
-                }
-            }
-
-            // Go through all dependencies and update their fixed version in Versions.props file.
-            if ( !UpdateDependenciesVersions( context, settings, out var dependenciesUpdated ) )
-            {
-                return SuccessCode.Error;
-            }
-
-            // If we updated any dependencies, commit the changes.
-            if ( dependenciesUpdated )
-            {
-                // Commit changes made to Versions.props.
-                if ( !TryCommitDependenciesVersionsBumped( context ) )
-                {
-                    return SuccessCode.Error;
-                }
             }
         }
 
@@ -245,17 +241,18 @@ public class MergePublisher : Publisher
         // For following Prepare step we need to BuildSettings
         var buildSettings = new BuildSettings() { BuildConfiguration = settings.BuildConfiguration, ContinuousIntegration = settings.ContinuousIntegration, Force = settings.Force };
 
-        // Do prepare step to get Version.Public.g.props.
-        if ( !context.Product.Prepare( context, buildSettings ) )
+        // Do prepare step to get Version.Public.g.props to load up-to-date versions from.
+        if ( !context.Product.PrepareVersionsFile( context, buildSettings, out _ ) )
         {
             return false;
         }
 
+        // Get dependenciesOverrideFile from Versions.Public.g.props.
         if ( !DependenciesOverrideFile.TryLoad( context, settings.BuildConfiguration, out var dependenciesOverrideFile ) )
         {
             return false;
         }
-        
+
         foreach ( var dependency in context.Product.Dependencies )
         {
             var dependencySource = dependenciesOverrideFile.Dependencies[dependency.Name];
@@ -277,14 +274,14 @@ public class MergePublisher : Publisher
             }
 
             // Load the up-to-date version file of dependency.
-            var currentVersionDocument = XDocument.Load( dependencyVersionFile );
-            var project = currentVersionDocument.Root;
+            var upToDateVersionDocument = XDocument.Load( dependencyVersionFile );
+            var project = upToDateVersionDocument.Root;
             var props = project!.Element( "PropertyGroup" );
             var currentDependencyVersionValue = props!.Element( $"{dependency.NameWithoutDot}Version" )!.Value;
 
             // Load current product Versions.props.
-            var versionDocumentToUpdate = XDocument.Load( productVersionsPropertiesFile, LoadOptions.PreserveWhitespace );
-            project = versionDocumentToUpdate.Root;
+            var currentVersionDocument = XDocument.Load( productVersionsPropertiesFile, LoadOptions.PreserveWhitespace );
+            project = currentVersionDocument.Root;
             props = project!.Elements( "PropertyGroup" ).SingleOrDefault( p => p.Element( $"{dependency.NameWithoutDot}Version" ) != null );
             var oldVersionElement = props!.Elements( $"{dependency.NameWithoutDot}Version" ).SingleOrDefault( p => !p.HasAttributes );
             var oldVersionValue = oldVersionElement!.Value;
@@ -294,7 +291,7 @@ public class MergePublisher : Publisher
 
             var oldDependencyVersionNumber = Version.Parse( oldVersionValue.Substring( 0, oldVersionValue.IndexOf( '-', StringComparison.InvariantCulture ) ) );
 
-            // No need to rewrite the file if there is no change in version.
+            // We don't need to rewrite the file if there is no change in version.
             if ( currentDependencyVersionNumber == oldDependencyVersionNumber )
             {
                 context.Console.WriteMessage( $"Version of '{dependency}' dependency is up to date." );
@@ -310,7 +307,7 @@ public class MergePublisher : Publisher
 
             using ( var xmlWriter = XmlWriter.Create( productVersionsPropertiesFile, xmlWriterSettings ) )
             {
-                versionDocumentToUpdate.Save( xmlWriter );
+                currentVersionDocument.Save( xmlWriter );
             }
 
             context.Console.WriteMessage( $"Bumping version dependency '{dependency}' from '{oldVersionValue}' to '{currentDependencyVersionValue}'." );
