@@ -109,7 +109,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
                 debug: new BuildConfigurationInfo( MSBuildName: "Debug", BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
-                release: new BuildConfigurationInfo( MSBuildName: "Release", RequiresSigning: true ),
+                release: new BuildConfigurationInfo( MSBuildName: "Release", RequiresSigning: true, ExportsToTeamCityBuild: false ),
                 @public: new BuildConfigurationInfo(
                     MSBuildName: "Release",
                     RequiresSigning: true,
@@ -117,7 +117,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     {
                         new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
                         new VsixPublisher( Pattern.Create( "*.vsix" ) )
-                    } ) );
+                    },
+                    ExportsToTeamCityDeploy: true ) );
 
         /// <summary>
         /// List of properties that must be exported into the *.version.props. These properties must be defined in MainVersion.props.
@@ -132,8 +133,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public DependencyDefinition? GetDependency( string name )
         {
             return this.Dependencies.SingleOrDefault( d => d.Name == name )
-                          ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name )
-                          ?? TestDependencies.All.SingleOrDefault( d => d.Name == name );
+                   ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name )
+                   ?? TestDependencies.All.SingleOrDefault( d => d.Name == name );
         }
 
         public Dictionary<string, string> SupportedProperties { get; init; } = new();
@@ -1421,48 +1422,56 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var artifactRules =
                     $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}{(this.PublishTestResults ? $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}" : "")}";
 
-                var buildTeamCityConfiguration = new TeamCityBuildConfiguration(
-                    this,
-                    objectName: $"{configuration}Build",
-                    name: configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
-                    buildArguments: $"test --configuration {configuration} --buildNumber %build.number%",
-                    buildAgentType: this.BuildAgentType )
+                TeamCityBuildConfiguration? buildTeamCityConfiguration = null;
+                
+                if ( configurationInfo.ExportsToTeamCityBuild )
                 {
-                    ArtifactRules = artifactRules,
-                    AdditionalArtifactRules = configurationInfo.AdditionalArtifactRules,
-                    BuildTriggers = configurationInfo.BuildTriggers,
-                    SnapshotDependencyObjectNames = this.Dependencies?
-                        .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
-                        .Select( d => d.CiBuildTypes[configuration] )
-                        .ToArray()
-                };
-
-                teamCityBuildConfigurations.Add( buildTeamCityConfiguration );
-
-                TeamCityBuildConfiguration? teamCityDeploymentConfiguration = null;
-
-                if ( configurationInfo.PrivatePublishers != null
-                     || configurationInfo.PublicPublishers != null )
-                {
-                    teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
+                    buildTeamCityConfiguration = new TeamCityBuildConfiguration(
                         this,
-                        objectName: $"{configuration}Deployment",
-                        name: configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
-                        buildArguments: $"publish --configuration {configuration}",
+                        objectName: $"{configuration}Build",
+                        name: configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
+                        buildArguments: $"test --configuration {configuration} --buildNumber %build.number%",
                         buildAgentType: this.BuildAgentType )
                     {
-                        IsDeployment = true,
-                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
+                        ArtifactRules = artifactRules,
+                        AdditionalArtifactRules = configurationInfo.AdditionalArtifactRules,
+                        BuildTriggers = configurationInfo.BuildTriggers,
                         SnapshotDependencyObjectNames = this.Dependencies?
                             .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
-                            .Select( d => d.DeploymentBuildType )
+                            .Select( d => d.CiBuildTypes[configuration] )
                             .ToArray()
                     };
 
-                    teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
+                    teamCityBuildConfigurations.Add( buildTeamCityConfiguration );
                 }
 
-                if ( configurationInfo.Swappers != null )
+                TeamCityBuildConfiguration? teamCityDeploymentConfiguration = null;
+
+                if ( buildTeamCityConfiguration != null && configurationInfo.ExportsToTeamCityDeploy )
+                {
+                    if ( configurationInfo.PrivatePublishers != null
+                         || configurationInfo.PublicPublishers != null )
+                    {
+                        teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
+                            this,
+                            objectName: $"{configuration}Deployment",
+                            name: configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
+                            buildArguments: $"publish --configuration {configuration}",
+                            buildAgentType: this.BuildAgentType )
+                        {
+                            IsDeployment = true,
+                            ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
+                            SnapshotDependencyObjectNames = this.Dependencies?
+                                .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
+                                .Select( d => d.DeploymentBuildType )
+                                .ToArray()
+                        };
+
+                        teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
+                    }
+                }
+
+                if ( buildTeamCityConfiguration != null && configurationInfo.Swappers != null )
                 {
                     teamCityBuildConfigurations.Add(
                         new TeamCityBuildConfiguration(

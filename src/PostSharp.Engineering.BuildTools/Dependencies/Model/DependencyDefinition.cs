@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PostSharp.Engineering.BuildTools.Build;
+using System;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
@@ -13,11 +14,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public string DefaultBranch { get; init; }
 
         public ConfigurationSpecific<string> CiBuildTypes { get; init; }
-        
+
         public bool IsVersioned { get; }
-        
+
         public string? BumpBuildType { get; init; }
-        
+
         public string DeploymentBuildType { get; init; }
 
         public string VcsProjectName { get; }
