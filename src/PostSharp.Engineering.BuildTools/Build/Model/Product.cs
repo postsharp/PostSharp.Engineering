@@ -98,8 +98,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool PublishTestResults { get; init; }
 
-        public bool RequiresBranchMerging { get; init; }
-
         public VcsProvider? VcsProvider { get; }
 
         public bool KeepEditorConfig { get; init; }
