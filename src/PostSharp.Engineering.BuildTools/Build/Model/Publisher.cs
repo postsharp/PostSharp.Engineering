@@ -9,8 +9,7 @@
             BuildConfigurationInfo configuration,
             BuildInfo buildInfo,
             bool isPublic,
-            ref bool hasTarget,
-            ref bool allFilesSucceeded );
+            ref bool hasTarget );
 
         public static bool PublishDirectory(
             BuildContext context,
@@ -30,8 +29,6 @@
                 return true;
             }
 
-            var allFilesSucceeded = true;
-
             foreach ( var publisher in publishers )
             {
                 if ( !publisher.Publish(
@@ -41,8 +38,7 @@
                         configuration,
                         buildInfo,
                         isPublic,
-                        ref hasTarget,
-                        ref allFilesSucceeded ) )
+                        ref hasTarget ) )
                 {
                     publishingSucceeded = false;
                 }

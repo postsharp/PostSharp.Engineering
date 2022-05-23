@@ -33,8 +33,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             BuildConfigurationInfo configuration,
             BuildInfo buildInfo,
             bool isPublic,
-            ref bool hasTarget,
-            ref bool allFilesSucceeded )
+            ref bool hasTarget )
         {
             var success = true;
 
@@ -44,10 +43,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( !this.Files.TryGetFiles( directory, buildInfo, files ) )
             {
-                context.Console.WriteWarning( $"No created artifact files match the required publisher pattern(s): '{this.Files}'" );
+                context.Console.WriteWarning( $"Created artifact files do not match the publisher pattern(s): '{this.Files}'" );
 
                 return true;
             }
+
+            var allFilesSucceeded = true;
 
             foreach ( var file in files )
             {

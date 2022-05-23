@@ -20,8 +20,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             BuildConfigurationInfo configuration,
             BuildInfo buildInfo,
             bool isPublic,
-            ref bool hasTarget,
-            ref bool allFilesSucceeded )
+            ref bool hasTarget )
         {
             var success = true;
             
