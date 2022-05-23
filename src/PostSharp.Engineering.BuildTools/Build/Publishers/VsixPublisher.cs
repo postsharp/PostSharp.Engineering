@@ -7,11 +7,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
     /// <summary>
     /// Publishes VSIX packages to Visual Studio Marketplace. 
     /// </summary>
-    public class VsixPublisher : Publisher
+    public class VsixPublisher : ArtifactPublisher
     {
         public VsixPublisher( Pattern files ) : base( files ) { }
 
-        public override SuccessCode Execute(
+        public override SuccessCode PublishFile(
             BuildContext context,
             PublishSettings settings,
             string file,

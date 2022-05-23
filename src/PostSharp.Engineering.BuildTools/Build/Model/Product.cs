@@ -98,8 +98,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool PublishTestResults { get; init; }
 
-        public bool RequiresBranchMerging { get; init; }
-
         public VcsProvider? VcsProvider { get; }
 
         public bool KeepEditorConfig { get; init; }
@@ -111,7 +109,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
                 debug: new BuildConfigurationInfo( MSBuildName: "Debug", BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
-                release: new BuildConfigurationInfo( MSBuildName: "Release", RequiresSigning: true ),
+                release: new BuildConfigurationInfo( MSBuildName: "Release", RequiresSigning: true, ExportsToTeamCityBuild: false ),
                 @public: new BuildConfigurationInfo(
                     MSBuildName: "Release",
                     RequiresSigning: true,
@@ -119,7 +117,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     {
                         new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
                         new VsixPublisher( Pattern.Create( "*.vsix" ) )
-                    } ) );
+                    },
+                    ExportsToTeamCityDeploy: true ) );
 
         /// <summary>
         /// List of properties that must be exported into the *.version.props. These properties must be defined in MainVersion.props.
@@ -134,8 +133,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public DependencyDefinition? GetDependency( string name )
         {
             return this.Dependencies.SingleOrDefault( d => d.Name == name )
-                          ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name )
-                          ?? TestDependencies.All.SingleOrDefault( d => d.Name == name );
+                   ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name )
+                   ?? TestDependencies.All.SingleOrDefault( d => d.Name == name );
         }
 
         public Dictionary<string, string> SupportedProperties { get; init; } = new();
@@ -679,14 +678,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Prepare( BuildContext context, BuildSettings settings )
         {
-            var configuration = settings.BuildConfiguration;
-
             if ( !settings.NoDependencies )
             {
                 this.Clean( context, settings );
             }
-
-            context.Console.WriteHeading( "Preparing the version file" );
 
             if ( settings.BuildConfiguration == BuildConfiguration.Public && !TeamCityHelper.IsTeamCityBuild( settings ) && !settings.Force )
             {
@@ -694,6 +689,43 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 return false;
             }
+
+            // Prepare the versions file.
+            if ( !this.PrepareVersionsFile( context, settings, out var packageVersion ) )
+            {
+                return false;
+            }
+
+            // Generating the TeamCity file.
+            if ( !this.GenerateTeamcityConfiguration( context, packageVersion ) )
+            {
+                return false;
+            }
+
+            // Execute the event.
+            if ( this.PrepareCompleted != null )
+            {
+                var eventArgs = new PrepareCompletedEventArgs( context, settings );
+                this.PrepareCompleted( eventArgs );
+
+                if ( eventArgs.IsFailed )
+                {
+                    return false;
+                }
+            }
+
+            context.Console.WriteSuccess(
+                $"Preparing the build was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) ).PackageVersion}" );
+
+            return true;
+        }
+
+        public bool PrepareVersionsFile( BuildContext context, BuildSettings settings, out string preparedPackageVersion )
+        {
+            var configuration = settings.BuildConfiguration;
+            preparedPackageVersion = string.Empty;
+            
+            context.Console.WriteHeading( "Preparing the version file" );
 
             var privateArtifactsRelativeDir =
                 this.PrivateArtifactsDirectory.ToString( new BuildInfo( null!, configuration, this ) );
@@ -762,27 +794,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     <Import Project=""Versions.{settings.BuildConfiguration}.g.props"" />
 </Project>
 " );
-
-            // Generating the TeamCity file.
-            if ( !this.GenerateTeamcityConfiguration( context, packageVersion ) )
-            {
-                return false;
-            }
-
-            // Execute the event.
-            if ( this.PrepareCompleted != null )
-            {
-                var eventArgs = new PrepareCompletedEventArgs( context, settings );
-                this.PrepareCompleted( eventArgs );
-
-                if ( eventArgs.IsFailed )
-                {
-                    return false;
-                }
-            }
-
-            context.Console.WriteSuccess(
-                $"Preparing the build was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) ).PackageVersion}" );
 
             return true;
         }
@@ -1248,30 +1259,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // After successful artifact publishing the last commit is tagged with current version tag.
                 if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
                 {
-                    context.Console.WriteWarning(
+                    context.Console.WriteError(
                         $"Could not tag the latest commit with version '{preparedVersionInfo.Version}{preparedVersionInfo.PackageVersionSuffix}'." );
-                }
-            }
-
-            // If Product doesn't require merging changes into master branch, we skip merging.
-            if ( this.RequiresBranchMerging )
-            {
-                // Attempts to get the latest intersection of master and currentBranch in form of each branches' commit hash.
-                if ( !TryGetLatestBranchesIntersectionCommitHashes( context, out var currentBranch, out var lastCurrentBranchCommitHash, out var lastCommonCommitHash ) )
-                {
-                    return false;
-                }
-
-                // Defines if we need to do a merge. If the commit hashes are equal, there haven't been any unmerged commits, or the current branch is actually master.
-                if ( !lastCurrentBranchCommitHash.Equals( lastCommonCommitHash, StringComparison.Ordinal ) )
-                {
-                    context.Console.WriteWarning( $"Branch '{currentBranch}' requires merging to master." );
-
-                    // Merge current branch.
-                    if ( !MergeBranchToMaster( context, settings, currentBranch ) )
-                    {
-                        return false;
-                    }
                 }
             }
 
@@ -1358,8 +1347,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Dependencies versions to compare with BumpInfo file are from Public build.
             settings.BuildConfiguration = BuildConfiguration.Public;
 
-            // Do prepare step to get Version.Public.g.props.
-            if ( !this.Prepare( context, settings ) )
+            // Prepare Version.Public.g.props to read dependencies versions from.
+            if ( !this.PrepareVersionsFile( context, settings, out _ ) )
             {
                 return false;
             }
@@ -1391,6 +1380,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( preparedVersionInfo == null )
             {
                 return false;
+            }
+
+            if ( VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
+            {
+                context.Console.WriteWarning( "Version has already been bumped." );
+
+                return true;
             }
 
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
@@ -1426,48 +1422,56 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var artifactRules =
                     $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}{(this.PublishTestResults ? $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}" : "")}";
 
-                var buildTeamCityConfiguration = new TeamCityBuildConfiguration(
-                    this,
-                    objectName: $"{configuration}Build",
-                    name: configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
-                    buildArguments: $"test --configuration {configuration} --buildNumber %build.number%",
-                    buildAgentType: this.BuildAgentType )
+                TeamCityBuildConfiguration? buildTeamCityConfiguration = null;
+                
+                if ( configurationInfo.ExportsToTeamCityBuild )
                 {
-                    ArtifactRules = artifactRules,
-                    AdditionalArtifactRules = configurationInfo.AdditionalArtifactRules,
-                    BuildTriggers = configurationInfo.BuildTriggers,
-                    SnapshotDependencyObjectNames = this.Dependencies?
-                        .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
-                        .Select( d => d.CiBuildTypes[configuration] )
-                        .ToArray()
-                };
-
-                teamCityBuildConfigurations.Add( buildTeamCityConfiguration );
-
-                TeamCityBuildConfiguration? teamCityDeploymentConfiguration = null;
-
-                if ( configurationInfo.PrivatePublishers != null
-                     || configurationInfo.PublicPublishers != null )
-                {
-                    teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
+                    buildTeamCityConfiguration = new TeamCityBuildConfiguration(
                         this,
-                        objectName: $"{configuration}Deployment",
-                        name: configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
-                        buildArguments: $"publish --configuration {configuration}",
+                        objectName: $"{configuration}Build",
+                        name: configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
+                        buildArguments: $"test --configuration {configuration} --buildNumber %build.number%",
                         buildAgentType: this.BuildAgentType )
                     {
-                        IsDeployment = true,
-                        ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
+                        ArtifactRules = artifactRules,
+                        AdditionalArtifactRules = configurationInfo.AdditionalArtifactRules,
+                        BuildTriggers = configurationInfo.BuildTriggers,
                         SnapshotDependencyObjectNames = this.Dependencies?
                             .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
-                            .Select( d => d.DeploymentBuildType )
+                            .Select( d => d.CiBuildTypes[configuration] )
                             .ToArray()
                     };
 
-                    teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
+                    teamCityBuildConfigurations.Add( buildTeamCityConfiguration );
                 }
 
-                if ( configurationInfo.Swappers != null )
+                TeamCityBuildConfiguration? teamCityDeploymentConfiguration = null;
+
+                if ( buildTeamCityConfiguration != null && configurationInfo.ExportsToTeamCityDeploy )
+                {
+                    if ( configurationInfo.PrivatePublishers != null
+                         || configurationInfo.PublicPublishers != null )
+                    {
+                        teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
+                            this,
+                            objectName: $"{configuration}Deployment",
+                            name: configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
+                            buildArguments: $"publish --configuration {configuration}",
+                            buildAgentType: this.BuildAgentType )
+                        {
+                            IsDeployment = true,
+                            ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
+                            SnapshotDependencyObjectNames = this.Dependencies?
+                                .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
+                                .Select( d => d.DeploymentBuildType )
+                                .ToArray()
+                        };
+
+                        teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
+                    }
+                }
+
+                if ( buildTeamCityConfiguration != null && configurationInfo.Swappers != null )
                 {
                     teamCityBuildConfigurations.Add(
                         new TeamCityBuildConfiguration(
@@ -1701,163 +1705,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             context.Console.WriteSuccess( $"Tagging the latest commit with version '{versionTag}' was successful." );
-
-            return true;
-        }
-
-        private static bool TryGetLatestBranchesIntersectionCommitHashes(
-            BuildContext context,
-            [NotNullWhen( true )] out string? currentBranch,
-            [NotNullWhen( true )] out string? lastCurrentBranchCommitHash,
-            [NotNullWhen( true )] out string? lastCommonCommitHash )
-        {
-            lastCurrentBranchCommitHash = null;
-            lastCommonCommitHash = null;
-
-            // Fetch all remotes to make sure the merge has not already been done.
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"fetch --all",
-                context.RepoDirectory );
-
-            // Returns the reference name of the current branch.
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"branch --show-current",
-                context.RepoDirectory,
-                out var gitExitCode,
-                out var gitOutput );
-
-            if ( gitExitCode != 0 )
-            {
-                context.Console.WriteError( gitOutput );
-                currentBranch = null;
-
-                return false;
-            }
-
-            currentBranch = gitOutput.Trim();
-
-            // Returns the last commit on the current branch in the commit hash format.
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"log -n 1 --pretty=format:\"%H\"",
-                context.RepoDirectory,
-                out gitExitCode,
-                out gitOutput );
-
-            if ( gitExitCode != 0 )
-            {
-                context.Console.WriteError( gitOutput );
-
-                return false;
-            }
-
-            lastCurrentBranchCommitHash = gitOutput;
-
-            // Returns hash of as good common ancestor commit as possible between origin/master and current branch.
-            // We use origin/master, because master may not be present as a local branch.
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"merge-base origin/master {currentBranch}",
-                context.RepoDirectory,
-                out gitExitCode,
-                out gitOutput );
-
-            if ( gitExitCode != 0 )
-            {
-                context.Console.WriteError( gitOutput );
-
-                return false;
-            }
-
-            lastCommonCommitHash = gitOutput;
-
-            return true;
-        }
-
-        private static bool MergeBranchToMaster( BuildContext context, BaseBuildSettings settings, string branchToMerge )
-        {
-            // Change to the master branch before we do merge.
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"checkout master",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
-
-            // Attempts merging branch to master.
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"merge {branchToMerge}",
-                context.RepoDirectory,
-                out var gitExitCode,
-                out var gitOutput );
-
-            if ( gitExitCode != 0 )
-            {
-                context.Console.WriteError( gitOutput );
-
-                return false;
-            }
-
-            // Returns the remote origin.
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"remote get-url origin",
-                context.RepoDirectory,
-                out gitExitCode,
-                out gitOutput );
-
-            if ( gitExitCode != 0 )
-            {
-                context.Console.WriteError( gitOutput );
-
-                return false;
-            }
-
-            var gitOrigin = gitOutput.Trim();
-
-            var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
-
-            // When on TeamCity, origin will be updated to form including Git authentication credentials.
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
-            {
-                if ( isHttps )
-                {
-                    if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
-                            out var teamcitySourceWriteTokenEnvironmentVariableName,
-                            out var teamcitySourceCodeWritingToken ) )
-                    {
-                        context.Console.WriteImportantMessage(
-                            $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
-                    }
-                    else
-                    {
-                        gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
-                    }
-                }
-            }
-
-            // Push completed merge operation to remote.
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"push {gitOrigin}",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
-
-            context.Console.WriteSuccess( $"Merging '{branchToMerge}' into 'master' branch was successful." );
 
             return true;
         }

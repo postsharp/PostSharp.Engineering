@@ -25,7 +25,7 @@ namespace PostSharp.Engineering.BuildTools
 
         [Description( "Use force" )]
         [CommandOption( "--force" )]
-        public bool Force { get; protected set; }
+        public bool Force { get; init; }
 
         [Description( "Lists the additional properties supported by the command" )]
         [CommandOption( "--list-properties" )]

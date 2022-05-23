@@ -13,7 +13,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
     /// <summary>
     /// A <see cref="Publisher"/> that uses <c>MSDeploy</c> to deploy a web site.
     /// </summary>
-    public class MsDeployPublisher : Publisher
+    public class MsDeployPublisher : ArtifactPublisher
     {
         private readonly ImmutableArray<MsDeployConfiguration> _configurations;
 
@@ -55,7 +55,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
             return true;
         }
 
-        public override SuccessCode Execute(
+        public override SuccessCode PublishFile(
             BuildContext context,
             PublishSettings settings,
             string file,

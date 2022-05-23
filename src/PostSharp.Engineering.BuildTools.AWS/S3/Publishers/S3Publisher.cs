@@ -13,7 +13,7 @@ using System.Net;
 
 namespace PostSharp.Engineering.BuildTools.AWS.S3.Publishers
 {
-    public class S3Publisher : Publisher
+    public class S3Publisher : ArtifactPublisher
     {
         private readonly ImmutableArray<S3PublisherConfiguration> _configuration;
 
@@ -23,7 +23,7 @@ namespace PostSharp.Engineering.BuildTools.AWS.S3.Publishers
             this._configuration = ImmutableArray.Create<S3PublisherConfiguration>().AddRange( configurations );
         }
 
-        public override SuccessCode Execute(
+        public override SuccessCode PublishFile(
             BuildContext context,
             PublishSettings settings,
             string file,
