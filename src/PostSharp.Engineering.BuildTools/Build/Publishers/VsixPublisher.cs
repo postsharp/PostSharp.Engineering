@@ -11,7 +11,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
     {
         public VsixPublisher( Pattern files ) : base( files ) { }
 
-        public override SuccessCode Execute(
+        public override SuccessCode PublishFile(
             BuildContext context,
             PublishSettings settings,
             string file,

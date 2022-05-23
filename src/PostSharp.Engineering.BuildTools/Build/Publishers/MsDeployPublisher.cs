@@ -55,7 +55,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
             return true;
         }
 
-        public override SuccessCode Execute(
+        public override SuccessCode PublishFile(
             BuildContext context,
             PublishSettings settings,
             string file,

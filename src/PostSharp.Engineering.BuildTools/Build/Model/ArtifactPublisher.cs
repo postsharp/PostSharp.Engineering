@@ -5,6 +5,9 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
+    /// <summary>
+    /// A publisher that publishes all artifact files specified in <see cref="Files"/> pattern.
+    /// </summary>
     public abstract class ArtifactPublisher : Publisher
     {
         public Pattern Files { get; }
@@ -19,14 +22,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Executes the target for a specified artifact.
         /// </summary>
-        public abstract SuccessCode Execute(
+        public abstract SuccessCode PublishFile(
             BuildContext context,
             PublishSettings settings,
             string file,
             BuildInfo buildInfo,
             BuildConfigurationInfo configuration );
 
-        protected override bool Publish(
+        protected sealed override bool Publish(
             BuildContext context,
             PublishSettings settings,
             (string Private, string Public) directories,
@@ -63,7 +66,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var filePath = Path.Combine( directory, file.Path );
 
-                switch ( this.Execute( context, settings, filePath, buildInfo, configuration ) )
+                switch ( this.PublishFile( context, settings, filePath, buildInfo, configuration ) )
                 {
                     case SuccessCode.Success:
                         break;

@@ -18,7 +18,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
             this._apiKey = apiKey;
         }
 
-        public override SuccessCode Execute(
+        public override SuccessCode PublishFile(
             BuildContext context,
             PublishSettings settings,
             string file,

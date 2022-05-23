@@ -2,6 +2,9 @@
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
+    /// <summary>
+    /// An independent publisher that executes a publishing step regardless of created artifact files.
+    /// </summary>
     public abstract class IndependentPublisher : Publisher
     {
         /// <summary>
@@ -13,7 +16,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             BuildInfo buildInfo,
             BuildConfigurationInfo configuration );
         
-        protected override bool Publish(
+        protected sealed override bool Publish(
             BuildContext context,
             PublishSettings settings,
             (string Private, string Public) directories,

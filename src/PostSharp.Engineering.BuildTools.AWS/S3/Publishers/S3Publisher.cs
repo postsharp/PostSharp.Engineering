@@ -23,7 +23,7 @@ namespace PostSharp.Engineering.BuildTools.AWS.S3.Publishers
             this._configuration = ImmutableArray.Create<S3PublisherConfiguration>().AddRange( configurations );
         }
 
-        public override SuccessCode Execute(
+        public override SuccessCode PublishFile(
             BuildContext context,
             PublishSettings settings,
             string file,

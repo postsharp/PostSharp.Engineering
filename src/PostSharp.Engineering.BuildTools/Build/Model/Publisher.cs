@@ -1,5 +1,8 @@
 ﻿namespace PostSharp.Engineering.BuildTools.Build.Model
 {
+    /// <summary>
+    /// An abstract publisher class used in <see cref="Product.Publish"/> to publish artifacts or execute publishing step.
+    /// </summary>
     public abstract class Publisher
     {
         protected abstract bool Publish(
