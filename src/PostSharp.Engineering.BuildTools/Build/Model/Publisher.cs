@@ -1,30 +1,16 @@
-﻿using Microsoft.Extensions.FileSystemGlobbing;
-using System;
-using System.Collections.Generic;
-using System.IO;
-
-namespace PostSharp.Engineering.BuildTools.Build.Model
+﻿namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     public abstract class Publisher
     {
-        public Pattern Files { get; }
-
-        public Tester[] Testers { get; init; } = Array.Empty<Tester>();
-
-        protected Publisher( Pattern files )
-        {
-            this.Files = files;
-        }
-
-        /// <summary>
-        /// Executes the target for a specified artifact.
-        /// </summary>
-        public abstract SuccessCode Execute(
+        protected abstract bool Publish(
             BuildContext context,
             PublishSettings settings,
-            string file,
+            (string Private, string Public) directories,
+            BuildConfigurationInfo configuration,
             BuildInfo buildInfo,
-            BuildConfigurationInfo configuration );
+            bool isPublic,
+            ref bool hasTarget,
+            ref bool allFilesSucceeded );
 
         public static bool PublishDirectory(
             BuildContext context,
@@ -35,10 +21,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             bool isPublic,
             ref bool hasTarget )
         {
-            var success = true;
+            var publishingSucceeded = true;
 
             var publishers = isPublic ? configuration.PublicPublishers : configuration.PrivatePublishers;
-            var directory = isPublic ? directories.Public : directories.Private;
 
             if ( publishers is not { Length: > 0 } )
             {
@@ -49,75 +34,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             foreach ( var publisher in publishers )
             {
-                var files = new List<FilePatternMatch>();
-
-                if ( !publisher.Files.TryGetFiles( directory, buildInfo, files ) )
+                if ( !publisher.Publish(
+                        context,
+                        settings,
+                        directories,
+                        configuration,
+                        buildInfo,
+                        isPublic,
+                        ref hasTarget,
+                        ref allFilesSucceeded ) )
                 {
-                    continue;
-                }
-
-                foreach ( var file in files )
-                {
-                    if ( file.Stem.Contains( "-local-", StringComparison.OrdinalIgnoreCase ) )
-                    {
-                        context.Console.WriteError( "Cannot publish a local build." );
-
-                        return false;
-                    }
-
-                    hasTarget = true;
-
-                    var filePath = Path.Combine( directory, file.Path );
-
-                    switch ( publisher.Execute( context, settings, filePath, buildInfo, configuration ) )
-                    {
-                        case SuccessCode.Success:
-                            break;
-
-                        case SuccessCode.Error:
-                            success = false;
-                            allFilesSucceeded = false;
-
-                            break;
-
-                        case SuccessCode.Fatal:
-                            return false;
-
-                        default:
-                            throw new NotImplementedException();
-                    }
-                }
-
-                if ( allFilesSucceeded )
-                {
-                    foreach ( var tester in publisher.Testers )
-                    {
-                        switch ( tester.Execute( context, directories.Private, buildInfo, configuration, settings.Dry ) )
-                        {
-                            case SuccessCode.Success:
-                                break;
-
-                            case SuccessCode.Error:
-                                success = false;
-
-                                break;
-
-                            case SuccessCode.Fatal:
-                                return false;
-
-                            default:
-                                throw new NotImplementedException();
-                        }
-                    }
+                    publishingSucceeded = false;
                 }
             }
 
-            if ( !success )
-            {
-                context.Console.WriteError( "Publishing has failed." );
-            }
-
-            return success;
+            return publishingSucceeded;
         }
     }
 }

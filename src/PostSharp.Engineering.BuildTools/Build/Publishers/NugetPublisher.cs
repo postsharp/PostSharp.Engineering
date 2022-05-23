@@ -7,7 +7,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
     /// <summary>
     /// Publishes NuGet packages to any feed.
     /// </summary>
-    public class NugetPublisher : Publisher
+    public class NugetPublisher : ArtifactPublisher
     {
         private readonly string _source;
         private readonly string _apiKey;

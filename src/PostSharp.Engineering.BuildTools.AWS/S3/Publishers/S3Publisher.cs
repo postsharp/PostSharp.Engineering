@@ -13,7 +13,7 @@ using System.Net;
 
 namespace PostSharp.Engineering.BuildTools.AWS.S3.Publishers
 {
-    public class S3Publisher : Publisher
+    public class S3Publisher : ArtifactPublisher
     {
         private readonly ImmutableArray<S3PublisherConfiguration> _configuration;
 

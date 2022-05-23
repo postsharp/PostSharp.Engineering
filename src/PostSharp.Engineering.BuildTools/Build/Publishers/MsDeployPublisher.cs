@@ -13,7 +13,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
     /// <summary>
     /// A <see cref="Publisher"/> that uses <c>MSDeploy</c> to deploy a web site.
     /// </summary>
-    public class MsDeployPublisher : Publisher
+    public class MsDeployPublisher : ArtifactPublisher
     {
         private readonly ImmutableArray<MsDeployConfiguration> _configurations;
 

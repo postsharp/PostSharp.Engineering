@@ -12,14 +12,11 @@ using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Publishers;
 
-public class MergePublisher : Publisher
+public class MergePublisher : IndependentPublisher
 {
-    public MergePublisher( Pattern files ) : base( files ) { }
-
     public override SuccessCode Execute(
         BuildContext context,
         PublishSettings settings,
-        string file,
         BuildInfo buildInfo,
         BuildConfigurationInfo configuration )
     {
