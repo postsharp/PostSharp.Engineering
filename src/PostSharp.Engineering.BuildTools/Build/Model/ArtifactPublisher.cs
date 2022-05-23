@@ -44,9 +44,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( !this.Files.TryGetFiles( directory, buildInfo, files ) )
             {
-                context.Console.WriteWarning( $"No created artifacts match the required publisher pattern(s)." );
+                context.Console.WriteWarning( $"No created artifact files match the required publisher pattern(s): '{this.Files}'" );
 
-                return false;
+                return true;
             }
 
             foreach ( var file in files )
