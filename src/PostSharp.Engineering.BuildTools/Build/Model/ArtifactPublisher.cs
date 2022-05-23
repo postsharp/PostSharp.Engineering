@@ -16,6 +16,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.Files = files;
         }
 
+        /// <summary>
+        /// Executes the target for a specified artifact.
+        /// </summary>
+        public abstract SuccessCode Execute(
+            BuildContext context,
+            PublishSettings settings,
+            string file,
+            BuildInfo buildInfo,
+            BuildConfigurationInfo configuration );
+
         protected override bool Publish(
             BuildContext context,
             PublishSettings settings,
@@ -101,15 +111,5 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             return success;
         }
-
-        /// <summary>
-        /// Executes the target for a specified artifact.
-        /// </summary>
-        public abstract SuccessCode Execute(
-            BuildContext context,
-            PublishSettings settings,
-            string file,
-            BuildInfo buildInfo,
-            BuildConfigurationInfo configuration );
     }
 }

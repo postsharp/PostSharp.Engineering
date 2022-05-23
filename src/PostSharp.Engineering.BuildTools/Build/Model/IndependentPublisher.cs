@@ -5,7 +5,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     public abstract class IndependentPublisher : Publisher
     {
         /// <summary>
-        /// Executes the target for a specified artifact.
+        /// Executes the independent publisher.
         /// </summary>
         public abstract SuccessCode Execute(
             BuildContext context,
