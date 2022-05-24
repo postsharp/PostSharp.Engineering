@@ -106,6 +106,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
 
+        public static ImmutableArray<Publisher> DefaultPublicPublishers { get; }
+            = ImmutableArray.Create(
+                new Publisher[]
+                {
+                    new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
+                    new VsixPublisher( Pattern.Create( "*.vsix" ) )
+                } );
+
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
                 debug: new BuildConfigurationInfo( MSBuildName: "Debug", BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
@@ -113,11 +121,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 @public: new BuildConfigurationInfo(
                     MSBuildName: "Release",
                     RequiresSigning: true,
-                    PublicPublishers: new Publisher[]
-                    {
-                        new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
-                        new VsixPublisher( Pattern.Create( "*.vsix" ) )
-                    },
+                    PublicPublishers: DefaultPublicPublishers.ToArray(),
                     ExportsToTeamCityDeploy: true ) );
 
         /// <summary>
@@ -685,7 +689,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( settings.BuildConfiguration == BuildConfiguration.Public && !TeamCityHelper.IsTeamCityBuild( settings ) && !settings.Force )
             {
-                context.Console.WriteError( "Cannot prepare a public configuration on a local machine without --force because it may corrupt the package cache." );
+                context.Console.WriteError(
+                    "Cannot prepare a public configuration on a local machine without --force because it may corrupt the package cache." );
 
                 return false;
             }
@@ -724,7 +729,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             var configuration = settings.BuildConfiguration;
             preparedPackageVersion = string.Empty;
-            
+
             context.Console.WriteHeading( "Preparing the version file" );
 
             var privateArtifactsRelativeDir =
@@ -1200,8 +1205,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // If there are no changes since the last tag (i.e. last publishing), we get a warning about publishing the same version only.
                 if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
                 {
-                    context.Console.WriteWarning(
-                        $"There are no new unpublished changes since the last version tag '{lastVersionTag}'." );
+                    context.Console.WriteWarning( $"There are no new unpublished changes since the last version tag '{lastVersionTag}'." );
                 }
                 else
                 {
@@ -1423,7 +1427,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}{(this.PublishTestResults ? $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}" : "")}";
 
                 TeamCityBuildConfiguration? buildTeamCityConfiguration = null;
-                
+
                 if ( configurationInfo.ExportsToTeamCityBuild )
                 {
                     buildTeamCityConfiguration = new TeamCityBuildConfiguration(
@@ -1503,10 +1507,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: "VersionBump",
                             name: $"Version Bump",
                             buildArguments: $"bump",
-                            buildAgentType: this.BuildAgentType )
-                        {
-                            IsDeployment = true
-                        } );
+                            buildAgentType: this.BuildAgentType ) { IsDeployment = true } );
                 }
             }
 
