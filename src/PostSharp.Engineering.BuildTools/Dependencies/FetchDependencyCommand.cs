@@ -420,7 +420,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             }
             else
             {
-                context.Console.WriteMessage( $"Dependency '{dependencyName}' is up to date." );
+                context.Console.WriteMessage( $"Dependency '{dependencyName}' is up to date: build #{buildNumber} of  of {ciBuildTypeId} was already downloaded." );
             }
 
             // Find the version file.
