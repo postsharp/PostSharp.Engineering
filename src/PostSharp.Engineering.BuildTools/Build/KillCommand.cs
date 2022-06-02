@@ -32,7 +32,9 @@ namespace PostSharp.Engineering.BuildTools.Build
                         {
                             var commandLine = GetCommandLine( p );
 
-                            if ( commandLine != null && commandLine.Contains( "VBCSCompiler", StringComparison.OrdinalIgnoreCase ) )
+                            if ( commandLine != null
+                                 && (commandLine.Contains( "VBCSCompiler", StringComparison.OrdinalIgnoreCase )
+                                     || commandLine.Contains( "MSBuild", StringComparison.OrdinalIgnoreCase )) )
                             {
                                 return true;
                             }
