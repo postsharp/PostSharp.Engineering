@@ -1116,8 +1116,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Clears NuGet global-packages cache of Metalama and PostSharp.Engineering packages to prevent using old or corrupted package.
             void CleanNugetCache()
             {
-                context.Console.WriteMessage( "Cleaning NuGet cache." );
-
                 // Use dotnet command to locate nuget cache directory.
                 ToolInvocationHelper.InvokeTool(
                     context.Console,
@@ -1144,9 +1142,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            context.Console.WriteHeading( $"Cleaning {this.ProductName}." );
+            context.Console.WriteHeading( "Cleaning NuGet cache." );
 
             CleanNugetCache();
+
+            context.Console.WriteHeading( $"Cleaning {this.ProductName}." );
 
             foreach ( var directory in this.AdditionalDirectoriesToClean )
             {
