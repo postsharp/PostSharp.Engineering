@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using System.IO;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
@@ -10,6 +11,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string ObjectName { get; }
 
         public string Name { get; }
+
+        public bool RequiresClearCache { get; init; } = false;
 
         public string BuildArguments { get; }
 
@@ -69,8 +72,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         root(DslContext.settingsRoot)
     }}
 
-    steps {{
+    steps {{" );
+
+            if ( this.RequiresClearCache )
+            {
+                writer.WriteLine(
+                    $@"        // Step to kill all dotnet or VBCSCompiler processes that might be locking files.
         powerShell {{
+            scriptMode = file {{
+                path = ""Build.ps1""
+            }}
+            noProfile = false
+            param(""jetbrains_powershell_scriptArguments"", ""tools kill"")
+        }}" );
+            }
+            
+            writer.WriteLine(
+                $@"        powerShell {{
             scriptMode = file {{
                 path = ""Build.ps1""
             }}
