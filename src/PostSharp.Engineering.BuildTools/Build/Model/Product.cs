@@ -1132,13 +1132,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var directoryInfo = new DirectoryInfo( nugetCacheDirectory );
 
                 // Delete all cached packages directories starting with 'Metalama'.
-                foreach ( var dir in directoryInfo.EnumerateDirectories( "Metalama*" ) )
+                foreach ( var dir in directoryInfo.EnumerateDirectories( "metalama*" ) )
                 {
                     DeleteDirectory( Path.Combine( nugetCacheDirectory, dir.Name ) );
                 }
                 
                 // Delete all cached packages directories starting with 'PostSharp.Engineering'.
-                foreach ( var dir in directoryInfo.EnumerateDirectories( "PostSharp.Engineering*" ) )
+                foreach ( var dir in directoryInfo.EnumerateDirectories( "postsharp.engineering*" ) )
                 {
                     DeleteDirectory( Path.Combine( nugetCacheDirectory, dir.Name ) );
                 }
