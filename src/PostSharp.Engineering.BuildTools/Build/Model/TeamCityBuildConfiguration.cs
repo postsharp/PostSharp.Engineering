@@ -12,7 +12,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string Name { get; }
 
-        public bool RequiresClearCache { get; init; } = false;
+        public bool RequiresClearCache { get; init; }
 
         public string BuildArguments { get; }
 
