@@ -77,8 +77,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( this.RequiresClearCache )
             {
                 writer.WriteLine(
-                    $@"        // Step to kill all dotnet or VBCSCompiler processes that might be locking files we delete in during cleaning.
+                    $@"        // Step to kill all dotnet or VBCSCompiler processes that might be locking files we delete in during cleanup.
         powerShell {{
+            name = ""Kill background processes before cleanup""
             scriptMode = file {{
                 path = ""Build.ps1""
             }}
@@ -89,6 +90,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             
             writer.WriteLine(
                 $@"        powerShell {{
+            name = ""{this.Name}""
             scriptMode = file {{
                 path = ""Build.ps1""
             }}
