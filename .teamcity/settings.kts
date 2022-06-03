@@ -31,7 +31,7 @@ object DebugBuild : BuildType({
     }
 
     steps {
-        // Step to kill all dotnet or VBCSCompiler processes that might be locking files.
+        // Step to kill all dotnet or VBCSCompiler processes that might be locking files we delete in during cleaning.
         powerShell {
             scriptMode = file {
                 path = "Build.ps1"
@@ -83,7 +83,7 @@ object PublicBuild : BuildType({
     }
 
     steps {
-        // Step to kill all dotnet or VBCSCompiler processes that might be locking files.
+        // Step to kill all dotnet or VBCSCompiler processes that might be locking files we delete in during cleaning.
         powerShell {
             scriptMode = file {
                 path = "Build.ps1"
