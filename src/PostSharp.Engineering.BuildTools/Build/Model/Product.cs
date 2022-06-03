@@ -1142,9 +1142,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            context.Console.WriteHeading( "Cleaning NuGet cache." );
+            // NugetCache gets automatically deleted only on TeamCity.
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                context.Console.WriteHeading( "Cleaning NuGet cache." );
 
-            CleanNugetCache();
+                CleanNugetCache();
+            }
 
             context.Console.WriteHeading( $"Cleaning {this.ProductName}." );
 
