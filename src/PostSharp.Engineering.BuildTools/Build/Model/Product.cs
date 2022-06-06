@@ -1113,6 +1113,43 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
+            // Clears NuGet global-packages cache of Metalama and PostSharp.Engineering packages to prevent using old or corrupted package.
+            void CleanNugetCache()
+            {
+                // Use dotnet command to locate nuget cache directory.
+                ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "dotnet",
+                    "nuget locals global-packages -l",
+                    context.RepoDirectory,
+                    out _,
+                    out var output );
+
+                // Get only directory location string.
+                var nugetCacheDirectory = output.Split( ' ' )[1].Trim();
+                var directoryInfo = new DirectoryInfo( nugetCacheDirectory );
+
+                // Delete all cached packages directories starting with 'Metalama'.
+                foreach ( var dir in directoryInfo.EnumerateDirectories( "metalama*" ) )
+                {
+                    DeleteDirectory( Path.Combine( nugetCacheDirectory, dir.Name ) );
+                }
+                
+                // Delete all cached packages directories starting with 'PostSharp.Engineering'.
+                foreach ( var dir in directoryInfo.EnumerateDirectories( "postsharp.engineering*" ) )
+                {
+                    DeleteDirectory( Path.Combine( nugetCacheDirectory, dir.Name ) );
+                }
+            }
+
+            // NugetCache gets automatically deleted only on TeamCity.
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                context.Console.WriteHeading( "Cleaning NuGet cache." );
+
+                CleanNugetCache();
+            }
+
             context.Console.WriteHeading( $"Cleaning {this.ProductName}." );
 
             foreach ( var directory in this.AdditionalDirectoriesToClean )
@@ -1437,6 +1474,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         buildArguments: $"test --configuration {configuration} --buildNumber %build.number%",
                         buildAgentType: this.BuildAgentType )
                     {
+                        RequiresClearCache = true,
                         ArtifactRules = artifactRules,
                         AdditionalArtifactRules = configurationInfo.AdditionalArtifactRules,
                         BuildTriggers = configurationInfo.BuildTriggers,
