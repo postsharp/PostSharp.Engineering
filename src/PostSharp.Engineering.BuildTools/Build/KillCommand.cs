@@ -23,7 +23,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                 .Where(
                     p =>
                     {
-                        if ( p.ProcessName.Equals( "VBCSCompiler", StringComparison.OrdinalIgnoreCase ) )
+                        if ( p.ProcessName.Equals( "VBCSCompiler", StringComparison.OrdinalIgnoreCase ) || p.ProcessName.Equals( "MSBuild", StringComparison.OrdinalIgnoreCase ) )
                         {
                             return true;
                         }
@@ -32,7 +32,9 @@ namespace PostSharp.Engineering.BuildTools.Build
                         {
                             var commandLine = GetCommandLine( p );
 
-                            if ( commandLine != null && commandLine.Contains( "VBCSCompiler", StringComparison.OrdinalIgnoreCase ) )
+                            if ( commandLine != null
+                                 && (commandLine.Contains( "VBCSCompiler", StringComparison.OrdinalIgnoreCase )
+                                     || commandLine.Contains( "MSBuild", StringComparison.OrdinalIgnoreCase )) )
                             {
                                 return true;
                             }

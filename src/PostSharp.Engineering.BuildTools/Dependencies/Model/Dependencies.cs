@@ -92,6 +92,24 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             VcsProvider.AzureRepos,
             "Metalama" );
 
+        public static DependencyDefinition BusinessSystems { get; } = new(
+            "BusinessSystems",
+            VcsProvider.AzureRepos,
+            "WebsitesAndBusinessSystems",
+            false );
+
+        public static DependencyDefinition HelpBrowser { get; } = new(
+            "HelpBrowser",
+            VcsProvider.AzureRepos,
+            "WebsitesAndBusinessSystems",
+            false );
+
+        public static DependencyDefinition PostSharpWeb { get; } = new(
+            "PostSharpWeb",
+            VcsProvider.AzureRepos,
+            "WebsitesAndBusinessSystems",
+            false );
+
         public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
             MetalamaCompiler,
             Metalama,
@@ -103,6 +121,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             MetalamaOpenDependencyEmbedder,
             MetalamaOpenVirtuosity,
             PostSharpEngineering,
-            MetalamaBackstage );
+            MetalamaBackstage,
+            BusinessSystems,
+            HelpBrowser,
+            PostSharpWeb );
     }
 }
