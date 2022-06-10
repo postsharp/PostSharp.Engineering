@@ -27,9 +27,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public bool GenerateSnapshotDependency { get; init; } = true;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="DependencyDefinition"/> class that represents an external dependency, i.e. one
-        /// that we do not build ourselves.
         /// </summary>
         public DependencyDefinition( string name, VcsProvider provider, string vcsProjectName, bool isVersioned = true )
         {
@@ -39,18 +36,21 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             this.RepoName = name;
             this.DefaultBranch = "master";
             this.IsVersioned = isVersioned;
+            var vcsProjectNameWithUnderscore = vcsProjectName.Replace( ".", "_", StringComparison.Ordinal );
+
+
 
             this.CiBuildTypes = new ConfigurationSpecific<string>(
-                $"{this.VcsProjectName}_{this.NameWithoutDot}_DebugBuild",
-                $"{this.VcsProjectName}_{this.NameWithoutDot}_ReleaseBuild",
-                $"{this.VcsProjectName}_{this.NameWithoutDot}_PublicBuild" );
+                $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_DebugBuild",
+                $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_ReleaseBuild",
+                $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_PublicBuild" );
 
             if ( this.IsVersioned )
             {
-                this.BumpBuildType = $"{this.VcsProjectName}_{this.NameWithoutDot}_VersionBump";
+                this.BumpBuildType = $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_VersionBump";
             }
             
-            this.DeploymentBuildType = $"{this.VcsProjectName}_{this.NameWithoutDot}_PublicDeployment";
+            this.DeploymentBuildType = $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_PublicDeployment";
         }
 
         public override string ToString() => this.Name;
