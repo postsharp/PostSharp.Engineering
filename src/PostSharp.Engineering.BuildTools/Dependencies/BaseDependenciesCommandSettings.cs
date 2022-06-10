@@ -9,7 +9,7 @@ public class BaseDependenciesCommandSettings : CommonCommandSettings
 {
     [Description( "Build configuration (Debug | Release | Public)" )]
     [CommandOption( "-c|--configuration" )]
-    [Obsolete("Use the BuildConfiguration property. ")]
+    [Obsolete( "Use the BuildConfiguration property. " )]
     public BuildConfiguration? BuildConfiguration { get; set; }
 
     public bool TryGetBuildConfiguration( BuildContext context, out BuildConfiguration configuration )

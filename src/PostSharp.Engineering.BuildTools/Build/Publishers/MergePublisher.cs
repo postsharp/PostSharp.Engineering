@@ -29,7 +29,7 @@ public class MergePublisher : IndependentPublisher
         {
             return SuccessCode.Error;
         }
-        
+
         context.Console.WriteMessage( $"Merging branch '{currentBranch}' to 'master' after publishing artifacts." );
 
         // Change to the master branch before we do merge.
@@ -46,7 +46,7 @@ public class MergePublisher : IndependentPublisher
         if ( !lastCurrentBranchCommitHash.Equals( lastCommonCommitHash, StringComparison.Ordinal ) )
         {
             context.Console.WriteWarning( $"Branch '{currentBranch}' requires merging to master." );
-        
+
             // Merge current branch.
             if ( !MergeBranchToMaster( context, settings, currentBranch ) )
             {
@@ -236,7 +236,10 @@ public class MergePublisher : IndependentPublisher
         var productVersionsPropertiesFile = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
 
         // For following Prepare step we need to BuildSettings
-        var buildSettings = new BuildSettings() { BuildConfiguration = settings.BuildConfiguration, ContinuousIntegration = settings.ContinuousIntegration, Force = settings.Force };
+        var buildSettings = new BuildSettings()
+        {
+            BuildConfiguration = settings.BuildConfiguration, ContinuousIntegration = settings.ContinuousIntegration, Force = settings.Force
+        };
 
         // Do prepare step to get Version.Public.g.props to load up-to-date versions from.
         if ( !context.Product.PrepareVersionsFile( context, buildSettings, out _ ) )

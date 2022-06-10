@@ -10,13 +10,13 @@ public enum TeamCityBuildType
     /// and <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TryGetBuildTypeIdFromDependencyDefinition"/>
     /// </summary>
     Build,
-    
+
     /// <summary>
     /// The deployment of product will be scheduled on TeamCity. <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TriggerTeamCityBuild"/>
     /// and <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TryGetBuildTypeIdFromDependencyDefinition"/>
     /// </summary>
     Deploy,
-    
+
     /// <summary>
     /// The version bump of product will be scheduled on TeamCity. <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TriggerTeamCityBuild"/>
     /// and <see cref="BuildTools.ContinuousIntegration.TeamCityHelper.TryGetBuildTypeIdFromDependencyDefinition"/>

@@ -1,6 +1,4 @@
-﻿using PostSharp.Engineering.BuildTools.ContinuousIntegration;
-using System.IO;
-using System.Linq;
+﻿using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
@@ -19,7 +17,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string BuildAgentType { get; }
 
         public bool IsDeployment { get; init; }
-   
+
         public string? ArtifactRules { get; init; }
 
         public string[]? AdditionalArtifactRules { get; init; }
@@ -87,7 +85,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             param(""jetbrains_powershell_scriptArguments"", ""tools kill"")
         }}" );
             }
-            
+
             writer.WriteLine(
                 $@"        powerShell {{
             name = ""{this.Name}""
@@ -121,8 +119,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         }}" );
             }
 
-            writer.WriteLine(
-                $@"    }}" );
+            writer.WriteLine( $@"    }}" );
 
             // Triggers.
             if ( this.BuildTriggers is { Length: > 0 } )

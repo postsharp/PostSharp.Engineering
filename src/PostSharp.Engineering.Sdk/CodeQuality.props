@@ -24,11 +24,11 @@
         <PackageReference Include="StyleCop.Analyzers"
                           Version="1.2.0-beta.406"
                           Condition="'$(EnforceCodeStyleInBuild)'=='True'"
-                          PrivateAssets="All"/>
-        <AdditionalFiles  Include="$(MSBuildThisFileDirectory)\assets\stylecop.json"
-                 Condition="'$(EnforceCodeStyleInBuild)'=='True'"
-                  Link="stylecop.json"
-                 Pack="false"/>
+                          PrivateAssets="All" />
+        <AdditionalFiles Include="$(MSBuildThisFileDirectory)\assets\stylecop.json"
+                         Condition="'$(EnforceCodeStyleInBuild)'=='True'"
+                         Link="stylecop.json"
+                         Pack="false" />
     </ItemGroup>
 
 </Project>

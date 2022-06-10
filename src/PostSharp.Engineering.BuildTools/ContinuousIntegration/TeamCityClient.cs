@@ -115,7 +115,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             var payload = $"<build><buildType id=\"{buildTypeId}\" /><comment><text>This build was triggered by command.</text></comment></build>";
             var content = new StringContent( payload, Encoding.UTF8, "application/xml" );
             var httpResponseResult = this._httpClient.PostAsync( TeamCityHelper.TeamcityApiBuildQueueUri, content ).Result;
-        
+
             if ( !httpResponseResult.IsSuccessStatusCode )
             {
                 return null;
@@ -132,7 +132,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
         {
             var status = $"Build starting...";
             buildNumber = string.Empty;
-            
+
             var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiRunningBuildsUri ).Result;
 
             var httpResponseMessageContentString = httpResponseResult.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
@@ -205,7 +205,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             return true;
         }
-        
+
         public bool HasBuildFinishedSuccessfully( string buildId )
         {
             var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiFinishedBuildsUri ).Result;
@@ -218,7 +218,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             {
                 return false;
             }
-                
+
             var build = builds.Elements().ToArray().FirstOrDefault( e => e.Attribute( "id" )!.Value.Equals( buildId, StringComparison.Ordinal ) );
 
             if ( build == null )

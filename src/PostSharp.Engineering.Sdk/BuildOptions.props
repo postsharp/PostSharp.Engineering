@@ -13,8 +13,8 @@
 
     <Target Name="VerifyRepoDirectory">
         <Error
-                Text="The RepoDirectory property has not been set. it must be set to %24(MSBuildThisFileDirectory) in Directory.Build.props "
-                Condition="'$(RepoDirectory)'==''"/>
+            Text="The RepoDirectory property has not been set. it must be set to %24(MSBuildThisFileDirectory) in Directory.Build.props "
+            Condition="'$(RepoDirectory)'==''" />
     </Target>
 
 </Project>

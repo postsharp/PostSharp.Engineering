@@ -15,7 +15,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             PublishSettings settings,
             BuildInfo buildInfo,
             BuildConfigurationInfo configuration );
-        
+
         protected sealed override bool Publish(
             BuildContext context,
             PublishSettings settings,
@@ -26,7 +26,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             ref bool hasTarget )
         {
             var success = true;
-            
+
             switch ( this.Execute( context, settings, buildInfo, configuration ) )
             {
                 case SuccessCode.Success:

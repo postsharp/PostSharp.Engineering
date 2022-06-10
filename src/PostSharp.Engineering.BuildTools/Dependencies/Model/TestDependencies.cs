@@ -8,12 +8,12 @@ public static class TestDependencies
         "PostSharp.Engineering.Test.TestProduct",
         VcsProvider.AzureRepos,
         "Test" );
-    
+
     public static DependencyDefinition Dependency { get; } = new(
         "PostSharp.Engineering.Test.Dependency",
         VcsProvider.AzureRepos,
         "Test" );
-    
+
     public static DependencyDefinition TransitiveDependency { get; } = new(
         "PostSharp.Engineering.Test.TransitiveDependency",
         VcsProvider.AzureRepos,
@@ -23,12 +23,12 @@ public static class TestDependencies
         "PostSharp.Engineering.Test.GitHub",
         VcsProvider.GitHub,
         "Test" );
-    
+
     public static DependencyDefinition MainVersionDependency { get; } = new(
         "PostSharp.Engineering.Test.MainVersionDependency",
         VcsProvider.AzureRepos,
         "Test" );
-    
+
     public static DependencyDefinition PatchVersion { get; } = new(
         "PostSharp.Engineering.Test.PatchVersion",
         VcsProvider.AzureRepos,

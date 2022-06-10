@@ -23,7 +23,8 @@ namespace PostSharp.Engineering.BuildTools.Build
                 .Where(
                     p =>
                     {
-                        if ( p.ProcessName.Equals( "VBCSCompiler", StringComparison.OrdinalIgnoreCase ) || p.ProcessName.Equals( "MSBuild", StringComparison.OrdinalIgnoreCase ) )
+                        if ( p.ProcessName.Equals( "VBCSCompiler", StringComparison.OrdinalIgnoreCase )
+                             || p.ProcessName.Equals( "MSBuild", StringComparison.OrdinalIgnoreCase ) )
                         {
                             return true;
                         }

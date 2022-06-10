@@ -1,5 +1,4 @@
-﻿using PostSharp.Engineering.BuildTools.Build;
-using System;
+﻿using System;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
@@ -38,8 +37,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             this.IsVersioned = isVersioned;
             var vcsProjectNameWithUnderscore = vcsProjectName.Replace( ".", "_", StringComparison.Ordinal );
 
-
-
             this.CiBuildTypes = new ConfigurationSpecific<string>(
                 $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_DebugBuild",
                 $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_ReleaseBuild",
@@ -49,7 +46,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             {
                 this.BumpBuildType = $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_VersionBump";
             }
-            
+
             this.DeploymentBuildType = $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_PublicDeployment";
         }
 

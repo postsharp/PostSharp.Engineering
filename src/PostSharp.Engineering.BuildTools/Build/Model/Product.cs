@@ -1134,7 +1134,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     DeleteDirectory( Path.Combine( nugetCacheDirectory, dir.Name ) );
                 }
-                
+
                 // Delete all cached packages directories starting with 'PostSharp.Engineering'.
                 foreach ( var dir in directoryInfo.EnumerateDirectories( "postsharp.engineering*" ) )
                 {

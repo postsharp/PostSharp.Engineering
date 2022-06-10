@@ -1,16 +1,10 @@
 ﻿using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.Utilities;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using Spectre.Console;
 using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Drawing;
-using System.Globalization;
 using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
 using System.Threading;
-using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
@@ -43,7 +37,7 @@ public static class TeamCityHelper
         {
             return false;
         }
-        
+
         var token = Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" );
 
         if ( string.IsNullOrEmpty( token ) )
@@ -56,7 +50,7 @@ public static class TeamCityHelper
         TeamCityClient tc = new( token );
 
         var scheduledBuildId = tc.ScheduleBuild( buildTypeId );
-        
+
         if ( string.IsNullOrEmpty( scheduledBuildId ) )
         {
             context.Console.WriteError( $"Failed to schedule build '{buildTypeId}'." );
@@ -103,7 +97,11 @@ public static class TeamCityHelper
         return true;
     }
 
-    private static bool TryGetBuildTypeIdFromDependencyDefinition( BuildContext context, TeamCityBuildCommandSettings settings, TeamCityBuildType teamCityBuildType, [NotNullWhen( true )] out string? buildTypeId )
+    private static bool TryGetBuildTypeIdFromDependencyDefinition(
+        BuildContext context,
+        TeamCityBuildCommandSettings settings,
+        TeamCityBuildType teamCityBuildType,
+        [NotNullWhen( true )] out string? buildTypeId )
     {
         // Product name must be specified.
         if ( string.IsNullOrEmpty( settings.ProductName ) )
@@ -115,8 +113,9 @@ public static class TeamCityHelper
         }
 
         // DependencyDefinition is found by its product name.
-        var dependencyDefinition = Dependencies.Model.Dependencies.All.FirstOrDefault( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) )
-                                   ?? Dependencies.Model.TestDependencies.All.FirstOrDefault( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) );
+        var dependencyDefinition =
+            Dependencies.Model.Dependencies.All.FirstOrDefault( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) )
+            ?? TestDependencies.All.FirstOrDefault( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) );
 
         if ( dependencyDefinition == null )
         {
