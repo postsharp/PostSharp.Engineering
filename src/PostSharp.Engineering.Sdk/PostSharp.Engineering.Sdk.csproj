@@ -9,6 +9,7 @@
     <ItemGroup>
         <None Include="*.targets;*.props;*.snk" Pack="True" PackagePath="sdk"/>
         <None Include="assets/*" Pack="True" PackagePath="sdk/assets"/>
+        <Compile Remove="assets/*.cs"/>
     </ItemGroup>
 
 </Project>
