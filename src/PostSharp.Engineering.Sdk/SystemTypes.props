@@ -1,9 +1,9 @@
 <Project>
 
     <ItemGroup>
-        <Compile Include="$(MSBuildThisFileDirectory)\assets\IsExternalInit.cs" />
-        <Compile Include="$(MSBuildThisFileDirectory)\assets\NullableAttribute.cs" />
-        <Compile Include="$(MSBuildThisFileDirectory)\assets\Index.cs" />
+        <Compile Include="$(MSBuildThisFileDirectory)assets\IsExternalInit.cs" />
+        <Compile Include="$(MSBuildThisFileDirectory)assets\NullableAttributes.cs" />
+        <Compile Include="$(MSBuildThisFileDirectory)assets\Index.cs" />
     </ItemGroup>
 
 </Project>
