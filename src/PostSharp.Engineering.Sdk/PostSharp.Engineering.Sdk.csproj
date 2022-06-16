@@ -4,12 +4,14 @@
         <TargetFramework>net6.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <NoDefaultExcludes>true</NoDefaultExcludes>
     </PropertyGroup>
 
     <ItemGroup>
-        <None Include="*.targets;*.props;*.snk" Pack="True" PackagePath="sdk"/>
-        <None Include="assets/*" Pack="True" PackagePath="sdk/assets"/>
-        <Compile Remove="assets/*.cs"/>
+        <None Include="*.targets;*.props;*.snk" Pack="True" PackagePath="sdk" />
+        <None Include="assets/*" Pack="True" PackagePath="sdk/assets" />
+        <None Include="assets/system-types/*" Pack="True" PackagePath="sdk/assets/system-types" />
+        <Compile Remove="assets/**/*.cs" />
     </ItemGroup>
 
 </Project>

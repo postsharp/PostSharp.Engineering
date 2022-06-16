@@ -1,9 +1,7 @@
 <Project>
 
     <ItemGroup>
-        <Compile Include="$(MSBuildThisFileDirectory)assets\IsExternalInit.cs" />
-        <Compile Include="$(MSBuildThisFileDirectory)assets\NullableAttributes.cs" />
-        <Compile Include="$(MSBuildThisFileDirectory)assets\Index.cs" />
+        <Compile Include="$(MSBuildThisFileDirectory)assets/system-types/*.cs" Link="(System Types)/%(Filename)" />
     </ItemGroup>
 
 </Project>
