@@ -2,6 +2,7 @@
 
     <ItemGroup>
         <Compile Include="$(MSBuildThisFileDirectory)assets/system-types/*.cs" Link="(System Types)/%(Filename)" />
+        <EditorConfigFiles Include="$(MSBuildThisFileDirectory)assets/system-types/.editorconfig"/>
     </ItemGroup>
 
 </Project>
