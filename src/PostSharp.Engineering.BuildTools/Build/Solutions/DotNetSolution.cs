@@ -47,8 +47,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 ?? Path.Combine( context.RepoDirectory, this.SolutionPath ),
                 "test.json" );
 
-            Console.WriteLine( testJsonFile );
-
             if ( File.Exists( testJsonFile ) )
             {
                 var testJsonFileContent = File.ReadAllText( testJsonFile );
