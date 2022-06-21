@@ -7,6 +7,7 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -91,10 +92,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             var teamcity = new TeamCityClient( token );
 
-            var iterationDependencies = dependencies.ToImmutableArray();
+            var iterationDependencies = dependencies.ToImmutableDictionary( d => d.Definition.Name, d => d );
             var dependencyDictionary = dependencies.ToImmutableDictionary( d => d.Definition.Name, d => d );
 
-            while ( iterationDependencies.Length > 0 )
+            while ( iterationDependencies.Count > 0 )
             {
                 // Download artefacts that are not transitive dependencies.
                 if ( !ResolveBuildNumbersFromBranches( context, configuration, teamcity, iterationDependencies, settings.Update ) ||
@@ -120,9 +121,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 }
 
                 iterationDependencies = newDependencies;
-
-                dependencyDictionary =
-                    dependencyDictionary.AddRange( newDependencies.Select( d => new KeyValuePair<string, Dependency>( d.Definition.Name, d ) ) );
+                dependencyDictionary = dependencyDictionary.AddRange( newDependencies );
             }
 
             context.Console.WriteSuccess( "Fetching build artifacts was successful" );
@@ -133,15 +132,15 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         private static bool TryGetTransitiveDependencies(
             BuildContext context,
             ImmutableDictionary<string, Dependency> allDependencies,
-            ImmutableArray<Dependency> directDependencies,
+            ImmutableDictionary<string, Dependency> directDependencies,
             DependenciesOverrideFile dependenciesOverrideFile,
-            out ImmutableArray<Dependency> newDependencies )
+           [NotNullWhen(true)]  out ImmutableDictionary<string,Dependency>? newDependencies )
         {
-            var newDependenciesBuilder = ImmutableArray.CreateBuilder<Dependency>();
+            var newDependenciesBuilder = ImmutableDictionary.CreateBuilder<string,Dependency>();
 
-            newDependencies = default;
+            newDependencies = null;
 
-            foreach ( var directDependency in directDependencies )
+            foreach ( var directDependency in directDependencies.Values )
             {
                 if ( directDependency.Source.SourceKind == DependencySourceKind.Feed )
                 {
@@ -157,6 +156,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 foreach ( var transitiveDependency in transitiveDependencies )
                 {
                     var name = transitiveDependency.EvaluatedInclude;
+
+                    if ( newDependenciesBuilder.ContainsKey( name ) )
+                    {
+                        // This dependency is transitively included twice through different paths.
+                        continue;
+                    }
 
                     var sourceKindString = transitiveDependency.GetMetadata( "SourceKind" )?.EvaluatedValue;
 
@@ -231,7 +236,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     }
 
                     var newDependency = new Dependency( dependencySource, dependencyDefinition );
-                    newDependenciesBuilder.Add( newDependency );
+                    newDependenciesBuilder.Add( newDependency.Definition.Name, newDependency );
                     dependenciesOverrideFile.Dependencies[name] = dependencySource;
                 }
 
@@ -247,10 +252,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             BuildContext context,
             BuildConfiguration configuration,
             TeamCityClient teamCity,
-            ImmutableArray<Dependency> dependencies,
+            ImmutableDictionary<string, Dependency> dependencies,
             bool update )
         {
-            foreach ( var dependency in dependencies )
+            foreach ( var dependency in dependencies.Values )
             {
                 if ( dependency.Source.SourceKind != DependencySourceKind.BuildServer )
                 {
@@ -323,9 +328,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         private static bool DownloadArtifacts(
             BuildContext context,
             TeamCityClient teamCity,
-            ImmutableArray<Dependency> dependencies )
+            ImmutableDictionary<string, Dependency> dependencies )
         {
-            foreach ( var dependency in dependencies )
+            foreach ( var dependency in dependencies.Values )
             {
                 if ( dependency.Source.SourceKind != DependencySourceKind.BuildServer )
                 {
@@ -362,9 +367,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
-        private static bool ResolveLocalDependencies( BuildContext context, ImmutableArray<Dependency> dependencies )
+        private static bool ResolveLocalDependencies( BuildContext context, ImmutableDictionary<string, Dependency> dependencies )
         {
-            foreach ( var dependency in dependencies.Where( d => d.Source.SourceKind == DependencySourceKind.Local ) )
+            foreach ( var dependency in dependencies.Values.Where( d => d.Source.SourceKind == DependencySourceKind.Local ) )
             {
                 if ( dependency.Source.VersionFile == null )
                 {

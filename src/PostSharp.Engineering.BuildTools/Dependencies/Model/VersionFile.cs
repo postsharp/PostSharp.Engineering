@@ -62,17 +62,14 @@ public class VersionFile
         {
             var dependencyVersion = defaultDependencyProperties[dependencyDefinition.Name];
 
-            if ( string.IsNullOrEmpty( dependencyVersion ) )
-            {
-                context.Console.WriteError( $"There is no {dependencyDefinition.NameWithoutDot}Version property in '{versionsPath}'." );
-
-                versionFile = null;
-
-                return false;
-            }
-
             DependencySource dependencySource;
 
+            if ( dependencyVersion == null )
+            {
+                // This is possible and legal when the dependency does not have its own version.
+                continue;
+            }
+            
             if ( string.Compare( dependencyVersion, "local", StringComparison.OrdinalIgnoreCase ) == 0 )
             {
                 dependencySource = DependencySource.CreateLocal( DependencyConfigurationOrigin.Default );
