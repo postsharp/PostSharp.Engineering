@@ -41,7 +41,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 allArguments.Add( "-p:ContinuousIntegrationBuild=True" );
             }
 
-            // Get the test.json file location TODO: describe what is happening or change it
+            // Get the test.json file location relative to solution file based on full solution location path.
             var testJsonFile = Path.Combine(
                 Path.GetDirectoryName( Path.GetFullPath( this.SolutionPath ) )
                 ?? Path.Combine( context.RepoDirectory, this.SolutionPath ),
