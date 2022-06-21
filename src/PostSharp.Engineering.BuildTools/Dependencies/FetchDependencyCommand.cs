@@ -134,9 +134,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             ImmutableDictionary<string, Dependency> allDependencies,
             ImmutableDictionary<string, Dependency> directDependencies,
             DependenciesOverrideFile dependenciesOverrideFile,
-           [NotNullWhen(true)]  out ImmutableDictionary<string,Dependency>? newDependencies )
+            [NotNullWhen(true)] out ImmutableDictionary<string, Dependency>? newDependencies )
         {
-            var newDependenciesBuilder = ImmutableDictionary.CreateBuilder<string,Dependency>();
+            var newDependenciesBuilder = ImmutableDictionary.CreateBuilder<string, Dependency>();
 
             newDependencies = null;
 
