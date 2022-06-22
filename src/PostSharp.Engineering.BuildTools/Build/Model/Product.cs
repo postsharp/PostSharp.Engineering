@@ -86,6 +86,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ParametricString TestResultsDirectory { get; init; } = Path.Combine( "artifacts", "testResults" );
 
+        public ParametricString LogsDirectory { get; init; } = Path.Combine( "artifacts", "logs" );
+
         public bool GenerateArcadeProperties { get; init; }
 
         public string[] AdditionalDirectoriesToClean { get; init; } = Array.Empty<string>();
@@ -1168,6 +1170,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 Path.Combine(
                     context.RepoDirectory,
                     this.PublicArtifactsDirectory.ToString( stringParameters ) ) );
+
+            DeleteDirectory(
+                Path.Combine( 
+                    context.RepoDirectory,
+                    this.LogsDirectory.ToString() ) );
 
             CleanRecursive( context.RepoDirectory );
         }
