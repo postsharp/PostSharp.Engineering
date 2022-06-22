@@ -36,7 +36,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
         {
             var allArguments = new List<string>() { arguments };
 
-            var binaryLogFilePath = Path.Combine( context.RepoDirectory, context.Product.LogsDirectory.ToString(), $"{context.Product.ProductNameWithoutDot}.{command}.binlog" );
+            var binaryLogFilePath = Path.Combine( context.RepoDirectory, context.Product.LogsDirectory.ToString(), $"{context.Product.ProductName}.{command}.binlog" );
 
             if ( settings.ContinuousIntegration )
             {
