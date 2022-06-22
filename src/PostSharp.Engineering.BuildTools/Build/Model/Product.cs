@@ -1172,7 +1172,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     this.PublicArtifactsDirectory.ToString( stringParameters ) ) );
 
             DeleteDirectory(
-                Path.Combine( 
+                Path.Combine(
                     context.RepoDirectory,
                     this.LogsDirectory.ToString() ) );
 

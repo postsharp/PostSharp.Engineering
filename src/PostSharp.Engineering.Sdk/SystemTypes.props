@@ -6,9 +6,9 @@
 
     <!-- There is a weird situation in Metalama.Open.DependencyEmbedder where .editorconfig is included twice, which causes an error in cas. Using
          _SystemTypesImported avoids this situation. However *.cs files need to be imported without condition.  -->
-    
+
     <ItemGroup Condition="'$(_SystemTypesImported)'==''">
-        <EditorConfigFiles Include="$(MSBuildThisFileDirectory)assets\system-types\.editorconfig"/>
+        <EditorConfigFiles Include="$(MSBuildThisFileDirectory)assets\system-types\.editorconfig" />
     </ItemGroup>
 
     <PropertyGroup>
