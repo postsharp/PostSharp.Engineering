@@ -45,7 +45,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             new( "Metalama.Open.Virtuosity", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
 
         public static DependencyDefinition MetalamaFrameworkExtensions { get; } =
-            new( "Metalama.Framework.Extensions", VcsProvider.GitHub, "Metalama.MetalamaFrameworkExtensions" );
+            new( "Metalama.Framework.Extensions", VcsProvider.GitHub, "Metalama" );
 
         // This is only used from the project template.
         public static DependencyDefinition MyProduct { get; } =

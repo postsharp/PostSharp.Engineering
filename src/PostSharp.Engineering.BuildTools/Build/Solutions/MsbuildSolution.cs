@@ -16,19 +16,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
         public MsbuildSolution( string solutionPath ) : base( solutionPath ) { }
 
         public override bool Build( BuildContext context, BuildSettings settings )
-            => this.RunMsbuild( context, settings, this.SolutionPath, "Build", "-p:RestorePackages=false" );
+            => RunMsbuild( context, settings, this.SolutionPath, "Build", "-p:RestorePackages=false" );
 
         public override bool Pack( BuildContext context, BuildSettings settings )
-            => this.RunMsbuild( context, settings, this.SolutionPath, "Pack", "-p:RestorePackages=false" );
+            => RunMsbuild( context, settings, this.SolutionPath, "Pack", "-p:RestorePackages=false" );
 
         public override bool Test( BuildContext context, BuildSettings settings )
-            => this.RunMsbuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
+            => RunMsbuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
 
         public override bool Restore( BuildContext context, BuildSettings settings )
         {
             if ( Path.GetExtension( this.SolutionPath ) != ".sln" )
             {
-                return this.RunMsbuild( context, settings, this.SolutionPath, "Restore" );
+                return RunMsbuild( context, settings, this.SolutionPath, "Restore" );
             }
             else
             {
@@ -58,7 +58,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 {
                     context.Console.WriteMessage( $"Restoring {project}" );
 
-                    if ( !this.RunMsbuild( context, settings, project, "Restore" ) )
+                    if ( !RunMsbuild( context, settings, project, "Restore" ) )
                     {
                         return false;
                     }
@@ -68,7 +68,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             }
         }
 
-        private bool RunMsbuild( BuildContext context, BuildSettings settings, string project, string target, string arguments = "" )
+        private static bool RunMsbuild( BuildContext context, BuildSettings settings, string project, string target, string arguments = "" )
         {
             var argsBuilder = new StringBuilder();
             var path = Path.Combine( context.RepoDirectory, project );
