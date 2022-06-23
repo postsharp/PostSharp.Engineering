@@ -1383,7 +1383,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // When bumping locally, the product with MainVersionDependency is not allowed to be manually bumped.
             if ( this.MainVersionDependency != null )
             {
-                context.Console.WriteError( "Version of a product derived from MainVersionDependency cannot be bumped." );
+                context.Console.WriteError(
+                    $"The version would need to be bumped, but it cannot because the MainVersion is dependent on {this.MainVersionDependency.Name}. Create a fake change in  {this.MainVersionDependency.Name} and bump this repo." );
 
                 return false;
             }

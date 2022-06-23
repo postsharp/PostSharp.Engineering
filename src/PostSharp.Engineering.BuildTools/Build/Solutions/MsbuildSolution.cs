@@ -73,6 +73,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             var argsBuilder = new StringBuilder();
             var path = Path.Combine( context.RepoDirectory, project );
 
+            var binaryLogFilePath = Path.Combine(
+                context.RepoDirectory,
+                context.Product.LogsDirectory.ToString(),
+                $"{context.Product.ProductName}.{target}.binlog" );
+
             var configurationInfo = context.Product.Configurations[settings.BuildConfiguration];
 
             argsBuilder.Append(
@@ -83,6 +88,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             {
                 argsBuilder.Append( " -m:1" );
             }
+
+            argsBuilder.Append( CultureInfo.InvariantCulture, $" -bl:{binaryLogFilePath}" );
 
             foreach ( var property in settings.Properties )
             {
