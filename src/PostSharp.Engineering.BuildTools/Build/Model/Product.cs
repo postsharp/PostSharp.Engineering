@@ -126,6 +126,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     PublicPublishers: DefaultPublicPublishers.ToArray(),
                     ExportsToTeamCityDeploy: true ) );
 
+        public ImmutableArray<string> DefaultArtifactRules { get; } =
+            ImmutableArray.Create(
+                $@"+:%system.teamcity.build.tempDir%/Metalama/AssemblyLocator/**/*=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/CompileTime/**/.completed=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/CompileTimeTroubleshooting/**/*=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/ExtractExceptions/**/*=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/Extract/**/.completed=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/CrashReports/**/*=>logs" );
+
         /// <summary>
         /// List of properties that must be exported into the *.version.props. These properties must be defined in MainVersion.props.
         /// </summary>
@@ -1470,6 +1479,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var artifactRules =
                     $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}{(this.PublishTestResults ? $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}" : "")}";
 
+                var additionalArtifactRules = this.DefaultArtifactRules;
+
+                if ( configurationInfo.AdditionalArtifactRules != null )
+                {
+                    additionalArtifactRules = this.DefaultArtifactRules.AddRange( configurationInfo.AdditionalArtifactRules );
+                }
+
                 TeamCityBuildConfiguration? buildTeamCityConfiguration = null;
 
                 if ( configurationInfo.ExportsToTeamCityBuild )
@@ -1483,7 +1499,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     {
                         RequiresClearCache = true,
                         ArtifactRules = artifactRules,
-                        AdditionalArtifactRules = configurationInfo.AdditionalArtifactRules,
+                        AdditionalArtifactRules = additionalArtifactRules.ToArray(),
                         BuildTriggers = configurationInfo.BuildTriggers,
                         SnapshotDependencyObjectNames = this.Dependencies?
                             .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
