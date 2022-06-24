@@ -34,8 +34,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencyDefinition MetalamaOpenAutoCancellationToken { get; } =
             new( "Metalama.Open.AutoCancellationToken", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
 
+        [Obsolete( "Renamed to MetalamaOpenCostura" )]
         public static DependencyDefinition MetalamaOpenDependencyEmbedder { get; } =
             new( "Metalama.Open.DependencyEmbedder", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
+
+        public static DependencyDefinition MetalamaOpenCostura { get; } =
+            new( "Metalama.Open.Costura", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
 
         public static DependencyDefinition MetalamaOpenVirtuosity { get; } =
             new( "Metalama.Open.Virtuosity", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
@@ -98,7 +102,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             MetalamaTry,
             MetalamaVsx,
             MetalamaOpenAutoCancellationToken,
-            MetalamaOpenDependencyEmbedder,
+            MetalamaOpenCostura,
             MetalamaOpenVirtuosity,
             MetalamaFrameworkExtensions,
             PostSharpEngineering,

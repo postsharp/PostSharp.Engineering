@@ -16,6 +16,37 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string command,
             string arguments = "" )
         {
+            var argsBuilder = CreateCommandLine( context, settings, solution, command, arguments );
+
+            return ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "dotnet",
+                argsBuilder,
+                Environment.CurrentDirectory );
+        }
+
+        public static bool Run(
+            BuildContext context,
+            BuildSettings settings,
+            string solution,
+            string command,
+            string arguments,
+            out int exitCode,
+            out string output )
+        {
+            var argsBuilder = CreateCommandLine( context, settings, solution, command, arguments );
+
+            return ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "dotnet",
+                argsBuilder,
+                Environment.CurrentDirectory,
+                out exitCode,
+                out output );
+        }
+
+        private static string CreateCommandLine( BuildContext context, BuildSettings settings, string solution, string command, string arguments )
+        {
             var argsBuilder = new StringBuilder();
             var configuration = context.Product.Configurations[settings.BuildConfiguration];
 
@@ -38,11 +69,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 argsBuilder.Append( " " + arguments.Trim() );
             }
 
-            return ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "dotnet",
-                argsBuilder.ToString(),
-                Environment.CurrentDirectory );
+            return argsBuilder.ToString();
         }
 
         /// <summary>
