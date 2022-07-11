@@ -1481,7 +1481,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     context.Product.TestResultsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
                 var artifactRules =
-                    $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}\n+:{logsDirectory}/**/*=>{logsDirectory}{(this.PublishTestResults ? $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}" : "")}";
+                    $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}\n+:{logsDirectory}/**/*=>logs{(this.PublishTestResults ? $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}" : "")}";
 
                 var additionalArtifactRules = this.DefaultArtifactRules;
 
