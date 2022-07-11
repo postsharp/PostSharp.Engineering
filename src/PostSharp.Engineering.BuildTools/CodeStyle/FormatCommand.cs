@@ -34,7 +34,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
                     }
 
                     // Sets MSBuild property 'FormatThisProject' to false during code formatting, this allows for exclusion of specific projects from Compile target when code formatting is run.
-                    command += $" --properties:FormatThisProject=False";
+                    command += $" --properties:FormatThisProject=false";
 
                     if ( !DotNetTool.Resharper.Invoke( context, command ) )
                     {
