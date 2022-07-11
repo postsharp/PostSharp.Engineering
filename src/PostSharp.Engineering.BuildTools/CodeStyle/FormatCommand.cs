@@ -25,10 +25,16 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
                     var command =
                         $"cleanupcode --profile:Custom \"{Path.Combine( context.RepoDirectory, solution.SolutionPath )}\" --disable-settings-layers:\"GlobalAll;GlobalPerProduct;SolutionPersonal;ProjectPersonal\"";
 
+                    // Exclude .nuget directory to prevent formatting the code inside NuGet packages.
+                    command += " --exclude:\"**\\.nuget\\**\\*";
+                    
                     if ( solution.FormatExclusions is { Length: > 0 } )
                     {
-                        command += $" --exclude:\"{string.Join( ';', solution.FormatExclusions )}\"";
+                        command += $";{string.Join( ';', solution.FormatExclusions )}\"";
                     }
+
+                    // Sets MSBuild property 'FormatThisProject' to false during code formatting, this allows for exclusion of specific projects from Compile target when code formatting is run.
+                    command += $" --properties:FormatThisProject=False";
 
                     if ( !DotNetTool.Resharper.Invoke( context, command ) )
                     {
