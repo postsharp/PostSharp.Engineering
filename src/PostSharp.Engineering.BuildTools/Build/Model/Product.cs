@@ -128,6 +128,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ImmutableArray<string> DefaultArtifactRules { get; } =
             ImmutableArray.Create(
+                $@"+:artifacts/logs/**/*=>logs",
                 $@"+:%system.teamcity.build.tempDir%/Metalama/AssemblyLocator/**/*=>logs",
                 $@"+:%system.teamcity.build.tempDir%/Metalama/CompileTime/**/.completed=>logs",
                 $@"+:%system.teamcity.build.tempDir%/Metalama/CompileTimeTroubleshooting/**/*=>logs",
@@ -1474,14 +1475,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var privateArtifactsDirectory =
                     context.Product.PrivateArtifactsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
-                var logsDirectory =
-                    context.Product.LogsDirectory.ToString().Replace( "\\", "/", StringComparison.Ordinal );
-
                 var testResultsDirectory =
                     context.Product.TestResultsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
                 var artifactRules =
-                    $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}\n+:{logsDirectory}/**/*=>logs{(this.PublishTestResults ? $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}" : "")}";
+                    $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}{(this.PublishTestResults ? $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}" : "")}";
 
                 var additionalArtifactRules = this.DefaultArtifactRules;
 
