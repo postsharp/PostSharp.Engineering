@@ -86,6 +86,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ParametricString TestResultsDirectory { get; init; } = Path.Combine( "artifacts", "testResults" );
 
+        public ParametricString LogsDirectory { get; init; } = Path.Combine( "artifacts", "logs" );
+
         public bool GenerateArcadeProperties { get; init; }
 
         public string[] AdditionalDirectoriesToClean { get; init; } = Array.Empty<string>();
@@ -123,6 +125,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     RequiresSigning: true,
                     PublicPublishers: DefaultPublicPublishers.ToArray(),
                     ExportsToTeamCityDeploy: true ) );
+
+        public ImmutableArray<string> DefaultArtifactRules { get; } =
+            ImmutableArray.Create(
+                $@"+:artifacts/logs/**/*=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/AssemblyLocator/**/*=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/CompileTime/**/.completed=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/CompileTimeTroubleshooting/**/*=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/ExtractExceptions/**/*=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/Extract/**/.completed=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/CrashReports/**/*=>logs" );
 
         /// <summary>
         /// List of properties that must be exported into the *.version.props. These properties must be defined in MainVersion.props.
@@ -1222,6 +1234,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     context.RepoDirectory,
                     this.PublicArtifactsDirectory.ToString( stringParameters ) ) );
 
+            DeleteDirectory(
+                Path.Combine(
+                    context.RepoDirectory,
+                    this.LogsDirectory.ToString() ) );
+
             CleanRecursive( context.RepoDirectory );
         }
 
@@ -1420,9 +1437,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // When bumping locally, the product with MainVersionDependency is not allowed to be manually bumped.
             if ( this.MainVersionDependency != null )
             {
-                context.Console.WriteWarning( "Version of a product derived from MainVersionDependency cannot be bumped." );
+                context.Console.WriteError(
+                    $"The version would need to be bumped, but it cannot because the MainVersion is dependent on {this.MainVersionDependency.Name}. Create a fake change in  {this.MainVersionDependency.Name} and bump this repo." );
 
-                return true;
+                return false;
             }
 
             var mainVersionFile = Path.Combine(
@@ -1516,6 +1534,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var artifactRules =
                     $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}{(this.PublishTestResults ? $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}" : "")}";
 
+                var additionalArtifactRules = this.DefaultArtifactRules;
+
+                if ( configurationInfo.AdditionalArtifactRules != null )
+                {
+                    additionalArtifactRules = this.DefaultArtifactRules.AddRange( configurationInfo.AdditionalArtifactRules );
+                }
+
                 TeamCityBuildConfiguration? buildTeamCityConfiguration = null;
 
                 if ( configurationInfo.ExportsToTeamCityBuild )
@@ -1529,7 +1554,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     {
                         RequiresClearCache = true,
                         ArtifactRules = artifactRules,
-                        AdditionalArtifactRules = configurationInfo.AdditionalArtifactRules,
+                        AdditionalArtifactRules = additionalArtifactRules.ToArray(),
                         BuildTriggers = configurationInfo.BuildTriggers,
                         SnapshotDependencyObjectNames = this.Dependencies?
                             .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
@@ -1730,7 +1755,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( lastVersion == currentVersion )
             {
-                context.Console.WriteError( $"The '{context.Product.ProductName}' version has not been bumped." );
+                context.Console.WriteError(
+                    context.Product.MainVersionDependency != null
+                        ? $"The '{context.Product.ProductName}' has a main version dependency '{context.Product.MainVersionDependency.Name}' that has not been bumped."
+                        : $"The '{context.Product.ProductName}' version has not been bumped." );
 
                 return false;
             }
