@@ -1541,7 +1541,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )
         {
-            // TODO: Source Dependencies
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
 
             var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
