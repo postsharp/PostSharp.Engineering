@@ -88,6 +88,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ParametricString LogsDirectory { get; init; } = Path.Combine( "artifacts", "logs" );
 
+        public ParametricString SourceDependenciesDirectory { get; init; } = Path.Combine( "source-dependencies" );
+
         public bool GenerateArcadeProperties { get; init; }
 
         public string[] AdditionalDirectoriesToClean { get; init; } = Array.Empty<string>();
@@ -726,9 +728,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
             
             // Restore source dependencies.
-            if ( !this.RestoreSourceDependencies( context, settings ) )
+            if ( this.SourceDependencies.Length > 0 )
             {
-                return false;
+                if ( !this.RestoreSourceDependencies( context, settings ) )
+                {
+                    return false;
+                }
             }
 
             // Execute the event.
@@ -1548,8 +1553,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var testResultsDirectory =
                     context.Product.TestResultsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
+                var sourceDependenciesDirectory =
+                    context.Product.SourceDependenciesDirectory.ToString().Replace( "\\", "/", StringComparison.Ordinal );
+
                 var artifactRules =
-                    $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}{(this.PublishTestResults ? $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}" : "")}";
+                    $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
+
+                if ( context.Product.PublishTestResults )
+                {
+                    artifactRules += $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}";
+                }
+
+                if ( context.Product.SourceDependencies.Length > 0 )
+                {
+                    artifactRules += $@"\n+:{sourceDependenciesDirectory}/**/*=>{sourceDependenciesDirectory}";
+                }
 
                 var additionalArtifactRules = this.DefaultArtifactRules;
 
