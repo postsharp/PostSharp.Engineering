@@ -767,7 +767,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 context.Console.WriteMessage( $"Restoring '{dependency.Name}' source dependency." );
 
-                var localDirectory = Path.Combine( Directory.GetParent( context.RepoDirectory )!.ToString(), dependency.Name );
+                var localDirectory = Path.Combine( context.RepoDirectory, "..", dependency.Name );
                 
                 var targetDirectory = Path.Combine( sourceDependenciesDirectory, dependency.Name );
 
@@ -777,6 +777,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     {
                         context.Console.WriteMessage( $"Creating symbolic link to '{localDirectory}' in '{targetDirectory}'." );
                         Directory.CreateSymbolicLink( targetDirectory, localDirectory );
+
+                        if ( !Directory.Exists( targetDirectory ) )
+                        {
+                            context.Console.WriteError( $"Symbolic link was not created for '{targetDirectory}'." );
+
+                            return false;
+                        }
                     }
                 }
                 else
