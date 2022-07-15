@@ -26,15 +26,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public bool GenerateSnapshotDependency { get; init; } = true;
 
-        
         public DependencyDefinition( string dependencyName, VcsProvider provider, string vcsProjectName, bool isVersioned = true )
         {
             this.Name = dependencyName;
             this.Provider = provider;
             this.VcsProjectName = vcsProjectName;
-
-            
-            
             this.DefaultBranch = "master";
             this.IsVersioned = isVersioned;
             var vcsProjectNameWithUnderscore = vcsProjectName.Replace( ".", "_", StringComparison.Ordinal );

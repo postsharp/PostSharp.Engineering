@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace PostSharp.Engineering.BuildTools.Dependencies.Model
+﻿namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
     public abstract class VcsProvider
     {
@@ -22,8 +20,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         {
             public override bool SshAgentRequired => false;
 
-            public override string GetRepoUrl( string name, string projectName ) => $"https://postsharp@dev.azure.com/postsharp/{projectName}/_git/{name}.Vsx";
+            public override string GetRepoUrl( string name, string projectName ) => $"https://postsharp@dev.azure.com/postsharp/{projectName}/_git/{name}";
         }
-        
     }
 }

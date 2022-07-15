@@ -759,7 +759,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             foreach ( var dependency in this.SourceDependencies )
             {
-                var localDirectory = Path.Combine( context.RepoDirectory, "..", dependency.Name );
+                context.Console.WriteMessage( $"Restoring '{dependency.Name}' source dependency." );
+
+                var localDirectory = Path.Combine( Directory.GetParent( context.RepoDirectory )!.ToString(), dependency.Name );
                 
                 var targetDirectory = Path.Combine( sourceDependenciesDirectory, dependency.Name );
 
@@ -767,27 +769,40 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     if ( !Directory.Exists( targetDirectory ) )
                     {
-                        if ( !FileSystemHelper.TryCreateHardLink( localDirectory, targetDirectory, out var hardLinkException ) )
-                        {
-                            context.Console.WriteError(
-                                $"Cannot create a hardlink from '{localDirectory}' to '{targetDirectory}': {hardLinkException.Message}" );
-
-                            return false;
-                        }
+                        context.Console.WriteMessage( $"Creating symbolic link to '{localDirectory}' in '{targetDirectory}'." );
+                        Directory.CreateSymbolicLink( targetDirectory, localDirectory );
                     }
                 }
                 else
                 {
                     if ( !Directory.Exists( targetDirectory ) )
                     {
-                        // TODO: clone it.
+                        // If the target directory doesn't exist, we clone it to the source-dependencies directory with depth of 1 to mitigate the impact of cloning the whole history.
+                        if ( !ToolInvocationHelper.InvokeTool(
+                                context.Console,
+                                "git",
+                                $"clone {dependency.RepoUrl} --branch {dependency.DefaultBranch} --depth 1",
+                                sourceDependenciesDirectory ) )
+                        {
+                            return false;
+                        }
                     }
                     else
                     {
-                        // Pull
+                        // If the target directory exists, we only pull the latest changes.
+                        if ( !ToolInvocationHelper.InvokeTool(
+                                context.Console,
+                                "git",
+                                $"pull",
+                                targetDirectory ) )
+                        {
+                            return false;
+                        }
                     }
                 }
             }
+
+            return true;
         }
 
         public bool PrepareVersionsFile( BuildContext context, BuildSettings settings, out string preparedPackageVersion )
@@ -1513,6 +1528,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )
         {
+            // TODO: Source Dependencies
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
 
             var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
@@ -1557,7 +1573,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         AdditionalArtifactRules = additionalArtifactRules.ToArray(),
                         BuildTriggers = configurationInfo.BuildTriggers,
                         SnapshotDependencyObjectNames = this.Dependencies?
-                            .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
+                            .Where( d => d.GenerateSnapshotDependency )
                             .Select( d => d.CiBuildTypes[configuration] )
                             .ToArray()
                     };
@@ -1582,7 +1598,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             IsDeployment = true,
                             ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
                             SnapshotDependencyObjectNames = this.Dependencies?
-                                .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
+                                .Where( d => d.GenerateSnapshotDependency )
                                 .Select( d => d.DeploymentBuildType )
                                 .ToArray()
                         };
