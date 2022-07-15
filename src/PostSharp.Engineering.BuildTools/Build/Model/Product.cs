@@ -130,9 +130,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string[] ExportedProperties { get; init; } = Array.Empty<string>();
 
         /// <summary>
-        /// Gets the set of dependencies of this product. Some commands expect the dependency to exist in <see cref="PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.All"/>.
+        /// Gets the set of artifact dependencies of this product. Some commands expect the dependency to exist in <see cref="PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.All"/>.
         /// </summary>
         public DependencyDefinition[] Dependencies { get; init; } = Array.Empty<DependencyDefinition>();
+
+        /// <summary>
+        /// Gets the set of source code dependencies of this product. 
+        /// </summary>
+        public DependencyDefinition[] SourceDependencies { get; init; } = Array.Empty<DependencyDefinition>();
 
         public DependencyDefinition? GetDependency( string name )
         {
@@ -706,6 +711,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
+            
+            // Restore source dependencies.
+            if ( !this.RestoreSourceDependencies( context, settings ) )
+            {
+                return false;
+            }
 
             // Execute the event.
             if ( this.PrepareCompleted != null )
@@ -723,6 +734,48 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 $"Preparing the build was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) ).PackageVersion}" );
 
             return true;
+        }
+
+        private bool RestoreSourceDependencies( BuildContext context, BuildSettings settings )
+        {
+            var sourceDependenciesDirectory = Path.Combine( context.RepoDirectory, "source-dependencies" );
+
+            if ( !Directory.Exists( sourceDependenciesDirectory ) )
+            {
+                Directory.CreateDirectory( sourceDependenciesDirectory );
+            }
+
+            foreach ( var dependency in this.SourceDependencies )
+            {
+                var localDirectory = Path.Combine( context.RepoDirectory, "..", dependency.Name );
+                
+                var targetDirectory = Path.Combine( sourceDependenciesDirectory, dependency.Name );
+
+                if ( Directory.Exists( localDirectory ) )
+                {
+                    if ( !Directory.Exists( targetDirectory ) )
+                    {
+                        if ( !FileSystemHelper.TryCreateHardLink( localDirectory, targetDirectory, out var hardLinkException ) )
+                        {
+                            context.Console.WriteError(
+                                $"Cannot create a hardlink from '{localDirectory}' to '{targetDirectory}': {hardLinkException.Message}" );
+
+                            return false;
+                        }
+                    }
+                }
+                else
+                {
+                    if ( !Directory.Exists( targetDirectory ) )
+                    {
+                        // TODO: clone it.
+                    }
+                    else
+                    {
+                        // Pull
+                    }
+                }
+            }
         }
 
         public bool PrepareVersionsFile( BuildContext context, BuildSettings settings, out string preparedPackageVersion )

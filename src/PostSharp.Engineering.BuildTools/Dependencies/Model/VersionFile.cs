@@ -69,7 +69,7 @@ public class VersionFile
                 // This is possible and legal when the dependency does not have its own version.
                 continue;
             }
-            
+
             if ( string.Compare( dependencyVersion, "local", StringComparison.OrdinalIgnoreCase ) == 0 )
             {
                 dependencySource = DependencySource.CreateLocal( DependencyConfigurationOrigin.Default );
