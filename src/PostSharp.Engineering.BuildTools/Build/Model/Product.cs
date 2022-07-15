@@ -132,9 +132,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 $@"+:%system.teamcity.build.tempDir%/Metalama/AssemblyLocator/**/*=>logs",
                 $@"+:%system.teamcity.build.tempDir%/Metalama/CompileTime/**/.completed=>logs",
                 $@"+:%system.teamcity.build.tempDir%/Metalama/CompileTimeTroubleshooting/**/*=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/ExtractExceptions/**/*=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/CrashReports/**/*=>logs",
                 $@"+:%system.teamcity.build.tempDir%/Metalama/Extract/**/.completed=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/CrashReports/**/*=>logs" );
+                $@"+:%system.teamcity.build.tempDir%/Metalama/ExtractExceptions/**/*=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/Logs/**/*=>logs" );
 
         /// <summary>
         /// List of properties that must be exported into the *.version.props. These properties must be defined in MainVersion.props.
