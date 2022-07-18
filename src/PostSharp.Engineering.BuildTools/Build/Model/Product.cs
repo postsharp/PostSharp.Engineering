@@ -1597,7 +1597,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         ArtifactRules = artifactRules,
                         AdditionalArtifactRules = additionalArtifactRules.ToArray(),
                         BuildTriggers = configurationInfo.BuildTriggers,
-                        SnapshotDependencyObjectNames = this.Dependencies?
+                        SnapshotDependencyObjectNames = this.Dependencies?.Union( this.SourceDependencies )
                             .Where( d => d.GenerateSnapshotDependency )
                             .Select( d => d.CiBuildTypes[configuration] )
                             .ToArray()
@@ -1622,7 +1622,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         {
                             IsDeployment = true,
                             ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
-                            SnapshotDependencyObjectNames = this.Dependencies?
+                            SnapshotDependencyObjectNames = this.Dependencies?.Union( this.SourceDependencies )
                                 .Where( d => d.GenerateSnapshotDependency )
                                 .Select( d => d.DeploymentBuildType )
                                 .ToArray()
