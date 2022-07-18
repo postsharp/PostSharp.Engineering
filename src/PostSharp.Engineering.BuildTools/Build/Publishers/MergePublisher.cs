@@ -3,7 +3,6 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -20,75 +19,6 @@ public class MergePublisher : IndependentPublisher
         BuildInfo buildInfo,
         BuildConfigurationInfo configuration )
     {
-        // Attempts to get the latest intersection of master and currentBranch in form of each branches' commit hash.
-        if ( !TryGetLatestBranchesIntersectionCommitHashes(
-                context,
-                out var currentBranch,
-                out var lastCurrentBranchCommitHash,
-                out var lastCommonCommitHash ) )
-        {
-            return SuccessCode.Error;
-        }
-
-        context.Console.WriteMessage( $"Merging branch '{currentBranch}' to 'master' after publishing artifacts." );
-
-        // Change to the master branch before we do merge.
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"checkout master",
-                context.RepoDirectory ) )
-        {
-            return SuccessCode.Error;
-        }
-
-        // Determines if we need to do a merge: If the commit hashes are equal, there haven't been any unmerged commits, or the current branch is actually master.
-        if ( !lastCurrentBranchCommitHash.Equals( lastCommonCommitHash, StringComparison.Ordinal ) )
-        {
-            context.Console.WriteWarning( $"Branch '{currentBranch}' requires merging to master." );
-
-            // Merge current branch.
-            if ( !MergeBranchToMaster( context, settings, currentBranch ) )
-            {
-                return SuccessCode.Error;
-            }
-        }
-
-        // Go through all dependencies and update their fixed version in Versions.props file.
-        if ( !UpdateDependenciesVersions( context, settings, out var dependenciesUpdated ) )
-        {
-            return SuccessCode.Error;
-        }
-
-        // If we updated any dependencies, commit the changes.
-        if ( dependenciesUpdated )
-        {
-            // Commit changes made to Versions.props.
-            if ( !TryCommitDependenciesVersionsBumped( context ) )
-            {
-                return SuccessCode.Error;
-            }
-        }
-
-        return SuccessCode.Success;
-    }
-
-    private static bool TryGetLatestBranchesIntersectionCommitHashes(
-        BuildContext context,
-        [NotNullWhen( true )] out string? currentBranch,
-        [NotNullWhen( true )] out string? lastCurrentBranchCommitHash,
-        [NotNullWhen( true )] out string? lastCommonCommitHash )
-    {
-        lastCurrentBranchCommitHash = null;
-        lastCommonCommitHash = null;
-
-        // Fetch all remotes to make sure the merge has not already been done.
-        ToolInvocationHelper.InvokeTool(
-            context.Console,
-            "git",
-            $"fetch --all",
-            context.RepoDirectory );
-
         // Returns the reference name of the current branch.
         ToolInvocationHelper.InvokeTool(
             context.Console,
@@ -101,55 +31,66 @@ public class MergePublisher : IndependentPublisher
         if ( gitExitCode != 0 )
         {
             context.Console.WriteError( gitOutput );
-            currentBranch = null;
 
-            return false;
+            return SuccessCode.Error;
         }
 
-        currentBranch = gitOutput.Trim();
+        var currentBranch = gitOutput.Trim();
+        
+        context.Console.WriteHeading( $"Merging branch '{currentBranch}' to 'master' after publishing artifacts." );
 
-        // Returns the last commit on the current branch in the commit hash format.
-        ToolInvocationHelper.InvokeTool(
-            context.Console,
-            "git",
-            $"log -n 1 --pretty=format:\"%H\"",
-            context.RepoDirectory,
-            out gitExitCode,
-            out gitOutput );
-
-        if ( gitExitCode != 0 )
+        // Checkout to master branch and pull to update the local repository.
+        if ( !TryCheckoutAndPullMaster( context ) )
         {
-            context.Console.WriteError( gitOutput );
-
-            return false;
+            return SuccessCode.Error;
         }
 
-        lastCurrentBranchCommitHash = gitOutput;
-
-        // Returns hash of as good common ancestor commit as possible between origin/master and current branch.
-        // We use origin/master, because master may not be present as a local branch.
-        ToolInvocationHelper.InvokeTool(
-            context.Console,
-            "git",
-            $"merge-base origin/master {currentBranch}",
-            context.RepoDirectory,
-            out gitExitCode,
-            out gitOutput );
-
-        if ( gitExitCode != 0 )
+        // When on TeamCity, Git user credentials are set to TeamCity.
+        if ( TeamCityHelper.IsTeamCityBuild( settings ) )
         {
-            context.Console.WriteError( gitOutput );
-
-            return false;
+            if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
+            {
+                return SuccessCode.Error;
+            }
         }
 
-        lastCommonCommitHash = gitOutput;
+        // Merge current branch to master.
+        if ( !MergeBranchToMaster( context, settings, currentBranch ) )
+        {
+            return SuccessCode.Error;
+        }
 
-        return true;
+        // Go through all dependencies and update their fixed version in Versions.props file.
+        if ( !UpdateDependenciesVersions( context, settings, out var dependenciesUpdated ) )
+        {
+            return SuccessCode.Error;
+        }
+
+        // We commit and push if dependencies versions were updated in previous step.
+        if ( dependenciesUpdated )
+        {
+            // Commit changes made to Versions.props.
+            if ( !TryCommitDependenciesVersionsBumped( context ) )
+            {
+                return SuccessCode.Error;
+            }
+        }
+
+        return SuccessCode.Success;
     }
 
-    private static bool MergeBranchToMaster( BuildContext context, BaseBuildSettings settings, string branchToMerge )
+    private static bool TryCheckoutAndPullMaster( BuildContext context )
     {
+        // Switch to the master branch before we do merge.
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"checkout master",
+                context.RepoDirectory ) )
+        {
+            return false;
+        }
+
         // Pull remote master changes because local master may not contain all changes or upstream may not be set for local master.
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -160,19 +101,18 @@ public class MergePublisher : IndependentPublisher
             return false;
         }
 
+        return true;
+    }
+
+    private static bool MergeBranchToMaster( BuildContext context, BaseBuildSettings settings, string branchToMerge )
+    {
         // Attempts merging branch to master.
-        ToolInvocationHelper.InvokeTool(
-            context.Console,
-            "git",
-            $"merge {branchToMerge}",
-            context.RepoDirectory,
-            out var gitExitCode,
-            out var gitOutput );
-
-        if ( gitExitCode != 0 )
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"merge {branchToMerge}",
+                context.RepoDirectory ) )
         {
-            context.Console.WriteError( gitOutput );
-
             return false;
         }
 
@@ -182,8 +122,8 @@ public class MergePublisher : IndependentPublisher
             "git",
             $"remote get-url origin",
             context.RepoDirectory,
-            out gitExitCode,
-            out gitOutput );
+            out var gitExitCode,
+            out var gitOutput );
 
         if ( gitExitCode != 0 )
         {

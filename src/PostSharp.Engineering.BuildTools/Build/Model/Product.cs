@@ -1951,21 +1951,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // When on TeamCity, Git user credentials are set to TeamCity and if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
             if ( TeamCityHelper.IsTeamCityBuild( settings ) )
             {
-                // Following configurations are set only for the current operations in the repository.
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        "config user.name TeamCity",
-                        context.RepoDirectory ) )
-                {
-                    return false;
-                }
-
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        "config user.email teamcity@postsharp.net",
-                        context.RepoDirectory ) )
+                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
                 {
                     return false;
                 }
