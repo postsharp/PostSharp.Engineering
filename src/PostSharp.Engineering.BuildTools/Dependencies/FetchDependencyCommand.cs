@@ -356,7 +356,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         teamCity,
                         dependency.Source,
                         dependency.Definition.Name,
-                        dependency.Definition.RepoName,
                         buildId.BuildTypeId,
                         buildId.BuildNumber ) )
                 {
@@ -397,14 +396,13 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             TeamCityClient teamCity,
             DependencySource dependencySource,
             string dependencyName,
-            string repoName,
             string ciBuildTypeId,
             int buildNumber )
         {
             var restoreDirectory = Path.Combine(
                 Environment.GetEnvironmentVariable( "USERPROFILE" ) ?? Path.GetTempPath(),
                 ".build-artifacts",
-                repoName,
+                dependencyName,
                 ciBuildTypeId,
                 buildNumber.ToString( CultureInfo.InvariantCulture ) );
 
@@ -426,7 +424,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             else
             {
                 context.Console.WriteMessage(
-                    $"Dependency '{dependencyName}' is up to date: build #{buildNumber} of  of {ciBuildTypeId} was already downloaded." );
+                    $"Dependency '{dependencyName}' is up to date: build #{buildNumber} of {ciBuildTypeId} was already downloaded." );
             }
 
             // Find the version file.

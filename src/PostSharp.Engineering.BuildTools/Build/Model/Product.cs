@@ -88,6 +88,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ParametricString LogsDirectory { get; init; } = Path.Combine( "artifacts", "logs" );
 
+        public ParametricString SourceDependenciesDirectory { get; init; } = Path.Combine( "source-dependencies" );
+
         public bool GenerateArcadeProperties { get; init; }
 
         public string[] AdditionalDirectoriesToClean { get; init; } = Array.Empty<string>();
@@ -132,9 +134,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 $@"+:%system.teamcity.build.tempDir%/Metalama/AssemblyLocator/**/*=>logs",
                 $@"+:%system.teamcity.build.tempDir%/Metalama/CompileTime/**/.completed=>logs",
                 $@"+:%system.teamcity.build.tempDir%/Metalama/CompileTimeTroubleshooting/**/*=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/ExtractExceptions/**/*=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/CrashReports/**/*=>logs",
                 $@"+:%system.teamcity.build.tempDir%/Metalama/Extract/**/.completed=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/CrashReports/**/*=>logs" );
+                $@"+:%system.teamcity.build.tempDir%/Metalama/ExtractExceptions/**/*=>logs",
+                $@"+:%system.teamcity.build.tempDir%/Metalama/Logs/**/*=>logs" );
 
         /// <summary>
         /// List of properties that must be exported into the *.version.props. These properties must be defined in MainVersion.props.
@@ -142,9 +145,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string[] ExportedProperties { get; init; } = Array.Empty<string>();
 
         /// <summary>
-        /// Gets the set of dependencies of this product. Some commands expect the dependency to exist in <see cref="PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.All"/>.
+        /// Gets the set of artifact dependencies of this product. Some commands expect the dependency to exist in <see cref="PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.All"/>.
         /// </summary>
         public DependencyDefinition[] Dependencies { get; init; } = Array.Empty<DependencyDefinition>();
+
+        /// <summary>
+        /// Gets the set of source code dependencies of this product. 
+        /// </summary>
+        public DependencyDefinition[] SourceDependencies { get; init; } = Array.Empty<DependencyDefinition>();
 
         public DependencyDefinition? GetDependency( string name )
         {
@@ -718,6 +726,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
+            
+            // Restore source dependencies.
+            if ( this.SourceDependencies.Length > 0 )
+            {
+                if ( !this.RestoreSourceDependencies( context, settings ) )
+                {
+                    return false;
+                }
+            }
 
             // Execute the event.
             if ( this.PrepareCompleted != null )
@@ -733,6 +750,70 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteSuccess(
                 $"Preparing the build was successful. {this.ProductNameWithoutDot}Version={this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) ).PackageVersion}" );
+
+            return true;
+        }
+
+        private bool RestoreSourceDependencies( BuildContext context, BuildSettings settings )
+        {
+            var sourceDependenciesDirectory = Path.Combine( context.RepoDirectory, "source-dependencies" );
+
+            if ( !Directory.Exists( sourceDependenciesDirectory ) )
+            {
+                Directory.CreateDirectory( sourceDependenciesDirectory );
+            }
+
+            foreach ( var dependency in this.SourceDependencies )
+            {
+                context.Console.WriteMessage( $"Restoring '{dependency.Name}' source dependency." );
+
+                var localDirectory = Path.Combine( context.RepoDirectory, "..", dependency.Name );
+                
+                var targetDirectory = Path.Combine( sourceDependenciesDirectory, dependency.Name );
+
+                if ( Directory.Exists( localDirectory ) )
+                {
+                    if ( !Directory.Exists( targetDirectory ) )
+                    {
+                        context.Console.WriteMessage( $"Creating symbolic link to '{localDirectory}' in '{targetDirectory}'." );
+                        Directory.CreateSymbolicLink( targetDirectory, localDirectory );
+
+                        if ( !Directory.Exists( targetDirectory ) )
+                        {
+                            context.Console.WriteError( $"Symbolic link was not created for '{targetDirectory}'." );
+
+                            return false;
+                        }
+                    }
+                }
+                else
+                {
+                    if ( !Directory.Exists( targetDirectory ) )
+                    {
+                        // If the target directory doesn't exist, we clone it to the source-dependencies directory with depth of 1 to mitigate the impact of cloning the whole history.
+                        if ( !ToolInvocationHelper.InvokeTool(
+                                context.Console,
+                                "git",
+                                $"clone {dependency.RepoUrl} --branch {dependency.DefaultBranch} --depth 1",
+                                sourceDependenciesDirectory ) )
+                        {
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        // If the target directory exists, we only pull the latest changes.
+                        if ( !ToolInvocationHelper.InvokeTool(
+                                context.Console,
+                                "git",
+                                $"pull",
+                                targetDirectory ) )
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
 
             return true;
         }
@@ -1478,8 +1559,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var testResultsDirectory =
                     context.Product.TestResultsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
+                var sourceDependenciesDirectory =
+                    context.Product.SourceDependenciesDirectory.ToString().Replace( "\\", "/", StringComparison.Ordinal );
+
                 var artifactRules =
-                    $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}{(this.PublishTestResults ? $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}" : "")}";
+                    $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
+
+                if ( context.Product.PublishTestResults )
+                {
+                    artifactRules += $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}";
+                }
+
+                if ( context.Product.SourceDependencies.Length > 0 )
+                {
+                    artifactRules += $@"\n+:{sourceDependenciesDirectory}/**/*=>{sourceDependenciesDirectory}";
+                }
 
                 var additionalArtifactRules = this.DefaultArtifactRules;
 
@@ -1503,8 +1597,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         ArtifactRules = artifactRules,
                         AdditionalArtifactRules = additionalArtifactRules.ToArray(),
                         BuildTriggers = configurationInfo.BuildTriggers,
-                        SnapshotDependencyObjectNames = this.Dependencies?
-                            .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
+                        SnapshotDependencyObjectNames = this.Dependencies?.Union( this.SourceDependencies )
+                            .Where( d => d.GenerateSnapshotDependency )
                             .Select( d => d.CiBuildTypes[configuration] )
                             .ToArray()
                     };
@@ -1528,8 +1622,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         {
                             IsDeployment = true,
                             ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
-                            SnapshotDependencyObjectNames = this.Dependencies?
-                                .Where( d => d.Provider != VcsProvider.None && d.GenerateSnapshotDependency )
+                            SnapshotDependencyObjectNames = this.Dependencies?.Union( this.SourceDependencies )
+                                .Where( d => d.GenerateSnapshotDependency )
                                 .Select( d => d.DeploymentBuildType )
                                 .ToArray()
                         };

@@ -8,7 +8,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public string NameWithoutDot => this.Name.Replace( ".", "", StringComparison.Ordinal );
 
-        public string RepoName { get; init; }
+        public string RepoUrl => this.Provider.GetRepoUrl( this.Name, this.VcsProjectName );
 
         public string DefaultBranch { get; init; }
 
@@ -26,13 +26,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public bool GenerateSnapshotDependency { get; init; } = true;
 
-        /// </summary>
-        public DependencyDefinition( string name, VcsProvider provider, string vcsProjectName, bool isVersioned = true )
+        public DependencyDefinition( string dependencyName, VcsProvider provider, string vcsProjectName, bool isVersioned = true )
         {
-            this.Name = name;
+            this.Name = dependencyName;
             this.Provider = provider;
             this.VcsProjectName = vcsProjectName;
-            this.RepoName = name;
             this.DefaultBranch = "master";
             this.IsVersioned = isVersioned;
             var vcsProjectNameWithUnderscore = vcsProjectName.Replace( ".", "_", StringComparison.Ordinal );
