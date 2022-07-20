@@ -1526,6 +1526,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // If there is a change in dependencies versions, we update BumpInfo.txt with changes.
                 if ( newBumpFileContent != oldBumpFileContent )
                 {
+                    context.Console.WriteMessage( $"'{bumpInfoFile}' contents are outdated." );
+                    
                     File.WriteAllText( bumpInfoFile, newBumpFileContent );
 
                     context.Console.WriteMessage( $"Writing '{bumpInfoFile}'." );
@@ -1997,7 +1999,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !ToolInvocationHelper.InvokeTool(
                     context.Console,
                     "git",
-                    $"commit -m \"Updated dependencies versions.\"",
+                    $"commit -m \"<<VERSION_BUMP>> Updated dependencies versions.\"",
                     context.RepoDirectory ) )
             {
                 return false;
