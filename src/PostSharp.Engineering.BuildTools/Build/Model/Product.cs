@@ -1520,14 +1520,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            if ( VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
-            {
-                context.Console.WriteWarning( "Version has already been bumped." );
-
-                return true;
-            }
-
-            // When bumping product with MainVersionDependency it will fail if the product providing MainVersion was not bumped.
+            // For products with MainVersionDependency we always update the BumpInfo.txt to prevent perpetually outdated version if the parent product is bumped afterwards.
             if ( context.Product.MainVersionDependency != null )
             {
                 // If there is a change in dependencies versions, we update BumpInfo.txt with changes.
@@ -1543,7 +1536,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         return false;
                     }
                 }
+            }
 
+            if ( VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
+            {
+                context.Console.WriteWarning( "Version has been bumped." );
+
+                return true;
+            }
+
+            // When bumping product with MainVersionDependency it will fail if the product providing MainVersion was not bumped.
+            if ( context.Product.MainVersionDependency != null )
+            {
                 context.Console.WriteError(
                     $"The version would need to be bumped, but it cannot because the MainVersion is dependent on '{context.Product.MainVersionDependency.Name}'. Create a fake change in '{context.Product.MainVersionDependency.Name}' and bump this repo." );
 
