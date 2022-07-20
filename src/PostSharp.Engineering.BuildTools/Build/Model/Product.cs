@@ -1462,15 +1462,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool BumpVersion( BuildContext context, BuildSettings settings )
         {
-            // When bumping locally, the product with MainVersionDependency is not allowed to be manually bumped.
-            if ( this.MainVersionDependency != null )
-            {
-                context.Console.WriteError(
-                    $"The version would need to be bumped, but it cannot because the MainVersion is dependent on {this.MainVersionDependency.Name}. Create a fake change in  {this.MainVersionDependency.Name} and bump this repo." );
-
-                return false;
-            }
-
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,
                 this.MainVersionFilePath );
@@ -1506,6 +1497,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         .OrderBy( d => d.Key )
                         .Select( d => $"{d.Key}={d.Value.Version!}" ) );
 
+            if ( !File.Exists( bumpInfoFile ) )
+            {
+                context.Console.WriteError( $"File '{bumpInfoFile}' was not found." );
+
+                return false;
+            }
+
             var oldBumpFileContent = File.ReadAllText( bumpInfoFile );
 
             if ( newBumpFileContent == oldBumpFileContent && !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
@@ -1529,6 +1527,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return true;
             }
 
+            // When bumping product with MainVersionDependency it will fail if MainVersionDependency was not bumped.
+            if ( context.Product.MainVersionDependency != null )
+            {
+                context.Console.WriteError(
+                    $"The version would need to be bumped, but it cannot because the MainVersion is dependent on {context.Product.MainVersionDependency.Name}. Create a fake change in '{context.Product.MainVersionDependency.Name}' and bump this repo." );
+
+                return false;
+            }
+            
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
 
             if ( !this.TryBumpVersion( context, settings, mainVersionFile, preparedVersionInfo, bumpInfoFile, newBumpFileContent ) )
@@ -1651,8 +1658,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            // Only versioned products can be bumped and only if they don't have MainVersionDependency.
-            if ( this.DependencyDefinition.IsVersioned && this.MainVersionDependency == null )
+            // Only versioned products can be bumped.
+            if ( this.DependencyDefinition.IsVersioned )
             {
                 var dependencyDefinitions = this.Dependencies;
 
@@ -1796,10 +1803,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( lastVersion == currentVersion )
             {
-                context.Console.WriteError(
-                    context.Product.MainVersionDependency != null
-                        ? $"The '{context.Product.ProductName}' has a main version dependency '{context.Product.MainVersionDependency.Name}' that has not been bumped."
-                        : $"The '{context.Product.ProductName}' version has not been bumped." );
+                context.Console.WriteWarning( "Version has not been bumped." );
 
                 return false;
             }
