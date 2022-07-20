@@ -1462,15 +1462,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool BumpVersion( BuildContext context, BuildSettings settings )
         {
-            // When bumping locally, the product with MainVersionDependency is not allowed to be manually bumped.
-            if ( this.MainVersionDependency != null )
-            {
-                context.Console.WriteError(
-                    $"The version would need to be bumped, but it cannot because the MainVersion is dependent on {this.MainVersionDependency.Name}. Create a fake change in  {this.MainVersionDependency.Name} and bump this repo." );
-
-                return false;
-            }
-
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,
                 this.MainVersionFilePath );
@@ -1506,6 +1497,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         .OrderBy( d => d.Key )
                         .Select( d => $"{d.Key}={d.Value.Version!}" ) );
 
+            if ( !File.Exists( bumpInfoFile ) )
+            {
+                context.Console.WriteError( $"File '{bumpInfoFile}' was not found." );
+
+                return false;
+            }
+
             var oldBumpFileContent = File.ReadAllText( bumpInfoFile );
 
             if ( newBumpFileContent == oldBumpFileContent && !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
@@ -1522,13 +1520,42 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
+            // For products with MainVersionDependency we always update the BumpInfo.txt to prevent perpetually outdated version if the parent product is bumped afterwards.
+            if ( context.Product.MainVersionDependency != null )
+            {
+                // If there is a change in dependencies versions, we update BumpInfo.txt with changes.
+                if ( newBumpFileContent != oldBumpFileContent )
+                {
+                    context.Console.WriteMessage( $"'{bumpInfoFile}' contents are outdated." );
+                    
+                    File.WriteAllText( bumpInfoFile, newBumpFileContent );
+
+                    context.Console.WriteMessage( $"Writing '{bumpInfoFile}'." );
+
+                    // Commit the change to BumpInfo.txt to create a commit-based change that requires bumping.
+                    if ( !this.TryCommitDependenciesChanged( context, settings ) )
+                    {
+                        return false;
+                    }
+                }
+            }
+
             if ( VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
             {
-                context.Console.WriteWarning( "Version has already been bumped." );
+                context.Console.WriteWarning( "Version has been bumped." );
 
                 return true;
             }
 
+            // When bumping product with MainVersionDependency it will fail if the product providing MainVersion was not bumped.
+            if ( context.Product.MainVersionDependency != null )
+            {
+                context.Console.WriteError(
+                    $"The version would need to be bumped, but it cannot because the MainVersion is dependent on '{context.Product.MainVersionDependency.Name}'. Create a fake change in '{context.Product.MainVersionDependency.Name}' and bump this repo." );
+
+                return false;
+            }
+            
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
 
             if ( !this.TryBumpVersion( context, settings, mainVersionFile, preparedVersionInfo, bumpInfoFile, newBumpFileContent ) )
@@ -1651,8 +1678,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            // Only versioned products can be bumped and only if they don't have MainVersionDependency.
-            if ( this.DependencyDefinition.IsVersioned && this.MainVersionDependency == null )
+            // Only versioned products can be bumped.
+            if ( this.DependencyDefinition.IsVersioned )
             {
                 var dependencyDefinitions = this.Dependencies;
 
@@ -1796,10 +1823,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( lastVersion == currentVersion )
             {
-                context.Console.WriteError(
-                    context.Product.MainVersionDependency != null
-                        ? $"The '{context.Product.ProductName}' has a main version dependency '{context.Product.MainVersionDependency.Name}' that has not been bumped."
-                        : $"The '{context.Product.ProductName}' version has not been bumped." );
+                context.Console.WriteWarning( "Version has not been bumped." );
 
                 return false;
             }
@@ -1917,6 +1941,82 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
+        private bool TryCommitDependenciesChanged( BuildContext context, BaseBuildSettings settings )
+        {
+            // Adds updated BumpInfo.txt to Git staging area.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"add {this.BumpInfoFilePath}",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            // Returns the remote origin.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"remote get-url origin",
+                context.RepoDirectory,
+                out var gitExitCode,
+                out var gitOrigin );
+
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOrigin );
+
+                return false;
+            }
+
+            gitOrigin = gitOrigin.Trim();
+            var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
+
+            // When on TeamCity, Git user credentials are set to TeamCity and if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
+                {
+                    return false;
+                }
+
+                if ( isHttps )
+                {
+                    if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
+                            out var teamcitySourceWriteTokenEnvironmentVariableName,
+                            out var teamcitySourceCodeWritingToken ) )
+                    {
+                        context.Console.WriteImportantMessage(
+                            $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
+                    }
+                    else
+                    {
+                        gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
+                    }
+                }
+            }
+
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"commit -m \"<<VERSION_BUMP>> Updated dependencies versions.\"",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"push {gitOrigin}",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         private bool TryCommitVersionBump( BuildContext context, Version currentVersion, Version newVersion, BaseBuildSettings settings )
         {
             // Adds bumped MainVersion.props and updated BumpInfo.txt to Git staging area.
@@ -1951,21 +2051,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // When on TeamCity, Git user credentials are set to TeamCity and if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
             if ( TeamCityHelper.IsTeamCityBuild( settings ) )
             {
-                // Following configurations are set only for the current operations in the repository.
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        "config user.name TeamCity",
-                        context.RepoDirectory ) )
-                {
-                    return false;
-                }
-
-                if ( !ToolInvocationHelper.InvokeTool(
-                        context.Console,
-                        "git",
-                        "config user.email teamcity@postsharp.net",
-                        context.RepoDirectory ) )
+                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
                 {
                     return false;
                 }

@@ -1,5 +1,6 @@
 ﻿using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using System;
 using System.Diagnostics.CodeAnalysis;
@@ -23,6 +24,34 @@ public static class TeamCityHelper
         teamCitySourceWriteToken = Environment.GetEnvironmentVariable( environmentVariableName );
 
         if ( teamCitySourceWriteToken == null )
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Attempts to set Git user credentials to TeamCity. Configurations are set only for the current repository.
+    /// </summary>
+    /// <param name="context"></param>
+    /// <returns></returns>
+    public static bool TrySetGitIdentityCredentials( BuildContext context )
+    {
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console, 
+                "git", 
+                "config user.name TeamCity",
+                context.RepoDirectory ) )
+        {
+            return false;
+        }
+
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console, 
+                "git", 
+                "config user.email teamcity@postsharp.net",
+                context.RepoDirectory ) )
         {
             return false;
         }
