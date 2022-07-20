@@ -1527,11 +1527,25 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return true;
             }
 
-            // When bumping product with MainVersionDependency it will fail if MainVersionDependency was not bumped.
+            // When bumping product with MainVersionDependency it will fail if the product providing MainVersion was not bumped.
             if ( context.Product.MainVersionDependency != null )
             {
+                // If there is a change in dependencies versions, we update BumpInfo.txt with changes.
+                if ( newBumpFileContent != oldBumpFileContent )
+                {
+                    File.WriteAllText( bumpInfoFile, newBumpFileContent );
+
+                    context.Console.WriteMessage( $"Writing '{bumpInfoFile}'." );
+
+                    // Commit the change to BumpInfo.txt to create a commit-based change that requires bumping.
+                    if ( !this.TryCommitDependenciesChanged( context, settings ) )
+                    {
+                        return false;
+                    }
+                }
+
                 context.Console.WriteError(
-                    $"The version would need to be bumped, but it cannot because the MainVersion is dependent on {context.Product.MainVersionDependency.Name}. Create a fake change in '{context.Product.MainVersionDependency.Name}' and bump this repo." );
+                    $"The version would need to be bumped, but it cannot because the MainVersion is dependent on '{context.Product.MainVersionDependency.Name}'. Create a fake change in '{context.Product.MainVersionDependency.Name}' and bump this repo." );
 
                 return false;
             }
@@ -1917,6 +1931,82 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteSuccess(
                 $"Bumping the '{context.Product.ProductName}' version from '{currentPreparedVersionInfo.Version}{currentPreparedVersionInfo.PackageVersionSuffix}' to '{newPreparedVersionInfo.Version}{newPreparedVersionInfo.PackageVersionSuffix}' was successful." );
+
+            return true;
+        }
+
+        private bool TryCommitDependenciesChanged( BuildContext context, BaseBuildSettings settings )
+        {
+            // Adds updated BumpInfo.txt to Git staging area.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"add {this.BumpInfoFilePath}",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            // Returns the remote origin.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"remote get-url origin",
+                context.RepoDirectory,
+                out var gitExitCode,
+                out var gitOrigin );
+
+            if ( gitExitCode != 0 )
+            {
+                context.Console.WriteError( gitOrigin );
+
+                return false;
+            }
+
+            gitOrigin = gitOrigin.Trim();
+            var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
+
+            // When on TeamCity, Git user credentials are set to TeamCity and if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
+                {
+                    return false;
+                }
+
+                if ( isHttps )
+                {
+                    if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
+                            out var teamcitySourceWriteTokenEnvironmentVariableName,
+                            out var teamcitySourceCodeWritingToken ) )
+                    {
+                        context.Console.WriteImportantMessage(
+                            $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
+                    }
+                    else
+                    {
+                        gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
+                    }
+                }
+            }
+
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"commit -m \"Updated dependencies versions.\"",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    $"push {gitOrigin}",
+                    context.RepoDirectory ) )
+            {
+                return false;
+            }
 
             return true;
         }

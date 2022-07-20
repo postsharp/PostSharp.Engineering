@@ -76,6 +76,8 @@ public class MergePublisher : IndependentPublisher
             }
         }
 
+        context.Console.WriteSuccess( "MergePublisher has finished successfully." );
+
         return SuccessCode.Success;
     }
 
@@ -192,6 +194,8 @@ public class MergePublisher : IndependentPublisher
         {
             return false;
         }
+
+        context.Console.WriteImportantMessage( "Updating versions of dependencies in 'Versions.props'." );
 
         foreach ( var dependency in context.Product.Dependencies )
         {
