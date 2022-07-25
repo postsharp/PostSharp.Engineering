@@ -83,6 +83,25 @@ public class MergePublisher : IndependentPublisher
 
     private static bool TryCheckoutAndPullMaster( BuildContext context )
     {
+        // Add origin/master branch to the list of currently tracked branches because local repository may be initialized with only the default branch.
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"remote set-branches --add origin master",
+                context.RepoDirectory ) )
+        {
+            return false;
+        }
+
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"fetch",
+                context.RepoDirectory ) )
+        {
+            return false;
+        }
+
         // Switch to the master branch before we do merge.
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
