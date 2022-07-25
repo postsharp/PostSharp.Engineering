@@ -17,7 +17,6 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Net.Http.Json;
 using System.Reflection;
 using System.Text;
 using System.Xml;
@@ -41,6 +40,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 #pragma warning disable CS0618 // Obsolete init accessor should cause warning only outside constructor.
             this.ProductName = dependencyDefinition.Name;
 #pragma warning restore CS0618
+            this.VcsProvider = dependencyDefinition.Repo.Provider;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
         }
 
@@ -1348,7 +1348,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     if ( !hasBumpSinceLastDeployment )
                     {
                         // TODO: check dependencies.
-                        context.Console.WriteError( "There are changes since the last deployment but the version has not been dumped." );
+                        context.Console.WriteError( "There are changes since the last deployment but the version has not been bumped." );
+
                         return false;
                     }
                 }
@@ -1488,7 +1489,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Read the current version of the dependencies directly from source control.
-            if ( !this.TryReadDependencyVersionsFromSourceRepos( out var dependencyVersions ) )
+            if ( !this.TryReadDependencyVersionsFromSourceRepos( context, out var dependencyVersions ) )
             {
                 return false;
             }
@@ -1496,7 +1497,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Comparing the actual version of dependencies with the versions stored during the last bump.
             var newBumpInfoFile =
                 new BumpInfoFile( dependencyVersions );
-                
+
             var bumpInfoFilePath = Path.Combine(
                 context.RepoDirectory,
                 this.BumpInfoFilePath );
@@ -1511,7 +1512,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var oldBumpFileContent = File.ReadAllText( bumpInfoFilePath );
             var hasChangesInDependencies = newBumpInfoFile.ToString() != oldBumpFileContent;
 
-
             if ( !hasChangesInDependencies && !hasChangesSinceLastDeployment )
             {
                 context.Console.WriteWarning( $"There are no changes since the last deployment." );
@@ -1520,10 +1520,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
             
             // If there is a change in dependencies versions, we update BumpInfo.txt with changes.
-            
             if ( hasChangesInDependencies )
             {
-                context.Console.WriteMessage( $"'{bumpInfoFilePath}' contents are outdated. Overwriting '{bumpInfoFilePath}' with content '{newBumpInfoFile}'." );
+                context.Console.WriteMessage( $"'{bumpInfoFilePath}' contents are outdated. Overwriting its old content '{oldBumpFileContent}' with new content '{newBumpInfoFile}'." );
 
                 File.WriteAllText( bumpInfoFilePath, newBumpInfoFile.ToString() );
             }
@@ -1550,8 +1549,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var oldBumpInfo = BumpInfoFile.FromText( oldBumpFileContent );
                 newVersion = dependencyVersions[this.MainVersionDependency.Name];
                 oldVersion = oldBumpInfo?.Dependencies[this.MainVersionDependency.Name];
-
-
             }
 
             // Commit the version bump.
@@ -1560,22 +1557,34 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-
             return true;
         }
 
-        private bool TryReadDependencyVersionsFromSourceRepos( [NotNullWhen(true)] out Dictionary<string, Version>? dependencyVersions)
+        private bool TryReadDependencyVersionsFromSourceRepos( BuildContext context, [NotNullWhen(true)] out Dictionary<string, Version>? dependencyVersions)
         {
             dependencyVersions = new Dictionary<string, Version>();
 
             foreach ( var dependency in this.Dependencies.Union( this.SourceDependencies ) )
             {
-                dependency.Repo.DownloadTextFile( dependency.DefaultBranch, $"{dependency.EngineeringDirectory}/MainVersion.props" );
-                // TODO: parse using XML.
+                context.Console.WriteMessage( $"Downloading '{context.Product.MainVersionFilePath}' from '{dependency.Repo.RepoUrl}'." );
+                var mainVersionContent = dependency.Repo.DownloadTextFile( dependency.DefaultBranch, context.Product.MainVersionFilePath );
+
+                var document = XDocument.Parse( mainVersionContent );
+                var project = document.Root;
+                var properties = project?.Element( "PropertyGroup" );
+                var mainVersionPropertyValue = properties?.Element( "MainVersion" )?.Value;
+
+                if ( string.IsNullOrEmpty( mainVersionPropertyValue ) )
+                {
+                    context.Console.WriteError( $"The property 'MainVersion' or its value in '{context.Product.MainVersionFilePath}' of dependency '{dependency.Name}' is not defined." );
+
+                    return false;
+                }
+
+                dependencyVersions.Add( dependency.Name, Version.Parse( mainVersionPropertyValue ) );
             }
 
             return true;
-
         }
 
         private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )
@@ -1702,7 +1711,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             this,
                             objectName: "VersionBump",
                             name: $"Version Bump",
-                            buildArguments: $"bump",
+                            buildArguments: $"bump -c public",
                             buildAgentType: this.BuildAgentType ) { IsDeployment = true } );
                 }
             }
@@ -1722,25 +1731,88 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool TryAnalyzeGitHistory( BuildContext context, [NotNullWhen( true )] out bool hasBumpSinceLastDeployment, [NotNullWhen( true )]  out bool hasChangesSinceLastDeployment )
+        private static bool TryAnalyzeGitHistory( BuildContext context, out bool hasBumpSinceLastDeployment, out bool hasChangesSinceLastDeployment )
         {
             // Fetch remote for tags and commits to make sure we have the full history to compare tags against.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    "fetch",
+                    context.RepoDirectory ) )
+            {
+                hasBumpSinceLastDeployment = false;
+                hasChangesSinceLastDeployment = false;
+
+                return false;
+            }
+
+            // Get string of the last published tag and trim newline.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                "fetch",
+                $"describe --abbrev=0 --tags",
                 context.RepoDirectory,
-                out _,
+                out var exitCode,
                 out var gitOutput );
 
-            // We don't write the output to console if we don't fetch anything.
-            if ( !string.IsNullOrWhiteSpace( gitOutput ) )
+            if ( exitCode != 0 )
             {
-                context.Console.WriteMessage( gitOutput );
+                hasBumpSinceLastDeployment = false;
+                hasChangesSinceLastDeployment = false;
+
+                context.Console.WriteError( gitOutput );
+                context.Console.WriteError( "The repository may not have any tags, if so add 0.0.0 tag to initial commit." );
+
+                return false;
             }
 
-            // Returns the list of tag reference names treated as versions in descending order.
-            throw new NotImplementedException();
+            var lastTag = gitOutput.Trim();
+
+            // Get commits log since the last deployment formatted to one line per commit and check if we bumped since last deployment.
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"log \"{lastTag}..HEAD\" --oneline",
+                context.RepoDirectory,
+                out exitCode,
+                out var gitLog );
+
+            if ( exitCode != 0 )
+            {
+                hasBumpSinceLastDeployment = false;
+                hasChangesSinceLastDeployment = false;
+                
+                context.Console.WriteError( gitOutput );
+
+                return false;
+            }
+
+            hasBumpSinceLastDeployment = gitLog.Contains( "VERSION_BUMP", StringComparison.OrdinalIgnoreCase );
+
+            // Get count of commits since last deployment excluding version bumps and check if there are any changes
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"rev-list --count \"{lastTag}..HEAD\" --invert-grep --grep=\"<<VERSION_BUMP>>\"",
+                context.RepoDirectory,
+                out exitCode,
+                out var numberOfCommits );
+
+            if ( exitCode != 0 )
+            {
+                hasBumpSinceLastDeployment = false;
+                hasChangesSinceLastDeployment = false;
+                
+                context.Console.WriteError( gitOutput );
+
+                return false;
+            }
+
+            var commitsSinceLastTag = int.Parse( numberOfCommits, CultureInfo.InvariantCulture );
+
+            hasChangesSinceLastDeployment = commitsSinceLastTag > 0;
+
+            return true;
         }
 
         private static bool AddTagToLastCommit( BuildContext context, PreparedVersionInfo preparedVersionInfo, BaseBuildSettings settings )
@@ -1808,8 +1880,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private bool TryBumpVersion(
             BuildContext context,
-            [NotNullWhen(true)] out Version? oldVersion,
-            [NotNullWhen(true)] out Version? newVersion )
+            [NotNullWhen( true )] out Version? oldVersion,
+            [NotNullWhen( true )] out Version? newVersion )
         {
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,
@@ -1843,82 +1915,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteSuccess(
                 $"Bumping the '{context.Product.ProductName}' version from '{oldVersion}' to '{newVersion}' was successful." );
-
-            return true;
-        }
-
-        private bool TryCommitDependenciesChanged( BuildContext context, BaseBuildSettings settings )
-        {
-            // Adds updated BumpInfo.txt to Git staging area.
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"add {this.BumpInfoFilePath}",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
-
-            // Returns the remote origin.
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"remote get-url origin",
-                context.RepoDirectory,
-                out var gitExitCode,
-                out var gitOrigin );
-
-            if ( gitExitCode != 0 )
-            {
-                context.Console.WriteError( gitOrigin );
-
-                return false;
-            }
-
-            gitOrigin = gitOrigin.Trim();
-            var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
-
-            // When on TeamCity, Git user credentials are set to TeamCity and if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
-            {
-                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
-                {
-                    return false;
-                }
-
-                if ( isHttps )
-                {
-                    if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
-                            out var teamcitySourceWriteTokenEnvironmentVariableName,
-                            out var teamcitySourceCodeWritingToken ) )
-                    {
-                        context.Console.WriteImportantMessage(
-                            $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
-                    }
-                    else
-                    {
-                        gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
-                    }
-                }
-            }
-
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"commit -m \"<<VERSION_BUMP>> Updated dependencies versions.\"",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
-
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"push {gitOrigin}",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
 
             return true;
         }
@@ -1981,7 +1977,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !ToolInvocationHelper.InvokeTool(
                     context.Console,
                     "git",
-                    $"commit -m \"<<VERSION_BUMP>> {currentVersion?.ToString( ) ?? "unknown"} to {newVersion}\"",
+                    $"commit -m \"<<VERSION_BUMP>> {currentVersion?.ToString() ?? "unknown"} to {newVersion}\"",
                     context.RepoDirectory ) )
             {
                 return false;
@@ -2012,7 +2008,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var mainVersionFileInfo = this.ReadMainVersionFile( mainVersionFile );
             var overriddenPatchVersion = mainVersionFileInfo.OverriddenPatchVersion;
             
-            string mainVersion;
+            string? mainVersion;
             Version? currentVersion;
 
             // The MainVersionDependency is not defined.

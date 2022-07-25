@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model;
 
-class BumpInfoFile
+public class BumpInfoFile
 {
     public Dictionary<string, Version> Dependencies { get; init; } = new Dictionary<string, Version>();
 
