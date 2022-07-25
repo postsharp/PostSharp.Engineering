@@ -7,32 +7,32 @@ public static class TestDependencies
     public static DependencyDefinition TestProduct { get; } = new(
         "PostSharp.Engineering.Test.TestProduct",
         VcsProvider.AzureRepos,
-        "Test" );
+        "Engineering" );
 
     public static DependencyDefinition Dependency { get; } = new(
         "PostSharp.Engineering.Test.Dependency",
         VcsProvider.AzureRepos,
-        "Test" );
+        "Engineering" );
 
     public static DependencyDefinition TransitiveDependency { get; } = new(
         "PostSharp.Engineering.Test.TransitiveDependency",
         VcsProvider.AzureRepos,
-        "Test" );
+        "Engineering" );
 
     public static DependencyDefinition GitHub { get; } = new(
         "PostSharp.Engineering.Test.GitHub",
         VcsProvider.GitHub,
-        "Test" );
+        "postsharp" );
 
     public static DependencyDefinition MainVersionDependency { get; } = new(
         "PostSharp.Engineering.Test.MainVersionDependency",
         VcsProvider.AzureRepos,
-        "Test" );
+        "Engineering" );
 
     public static DependencyDefinition PatchVersion { get; } = new(
         "PostSharp.Engineering.Test.PatchVersion",
         VcsProvider.AzureRepos,
-        "Test" );
+        "Engineering" );
 
     public static DependencyDefinition NopCommerce { get; } = new(
         "Metalama.Tests.NopCommerce",
