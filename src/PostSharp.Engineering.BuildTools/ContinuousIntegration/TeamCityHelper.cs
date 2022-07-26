@@ -21,7 +21,7 @@ public static class TeamCityHelper
 
     public static bool TryGetTeamCitySourceWriteToken( out string environmentVariableName, [NotNullWhen( true )] out string? teamCitySourceWriteToken )
     {
-        environmentVariableName = "%SourceCodeWritingToken%";
+        environmentVariableName = "SOURCE_CODE_WRITING_TOKEN";
         teamCitySourceWriteToken = Environment.GetEnvironmentVariable( environmentVariableName );
 
         if ( teamCitySourceWriteToken == null )
@@ -35,7 +35,7 @@ public static class TeamCityHelper
     public static bool TryGetTeamCitySourceReadToken( out string buildParameterName, [NotNullWhen( true )] out string? teamCitySourceReadToken )
     {
         // We use TeamCity configuration parameter value.
-        buildParameterName = "%SourceCodeReadingToken%";
+        buildParameterName = "SOURCE_CODE_READING_TOKEN";
         teamCitySourceReadToken = Environment.GetEnvironmentVariable( buildParameterName );
 
         if ( teamCitySourceReadToken == null )
