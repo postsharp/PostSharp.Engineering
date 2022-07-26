@@ -1331,23 +1331,25 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Only versioned products require version bump.
             if ( this.DependencyDefinition.IsVersioned )
             {
-                // Get the latest version tag.
-                if ( !TryAnalyzeGitHistory( context, out var hasBumpSinceLastDeployment, out var hasChangesSinceLastDeployment ) )
+                // Analyze the repository state since the last deployment.
+                if ( !TryAnalyzeGitHistory( context, out var hasBumpSinceLastDeployment, out var hasChangesSinceLastDeployment, out var lastVersionTag ) )
                 {
                     return false;
                 }
 
-                // If there are no changes since the last tag (i.e. last publishing), we get a warning about publishing the same version only.
+                // If there are no changes since the deployment, we get only a warning and deployment proceeds with the same version.
                 if ( !hasChangesSinceLastDeployment )
                 {
                     context.Console.WriteWarning( $"There are no new unpublished changes since the last deployment." );
                 }
                 else
                 {
-                    // If there are changes and the version has not been bumped since the last publish, publishing fails.
-                    if ( !hasBumpSinceLastDeployment )
+                    // To check if version was bumped manually we get full prepared version info.
+                    var currentVersion = preparedVersionInfo.Version + preparedVersionInfo.PackageVersionSuffix;
+                    
+                    // Publishing fails if there are changes and the version has not been bumped since the last deployment.
+                    if ( !hasBumpSinceLastDeployment && currentVersion == lastVersionTag )
                     {
-                        // TODO: check dependencies.
                         context.Console.WriteError( "There are changes since the last deployment but the version has not been bumped." );
 
                         return false;
@@ -1476,7 +1478,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // If the version has already been dumped since the last deployment, there is nothing to do. 
-            if ( !TryAnalyzeGitHistory( context, out var hasBumpSinceLastDeployment, out var hasChangesSinceLastDeployment ) )
+            if ( !TryAnalyzeGitHistory( context, out var hasBumpSinceLastDeployment, out var hasChangesSinceLastDeployment, out _ ) )
             {
                 return false;
             }
@@ -1731,8 +1733,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool TryAnalyzeGitHistory( BuildContext context, out bool hasBumpSinceLastDeployment, out bool hasChangesSinceLastDeployment )
+        private static bool TryAnalyzeGitHistory(
+            BuildContext context,
+            out bool hasBumpSinceLastDeployment,
+            out bool hasChangesSinceLastDeployment,
+            [NotNullWhen( true )] out string? lastTagVersion )
         {
+            lastTagVersion = null;
+
             // Fetch remote for tags and commits to make sure we have the full history to compare tags against.
             if ( !ToolInvocationHelper.InvokeTool(
                     context.Console,
@@ -1767,8 +1775,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             var lastTag = gitOutput.Trim();
+            lastTagVersion = lastTag;
 
-            // Get commits log since the last deployment formatted to one line per commit and check if we bumped since last deployment.
+            // Get commits log since the last deployment formatted to one line per commit.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
@@ -1787,16 +1796,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
+            // Check if we bumped since last deployment.
             hasBumpSinceLastDeployment = gitLog.Contains( "VERSION_BUMP", StringComparison.OrdinalIgnoreCase );
 
-            // Get count of commits since last deployment excluding version bumps and check if there are any changes
+            // Get count of commits since last deployment excluding version bumps and check if there are any changes.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
                 $"rev-list --count \"{lastTag}..HEAD\" --invert-grep --grep=\"<<VERSION_BUMP>>\"",
                 context.RepoDirectory,
                 out exitCode,
-                out var numberOfCommits );
+                out var commitsCount );
 
             if ( exitCode != 0 )
             {
@@ -1808,8 +1818,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            var commitsSinceLastTag = int.Parse( numberOfCommits, CultureInfo.InvariantCulture );
-
+            var commitsSinceLastTag = int.Parse( commitsCount, CultureInfo.InvariantCulture );
             hasChangesSinceLastDeployment = commitsSinceLastTag > 0;
 
             return true;
