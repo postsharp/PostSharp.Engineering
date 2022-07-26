@@ -35,10 +35,17 @@ namespace PostSharp.Engineering.BuildTools.Build
 
                             if ( commandLine != null
                                  && (commandLine.Contains( "VBCSCompiler", StringComparison.OrdinalIgnoreCase )
-                                     || commandLine.Contains( "MSBuild", StringComparison.OrdinalIgnoreCase )) )
+                                     || commandLine.Contains( "MSBuild", StringComparison.OrdinalIgnoreCase )
+                                     || commandLine.Contains( "tool", StringComparison.OrdinalIgnoreCase )) )
                             {
                                 return true;
                             }
+                        }
+
+                        if ( p.ProcessName.Equals( "testhost", StringComparison.OrdinalIgnoreCase ) 
+                             || p.ProcessName.Equals( "testhost.x86", StringComparison.OrdinalIgnoreCase ) )
+                        {
+                            return true;
                         }
 
                         return false;
