@@ -1706,7 +1706,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             this,
                             objectName: "VersionBump",
                             name: $"Version Bump",
-                            buildArguments: $"bump -c public",
+                            buildArguments: $"bump",
                             buildAgentType: this.BuildAgentType ) { IsDeployment = true } );
                 }
             }
