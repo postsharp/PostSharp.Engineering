@@ -1747,16 +1747,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // Get string of the last published tag and trim newline.
+            // Get string of the last published release tag matched by glob pattern and trim newline.
+            var globMatch = "release/*";
+            
+            // TODO: Maybe a better way if there is no match.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"describe --abbrev=0 --tags",
+                $"describe --abbrev=0 --tags --match \"{globMatch}\" --match \"*-preview\"",
                 context.RepoDirectory,
                 out var exitCode,
                 out var gitTagOutput );
-            
-            // TODO: match tag by regular expression so that this logic is more robust.
 
             if ( exitCode != 0 )
             {
@@ -1764,7 +1765,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 hasChangesSinceLastDeployment = false;
 
                 context.Console.WriteError( gitTagOutput );
-                context.Console.WriteError( "The repository may not have any tags, if so add 0.0.0 tag to initial commit." );
+                context.Console.WriteError( $"The repository may not have any tags matching '{globMatch}', if so add 'release/0.0.0' tag to initial commit." );
 
                 return false;
             }
@@ -1821,7 +1822,34 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private static bool AddTagToLastCommit( BuildContext context, PreparedVersionInfo preparedVersionInfo, BaseBuildSettings settings )
         {
-            var versionTag = string.Concat( preparedVersionInfo.Version, preparedVersionInfo.PackageVersionSuffix );
+            string versionTag;
+
+            // The tag will contain 'release-' prefix if the version is intended for release and not only testing (i.e. -alpha, -beta suffixes).
+            if ( preparedVersionInfo.PackageVersionSuffix == "-preview" || string.IsNullOrEmpty( preparedVersionInfo.PackageVersionSuffix ) )
+            {
+                versionTag = string.Concat( "release/", preparedVersionInfo.Version, preparedVersionInfo.PackageVersionSuffix );
+            }
+            else
+            {
+                versionTag = string.Concat( preparedVersionInfo.Version, preparedVersionInfo.PackageVersionSuffix );
+            }
+            
+            // TODO: Check if tag exists
+
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"ls-remote --tags origin --grep {versionTag}",
+                context.RepoDirectory,
+                out _,
+                out var gitOutput );
+
+            if ( gitOutput.Contains( versionTag, StringComparison.OrdinalIgnoreCase ) )
+            {
+                context.Console.WriteWarning( $"Repository already contains tag '{versionTag}'." );
+
+                return true;
+            }
 
             // Tagging the last commit with version.
             if ( !ToolInvocationHelper.InvokeTool(
