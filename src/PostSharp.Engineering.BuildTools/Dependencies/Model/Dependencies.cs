@@ -10,6 +10,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             VcsProvider.AzureRepos,
             "Metalama" )
         {
+            EngineeringDirectory = "eng-Metalama",
+
             // The release build is intentionally used for the debug configuration because we want dependencies to consume the release
             // build, for performance reasons. The debug build will be used only locally, and for this we don't need a configuration here.
             CiBuildTypes = new ConfigurationSpecific<string>(
@@ -27,7 +29,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public static DependencyDefinition MetalamaDocumentation { get; } = new( "Metalama.Documentation", VcsProvider.GitHub, "Metalama", false );
 
-        public static DependencyDefinition MetalamaTry { get; } = new( "Metalama.Try", VcsProvider.AzureRepos, "Metalama", false );
+        public static DependencyDefinition MetalamaTry { get; } =
+            new( "Metalama.Try", VcsProvider.AzureRepos, "Metalama", false ) { EngineeringDirectory = "eng-Metalama" };
 
         public static DependencyDefinition MetalamaVsx { get; } = new( "Metalama.Vsx", VcsProvider.AzureRepos, "Metalama" );
 

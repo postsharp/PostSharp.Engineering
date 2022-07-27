@@ -11,16 +11,17 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 public static class TeamCityHelper
 {
+    public static readonly string TeamCityUsername = "teamcity@postsharp.net";
     public static readonly string TeamcityApiBuildQueueUri = "https://tc.postsharp.net/app/rest/buildQueue";
     public static readonly string TeamCityApiRunningBuildsUri = "https://tc.postsharp.net/app/rest/builds?locator=state:running";
     public static readonly string TeamCityApiFinishedBuildsUri = "https://tc.postsharp.net/app/rest/builds?locator=state:finished";
 
-    public static bool IsTeamCityBuild( BaseBuildSettings settings )
+    public static bool IsTeamCityBuild( CommonCommandSettings settings )
         => settings.ContinuousIntegration || Environment.GetEnvironmentVariable( "TEAMCITY_GIT_PATH" ) != null;
 
     public static bool TryGetTeamCitySourceWriteToken( out string environmentVariableName, [NotNullWhen( true )] out string? teamCitySourceWriteToken )
     {
-        environmentVariableName = "TEAMCITY_SOURCE_WRITE_TOKEN";
+        environmentVariableName = "SOURCE_CODE_WRITING_TOKEN";
         teamCitySourceWriteToken = Environment.GetEnvironmentVariable( environmentVariableName );
 
         if ( teamCitySourceWriteToken == null )
@@ -28,6 +29,20 @@ public static class TeamCityHelper
             return false;
         }
 
+        return true;
+    }
+
+    public static bool TryGetTeamCitySourceReadToken( out string buildParameterName, [NotNullWhen( true )] out string? teamCitySourceReadToken )
+    {
+        // We use TeamCity configuration parameter value.
+        buildParameterName = "SOURCE_CODE_READING_TOKEN";
+        teamCitySourceReadToken = Environment.GetEnvironmentVariable( buildParameterName );
+
+        if ( teamCitySourceReadToken == null )
+        {
+            return false;
+        }
+        
         return true;
     }
 
@@ -50,7 +65,7 @@ public static class TeamCityHelper
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console, 
                 "git", 
-                "config user.email teamcity@postsharp.net",
+                $"config user.email {TeamCityUsername}",
                 context.RepoDirectory ) )
         {
             return false;

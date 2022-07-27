@@ -40,13 +40,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 #pragma warning disable CS0618 // Obsolete init accessor should cause warning only outside constructor.
             this.ProductName = dependencyDefinition.Name;
 #pragma warning restore CS0618
-            this.VcsProvider = this.DependencyDefinition.Provider;
+            this.VcsProvider = dependencyDefinition.Repo.Provider;
+            this.EngineeringDirectory = dependencyDefinition.EngineeringDirectory;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
         }
 
         public string BuildExePath { get; }
 
-        public string EngineeringDirectory { get; init; } = "eng";
+        public string EngineeringDirectory { get; init; }
 
         public string VersionsFilePath
         {
@@ -794,7 +795,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         if ( !ToolInvocationHelper.InvokeTool(
                                 context.Console,
                                 "git",
-                                $"clone {dependency.RepoUrl} --branch {dependency.DefaultBranch} --depth 1",
+                                $"clone {dependency.Repo.RepoUrl} --branch {dependency.DefaultBranch} --depth 1",
                                 sourceDependenciesDirectory ) )
                         {
                             return false;
@@ -1320,7 +1321,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 this.MainVersionFilePath );
 
             // Get the current version from MainVersion.props.
-            if ( !this.TryLoadPreparedVersionInfo(
+            if ( !this.TryGetPreparedVersionInfo(
                     context,
                     mainVersionFile,
                     out var preparedVersionInfo ) )
@@ -1331,22 +1332,27 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Only versioned products require version bump.
             if ( this.DependencyDefinition.IsVersioned )
             {
-                // Get the latest version tag.
-                if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
+                // Analyze the repository state since the last deployment.
+                if ( !TryAnalyzeGitHistory( context, out var hasBumpSinceLastDeployment, out var hasChangesSinceLastDeployment, out var lastVersionTag ) )
                 {
                     return false;
                 }
 
-                // If there are no changes since the last tag (i.e. last publishing), we get a warning about publishing the same version only.
-                if ( !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
+                // If there are no changes since the deployment, we get only a warning and deployment proceeds with the same version.
+                if ( !hasChangesSinceLastDeployment )
                 {
-                    context.Console.WriteWarning( $"There are no new unpublished changes since the last version tag '{lastVersionTag}'." );
+                    context.Console.WriteWarning( $"There are no new unpublished changes since the last deployment." );
                 }
                 else
                 {
-                    // If there are changes and the version has not been bumped since the last publish, publishing fails.
-                    if ( !VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
+                    // To check if version was bumped manually we get full prepared version info.
+                    var currentVersion = preparedVersionInfo.Version + preparedVersionInfo.PackageVersionSuffix;
+                    
+                    // Publishing fails if there are changes and the version has not been bumped since the last deployment.
+                    if ( !hasBumpSinceLastDeployment && currentVersion == lastVersionTag )
                     {
+                        context.Console.WriteError( "There are changes since the last deployment but the version has not been bumped." );
+
                         return false;
                     }
                 }
@@ -1460,98 +1466,117 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return success;
         }
 
-        public bool BumpVersion( BuildContext context, BuildSettings settings )
+        public bool BumpVersion( BuildContext context, BumpSettings settings )
         {
-            var mainVersionFile = Path.Combine(
-                context.RepoDirectory,
-                this.MainVersionFilePath );
+            context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
 
-            var bumpInfoFile = Path.Combine(
-                context.RepoDirectory,
-                this.BumpInfoFilePath );
-
-            if ( !TryGetLastVersionTag( context, out var lastVersionTag ) )
+            // If the version has already been dumped since the last deployment, there is nothing to do. 
+            if ( !TryAnalyzeGitHistory( context, out var hasBumpSinceLastDeployment, out var hasChangesSinceLastDeployment, out _ ) )
             {
                 return false;
             }
 
-            // Dependencies versions to compare with BumpInfo file are from Public build.
-            settings.BuildConfiguration = BuildConfiguration.Public;
-
-            // Prepare Version.Public.g.props to read dependencies versions from.
-            if ( !this.PrepareVersionsFile( context, settings, out _ ) )
-            {
-                return false;
-            }
-
-            // Get dependenciesOverrideFile from Versions.Public.g.props.
-            if ( !DependenciesOverrideFile.TryLoadDefaultsOnly( context, settings.BuildConfiguration, out var dependenciesOverrideFile ) )
-            {
-                return false;
-            }
-
-            var newBumpFileContent =
-                string.Join(
-                    ";",
-                    dependenciesOverrideFile.Dependencies
-                        .OrderBy( d => d.Key )
-                        .Select( d => $"{d.Key}={d.Value.Version!}" ) );
-
-            if ( !File.Exists( bumpInfoFile ) )
-            {
-                context.Console.WriteError( $"File '{bumpInfoFile}' was not found." );
-
-                return false;
-            }
-
-            var oldBumpFileContent = File.ReadAllText( bumpInfoFile );
-
-            if ( newBumpFileContent == oldBumpFileContent && !AreChangesSinceLastVersionTag( context, lastVersionTag ) )
-            {
-                context.Console.WriteWarning( $"There are no changes since the last version tag '{lastVersionTag}'." );
-
-                return true;
-            }
-
-            this.TryLoadPreparedVersionInfo( context, mainVersionFile, out var preparedVersionInfo );
-
-            if ( preparedVersionInfo == null )
-            {
-                return false;
-            }
-
-            // For products with MainVersionDependency we always update the BumpInfo.txt to prevent perpetually outdated version if the parent product is bumped afterwards.
-            if ( context.Product.MainVersionDependency != null )
-            {
-                // If there is a change in dependencies versions, we update BumpInfo.txt with changes.
-                if ( newBumpFileContent != oldBumpFileContent )
-                {
-                    context.Console.WriteMessage( $"'{bumpInfoFile}' contents are outdated." );
-                    
-                    File.WriteAllText( bumpInfoFile, newBumpFileContent );
-
-                    context.Console.WriteMessage( $"Writing '{bumpInfoFile}'." );
-
-                    // Commit the change to BumpInfo.txt to create a commit-based change that requires bumping.
-                    if ( !this.TryCommitDependenciesChanged( context, settings ) )
-                    {
-                        return false;
-                    }
-                }
-            }
-
-            if ( VersionHasBeenBumped( context, preparedVersionInfo.Version, lastVersionTag ) )
+            if ( hasBumpSinceLastDeployment )
             {
                 context.Console.WriteWarning( "Version has been bumped." );
 
                 return true;
             }
 
-            context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
-
-            if ( !this.TryBumpVersion( context, settings, mainVersionFile, preparedVersionInfo, bumpInfoFile, newBumpFileContent ) )
+            // Read the current version of the dependencies directly from source control.
+            if ( !this.TryReadDependencyVersionsFromSourceRepos( context, out var dependencyVersions ) )
             {
                 return false;
+            }
+
+            // Comparing the actual version of dependencies with the versions stored during the last bump.
+            var newBumpInfoFile =
+                new BumpInfoFile( dependencyVersions );
+
+            var bumpInfoFilePath = Path.Combine(
+                context.RepoDirectory,
+                this.BumpInfoFilePath );
+            
+            if ( !File.Exists( bumpInfoFilePath ) )
+            {
+                context.Console.WriteError( $"File '{bumpInfoFilePath}' was not found." );
+
+                return false;
+            }
+
+            var oldBumpFileContent = File.ReadAllText( bumpInfoFilePath );
+            var hasChangesInDependencies = newBumpInfoFile.ToString() != oldBumpFileContent;
+
+            if ( !hasChangesInDependencies && !hasChangesSinceLastDeployment )
+            {
+                context.Console.WriteWarning( $"There are no changes since the last deployment." );
+
+                return true;
+            }
+            
+            // If there is a change in dependencies versions, we update BumpInfo.txt with changes.
+            if ( hasChangesInDependencies )
+            {
+                context.Console.WriteMessage( $"'{bumpInfoFilePath}' contents are outdated. Overwriting its old content '{oldBumpFileContent}' with new content '{newBumpInfoFile}'." );
+
+                File.WriteAllText( bumpInfoFilePath, newBumpInfoFile.ToString() );
+            }
+
+            Version? oldVersion;
+            Version? newVersion;
+
+            if ( this.MainVersionDependency == null )
+            {
+                if ( !this.TryBumpVersion( context, out oldVersion, out newVersion ) )
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                if ( hasChangesSinceLastDeployment && !hasChangesInDependencies )
+                {
+                    context.Console.WriteError( "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning. Do a fake change in a parent repo." );
+
+                    return false;
+                }
+
+                var oldBumpInfo = BumpInfoFile.FromText( oldBumpFileContent );
+                newVersion = dependencyVersions[this.MainVersionDependency.Name];
+                oldVersion = oldBumpInfo?.Dependencies[this.MainVersionDependency.Name];
+            }
+
+            // Commit the version bump.
+            if ( !this.TryCommitVersionBump( context, oldVersion, newVersion, settings ) )
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool TryReadDependencyVersionsFromSourceRepos( BuildContext context, [NotNullWhen(true)] out Dictionary<string, Version>? dependencyVersions)
+        {
+            dependencyVersions = new Dictionary<string, Version>();
+
+            foreach ( var dependency in this.Dependencies.Union( this.SourceDependencies ) )
+            {
+                context.Console.WriteMessage( $"Downloading '{context.Product.MainVersionFilePath}' from '{dependency.Repo.RepoUrl}'." );
+                var mainVersionContent = dependency.Repo.DownloadTextFile( dependency.DefaultBranch, context.Product.MainVersionFilePath );
+
+                var document = XDocument.Parse( mainVersionContent );
+                var project = document.Root;
+                var properties = project?.Element( "PropertyGroup" );
+                var mainVersionPropertyValue = properties?.Element( "MainVersion" )?.Value;
+
+                if ( string.IsNullOrEmpty( mainVersionPropertyValue ) )
+                {
+                    context.Console.WriteError( $"The property 'MainVersion' or its value in '{context.Product.MainVersionFilePath}' of dependency '{dependency.Name}' is not defined." );
+
+                    return false;
+                }
+
+                dependencyVersions.Add( dependency.Name, Version.Parse( mainVersionPropertyValue ) );
             }
 
             return true;
@@ -1701,130 +1726,127 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool TryGetLastVersionTag( BuildContext context, [NotNullWhen( true )] out string? lastVersionTag )
+        private static bool TryAnalyzeGitHistory(
+            BuildContext context,
+            out bool hasBumpSinceLastDeployment,
+            out bool hasChangesSinceLastDeployment,
+            [NotNullWhen( true )] out string? lastTagVersion )
         {
+            lastTagVersion = null;
+
             // Fetch remote for tags and commits to make sure we have the full history to compare tags against.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "git",
+                    "fetch",
+                    context.RepoDirectory ) )
+            {
+                hasBumpSinceLastDeployment = false;
+                hasChangesSinceLastDeployment = false;
+
+                return false;
+            }
+
+            // Get string of the last published release tag matched by glob pattern and trim newline.
+            var globMatch = "release/*";
+            
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                "fetch",
+                $"describe --abbrev=0 --tags --match \"{globMatch}\"",
                 context.RepoDirectory,
-                out _,
-                out var gitOutput );
+                out var exitCode,
+                out var gitTagOutput );
 
-            // We don't write the output to console if we don't fetch anything.
-            if ( !string.IsNullOrWhiteSpace( gitOutput ) )
+            if ( exitCode != 0 )
             {
-                context.Console.WriteMessage( gitOutput );
+                hasBumpSinceLastDeployment = false;
+                hasChangesSinceLastDeployment = false;
+
+                context.Console.WriteError( gitTagOutput );
+                context.Console.WriteError( $"The repository may not have any tags matching pattern: '{globMatch}'. If so add 'release/0.0.0' tag to initial commit." );
+
+                return false;
             }
 
-            // Returns the list of tag reference names treated as versions in descending order.
+            var lastTag = gitTagOutput.Trim();
+            lastTagVersion = lastTag.Replace( "release/", "", StringComparison.OrdinalIgnoreCase );
+
+            // Get commits log since the last deployment formatted to one line per commit.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                "tag --sort=-version:refname",
+                $"log \"{lastTag}..HEAD\" --oneline",
                 context.RepoDirectory,
-                out _,
-                out var tags );
+                out exitCode,
+                out var gitLogOutput );
 
-            // Only the most recent tag from the list of is used.
-            using ( var reader = new StringReader( tags ) )
+            if ( exitCode != 0 )
             {
-                lastVersionTag = reader.ReadLine();
-            }
-
-            if ( string.IsNullOrEmpty( lastVersionTag ) )
-            {
-                context.Console.WriteWarning(
-                    "There is no version tag in this repository. For clean repositories tag the initial commit with 0.0.0 version tag." );
+                hasBumpSinceLastDeployment = false;
+                hasChangesSinceLastDeployment = false;
+                
+                context.Console.WriteError( gitTagOutput );
 
                 return false;
             }
 
-            return true;
-        }
+            // Check if we bumped since last deployment.
+            hasBumpSinceLastDeployment = gitLogOutput.Contains( "VERSION_BUMP", StringComparison.OrdinalIgnoreCase );
 
-        private static bool AreChangesSinceLastVersionTag( BuildContext context, string? lastVersionTag )
-        {
-            // Gets the current branch name.
+            // Get count of commits since last deployment excluding version bumps and check if there are any changes.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"rev-parse --abbrev-ref HEAD",
+                $"rev-list --count \"{lastTag}..HEAD\" --invert-grep --grep=\"<<VERSION_BUMP>>\"",
                 context.RepoDirectory,
-                out var gitExitCode,
-                out var gitOutput );
+                out exitCode,
+                out var commitsCount );
 
-            if ( gitExitCode != 0 )
+            if ( exitCode != 0 )
             {
-                context.Console.WriteError( gitOutput );
+                hasBumpSinceLastDeployment = false;
+                hasChangesSinceLastDeployment = false;
+                
+                context.Console.WriteError( gitTagOutput );
 
                 return false;
             }
 
-            var branchName = gitOutput.Trim();
-
-            // Gets the count from list of committed changes between last version tag and current HEAD on the current branch excluding version bumps.
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"rev-list --count \"{lastVersionTag}..HEAD\" origin/{branchName} --invert-grep --grep=\"<<VERSION_BUMP>>\"",
-                context.RepoDirectory,
-                out gitExitCode,
-                out gitOutput );
-
-            if ( gitExitCode != 0 )
-            {
-                context.Console.WriteError( gitOutput );
-
-                return false;
-            }
-
-            var commitsCount = int.Parse( gitOutput, CultureInfo.InvariantCulture );
-
-            if ( commitsCount > 0 )
-            {
-                context.Console.WriteWarning( $"There is total of {commitsCount} unpublished commits since '{lastVersionTag}' tag." );
-
-                return true;
-            }
-
-            return false;
-        }
-
-        private static bool VersionHasBeenBumped( BuildContext context, Version currentVersion, string lastVersionTag )
-        {
-            var version = lastVersionTag;
-
-            // Version can contain suffixes such as "-preview". By convention, all our version numbers before the dash are unique (i.e. given a version x.y-z1, we never have x.y-z2).
-            if ( version.Contains( '-', StringComparison.InvariantCulture ) )
-            {
-                // Only numeric part of version is kept.
-                version = lastVersionTag.Substring( 0, lastVersionTag.IndexOf( '-', StringComparison.InvariantCulture ) );
-            }
-
-            var lastVersion = new Version( version );
-
-            if ( lastVersion > currentVersion )
-            {
-                context.Console.WriteError( $"Last tag version '{lastVersion}' is bigger than current version '{currentVersion}'." );
-
-                return false;
-            }
-
-            if ( lastVersion == currentVersion )
-            {
-                context.Console.WriteWarning( "Version has not been bumped." );
-
-                return false;
-            }
+            var commitsSinceLastTag = int.Parse( commitsCount, CultureInfo.InvariantCulture );
+            hasChangesSinceLastDeployment = commitsSinceLastTag > 0;
 
             return true;
         }
 
         private static bool AddTagToLastCommit( BuildContext context, PreparedVersionInfo preparedVersionInfo, BaseBuildSettings settings )
         {
-            var versionTag = string.Concat( preparedVersionInfo.Version, preparedVersionInfo.PackageVersionSuffix );
+            string versionTag;
+
+            // The tag will contain 'release-' prefix if the version is intended for release and not only testing (i.e. -alpha, -beta suffixes).
+            if ( preparedVersionInfo.PackageVersionSuffix == "-preview" || string.IsNullOrEmpty( preparedVersionInfo.PackageVersionSuffix ) )
+            {
+                versionTag = string.Concat( "release/", preparedVersionInfo.Version, preparedVersionInfo.PackageVersionSuffix );
+            }
+            else
+            {
+                versionTag = string.Concat( preparedVersionInfo.Version, preparedVersionInfo.PackageVersionSuffix );
+            }
+
+            ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"ls-remote --tags origin --grep {versionTag}",
+                context.RepoDirectory,
+                out _,
+                out var gitOutput );
+
+            if ( gitOutput.Contains( versionTag, StringComparison.OrdinalIgnoreCase ) )
+            {
+                context.Console.WriteWarning( $"Repository already contains tag '{versionTag}'." );
+
+                return true;
+            }
 
             // Tagging the last commit with version.
             if ( !ToolInvocationHelper.InvokeTool(
@@ -1887,128 +1909,46 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private bool TryBumpVersion(
             BuildContext context,
-            BaseBuildSettings settings,
-            string mainVersionFile,
-            PreparedVersionInfo currentPreparedVersionInfo,
-            string bumpInfoFile,
-            string newBumpFileContent )
+            [NotNullWhen( true )] out Version? oldVersion,
+            [NotNullWhen( true )] out Version? newVersion )
         {
+            var mainVersionFile = Path.Combine(
+                context.RepoDirectory,
+                this.MainVersionFilePath );
+
             if ( !File.Exists( mainVersionFile ) )
             {
                 context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
 
+                oldVersion = null;
+                newVersion = null;
+                
                 return false;
             }
 
-            // Increment the version.
-            var newVersion = new Version(
-                currentPreparedVersionInfo.Version.Major,
-                currentPreparedVersionInfo.Version.Minor,
-                currentPreparedVersionInfo.Version.Build + 1 );
+            var currentMainVersionFile = this.ReadMainVersionFile( mainVersionFile );
 
-            var newPatchNumber = currentPreparedVersionInfo.OurPatchVersion != null ? currentPreparedVersionInfo.OurPatchVersion + 1 : null;
-            var newPreparedVersionInfo = new PreparedVersionInfo( newVersion, currentPreparedVersionInfo.PackageVersionSuffix, newPatchNumber );
+            oldVersion = new Version( currentMainVersionFile.MainVersion );
+            
+            // Increment the version.
+            newVersion = new Version(
+                oldVersion.Major,
+                oldVersion.Minor,
+                oldVersion.Build + 1 );
 
             // Save the MainVersion.props with new version.
-            if ( !TrySaveMainVersion( context, mainVersionFile, newPreparedVersionInfo ) )
-            {
-                return false;
-            }
-
-            // Updates changes to BumpInfo.txt.
-            File.WriteAllText( bumpInfoFile, newBumpFileContent );
-
-            context.Console.WriteMessage( $"Writing '{bumpInfoFile}'." );
-
-            // Commit the version bump.
-            if ( !this.TryCommitVersionBump( context, currentPreparedVersionInfo.Version, newVersion, settings ) )
+            if ( !TrySaveMainVersion( context, mainVersionFile, newVersion, null ) )
             {
                 return false;
             }
 
             context.Console.WriteSuccess(
-                $"Bumping the '{context.Product.ProductName}' version from '{currentPreparedVersionInfo.Version}{currentPreparedVersionInfo.PackageVersionSuffix}' to '{newPreparedVersionInfo.Version}{newPreparedVersionInfo.PackageVersionSuffix}' was successful." );
+                $"Bumping the '{context.Product.ProductName}' version from '{oldVersion}' to '{newVersion}' was successful." );
 
             return true;
         }
 
-        private bool TryCommitDependenciesChanged( BuildContext context, BaseBuildSettings settings )
-        {
-            // Adds updated BumpInfo.txt to Git staging area.
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"add {this.BumpInfoFilePath}",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
-
-            // Returns the remote origin.
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"remote get-url origin",
-                context.RepoDirectory,
-                out var gitExitCode,
-                out var gitOrigin );
-
-            if ( gitExitCode != 0 )
-            {
-                context.Console.WriteError( gitOrigin );
-
-                return false;
-            }
-
-            gitOrigin = gitOrigin.Trim();
-            var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
-
-            // When on TeamCity, Git user credentials are set to TeamCity and if the repository is of HTTPS origin, the origin will be updated to form including Git authentication credentials.
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
-            {
-                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
-                {
-                    return false;
-                }
-
-                if ( isHttps )
-                {
-                    if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
-                            out var teamcitySourceWriteTokenEnvironmentVariableName,
-                            out var teamcitySourceCodeWritingToken ) )
-                    {
-                        context.Console.WriteImportantMessage(
-                            $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
-                    }
-                    else
-                    {
-                        gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
-                    }
-                }
-            }
-
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"commit -m \"<<VERSION_BUMP>> Updated dependencies versions.\"",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
-
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    $"push {gitOrigin}",
-                    context.RepoDirectory ) )
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        private bool TryCommitVersionBump( BuildContext context, Version currentVersion, Version newVersion, BaseBuildSettings settings )
+        private bool TryCommitVersionBump( BuildContext context, Version? currentVersion, Version newVersion, CommonCommandSettings settings )
         {
             // Adds bumped MainVersion.props and updated BumpInfo.txt to Git staging area.
             if ( !ToolInvocationHelper.InvokeTool(
@@ -2066,7 +2006,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !ToolInvocationHelper.InvokeTool(
                     context.Console,
                     "git",
-                    $"commit -m \"<<VERSION_BUMP>> {currentVersion} to {newVersion}\"",
+                    $"commit -m \"<<VERSION_BUMP>> {currentVersion?.ToString() ?? "unknown"} to {newVersion}\"",
                     context.RepoDirectory ) )
             {
                 return false;
@@ -2084,25 +2024,28 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private record PreparedVersionInfo( Version Version, string PackageVersionSuffix, int? OurPatchVersion );
+        private record PreparedVersionInfo( Version Version, string PackageVersionSuffix );
 
         /// <summary>
-        /// Reads MainVersion.props and uses the output of the Prepare step to resolve MainVersion dependency.
+        /// Reads the MyProduce.version.props file from the artifacts directory generated by the Prepare step.
         /// </summary>
-        private bool TryLoadPreparedVersionInfo(
+        private bool TryGetPreparedVersionInfo(
             BuildContext context,
             string mainVersionFile,
             [NotNullWhen( true )] out PreparedVersionInfo? preparedVersionInfo )
         {
-            var version = this.ReadMainVersionFile( mainVersionFile );
-            var mainVersion = version.MainVersion;
-            var overriddenPatchVersion = version.OverriddenPatchVersion;
+            var mainVersionFileInfo = this.ReadMainVersionFile( mainVersionFile );
+            var overriddenPatchVersion = mainVersionFileInfo.OverriddenPatchVersion;
+            
+            string? mainVersion;
             Version? currentVersion;
 
             // The MainVersionDependency is not defined.
             if ( this.MainVersionDependency == null )
             {
                 // The current version defaults to MainVersion.
+
+                mainVersion = mainVersionFileInfo.MainVersion;
 
                 currentVersion = Version.Parse( mainVersion );
             }
@@ -2130,7 +2073,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     if ( mainVersion == null )
                     {
-                        context.Console.WriteError( $"The property '{propertyName}' in '{artifactVersionFile}' is not defined." );
+                        context.Console.WriteError( $"Cannot load '{mainVersionFile}': the property '{propertyName}' in '{artifactVersionFile}' is not defined." );
 
                         preparedVersionInfo = null;
 
@@ -2142,7 +2085,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            preparedVersionInfo = new PreparedVersionInfo( currentVersion, version.PackageVersionSuffix, version.OurPatchVersion );
+            preparedVersionInfo = new PreparedVersionInfo( currentVersion, mainVersionFileInfo.PackageVersionSuffix );
 
             return true;
         }
@@ -2150,7 +2093,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private static bool TrySaveMainVersion(
             BuildContext context,
             string mainVersionFile,
-            PreparedVersionInfo preparedVersionInfo )
+            Version version,
+            int? patchNumber )
         {
             if ( !File.Exists( mainVersionFile ) )
             {
@@ -2164,21 +2108,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var properties = project!.Element( "PropertyGroup" );
             var mainVersionElement = properties!.Element( "MainVersion" );
             var ourPatchVersionElement = properties.Element( "OurPatchVersion" );
-            var packageVersionSuffixElement = properties.Element( "PackageVersionSuffix" );
-
+            
             // If OurPatchVersion is defined in MainVersion.props, we write the incremented patch number to it.
-            if ( preparedVersionInfo.OurPatchVersion != null && ourPatchVersionElement != null )
+            if ( patchNumber != null && ourPatchVersionElement != null )
             {
-                ourPatchVersionElement.Value = preparedVersionInfo.OurPatchVersion.Value.ToString( CultureInfo.InvariantCulture );
+                ourPatchVersionElement.Value = patchNumber.Value.ToString( CultureInfo.InvariantCulture );
             }
 
             // Otherwise we replace the whole MainVersion with new version.
             else
             {
-                mainVersionElement!.Value = preparedVersionInfo.Version.ToString();
+                mainVersionElement!.Value = version.ToString();
             }
-
-            packageVersionSuffixElement!.Value = preparedVersionInfo.PackageVersionSuffix;
 
             // Using settings to keep the indentation as well as encoding identical to original MainVersion.props.
             var xmlWriterSettings =

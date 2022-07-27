@@ -34,10 +34,6 @@ public class BaseBuildSettings : CommonCommandSettings
     [Obsolete( "Use the BuildConfiguration property." )]
     public BuildConfiguration ResolvedBuildConfiguration => this.BuildConfiguration;
 
-    [Description( "Simulate a continuous integration build by setting the build ContinuousIntegrationBuild property to TRUE." )]
-    [CommandOption( "--ci" )]
-    public bool ContinuousIntegration { get; set; }
-
     public override void Initialize( BuildContext context )
     {
         if ( this.ExplicitBuildConfiguration != null )
