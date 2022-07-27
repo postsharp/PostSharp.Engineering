@@ -16,7 +16,7 @@ public static class TeamCityHelper
     public static readonly string TeamCityApiRunningBuildsUri = "https://tc.postsharp.net/app/rest/builds?locator=state:running";
     public static readonly string TeamCityApiFinishedBuildsUri = "https://tc.postsharp.net/app/rest/builds?locator=state:finished";
 
-    public static bool IsTeamCityBuild( BaseBuildSettings settings )
+    public static bool IsTeamCityBuild( CommonCommandSettings settings )
         => settings.ContinuousIntegration || Environment.GetEnvironmentVariable( "TEAMCITY_GIT_PATH" ) != null;
 
     public static bool TryGetTeamCitySourceWriteToken( out string environmentVariableName, [NotNullWhen( true )] out string? teamCitySourceWriteToken )

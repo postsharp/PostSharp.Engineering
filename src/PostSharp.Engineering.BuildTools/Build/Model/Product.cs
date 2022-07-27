@@ -1466,17 +1466,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return success;
         }
 
-        public bool BumpVersion( BuildContext context, BuildSettings settings )
+        public bool BumpVersion( BuildContext context, BumpSettings settings )
         {
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
-
-            // Dependencies versions to compare with BumpInfo file are from Public build.
-            if ( settings.BuildConfiguration != BuildConfiguration.Public )
-            {
-                context.Console.WriteError( "Can only bump with the public configuration." );
-
-                return false;
-            }
 
             // If the version has already been dumped since the last deployment, there is nothing to do. 
             if ( !TryAnalyzeGitHistory( context, out var hasBumpSinceLastDeployment, out var hasChangesSinceLastDeployment, out _ ) )
@@ -1762,20 +1754,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 $"describe --abbrev=0 --tags",
                 context.RepoDirectory,
                 out var exitCode,
-                out var gitOutput );
+                out var gitTagOutput );
+            
+            // TODO: match tag by regular expression so that this logic is more robust.
 
             if ( exitCode != 0 )
             {
                 hasBumpSinceLastDeployment = false;
                 hasChangesSinceLastDeployment = false;
 
-                context.Console.WriteError( gitOutput );
+                context.Console.WriteError( gitTagOutput );
                 context.Console.WriteError( "The repository may not have any tags, if so add 0.0.0 tag to initial commit." );
 
                 return false;
             }
 
-            var lastTag = gitOutput.Trim();
+            var lastTag = gitTagOutput.Trim();
             lastTagVersion = lastTag;
 
             // Get commits log since the last deployment formatted to one line per commit.
@@ -1785,20 +1779,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 $"log \"{lastTag}..HEAD\" --oneline",
                 context.RepoDirectory,
                 out exitCode,
-                out var gitLog );
+                out var gitLogOutput );
 
             if ( exitCode != 0 )
             {
                 hasBumpSinceLastDeployment = false;
                 hasChangesSinceLastDeployment = false;
                 
-                context.Console.WriteError( gitOutput );
+                context.Console.WriteError( gitTagOutput );
 
                 return false;
             }
 
             // Check if we bumped since last deployment.
-            hasBumpSinceLastDeployment = gitLog.Contains( "VERSION_BUMP", StringComparison.OrdinalIgnoreCase );
+            hasBumpSinceLastDeployment = gitLogOutput.Contains( "VERSION_BUMP", StringComparison.OrdinalIgnoreCase );
 
             // Get count of commits since last deployment excluding version bumps and check if there are any changes.
             ToolInvocationHelper.InvokeTool(
@@ -1814,7 +1808,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 hasBumpSinceLastDeployment = false;
                 hasChangesSinceLastDeployment = false;
                 
-                context.Console.WriteError( gitOutput );
+                context.Console.WriteError( gitTagOutput );
 
                 return false;
             }
@@ -1929,7 +1923,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool TryCommitVersionBump( BuildContext context, Version? currentVersion, Version newVersion, BaseBuildSettings settings )
+        private bool TryCommitVersionBump( BuildContext context, Version? currentVersion, Version newVersion, CommonCommandSettings settings )
         {
             // Adds bumped MainVersion.props and updated BumpInfo.txt to Git staging area.
             if ( !ToolInvocationHelper.InvokeTool(

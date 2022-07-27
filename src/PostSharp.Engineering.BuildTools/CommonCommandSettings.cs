@@ -34,6 +34,10 @@ namespace PostSharp.Engineering.BuildTools
         [Description( "Attach the debugger to the process before executing the command" )]
         [CommandOption( "--debug" )]
         public bool Debug { get; protected set; }
+        
+        [Description( "Simulate a continuous integration build by setting the build ContinuousIntegrationBuild property to TRUE." )]
+        [CommandOption( "--ci" )]
+        public bool ContinuousIntegration { get; set; }
 
         [Description( "Properties in form Name=Value" )]
         [CommandOption( "-p|--property" )]
