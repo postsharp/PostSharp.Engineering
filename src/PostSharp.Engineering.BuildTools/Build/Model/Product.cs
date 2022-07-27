@@ -1750,11 +1750,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Get string of the last published release tag matched by glob pattern and trim newline.
             var globMatch = "release/*";
             
-            // TODO: Maybe a better way if there is no match.
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"describe --abbrev=0 --tags --match \"{globMatch}\" --match \"*-preview\"",
+                $"describe --abbrev=0 --tags --match \"{globMatch}\"",
                 context.RepoDirectory,
                 out var exitCode,
                 out var gitTagOutput );
@@ -1765,13 +1764,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 hasChangesSinceLastDeployment = false;
 
                 context.Console.WriteError( gitTagOutput );
-                context.Console.WriteError( $"The repository may not have any tags matching '{globMatch}', if so add 'release/0.0.0' tag to initial commit." );
+                context.Console.WriteError( $"The repository may not have any tags matching pattern: '{globMatch}'. If so add 'release/0.0.0' tag to initial commit." );
 
                 return false;
             }
 
             var lastTag = gitTagOutput.Trim();
-            lastTagVersion = lastTag;
+            lastTagVersion = lastTag.Replace( "release/", "", StringComparison.OrdinalIgnoreCase );
 
             // Get commits log since the last deployment formatted to one line per commit.
             ToolInvocationHelper.InvokeTool(
@@ -1833,8 +1832,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 versionTag = string.Concat( preparedVersionInfo.Version, preparedVersionInfo.PackageVersionSuffix );
             }
-            
-            // TODO: Check if tag exists
 
             ToolInvocationHelper.InvokeTool(
                 context.Console,
