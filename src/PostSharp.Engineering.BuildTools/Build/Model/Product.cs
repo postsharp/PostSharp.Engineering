@@ -47,7 +47,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string BuildExePath { get; }
 
-        public string EngineeringDirectory { get; init; }
+        public string EngineeringDirectory { get; }
 
         public string VersionsFilePath
         {
