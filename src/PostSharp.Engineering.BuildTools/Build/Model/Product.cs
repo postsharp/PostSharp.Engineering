@@ -47,7 +47,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string BuildExePath { get; }
 
-        public string EngineeringDirectory { get; init; }
+        public string EngineeringDirectory { get; }
 
         public string VersionsFilePath
         {
@@ -1561,8 +1561,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             foreach ( var dependency in this.Dependencies.Union( this.SourceDependencies ) )
             {
-                context.Console.WriteMessage( $"Downloading '{context.Product.MainVersionFilePath}' from '{dependency.Repo.RepoUrl}'." );
-                var mainVersionContent = dependency.Repo.DownloadTextFile( dependency.DefaultBranch, context.Product.MainVersionFilePath );
+                var mainVersionFile = Path.Combine( dependency.EngineeringDirectory, "MainVersion.props" );
+                context.Console.WriteMessage( $"Downloading '{mainVersionFile}' from '{dependency.Repo.RepoUrl}'." );
+                var mainVersionContent = dependency.Repo.DownloadTextFile( dependency.DefaultBranch, mainVersionFile );
 
                 var document = XDocument.Parse( mainVersionContent );
                 var project = document.Root;
@@ -1571,7 +1572,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 if ( string.IsNullOrEmpty( mainVersionPropertyValue ) )
                 {
-                    context.Console.WriteError( $"The property 'MainVersion' or its value in '{context.Product.MainVersionFilePath}' of dependency '{dependency.Name}' is not defined." );
+                    context.Console.WriteError( $"The property 'MainVersion' or its value in '{mainVersionFile}' of dependency '{dependency.Name}' is not defined." );
 
                     return false;
                 }
