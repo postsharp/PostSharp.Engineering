@@ -41,13 +41,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.ProductName = dependencyDefinition.Name;
 #pragma warning restore CS0618
             this.VcsProvider = dependencyDefinition.Repo.Provider;
-            this.EngineeringDirectory = dependencyDefinition.EngineeringDirectory;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
         }
 
         public string BuildExePath { get; }
 
-        public string EngineeringDirectory { get; }
+        public string EngineeringDirectory => this.DependencyDefinition.EngineeringDirectory;
 
         public string VersionsFilePath
         {
