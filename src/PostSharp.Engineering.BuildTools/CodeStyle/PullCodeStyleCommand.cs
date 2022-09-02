@@ -1,5 +1,8 @@
-﻿using PostSharp.Engineering.BuildTools.Build;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System.ComponentModel.Design.Serialization;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle
@@ -37,6 +40,8 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
             {
                 return false;
             }
+
+            sharedRepo = Path.Combine( sharedRepo, context.Product.DependencyDefinition.Header.ToString() );
 
             var targetDirectory = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "style" );
 

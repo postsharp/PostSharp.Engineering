@@ -1,3 +1,5 @@
+// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
 using System;
 using System.Collections.Immutable;
 
@@ -25,7 +27,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             VcsProvider.AzureRepos,
             "Metalama" );
 
-        public static DependencyDefinition MetalamaSamples { get; } = new( "Metalama.Samples", VcsProvider.GitHub, "Metalama", false );
+        public static DependencyDefinition MetalamaSamples { get; } =
+            new( "Metalama.Samples", VcsProvider.GitHub, "Metalama", false ) { Header = DependencyHeaderKind.Empty };
 
         public static DependencyDefinition MetalamaDocumentation { get; } = new( "Metalama.Documentation", VcsProvider.GitHub, "Metalama", false );
 
