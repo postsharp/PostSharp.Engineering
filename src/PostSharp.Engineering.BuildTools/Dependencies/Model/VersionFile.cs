@@ -72,7 +72,7 @@ public class VersionFile
                 continue;
             }
 
-            if ( string.Compare( dependencyVersion, "local", StringComparison.OrdinalIgnoreCase ) == 0 )
+            if ( dependencyVersion.Contains( "local", StringComparison.OrdinalIgnoreCase ) )
             {
                 dependencySource = DependencySource.CreateLocal( DependencyConfigurationOrigin.Default );
             }
