@@ -7,7 +7,7 @@ root = true
 #### Core EditorConfig Options ####
 
 # File header
-file_header_template = Copyright (c) SharpCrafters s.r.o. All rights reserved.\nThis project is not open source. Please see the LICENSE.md file in the repository root for details.
+file_header_template = Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 # Indentation and spacing
 indent_size = 4
@@ -138,7 +138,7 @@ csharp_indent_case_contents_when_block = true
 csharp_indent_labels = one_less_than_current
 csharp_indent_switch_labels = true
 
-# Space preferences
+# ElasticSpace preferences
 csharp_space_after_cast = true
 csharp_space_after_colon_in_inheritance_clause = true
 csharp_space_after_comma = true
@@ -257,6 +257,10 @@ dotnet_diagnostic.SA1309.severity = none
 
 # SA1633: File should have header
 dotnet_diagnostic.SA1633.severity = none
+
+# SA1636: File header should be correct
+dotnet_diagnostic.SA1636.severity = none
+
 
 # SA1200: Using directives should be placed within namespace
 dotnet_diagnostic.SA1200.severity = none
