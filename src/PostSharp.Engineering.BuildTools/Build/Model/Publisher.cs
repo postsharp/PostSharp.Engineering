@@ -1,4 +1,6 @@
-﻿namespace PostSharp.Engineering.BuildTools.Build.Model
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     /// <summary>
     /// An abstract publisher class used in <see cref="Product.Publish"/> to publish artifacts or execute publishing step.

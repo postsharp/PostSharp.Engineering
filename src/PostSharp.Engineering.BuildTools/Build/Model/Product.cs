@@ -1,4 +1,6 @@
-﻿using Microsoft.Build.Definition;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
@@ -726,7 +728,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
-            
+
             // Restore source dependencies.
             if ( this.SourceDependencies.Length > 0 )
             {
@@ -768,7 +770,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteMessage( $"Restoring '{dependency.Name}' source dependency." );
 
                 var localDirectory = Path.Combine( context.RepoDirectory, "..", dependency.Name );
-                
+
                 var targetDirectory = Path.Combine( sourceDependenciesDirectory, dependency.Name );
 
                 if ( Directory.Exists( localDirectory ) )
@@ -1346,7 +1348,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     // To check if version was bumped manually we get full prepared version info.
                     var currentVersion = preparedVersionInfo.Version + preparedVersionInfo.PackageVersionSuffix;
-                    
+
                     // Publishing fails if there are changes and the version has not been bumped since the last deployment.
                     if ( !hasBumpSinceLastDeployment && currentVersion == lastVersionTag )
                     {
@@ -1495,7 +1497,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var bumpInfoFilePath = Path.Combine(
                 context.RepoDirectory,
                 this.BumpInfoFilePath );
-            
+
             if ( !File.Exists( bumpInfoFilePath ) )
             {
                 context.Console.WriteError( $"File '{bumpInfoFilePath}' was not found." );
@@ -1512,11 +1514,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 return true;
             }
-            
+
             // If there is a change in dependencies versions, we update BumpInfo.txt with changes.
             if ( hasChangesInDependencies )
             {
-                context.Console.WriteMessage( $"'{bumpInfoFilePath}' contents are outdated. Overwriting its old content '{oldBumpFileContent}' with new content '{newBumpInfoFile}'." );
+                context.Console.WriteMessage(
+                    $"'{bumpInfoFilePath}' contents are outdated. Overwriting its old content '{oldBumpFileContent}' with new content '{newBumpInfoFile}'." );
 
                 File.WriteAllText( bumpInfoFilePath, newBumpInfoFile.ToString() );
             }
@@ -1535,7 +1538,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 if ( hasChangesSinceLastDeployment && !hasChangesInDependencies )
                 {
-                    context.Console.WriteError( "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning. Do a fake change in a parent repo." );
+                    context.Console.WriteError(
+                        "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning. Do a fake change in a parent repo." );
 
                     return false;
                 }
@@ -1554,7 +1558,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool TryReadDependencyVersionsFromSourceRepos( BuildContext context, [NotNullWhen(true)] out Dictionary<string, Version>? dependencyVersions)
+        private bool TryReadDependencyVersionsFromSourceRepos( BuildContext context, [NotNullWhen( true )] out Dictionary<string, Version>? dependencyVersions )
         {
             dependencyVersions = new Dictionary<string, Version>();
 
@@ -1571,7 +1575,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 if ( string.IsNullOrEmpty( mainVersionPropertyValue ) )
                 {
-                    context.Console.WriteError( $"The property 'MainVersion' or its value in '{mainVersionFile}' of dependency '{dependency.Name}' is not defined." );
+                    context.Console.WriteError(
+                        $"The property 'MainVersion' or its value in '{mainVersionFile}' of dependency '{dependency.Name}' is not defined." );
 
                     return false;
                 }
@@ -1749,7 +1754,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             // Get string of the last published release tag matched by glob pattern and trim newline.
             var globMatch = "release/*";
-            
+
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
@@ -1764,7 +1769,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 hasChangesSinceLastDeployment = false;
 
                 context.Console.WriteError( gitTagOutput );
-                context.Console.WriteError( $"The repository may not have any tags matching pattern: '{globMatch}'. If so add 'release/0.0.0' tag to initial commit." );
+
+                context.Console.WriteError(
+                    $"The repository may not have any tags matching pattern: '{globMatch}'. If so add 'release/0.0.0' tag to initial commit." );
 
                 return false;
             }
@@ -1785,7 +1792,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 hasBumpSinceLastDeployment = false;
                 hasChangesSinceLastDeployment = false;
-                
+
                 context.Console.WriteError( gitTagOutput );
 
                 return false;
@@ -1807,7 +1814,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 hasBumpSinceLastDeployment = false;
                 hasChangesSinceLastDeployment = false;
-                
+
                 context.Console.WriteError( gitTagOutput );
 
                 return false;
@@ -1922,14 +1929,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 oldVersion = null;
                 newVersion = null;
-                
+
                 return false;
             }
 
             var currentMainVersionFile = this.ReadMainVersionFile( mainVersionFile );
 
             oldVersion = new Version( currentMainVersionFile.MainVersion );
-            
+
             // Increment the version.
             newVersion = new Version(
                 oldVersion.Major,
@@ -1942,8 +1949,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            context.Console.WriteSuccess(
-                $"Bumping the '{context.Product.ProductName}' version from '{oldVersion}' to '{newVersion}' was successful." );
+            context.Console.WriteSuccess( $"Bumping the '{context.Product.ProductName}' version from '{oldVersion}' to '{newVersion}' was successful." );
 
             return true;
         }
@@ -2036,7 +2042,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             var mainVersionFileInfo = this.ReadMainVersionFile( mainVersionFile );
             var overriddenPatchVersion = mainVersionFileInfo.OverriddenPatchVersion;
-            
+
             string? mainVersion;
             Version? currentVersion;
 
@@ -2073,7 +2079,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     if ( mainVersion == null )
                     {
-                        context.Console.WriteError( $"Cannot load '{mainVersionFile}': the property '{propertyName}' in '{artifactVersionFile}' is not defined." );
+                        context.Console.WriteError(
+                            $"Cannot load '{mainVersionFile}': the property '{propertyName}' in '{artifactVersionFile}' is not defined." );
 
                         preparedVersionInfo = null;
 
@@ -2108,7 +2115,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var properties = project!.Element( "PropertyGroup" );
             var mainVersionElement = properties!.Element( "MainVersion" );
             var ourPatchVersionElement = properties.Element( "OurPatchVersion" );
-            
+
             // If OurPatchVersion is defined in MainVersion.props, we write the incremented patch number to it.
             if ( patchNumber != null && ourPatchVersionElement != null )
             {

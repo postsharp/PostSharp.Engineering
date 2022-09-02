@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Management;
@@ -42,7 +44,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                             }
                         }
 
-                        if ( p.ProcessName.Equals( "testhost", StringComparison.OrdinalIgnoreCase ) 
+                        if ( p.ProcessName.Equals( "testhost", StringComparison.OrdinalIgnoreCase )
                              || p.ProcessName.Equals( "testhost.x86", StringComparison.OrdinalIgnoreCase ) )
                         {
                             return true;

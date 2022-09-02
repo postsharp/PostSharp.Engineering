@@ -1,4 +1,6 @@
-﻿using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -16,7 +18,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public static readonly VcsProvider GitHub = new GitHubProvider();
         public static readonly VcsProvider AzureRepos = new AzureRepoProvider();
-        
+
         private class GitHubProvider : VcsProvider
         {
             public override bool SshAgentRequired => true;
@@ -30,7 +32,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 return httpClient.GetStringAsync( $"https://raw.githubusercontent.com/postsharp/{repo.RepoName}/{branch}/{path}" ).Result;
             }
         }
-        
+
         private class AzureRepoProvider : VcsProvider
         {
             public override bool SshAgentRequired => false;
@@ -49,7 +51,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 var authString = Convert.ToBase64String( Encoding.UTF8.GetBytes( $@"{TeamCityHelper.TeamCityUsername}:{teamCitySourceReadToken}" ) );
                 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Basic", authString );
 
-                return httpClient.GetStringAsync( $"https://dev.azure.com/postsharp/{repo.ProjectName}/_apis/git/repositories/{repo.RepoName}/items?path={path}" ).Result;
+                return httpClient.GetStringAsync(
+                        $"https://dev.azure.com/postsharp/{repo.ProjectName}/_apis/git/repositories/{repo.RepoName}/items?path={path}" )
+                    .Result;
             }
         }
     }

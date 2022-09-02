@@ -1,4 +1,6 @@
-﻿using PostSharp.Engineering.BuildTools.Build;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using PostSharp.Engineering.BuildTools.Build;
 using Spectre.Console.Cli;
 using System;
 using System.Collections.Generic;
@@ -34,7 +36,7 @@ namespace PostSharp.Engineering.BuildTools
         [Description( "Attach the debugger to the process before executing the command" )]
         [CommandOption( "--debug" )]
         public bool Debug { get; protected set; }
-        
+
         [Description( "Simulate a continuous integration build by setting the build ContinuousIntegrationBuild property to TRUE." )]
         [CommandOption( "--ci" )]
         public bool ContinuousIntegration { get; set; }

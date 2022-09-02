@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.FileSystemGlobbing;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using System;

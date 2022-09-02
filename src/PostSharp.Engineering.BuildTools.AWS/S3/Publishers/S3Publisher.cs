@@ -1,4 +1,4 @@
-﻿// Copyright (c) SharpCrafters s.r.o.All rights reserved.Released under the MIT license.
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using Amazon.S3;
 using Amazon.S3.Model;
