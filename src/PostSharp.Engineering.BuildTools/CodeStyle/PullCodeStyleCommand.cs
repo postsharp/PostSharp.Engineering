@@ -41,7 +41,8 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
                 return false;
             }
 
-            sharedRepo = Path.Combine( sharedRepo, context.Product.DependencyDefinition.Header.ToString() );
+            // Copy product specific codestyle.
+            sharedRepo = Path.Combine( sharedRepo, context.Product.DependencyDefinition.CodeStyle );
 
             var targetDirectory = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "style" );
 

@@ -28,7 +28,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "Metalama" );
 
         public static DependencyDefinition MetalamaSamples { get; } =
-            new( "Metalama.Samples", VcsProvider.GitHub, "Metalama", false ) { Header = DependencyHeaderKind.Empty };
+            new( "Metalama.Samples", VcsProvider.GitHub, "Metalama", false ) { CodeStyle = "Metalama.Samples" };
 
         public static DependencyDefinition MetalamaDocumentation { get; } = new( "Metalama.Documentation", VcsProvider.GitHub, "Metalama", false );
 

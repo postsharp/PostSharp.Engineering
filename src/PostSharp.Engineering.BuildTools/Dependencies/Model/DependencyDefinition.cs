@@ -24,7 +24,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public string EngineeringDirectory { get; init; } = "eng";
 
-        public DependencyHeaderKind Header { get; init; } = DependencyHeaderKind.License;
+        public string CodeStyle { get; init; } = "Standard";
 
         public VcsRepo Repo { get; }
 
