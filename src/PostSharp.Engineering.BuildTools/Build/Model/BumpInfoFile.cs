@@ -1,4 +1,6 @@
-﻿using Newtonsoft.Json;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 
@@ -6,7 +8,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model;
 
 public class BumpInfoFile
 {
-    public Dictionary<string, Version> Dependencies { get; init; } = new Dictionary<string, Version>();
+    public Dictionary<string, Version> Dependencies { get; init; } = new();
 
     public BumpInfoFile( Dictionary<string, Version> dependencies ) { this.Dependencies = dependencies; }
 

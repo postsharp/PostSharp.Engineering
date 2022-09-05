@@ -1,4 +1,6 @@
-﻿using PostSharp.Engineering.BuildTools.Build;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
@@ -42,7 +44,7 @@ public static class TeamCityHelper
         {
             return false;
         }
-        
+
         return true;
     }
 
@@ -54,8 +56,8 @@ public static class TeamCityHelper
     public static bool TrySetGitIdentityCredentials( BuildContext context )
     {
         if ( !ToolInvocationHelper.InvokeTool(
-                context.Console, 
-                "git", 
+                context.Console,
+                "git",
                 "config user.name TeamCity",
                 context.RepoDirectory ) )
         {
@@ -63,8 +65,8 @@ public static class TeamCityHelper
         }
 
         if ( !ToolInvocationHelper.InvokeTool(
-                context.Console, 
-                "git", 
+                context.Console,
+                "git",
                 $"config user.email {TeamCityUsername}",
                 context.RepoDirectory ) )
         {

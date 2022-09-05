@@ -1,4 +1,6 @@
-﻿using PostSharp.Engineering.BuildTools.Build;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.IO;
 
@@ -27,7 +29,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
 
                     // Exclude .nuget directory to prevent formatting the code inside NuGet packages.
                     command += " --exclude:\"**\\.nuget\\**\\*";
-                    
+
                     if ( solution.FormatExclusions is { Length: > 0 } )
                     {
                         command += $";{string.Join( ';', solution.FormatExclusions )}\"";

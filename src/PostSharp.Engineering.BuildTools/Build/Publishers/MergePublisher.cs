@@ -1,4 +1,6 @@
-﻿using PostSharp.Engineering.BuildTools.Build.Model;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -36,7 +38,7 @@ public class MergePublisher : IndependentPublisher
         }
 
         var currentBranch = gitOutput.Trim();
-        
+
         context.Console.WriteHeading( $"Merging branch '{currentBranch}' to 'master' after publishing artifacts." );
 
         // Checkout to master branch and pull to update the local repository.

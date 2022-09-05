@@ -1,4 +1,6 @@
-﻿using PostSharp.Engineering.BuildTools.Utilities;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console.Cli;
 using System;
 using System.IO;

@@ -1,4 +1,6 @@
-﻿using Microsoft.Build.Definition;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
@@ -423,8 +425,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             }
             else
             {
-                context.Console.WriteMessage(
-                    $"Dependency '{dependencyName}' is up to date: build #{buildNumber} of {ciBuildTypeId} was already downloaded." );
+                context.Console.WriteMessage( $"Dependency '{dependencyName}' is up to date: build #{buildNumber} of {ciBuildTypeId} was already downloaded." );
             }
 
             // Find the version file.

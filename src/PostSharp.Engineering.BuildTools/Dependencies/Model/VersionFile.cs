@@ -1,4 +1,6 @@
-﻿using Microsoft.Build.Definition;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using PostSharp.Engineering.BuildTools.Build;
 using System;
@@ -70,7 +72,7 @@ public class VersionFile
                 continue;
             }
 
-            if ( string.Compare( dependencyVersion, "local", StringComparison.OrdinalIgnoreCase ) == 0 )
+            if ( dependencyVersion.Contains( "local", StringComparison.OrdinalIgnoreCase ) )
             {
                 dependencySource = DependencySource.CreateLocal( DependencyConfigurationOrigin.Default );
             }

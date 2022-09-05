@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using System;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
@@ -7,7 +9,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public string Name { get; }
 
         public string NameWithoutDot => this.Name.Replace( ".", "", StringComparison.Ordinal );
-     
+
         public string DefaultBranch { get; init; }
 
         public ConfigurationSpecific<string> CiBuildTypes { get; init; }
@@ -21,7 +23,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public bool GenerateSnapshotDependency { get; init; } = true;
 
         public string EngineeringDirectory { get; init; } = "eng";
-        
+
+        public string CodeStyle { get; init; } = "Standard";
+
         public VcsRepo Repo { get; }
 
         public DependencyDefinition( string dependencyName, VcsProvider vcsProvider, string vcsProjectName, bool isVersioned = true )
