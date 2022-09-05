@@ -39,6 +39,9 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
                 return null;
             }
 
+            // Get product specific codestyle.
+            sharedRepo = Path.Combine( sharedRepo, context.Product.DependencyDefinition.CodeStyle );
+
             return sharedRepo;
         }
 
