@@ -891,7 +891,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     <PropertyGroup>
         <EngineeringConfiguration>{settings.BuildConfiguration}</EngineeringConfiguration>
     </PropertyGroup>
-    <Import Project=""Versions.{settings.BuildConfiguration}.g.props"" Condition=""Exists('Versions.$(Configuration).g.props')""/>
+    <Import Project=""Versions.{settings.BuildConfiguration}.g.props"" Condition=""Exists('Versions.{settings.BuildConfiguration}.g.props')""/>
 </Project>
 " );
 
