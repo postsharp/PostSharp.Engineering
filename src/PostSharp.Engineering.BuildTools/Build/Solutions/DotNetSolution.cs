@@ -2,6 +2,7 @@
 
 using Newtonsoft.Json;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.Collections.Generic;
 using System.IO;
@@ -40,7 +41,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             var binaryLogFilePath = Path.Combine(
                 context.RepoDirectory,
                 context.Product.LogsDirectory.ToString(),
-                $"{context.Product.ProductName}.{command}.binlog" );
+                $"{this.Name}.{command}.binlog" );
 
             if ( settings.ContinuousIntegration )
             {
