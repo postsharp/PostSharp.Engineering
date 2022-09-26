@@ -25,11 +25,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
         {
             var resultsDirectory = context.Product.TestResultsDirectory.ToString( new BuildInfo( null!, settings.BuildConfiguration, context.Product ) );
 
+            // The additional console logger is not used on TeamCity, because it hides tests output from TeamCity.VSTest.TestAdapter in build log.
             return this.RunDotNet(
                 context,
                 settings,
                 "test",
-                $"--no-restore --logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory {resultsDirectory}" );
+                $"--no-restore --logger \"trx\" {(TeamCityHelper.IsTeamCityBuild( settings ) ? "" : "--logger \"console;verbosity=minimal\"")} --results-directory {resultsDirectory}" );
         }
 
         public override bool Restore( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "restore", "--no-cache" );
