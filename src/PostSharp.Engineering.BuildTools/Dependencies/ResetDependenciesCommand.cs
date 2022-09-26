@@ -14,18 +14,9 @@ public class ResetDependenciesCommand : ConfigureDependenciesCommand<ResetDepend
         BuildContext context,
         DependenciesOverrideFile dependenciesOverrideFile,
         DependencyDefinition dependencyDefinition,
-        ResetDependenciesCommandSettings settings,
-        out DependenciesOverrideFile? newDependenciesOverrideFile )
+        ResetDependenciesCommandSettings settings )
     {
         dependenciesOverrideFile.Dependencies.Remove( dependencyDefinition.Name );
-
-        // Update dependency right after resetting.
-        if ( !UpdateDependencyCommand.UpdateDependency( context, out newDependenciesOverrideFile ) )
-        {
-            context.Console.WriteError( $"Could not update '{dependencyDefinition.Name}' dependency after resetting it." );
-
-            return false;
-        }
 
         return true;
     }

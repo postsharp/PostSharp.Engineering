@@ -16,11 +16,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             BuildContext context,
             DependenciesOverrideFile dependenciesOverrideFile,
             DependencyDefinition dependencyDefinition,
-            SetDependenciesCommandSettings settings,
-            out DependenciesOverrideFile? newDependenciesOverrideFile )
+            SetDependenciesCommandSettings settings )
         {
             DependencySource dependencySource;
-            newDependenciesOverrideFile = null;
             
             switch ( settings.Source )
             {
@@ -63,7 +61,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             }
 
             dependenciesOverrideFile.Dependencies[dependencyDefinition.Name] = dependencySource;
-            newDependenciesOverrideFile = dependenciesOverrideFile;
 
             return true;
         }

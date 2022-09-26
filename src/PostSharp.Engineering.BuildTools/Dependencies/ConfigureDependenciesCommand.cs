@@ -79,21 +79,16 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
             }
 
             // Executes the logic itself.
-            if ( !this.ConfigureDependency( context, dependenciesOverrideFile, dependencyDefinition, settings, out var newDependenciesOverrideFile ) )
+            if ( !this.ConfigureDependency( context, dependenciesOverrideFile, dependencyDefinition, settings ) )
             {
                 return false;
             }
-
-            if ( newDependenciesOverrideFile != null )
-            {
-                dependenciesOverrideFile = newDependenciesOverrideFile;
-            }
         }
 
-        // Fetching dependencies.
-        context.Console.WriteImportantMessage( "Fetching dependencies" );
+        // Updating dependencies.
+        context.Console.WriteImportantMessage( "Updating dependencies" );
 
-        if ( !FetchDependencyCommand.FetchDependencies( context, configuration, dependenciesOverrideFile ) )
+        if ( !BaseFetchDependencyCommand.UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, true ) )
         {
             return false;
         }
@@ -119,6 +114,5 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         BuildContext context,
         DependenciesOverrideFile dependenciesOverrideFile,
         DependencyDefinition dependencyDefinition,
-        T settings,
-        out DependenciesOverrideFile? newDependenciesOverrideFile );
+        T settings );
 }
