@@ -35,7 +35,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return false;
             }
 
-            if ( !FetchDependencies( context, configuration, dependenciesOverrideFile, settings ) )
+            if ( !FetchDependencies( context, configuration, dependenciesOverrideFile, settings.Update, settings ) )
             {
                 return false;
             }
@@ -52,9 +52,15 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             BuildContext context,
             BuildConfiguration configuration,
             DependenciesOverrideFile dependenciesOverrideFile,
+            bool forceUpdate = false,
             FetchDependenciesCommandSettings? settings = null )
         {
             settings ??= new FetchDependenciesCommandSettings();
+
+            if ( !forceUpdate )
+            {
+                forceUpdate = settings.Update;
+            }
 
             DependencyDefinition? GetDependencyDefinition( KeyValuePair<string, DependencySource> dependency )
             {
@@ -100,7 +106,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             while ( iterationDependencies.Count > 0 )
             {
                 // Download artefacts that are not transitive dependencies.
-                if ( !ResolveBuildNumbersFromBranches( context, configuration, teamcity, iterationDependencies, settings.Update ) ||
+                if ( !ResolveBuildNumbersFromBranches( context, configuration, teamcity, iterationDependencies, forceUpdate ) ||
                      !ResolveLocalDependencies( context, iterationDependencies ) )
                 {
                     return false;

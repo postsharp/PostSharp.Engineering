@@ -79,9 +79,14 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
             }
 
             // Executes the logic itself.
-            if ( !this.ConfigureDependency( context, dependenciesOverrideFile, dependencyDefinition, settings ) )
+            if ( !this.ConfigureDependency( context, dependenciesOverrideFile, dependencyDefinition, settings, out var newDependenciesOverrideFile ) )
             {
                 return false;
+            }
+
+            if ( newDependenciesOverrideFile != null )
+            {
+                dependenciesOverrideFile = newDependenciesOverrideFile;
             }
         }
 
@@ -114,5 +119,6 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         BuildContext context,
         DependenciesOverrideFile dependenciesOverrideFile,
         DependencyDefinition dependencyDefinition,
-        T settings );
+        T settings,
+        out DependenciesOverrideFile? newDependenciesOverrideFile );
 }

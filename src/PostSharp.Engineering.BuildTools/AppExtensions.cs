@@ -82,6 +82,10 @@ namespace PostSharp.Engineering.BuildTools
                                 dependencies.AddCommand<FetchDependencyCommand>( "fetch" )
                                     .WithData( product )
                                     .WithDescription( "Fetch build dependencies from TeamCity." );
+
+                                dependencies.AddCommand<UpdateDependencyCommand>( "update" )
+                                    .WithData( product )
+                                    .WithDescription( "Updates dependencies to the newest version." );
                             } );
 
                         root.AddBranch(
