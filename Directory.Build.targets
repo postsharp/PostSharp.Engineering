@@ -2,5 +2,7 @@
 
     <Import Project="src\PostSharp.Engineering.Sdk\AssemblyMetadata.targets"/>
     <Import Project="src\PostSharp.Engineering.Sdk\TeamCity.targets"/>
+    <Import Project="src\PostSharp.Engineering.Sdk\CodeQuality.targets"/>
+
 
 </Project>

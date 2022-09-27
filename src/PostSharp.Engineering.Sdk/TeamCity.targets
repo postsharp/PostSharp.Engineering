@@ -1,8 +1,7 @@
 <Project InitialTargets="IntegrateTeamcity">
 
-    <!-- TeamCity integration -->
+    <!-- Duplicate from TeamCity.props for backward compatibility -->
     <PropertyGroup Condition=" '$(ContinuousIntegrationBuild)' == '' ">
-        <!-- Copied from TeamCity.VSTest.TestAdapter package. -->
         <ContinuousIntegrationBuild Condition=" '$(TEAMCITY_PROJECT_NAME)' != '' Or '$(TEAMCITY_VERSION)' != '' ">True</ContinuousIntegrationBuild>
     </PropertyGroup>
 
