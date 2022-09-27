@@ -12,9 +12,3 @@ public class UpdateDependencyCommand : BaseFetchDependencyCommand
 {
     protected override bool Update => true;
 }
-
-public class FetchDependencyCommand : BaseFetchDependencyCommand
-{
-    protected override bool Update => false;
-}
-

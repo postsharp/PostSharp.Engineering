@@ -11,13 +11,13 @@
         <NoWarn>$(NoWarn),1591,1572,1573</NoWarn>
         <WarningLevel>4</WarningLevel>
     </PropertyGroup>
-    <PropertyGroup Condition="'$(DisableCodeQuality)'=='True'">
+    <PropertyGroup>
         <NoWarn>$(NoWarn),SA0001</NoWarn>
     </PropertyGroup>
     <PropertyGroup Condition="'$(DisableCodeQuality)'!='True' AND '$(ContinuousIntegrationBuild)'=='True'">
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     </PropertyGroup>
-    
+
     <ItemGroup Condition="'$(DisableCodeQuality)'!='True'">
         <!-- Beta version fixes issue with record parameter names -->
         <PackageReference Include="StyleCop.Analyzers"

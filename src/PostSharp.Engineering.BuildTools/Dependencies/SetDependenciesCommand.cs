@@ -19,7 +19,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             SetDependenciesCommandSettings settings )
         {
             DependencySource dependencySource;
-            
+
             switch ( settings.Source )
             {
                 case DependencySourceKind.Local:

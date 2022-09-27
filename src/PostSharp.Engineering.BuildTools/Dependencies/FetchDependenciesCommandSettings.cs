@@ -8,8 +8,5 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
     /// <summary>
     /// Settings for <see cref="FetchDependencyCommand"/>.
     /// </summary>
-    public class FetchDependenciesCommandSettings : BaseDependenciesCommandSettings
-    {
-
-    }
+    public class FetchDependenciesCommandSettings : BaseDependenciesCommandSettings { }
 }
