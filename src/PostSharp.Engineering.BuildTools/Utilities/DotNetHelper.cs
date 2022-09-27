@@ -24,7 +24,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 context.Console,
                 "dotnet",
                 argsBuilder,
-                Environment.CurrentDirectory );
+                Environment.CurrentDirectory,
+                GetToolInvocationOptions() );
         }
 
         public static bool Run(
@@ -44,7 +45,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 argsBuilder,
                 Environment.CurrentDirectory,
                 out exitCode,
-                out output );
+                out output,
+                GetToolInvocationOptions() );
         }
 
         private static string CreateCommandLine( BuildContext context, BuildSettings settings, string solution, string command, string arguments )
@@ -74,9 +76,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             return argsBuilder.ToString();
         }
 
+        private static ToolInvocationOptions GetToolInvocationOptions( bool silent = false ) => new( GetMsBuildFixingEnvironmentVariables(), silent );
+
         /// <summary>
-        /// Returns the environment variables set by .NET Core with no values.
-        /// Keeping the values set breaks MSBuild.
+        /// Returns the environment variables, but without the environment variables set by the Microsoft.Build package.
+        /// Keeping the values set breaks the MSBuild or `dotnet build` command line.
         /// We need to unset them to be able to execute MSBuild from a .NET Core process.
         /// </summary>
         public static ImmutableDictionary<string, string?> GetMsBuildFixingEnvironmentVariables()
