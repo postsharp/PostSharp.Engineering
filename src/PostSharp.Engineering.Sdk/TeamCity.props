@@ -1,0 +1,9 @@
+<Project>
+
+    <!-- TeamCity integration -->
+    <PropertyGroup Condition=" '$(ContinuousIntegrationBuild)' == '' ">
+        <!-- Copied from TeamCity.VSTest.TestAdapter package. -->
+        <ContinuousIntegrationBuild Condition=" '$(TEAMCITY_PROJECT_NAME)' != '' Or '$(TEAMCITY_VERSION)' != '' ">True</ContinuousIntegrationBuild>
+    </PropertyGroup>
+
+</Project>
