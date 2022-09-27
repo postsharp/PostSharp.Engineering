@@ -849,7 +849,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 
             if ( dependenciesOverrideFile.Dependencies.Any( d => d.Value.SourceKind != DependencySourceKind.Feed && d.Value.VersionFile == null ) )
             {
-                FetchDependencyCommand.FetchDependencies( context, configuration, dependenciesOverrideFile );
+                BaseFetchDependencyCommand.UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, false );
 
                 dependenciesOverrideFile.LocalBuildFile = propsFilePath;
             }
