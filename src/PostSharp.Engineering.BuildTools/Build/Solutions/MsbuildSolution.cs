@@ -18,19 +18,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
         public MsbuildSolution( string solutionPath ) : base( solutionPath ) { }
 
         public override bool Build( BuildContext context, BuildSettings settings )
-            => RunMsbuild( context, settings, this.SolutionPath, "Build", "-p:RestorePackages=false" );
+            => this.RunMsbuild( context, settings, this.SolutionPath, "Build", "-p:RestorePackages=false" );
 
         public override bool Pack( BuildContext context, BuildSettings settings )
-            => RunMsbuild( context, settings, this.SolutionPath, "Pack", "-p:RestorePackages=false" );
+            => this.RunMsbuild( context, settings, this.SolutionPath, "Pack", "-p:RestorePackages=false" );
 
         public override bool Test( BuildContext context, BuildSettings settings )
-            => RunMsbuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
+            => this.RunMsbuild( context, settings, this.SolutionPath, "Test", "-p:RestorePackages=false" );
 
         public override bool Restore( BuildContext context, BuildSettings settings )
         {
             if ( Path.GetExtension( this.SolutionPath ) != ".sln" )
             {
-                return RunMsbuild( context, settings, this.SolutionPath, "Restore" );
+                return this.RunMsbuild( context, settings, this.SolutionPath, "Restore" );
             }
             else
             {
@@ -60,7 +60,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 {
                     context.Console.WriteMessage( $"Restoring {project}" );
 
-                    if ( !RunMsbuild( context, settings, project, "Restore" ) )
+                    if ( !this.RunMsbuild( context, settings, project, "Restore" ) )
                     {
                         return false;
                     }
@@ -70,7 +70,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             }
         }
 
-        private static bool RunMsbuild( BuildContext context, BuildSettings settings, string project, string target, string arguments = "" )
+        private bool RunMsbuild( BuildContext context, BuildSettings settings, string project, string target, string arguments = "" )
         {
             var argsBuilder = new StringBuilder();
             var path = Path.Combine( context.RepoDirectory, project );
@@ -78,7 +78,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             var binaryLogFilePath = Path.Combine(
                 context.RepoDirectory,
                 context.Product.LogsDirectory.ToString(),
-                $"{context.Product.ProductName}.{target}.binlog" );
+                $"{this.Name}.{target}.binlog" );
 
             var configurationInfo = context.Product.Configurations[settings.BuildConfiguration];
 

@@ -19,8 +19,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
     /// <summary>
     /// Fetches the artifacts of the build dependencies.
     /// </summary>
-    public class FetchDependencyCommand : BaseCommand<FetchDependenciesCommandSettings>
+    public abstract class BaseFetchDependencyCommand : BaseCommand<FetchDependenciesCommandSettings>
     {
+        protected abstract bool Update { get; }
         protected override bool ExecuteCore( BuildContext context, FetchDependenciesCommandSettings settings )
         {
             context.Console.WriteHeading( "Fetching build artifacts" );
@@ -35,7 +36,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return false;
             }
 
-            if ( !FetchDependencies( context, configuration, dependenciesOverrideFile, settings ) )
+            if ( !UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, this.Update ) )
             {
                 return false;
             }
@@ -48,13 +49,13 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             return true;
         }
 
-        public static bool FetchDependencies(
+        public static bool UpdateOrFetchDependencies(
             BuildContext context,
             BuildConfiguration configuration,
             DependenciesOverrideFile dependenciesOverrideFile,
-            FetchDependenciesCommandSettings? settings = null )
+            bool update  )
         {
-            settings ??= new FetchDependenciesCommandSettings();
+
 
             DependencyDefinition? GetDependencyDefinition( KeyValuePair<string, DependencySource> dependency )
             {
@@ -100,7 +101,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             while ( iterationDependencies.Count > 0 )
             {
                 // Download artefacts that are not transitive dependencies.
-                if ( !ResolveBuildNumbersFromBranches( context, configuration, teamcity, iterationDependencies, settings.Update ) ||
+                if ( !ResolveBuildNumbersFromBranches( context, configuration, teamcity, iterationDependencies, update ) ||
                      !ResolveLocalDependencies( context, iterationDependencies ) )
                 {
                     return false;

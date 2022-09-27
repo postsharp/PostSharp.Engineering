@@ -85,10 +85,10 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
             }
         }
 
-        // Fetching dependencies.
-        context.Console.WriteImportantMessage( "Fetching dependencies" );
+        // Updating dependencies.
+        context.Console.WriteImportantMessage( "Updating dependencies" );
 
-        if ( !FetchDependencyCommand.FetchDependencies( context, configuration, dependenciesOverrideFile ) )
+        if ( !BaseFetchDependencyCommand.UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, true ) )
         {
             return false;
         }
