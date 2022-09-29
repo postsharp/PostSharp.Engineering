@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PostSharp.Engineering.BuildTools.Build;
 using System.IO;
@@ -35,13 +36,18 @@ public class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
         context.Console.WriteImportantMessage( $"Updating engineering to version {lastVersion}." );
 
         var globalJsonPath = Path.Combine( context.RepoDirectory, "global.json" );
-        context.Console.WriteMessage( $"Writing '{globalJsonPath}'." );
         var globalJson = JObject.Parse( File.ReadAllText( globalJsonPath ) );
         var globalJsonProperty = globalJson["msbuild-sdks"]?["PostSharp.Engineering.Sdk"];
 
         if ( globalJsonProperty != null )
         {
+            context.Console.WriteMessage( $"Writing '{globalJsonPath}'." );
+
             globalJsonProperty.Replace( new JValue( lastVersion ) );
+            using var writer = new StreamWriter( globalJsonPath );
+            var jsonTextWriter = new JsonTextWriter( writer ) { Formatting = Formatting.Indented };
+            
+            globalJson.WriteTo( jsonTextWriter );
         }
         else
         {
@@ -49,7 +55,7 @@ public class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
         }
 
         // Update Versions.props
-        var versionsFilePath = context.Product.VersionsFilePath;
+        var versionsFilePath = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
         context.Console.WriteMessage( $"Writing '{versionsFilePath}'." );
         var versionsFile = XDocument.Load( versionsFilePath, LoadOptions.PreserveWhitespace );
         var versionProperties = versionsFile.XPathSelectElements( "/Project/PropertyGroup/PostSharpEngineeringVersion" ).ToList();
@@ -65,6 +71,8 @@ public class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
         }
 
         versionsFile.Save( versionsFilePath );
+        
+        context.Console.WriteSuccess( "Engineering successfully updated." );
 
         return true;
     }
