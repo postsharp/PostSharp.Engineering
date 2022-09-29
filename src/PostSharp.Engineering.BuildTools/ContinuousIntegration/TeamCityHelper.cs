@@ -34,18 +34,18 @@ public static class TeamCityHelper
         return true;
     }
 
-    public static bool TryGetTeamCitySourceReadToken( out string buildParameterName, [NotNullWhen( true )] out string? teamCitySourceReadToken )
+    public static string GetTeamCitySourceReadToken()
     {
         // We use TeamCity configuration parameter value.
-        buildParameterName = "SOURCE_CODE_READING_TOKEN";
-        teamCitySourceReadToken = Environment.GetEnvironmentVariable( buildParameterName );
+        const string buildParameterName = "SOURCE_CODE_READING_TOKEN";
+        var teamCitySourceReadToken = Environment.GetEnvironmentVariable( buildParameterName );
 
-        if ( teamCitySourceReadToken == null )
+        if ( string.IsNullOrWhiteSpace( teamCitySourceReadToken ) )
         {
-            return false;
+            throw new InvalidOperationException( $"The '{buildParameterName}' environment variable is not defined." );
         }
 
-        return true;
+        return teamCitySourceReadToken;
     }
 
     /// <summary>

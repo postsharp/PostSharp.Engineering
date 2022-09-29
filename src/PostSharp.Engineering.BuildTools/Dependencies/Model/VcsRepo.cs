@@ -20,4 +20,6 @@ public class VcsRepo
         this.ProjectName = projectName;
         this.Provider = provider;
     }
+
+    public override string ToString() => $"{this.RepoUrl}";
 }

@@ -43,10 +43,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             {
                 var httpClient = new HttpClient();
 
-                if ( !TeamCityHelper.TryGetTeamCitySourceReadToken( out var environmentVariableName, out var teamCitySourceReadToken ) )
-                {
-                    return $"The '{environmentVariableName}' environment variable is not defined.";
-                }
+                var teamCitySourceReadToken = TeamCityHelper.GetTeamCitySourceReadToken();
 
                 var authString = Convert.ToBase64String( Encoding.UTF8.GetBytes( $@"{TeamCityHelper.TeamCityUsername}:{teamCitySourceReadToken}" ) );
                 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Basic", authString );
