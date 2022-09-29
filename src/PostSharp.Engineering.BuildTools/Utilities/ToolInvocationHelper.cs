@@ -163,6 +163,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             ToolInvocationOptions? options = null )
         {
             exitCode = 0;
+            options ??= new ToolInvocationOptions();
 
 #pragma warning disable CA1307 // There is no string.Contains that takes a StringComparison
             if ( fileName.Contains( new string( Path.DirectorySeparatorChar, 1 ) ) && !File.Exists( fileName ) )
@@ -190,12 +191,18 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     RedirectStandardOutput = true
                 };
 
-            if ( options?.EnvironmentVariables != null )
+            if ( options.EnvironmentVariables != null )
             {
                 foreach ( var pair in options.EnvironmentVariables )
                 {
                     startInfo.Environment[pair.Key] = pair.Value;
                 }
+            }
+
+            // Some environment variables must not be passed from the current process to the child process.
+            foreach ( var blockedEnvironmentVariable in options.BlockedEnvironmentVariables )
+            {
+                startInfo.Environment[blockedEnvironmentVariable] = null;
             }
 
             Path.GetFileName( fileName );
@@ -243,7 +250,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 };
 
                 // Log the command line, but not the one with expanded environment variables, so we don't expose secrets.
-                if ( !(options?.Silent ?? false) )
+                if ( !options.Silent )
                 {
                     console.WriteImportantMessage( "{0} {1}", process.StartInfo.FileName, commandLine );
                 }

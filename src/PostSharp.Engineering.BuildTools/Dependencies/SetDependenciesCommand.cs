@@ -16,7 +16,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             BuildContext context,
             DependenciesOverrideFile dependenciesOverrideFile,
             DependencyDefinition dependencyDefinition,
-            SetDependenciesCommandSettings settings )
+            SetDependenciesCommandSettings settings,
+            DependenciesOverrideFile defaultDependenciesOverrideFile )
         {
             DependencySource dependencySource;
 

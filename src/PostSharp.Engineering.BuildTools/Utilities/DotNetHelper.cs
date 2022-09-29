@@ -3,7 +3,6 @@
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using System;
-using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
 
@@ -24,8 +23,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 context.Console,
                 "dotnet",
                 argsBuilder,
-                Environment.CurrentDirectory,
-                GetToolInvocationOptions() );
+                Environment.CurrentDirectory );
         }
 
         public static bool Run(
@@ -45,8 +43,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 argsBuilder,
                 Environment.CurrentDirectory,
                 out exitCode,
-                out output,
-                GetToolInvocationOptions() );
+                out output );
         }
 
         private static string CreateCommandLine( BuildContext context, BuildSettings settings, string solution, string command, string arguments )
@@ -74,23 +71,6 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
 
             return argsBuilder.ToString();
-        }
-
-        private static ToolInvocationOptions GetToolInvocationOptions( bool silent = false ) => new( GetMsBuildFixingEnvironmentVariables(), silent );
-
-        /// <summary>
-        /// Returns the environment variables, but without the environment variables set by the Microsoft.Build package.
-        /// Keeping the values set breaks the MSBuild or `dotnet build` command line.
-        /// We need to unset them to be able to execute MSBuild from a .NET Core process.
-        /// </summary>
-        public static ImmutableDictionary<string, string?> GetMsBuildFixingEnvironmentVariables()
-        {
-            var environmentVariablesBuilder = ImmutableDictionary.CreateBuilder<string, string?>();
-            environmentVariablesBuilder.Add( "DOTNET_ROOT_X64", null );
-            environmentVariablesBuilder.Add( "MSBUILD_EXE_PATH", null );
-            environmentVariablesBuilder.Add( "MSBuildSDKsPath", null );
-
-            return environmentVariablesBuilder.ToImmutable();
         }
     }
 }

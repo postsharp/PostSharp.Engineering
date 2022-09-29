@@ -14,9 +14,17 @@ public class ResetDependenciesCommand : ConfigureDependenciesCommand<ResetDepend
         BuildContext context,
         DependenciesOverrideFile dependenciesOverrideFile,
         DependencyDefinition dependencyDefinition,
-        ResetDependenciesCommandSettings settings )
+        ResetDependenciesCommandSettings settings,
+        DependenciesOverrideFile defaultDependenciesOverrideFile )
     {
-        dependenciesOverrideFile.Dependencies.Remove( dependencyDefinition.Name );
+        if ( defaultDependenciesOverrideFile.Dependencies.TryGetValue( dependencyDefinition.Name, out var defaultSource ) )
+        {
+            dependenciesOverrideFile.Dependencies[dependencyDefinition.Name] = defaultSource;
+        }
+        else
+        {
+            dependenciesOverrideFile.Dependencies.Remove( dependencyDefinition.Name );
+        }
 
         return true;
     }

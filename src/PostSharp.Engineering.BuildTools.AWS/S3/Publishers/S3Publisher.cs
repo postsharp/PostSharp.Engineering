@@ -55,7 +55,7 @@ namespace PostSharp.Engineering.BuildTools.AWS.S3.Publishers
             var awsSecretAccessKey = Environment.GetEnvironmentVariable( "AWS_SECRET_ACCESS_KEY" );
 
             var message =
-                $"Publishing '{file}' file to '{packageConfiguration.KeyName}' in '{packageConfiguration.BucketName}' bucket in '{packageConfiguration.RegionEnpoint}' region. AWS access key ID: '{awsAccessKeyId}'.";
+                $"Publishing '{file}' file to '{packageConfiguration.KeyName}' in '{packageConfiguration.BucketName}' bucket in '{packageConfiguration.RegionEndpoint}' region. AWS access key ID: '{awsAccessKeyId}'.";
 
             if ( settings.Dry )
             {
@@ -71,7 +71,7 @@ namespace PostSharp.Engineering.BuildTools.AWS.S3.Publishers
 
                     context.Console.WriteImportantMessage( message );
 
-                    using var client = new AmazonS3Client( awsAccessKeyId, awsSecretAccessKey, packageConfiguration.RegionEnpoint );
+                    using var client = new AmazonS3Client( awsAccessKeyId, awsSecretAccessKey, packageConfiguration.RegionEndpoint );
                     var putResponse = client.PutObjectAsync( putRequest ).GetAwaiter().GetResult();
 
                     if ( putResponse.HttpStatusCode != HttpStatusCode.OK )

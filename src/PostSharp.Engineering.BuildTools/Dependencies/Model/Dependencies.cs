@@ -40,10 +40,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencyDefinition MetalamaOpenAutoCancellationToken { get; } =
             new( "Metalama.Open.AutoCancellationToken", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
 
-        [Obsolete( "Renamed to MetalamaOpenCostura" )]
-        public static DependencyDefinition MetalamaOpenDependencyEmbedder { get; } =
-            new( "Metalama.Open.DependencyEmbedder", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
-
         public static DependencyDefinition MetalamaOpenCostura { get; } =
             new( "Metalama.Open.Costura", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
 

@@ -2,7 +2,6 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
-using System.ComponentModel.Design.Serialization;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle

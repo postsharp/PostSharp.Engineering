@@ -38,6 +38,12 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
             return false;
         }
 
+        // Loads the default dependencies.
+        if ( !DependenciesOverrideFile.TryLoadDefaultsOnly( context, configuration, out var defaultDependenciesOverrideFile ) )
+        {
+            return false;
+        }
+
         // Loads the current version file.
         if ( !DependenciesOverrideFile.TryLoad( context, configuration, out var dependenciesOverrideFile ) )
         {
@@ -79,10 +85,19 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
             }
 
             // Executes the logic itself.
-            if ( !this.ConfigureDependency( context, dependenciesOverrideFile, dependencyDefinition, settings ) )
+            if ( !this.ConfigureDependency( context, dependenciesOverrideFile, dependencyDefinition, settings, defaultDependenciesOverrideFile ) )
             {
                 return false;
             }
+        }
+
+        // Remove transitive dependencies.
+        foreach ( var transitiveDependency in dependenciesOverrideFile.Dependencies.Keys
+                     .Where( dependency => !defaultDependenciesOverrideFile.Dependencies.ContainsKey( dependency ) )
+                     .ToList() )
+        {
+            context.Console.WriteMessage( $"Resetting transitive dependency '{transitiveDependency}'." );
+            dependenciesOverrideFile.Dependencies.Remove( transitiveDependency );
         }
 
         // Updating dependencies.
@@ -114,5 +129,6 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         BuildContext context,
         DependenciesOverrideFile dependenciesOverrideFile,
         DependencyDefinition dependencyDefinition,
-        T settings );
+        T settings,
+        DependenciesOverrideFile defaultDependenciesOverrideFile );
 }

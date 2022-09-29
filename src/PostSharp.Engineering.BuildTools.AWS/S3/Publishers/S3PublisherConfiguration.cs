@@ -9,7 +9,7 @@ namespace PostSharp.Engineering.BuildTools.AWS.S3.Publishers
     {
         public ParametricString PackageFileName { get; init; }
 
-        public RegionEndpoint RegionEnpoint { get; init; }
+        public RegionEndpoint RegionEndpoint { get; init; }
 
         public string BucketName { get; init; }
 
@@ -17,12 +17,12 @@ namespace PostSharp.Engineering.BuildTools.AWS.S3.Publishers
 
         public S3PublisherConfiguration(
             ParametricString packageFileName,
-            RegionEndpoint regionEnpoint,
+            RegionEndpoint regionEndpoint,
             string bucketName,
             string keyName )
         {
             this.PackageFileName = packageFileName;
-            this.RegionEnpoint = regionEnpoint;
+            this.RegionEndpoint = regionEndpoint;
             this.BucketName = bucketName;
             this.KeyName = keyName;
         }

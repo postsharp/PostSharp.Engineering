@@ -103,14 +103,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 argsBuilder.Append( " " + arguments.Trim() );
             }
 
-            var toolInvocationOptions = new ToolInvocationOptions( DotNetHelper.GetMsBuildFixingEnvironmentVariables() );
-
             return ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "msbuild",
                 argsBuilder.ToString(),
-                Environment.CurrentDirectory,
-                toolInvocationOptions );
+                Environment.CurrentDirectory );
         }
     }
 }
