@@ -109,8 +109,6 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         }
 
         // Writing the version file.
-        context.Console.WriteImportantMessage( $"Writing '{dependenciesOverrideFile.FilePath}'" );
-
         if ( !dependenciesOverrideFile.TrySave( context ) )
         {
             return false;

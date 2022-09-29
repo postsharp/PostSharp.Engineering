@@ -29,11 +29,11 @@ public class BaseDependenciesCommandSettings : CommonCommandSettings
 
         if ( defaultConfiguration == null )
         {
-            context.Console.WriteError( "The --configuration must be specified because there is no default configuration." );
+            context.Console.WriteWarning( "There was no current configuration. Choosing the Debug configuration." );
 
             configuration = Build.BuildConfiguration.Debug;
 
-            return false;
+            return true;
         }
 
         configuration = defaultConfiguration.Value;

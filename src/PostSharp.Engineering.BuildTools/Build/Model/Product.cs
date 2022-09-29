@@ -67,7 +67,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             get => this._bumpInfoFile ?? Path.Combine( this.EngineeringDirectory, "BumpInfo.txt" );
             init => this._bumpInfoFile = value;
         }
-
+        
         /// <summary>
         /// Gets the dependency from which the main version should be copied.
         /// </summary>

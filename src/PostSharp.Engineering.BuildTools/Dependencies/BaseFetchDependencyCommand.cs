@@ -126,7 +126,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 dependencyDictionary = dependencyDictionary.AddRange( newDependencies );
             }
 
-            context.Console.WriteSuccess( "Fetching build artifacts was successful" );
+            context.Console.WriteSuccess( $"{(update ? "Updating" : "Fetching")} build artifacts was successful" );
 
             return true;
         }
