@@ -30,7 +30,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 context,
                 settings,
                 "test",
-                $"--no-restore --logger \"trx\" {(TeamCityHelper.IsTeamCityBuild( settings ) ? "" : "--logger \"console;verbosity=minimal\"")} --results-directory {resultsDirectory}" );
+                $"--arch x64 --no-restore --logger \"trx\" {(TeamCityHelper.IsTeamCityBuild( settings ) ? "" : "--logger \"console;verbosity=minimal\"")} --results-directory {resultsDirectory}" );
         }
 
         public override bool Restore( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "restore", "--no-cache" );
