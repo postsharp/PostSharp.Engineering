@@ -32,6 +32,7 @@ public record BuildConfigurationInfo(
     string? TeamCityBuildName = null,
     string? TeamCityDeploymentName = null,
     string? TeamCitySwapName = null,
+    bool SwapAfterPublishing = false,
     string[]? AdditionalArtifactRules = null,
     bool ExportsToTeamCityBuild = true,
     bool ExportsToTeamCityDeploy = true );

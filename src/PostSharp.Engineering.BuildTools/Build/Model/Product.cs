@@ -1439,6 +1439,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                         break;
 
                                     case SuccessCode.Error:
+                                        context.Console.WriteWarning( "" );
+
+                                        switch ( swapper.Execute( context, settings, configuration ) )
+                                        {
+                                            case SuccessCode.Success:
+                                                break;
+                                            case SuccessCode.Error:
+                                                break;
+                                            case SuccessCode.Fatal:
+                                                break;
+                                        }
+
                                         success = false;
 
                                         break;
@@ -1672,6 +1684,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             buildAgentType: this.BuildAgentType )
                         {
                             IsDeployment = true,
+                            SwapAfterPublishing = configurationInfo.SwapAfterPublishing,
                             ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
                             SnapshotDependencyObjectNames = this.Dependencies?.Union( this.SourceDependencies )
                                 .Where( d => d.GenerateSnapshotDependency )
@@ -1683,7 +1696,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     }
                 }
 
-                if ( buildTeamCityConfiguration != null && configurationInfo.Swappers != null )
+                if (
+                    buildTeamCityConfiguration != null
+                    && configurationInfo.Swappers != null
+                    && !configurationInfo.SwapAfterPublishing )
                 {
                     teamCityBuildConfigurations.Add(
                         new TeamCityBuildConfiguration(
