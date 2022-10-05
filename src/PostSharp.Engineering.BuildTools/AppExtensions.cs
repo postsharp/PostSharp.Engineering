@@ -86,6 +86,10 @@ namespace PostSharp.Engineering.BuildTools
                                 dependencies.AddCommand<UpdateDependencyCommand>( "update" )
                                     .WithData( product )
                                     .WithDescription( "Updates dependencies to the newest version available on TeamCity." );
+
+                                dependencies.AddCommand<UpdateEngineeringCommand>( "update-eng" )
+                                    .WithData( product )
+                                    .WithDescription( "Updates PostSharp.Engineering in global.json and Versions.props." );
                             } );
 
                         root.AddBranch(
