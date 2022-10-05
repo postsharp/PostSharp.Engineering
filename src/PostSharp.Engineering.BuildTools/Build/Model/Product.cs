@@ -1438,17 +1438,24 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                     case SuccessCode.Success:
                                         break;
 
+                                    // If any of the testers fail during swap, we do swap again to get the slots to their original state.
                                     case SuccessCode.Error:
-                                        context.Console.WriteWarning( "" );
+                                        context.Console.WriteError( $"Tester failed after swapping staging and production slots. Attempting to revert the swap." );
 
                                         switch ( swapper.Execute( context, settings, configuration ) )
                                         {
                                             case SuccessCode.Success:
+                                                context.Console.WriteMessage( "Successfully reverted swap." );
+
                                                 break;
+
                                             case SuccessCode.Error:
+                                                context.Console.WriteError( "Failed to revert swap." );
+
                                                 break;
+
                                             case SuccessCode.Fatal:
-                                                break;
+                                                return false;
                                         }
 
                                         success = false;
