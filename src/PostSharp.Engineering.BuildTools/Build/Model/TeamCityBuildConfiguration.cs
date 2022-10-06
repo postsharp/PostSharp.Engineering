@@ -20,8 +20,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool IsDeployment { get; init; }
 
-        public bool SwapAfterPublishing { get; init; }
-
         public string? ArtifactRules { get; init; }
 
         public string[]? AdditionalArtifactRules { get; init; }
@@ -98,24 +96,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }}
             noProfile = false
             param(""jetbrains_powershell_scriptArguments"", ""{this.BuildArguments}"")
-        }}" );
-            
-            if ( this.SwapAfterPublishing )
-            {
-                writer.WriteLine(
-                    $@"        // Swap staging and production slots after deployment.
-        powerShell {{
-            name = ""Swap staging to production""
-            scriptMode = file {{
-                path = ""Build.ps1""
-            }}
-            noProfile = false
-            param(""jetbrains_powershell_scriptArguments"", ""swap"")
-        }}" );
-            }
-
-            writer.WriteLine(
-                $@"    }}
+        }}
+    }}
 
     requirements {{
         equals(""env.BuildAgentType"", ""{this.BuildAgentType}"")
