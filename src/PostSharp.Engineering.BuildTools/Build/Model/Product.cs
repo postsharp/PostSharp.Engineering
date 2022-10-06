@@ -1402,6 +1402,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteSuccess( "Publishing has succeeded." );
             }
 
+            // Swap after successful publishing.
+            if ( configurationInfo.SwapAfterPublishing )
+            {
+                context.Console.WriteMessage( "Swapping staging and production slots after publishing." );
+
+                if ( !this.SwapAfterPublishing( context, settings ) )
+                {
+                    context.Console.WriteError( "Failed to swap after publishing." );
+
+                    return false;
+                }
+
+                context.Console.WriteSuccess( "Swap after publishing has succeeded." );
+            }
+
             // Only versioned products use version tags.
             if ( this.DependencyDefinition.IsVersioned )
             {
@@ -1414,6 +1429,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             return true;
+        }
+
+        public bool SwapAfterPublishing( BuildContext context, PublishSettings publishSettings )
+        {
+            var swapSettings = new SwapSettings()
+            {
+                BuildConfiguration = publishSettings.BuildConfiguration,
+                Dry = publishSettings.Dry,
+            };
+
+            return this.Swap( context, swapSettings );
         }
 
         public bool Swap( BuildContext context, SwapSettings settings )
@@ -1691,7 +1717,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             buildAgentType: this.BuildAgentType )
                         {
                             IsDeployment = true,
-                            SwapAfterPublishing = configurationInfo.SwapAfterPublishing,
                             ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
                             SnapshotDependencyObjectNames = this.Dependencies?.Union( this.SourceDependencies )
                                 .Where( d => d.GenerateSnapshotDependency )
