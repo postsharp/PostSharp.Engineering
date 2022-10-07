@@ -9,7 +9,7 @@
         <GenerateSampleDeployScript>false</GenerateSampleDeployScript>
         <!-- It is not possible to disable generation of the manifest, so we set the path to bin not to have it in the artifacts, since we don't need it for az deploy. -->
         <PackageSourceManifest>$(OutputPath)\$(MSBuildProjectName).SourceManifest.xml</PackageSourceManifest>
-        <PackageLocation>$(PackageOutputPath)\</PackageLocation>
+        <PackageLocation>$(PackageOutputPath)</PackageLocation>
         <DefaultPackageFileName>$(AssemblyName).$(Version).zip</DefaultPackageFileName>
     </PropertyGroup>
 
