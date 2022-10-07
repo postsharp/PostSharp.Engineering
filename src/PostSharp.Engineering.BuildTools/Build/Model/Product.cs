@@ -1402,6 +1402,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteSuccess( "Publishing has succeeded." );
             }
 
+            // Swap after successful publishing.
+            if ( configurationInfo.SwapAfterPublishing )
+            {
+                context.Console.WriteMessage( "Swapping staging and production slots after publishing." );
+
+                if ( !this.SwapAfterPublishing( context, settings ) )
+                {
+                    context.Console.WriteError( "Failed to swap after publishing." );
+
+                    return false;
+                }
+
+                context.Console.WriteSuccess( "Swap after publishing has succeeded." );
+            }
+
             // Only versioned products use version tags.
             if ( this.DependencyDefinition.IsVersioned )
             {
@@ -1414,6 +1429,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             return true;
+        }
+
+        public bool SwapAfterPublishing( BuildContext context, PublishSettings publishSettings )
+        {
+            var swapSettings = new SwapSettings()
+            {
+                BuildConfiguration = publishSettings.BuildConfiguration,
+                Dry = publishSettings.Dry,
+            };
+
+            return this.Swap( context, swapSettings );
         }
 
         public bool Swap( BuildContext context, SwapSettings settings )
@@ -1438,7 +1464,26 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                     case SuccessCode.Success:
                                         break;
 
+                                    // If any of the testers fail during swap, we do swap again to get the slots to their original state.
                                     case SuccessCode.Error:
+                                        context.Console.WriteError( $"Tester failed after swapping staging and production slots. Attempting to revert the swap." );
+
+                                        switch ( swapper.Execute( context, settings, configuration ) )
+                                        {
+                                            case SuccessCode.Success:
+                                                context.Console.WriteMessage( "Successfully reverted swap." );
+
+                                                break;
+
+                                            case SuccessCode.Error:
+                                                context.Console.WriteError( "Failed to revert swap." );
+
+                                                break;
+
+                                            case SuccessCode.Fatal:
+                                                return false;
+                                        }
+
                                         success = false;
 
                                         break;
@@ -1683,7 +1728,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     }
                 }
 
-                if ( buildTeamCityConfiguration != null && configurationInfo.Swappers != null )
+                if (
+                    buildTeamCityConfiguration != null
+                    && configurationInfo.Swappers != null
+                    && !configurationInfo.SwapAfterPublishing )
                 {
                     teamCityBuildConfigurations.Add(
                         new TeamCityBuildConfiguration(

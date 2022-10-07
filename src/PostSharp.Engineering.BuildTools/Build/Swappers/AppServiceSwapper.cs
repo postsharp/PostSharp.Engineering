@@ -44,6 +44,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Swappers
             var args =
                 $"webapp deployment slot swap --subscription {this.SubscriptionId} --resource-group {this.ResourceGroupName} --name {this.AppServiceName} --slot {this.SourceSlot} --target-slot {this.TargetSlot}";
 
+            if ( settings.Dry )
+            {
+                context.Console.WriteImportantMessage( $"Dry run: {args}." );
+
+                return SuccessCode.Success;
+            }
+
             return AzHelper.Run( context.Console, args, settings.Dry ) ? SuccessCode.Success : SuccessCode.Error;
         }
     }
