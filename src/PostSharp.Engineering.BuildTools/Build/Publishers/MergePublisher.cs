@@ -21,6 +21,31 @@ public class MergePublisher : IndependentPublisher
         BuildInfo buildInfo,
         BuildConfigurationInfo configuration )
     {
+        // When on TeamCity, Git user credentials are set to TeamCity.
+        if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+        {
+            if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
+            {
+                return SuccessCode.Error;
+            }
+        }
+
+        // Go through all dependencies and update their fixed version in Versions.props file.
+        if ( !UpdateDependenciesVersions( context, settings, out var dependenciesUpdated ) )
+        {
+            return SuccessCode.Error;
+        }
+
+        // We commit and push if dependencies versions were updated in previous step.
+        if ( dependenciesUpdated )
+        {
+            // Commit and push changes made to Versions.props.
+            if ( !TryCommitAndPushBumpedDependenciesVersions( context ) )
+            {
+                return SuccessCode.Error;
+            }
+        }
+        
         // Returns the reference name of the current branch.
         ToolInvocationHelper.InvokeTool(
             context.Console,
@@ -47,35 +72,10 @@ public class MergePublisher : IndependentPublisher
             return SuccessCode.Error;
         }
 
-        // When on TeamCity, Git user credentials are set to TeamCity.
-        if ( TeamCityHelper.IsTeamCityBuild( settings ) )
-        {
-            if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
-            {
-                return SuccessCode.Error;
-            }
-        }
-
         // Merge current branch to master.
         if ( !MergeBranchToMaster( context, settings, currentBranch ) )
         {
             return SuccessCode.Error;
-        }
-
-        // Go through all dependencies and update their fixed version in Versions.props file.
-        if ( !UpdateDependenciesVersions( context, settings, out var dependenciesUpdated ) )
-        {
-            return SuccessCode.Error;
-        }
-
-        // We commit and push if dependencies versions were updated in previous step.
-        if ( dependenciesUpdated )
-        {
-            // Commit changes made to Versions.props.
-            if ( !TryCommitDependenciesVersionsBumped( context ) )
-            {
-                return SuccessCode.Error;
-            }
         }
 
         context.Console.WriteSuccess( "MergePublisher has finished successfully." );
@@ -281,7 +281,7 @@ public class MergePublisher : IndependentPublisher
         return true;
     }
 
-    private static bool TryCommitDependenciesVersionsBumped( BuildContext context )
+    private static bool TryCommitAndPushBumpedDependenciesVersions( BuildContext context )
     {
         // Adds Versions.props with updated dependencies versions to Git staging area.
         if ( !ToolInvocationHelper.InvokeTool(
@@ -308,7 +308,7 @@ public class MergePublisher : IndependentPublisher
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                "commit -m \"Versions of dependencies updated.\"",
+                "commit -m \"<<DEPENDENCIES_UPDATED>>\"",
                 context.RepoDirectory ) )
         {
             return false;

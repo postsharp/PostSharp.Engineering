@@ -20,7 +20,7 @@ public class SourceBuildTrigger : IBuildTrigger
             watchChangesInDependencies = {this.WatchChangesInDependencies.ToString().ToLowerInvariant()}
             branchFilter = ""+:<default>""
             // Build will not trigger automatically if the commit message contains comment value.
-            triggerRules = ""-:comment=<<VERSION_BUMP>>:**""
+            triggerRules = ""-:comment=<<VERSION_BUMP>>|<<DEPENDENCIES_UPDATED>>:**""
         }}        " );
     }
 }
