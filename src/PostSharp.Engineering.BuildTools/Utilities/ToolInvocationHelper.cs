@@ -46,7 +46,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
             else if ( exitCode != 0 )
             {
-                console.WriteError( "The process \"{0}\" failed with exit code {1}.", fileName, exitCode );
+                console.WriteError( $"The process `\"{fileName}\" {commandLine}` failed with exit code {exitCode}." );
 
                 return false;
             }
