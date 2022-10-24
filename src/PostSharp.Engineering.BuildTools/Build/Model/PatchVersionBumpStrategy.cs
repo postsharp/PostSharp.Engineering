@@ -10,7 +10,7 @@ using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model;
 
-internal class DefaultBumpStrategy : IBumpStrategy
+public class PatchVersionBumpStrategy : IBumpStrategy
 {
     public bool TryBumpVersion(
         Product product,
@@ -33,30 +33,42 @@ internal class DefaultBumpStrategy : IBumpStrategy
         }
 
         var currentMainVersionFile = product.ReadMainVersionFile( mainVersionFile );
-
+        var oldOurPatchVersion = currentMainVersionFile.OurPatchVersion;
         oldVersion = new Version( currentMainVersionFile.MainVersion );
 
-        // Increment the version.
-        newVersion = new Version(
-            oldVersion.Major,
-            oldVersion.Minor,
-            oldVersion.Build + 1 );
-
-        // Save the MainVersion.props with new version.
-        if ( !TrySaveMainVersion( context, mainVersionFile, newVersion ) )
+        if ( oldOurPatchVersion == null )
         {
+            context.Console.WriteError( "OurPatchVersion property value is null." );
+            oldVersion = null;
+            newVersion = null;
+            
             return false;
         }
+        
+        // Increment the version.
+        var newOurPatchVersion = oldOurPatchVersion + 1;
 
+        // Save the MainVersion.props with new version.
+        if ( !TrySavePatchedMainVersion( context, mainVersionFile, newOurPatchVersion.Value ) )
+        {
+            oldVersion = null;
+            newVersion = null;
+
+            return false;
+        }
+        
+        var updatedMainVersionFile = product.ReadMainVersionFile( mainVersionFile );
+        newVersion = new Version( updatedMainVersionFile.MainVersion );
+        
         context.Console.WriteSuccess( $"Bumping the '{context.Product.ProductName}' version from '{oldVersion}' to '{newVersion}' was successful." );
 
         return true;
     }
 
-    private static bool TrySaveMainVersion(
+    private static bool TrySavePatchedMainVersion(
         BuildContext context,
         string mainVersionFile,
-        Version version )
+        int ourPatchVersion )
     {
         if ( !File.Exists( mainVersionFile ) )
         {
@@ -68,10 +80,17 @@ internal class DefaultBumpStrategy : IBumpStrategy
         var document = XDocument.Load( mainVersionFile );
         var project = document.Root;
         var properties = project!.Element( "PropertyGroup" );
-        var mainVersionElement = properties!.Element( "MainVersion" );
-        var ourPatchVersionElement = properties.Element( "OurPatchVersion" );
+        var ourPatchVersionElement = properties!.Element( "OurPatchVersion" );
 
-        mainVersionElement!.Value = version.ToString();
+        // Fail on missing <OurPatchVersion> property or replace its value.
+        if ( ourPatchVersionElement == null )
+        {
+            context.Console.WriteError( $"OurPatchVersion property is missing in '{mainVersionFile}'" );
+
+            return false;
+        }
+
+        ourPatchVersionElement.Value = ourPatchVersion.ToString( CultureInfo.InvariantCulture );
 
         // Using settings to keep the indentation as well as encoding identical to original MainVersion.props.
         var xmlWriterSettings =
