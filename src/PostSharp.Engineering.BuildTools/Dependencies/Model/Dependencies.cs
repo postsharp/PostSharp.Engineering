@@ -96,6 +96,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "WebsitesAndBusinessSystems",
             false );
 
+        public static DependencyDefinition MetalamaMigration { get; } =
+            new DependencyDefinition( "Metalama.Migration", VcsProvider.GitHub, "Metalama.Migration" );
+
         public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
             MetalamaCompiler,
             Metalama,
@@ -111,6 +114,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             MetalamaBackstage,
             BusinessSystems,
             HelpBrowser,
-            PostSharpWeb );
+            PostSharpWeb,
+            MetalamaMigration);
     }
 }
