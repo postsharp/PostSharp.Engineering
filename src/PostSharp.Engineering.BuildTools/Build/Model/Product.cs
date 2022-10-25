@@ -102,8 +102,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public Pattern PublicArtifacts { get; init; } = Pattern.Empty;
 
-        public bool PublishTestResults { get; init; }
-
         public VcsProvider? VcsProvider { get; }
 
         public bool KeepEditorConfig { get; init; }
@@ -1660,10 +1658,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var artifactRules =
                     $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
 
-                if ( context.Product.PublishTestResults )
-                {
-                    artifactRules += $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}";
-                }
+                // Add testResults to artifacts
+                artifactRules += $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}";
 
                 if ( context.Product.SourceDependencies.Length > 0 )
                 {
