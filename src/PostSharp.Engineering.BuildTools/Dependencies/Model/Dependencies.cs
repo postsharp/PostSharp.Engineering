@@ -53,9 +53,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencyDefinition MetalamaExtensions { get; } =
             new( "Metalama.Extensions", VcsProvider.GitHub, "Metalama" );
 
-        public static DependencyDefinition MetalamaMigration { get; } =
-            new DependencyDefinition( "Metalama.Migration", VcsProvider.GitHub, "Metalama.Migration" );
-
         // This is only used from the project template.
         public static DependencyDefinition MyProduct { get; } =
             new( "PostSharp.Engineering.ProjectTemplate", VcsProvider.GitHub, "NONE" );
@@ -117,12 +114,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             MetalamaOpenCostura,
             MetalamaOpenVirtuosity,
             MetalamaExtensions,
-            MetalamaMigration,
             PostSharpEngineering,
             MetalamaBackstage,
             BusinessSystems,
             HelpBrowser,
             PostSharpWeb,
-            MetalamaMigration);
+            MetalamaMigration );
     }
 }
