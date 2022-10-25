@@ -46,8 +46,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencyDefinition MetalamaOpenVirtuosity { get; } =
             new( "Metalama.Open.Virtuosity", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
 
+        [Obsolete( "Renamed to MetalamaExtensions" )]
         public static DependencyDefinition MetalamaFrameworkExtensions { get; } =
             new( "Metalama.Framework.Extensions", VcsProvider.GitHub, "Metalama" );
+
+        public static DependencyDefinition MetalamaExtensions { get; } =
+            new( "Metalama.Extensions", VcsProvider.GitHub, "Metalama" );
 
         // This is only used from the project template.
         public static DependencyDefinition MyProduct { get; } =
@@ -96,6 +100,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "WebsitesAndBusinessSystems",
             false );
 
+        public static DependencyDefinition MetalamaMigration { get; } =
+            new DependencyDefinition( "Metalama.Migration", VcsProvider.GitHub, "Metalama.Migration" );
+
         public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
             MetalamaCompiler,
             Metalama,
@@ -106,11 +113,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             MetalamaOpenAutoCancellationToken,
             MetalamaOpenCostura,
             MetalamaOpenVirtuosity,
-            MetalamaFrameworkExtensions,
+            MetalamaExtensions,
             PostSharpEngineering,
             MetalamaBackstage,
             BusinessSystems,
             HelpBrowser,
-            PostSharpWeb );
+            PostSharpWeb,
+            MetalamaMigration );
     }
 }
