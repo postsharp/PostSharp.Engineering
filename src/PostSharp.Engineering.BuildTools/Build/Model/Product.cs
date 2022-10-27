@@ -667,6 +667,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
+            if ( !Directory.Exists( this.TestResultsDirectory.ToString() ) )
+            {
+                Directory.CreateDirectory( this.TestResultsDirectory.ToString() );
+            }
+
+            if ( !Directory.GetFiles( this.TestResultsDirectory.ToString() ).Any() )
+            {
+                // We have to create an empty file, otherwise TeamCity will complain that
+                // artifacts are missing.
+                var emptyFile = Path.Combine( this.TestResultsDirectory.ToString(), ".empty" );
+
+                File.WriteAllText( emptyFile, "This file is intentionally empty." );
+            }
+
             context.Console.WriteSuccess( $"Testing {this.ProductName} was successful" );
 
             return true;
