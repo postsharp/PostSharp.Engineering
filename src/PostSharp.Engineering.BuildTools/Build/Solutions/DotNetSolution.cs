@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -25,12 +26,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
         {
             var resultsDirectory = context.Product.TestResultsDirectory.ToString( new BuildInfo( null!, settings.BuildConfiguration, context.Product ) );
 
-            // The additional console logger is not used on TeamCity, because it hides tests output from TeamCity.VSTest.TestAdapter in build log.
             return this.RunDotNet(
                 context,
                 settings,
                 "test",
-                $"--no-restore --logger \"trx\" {(TeamCityHelper.IsTeamCityBuild( settings ) ? "" : "--logger \"console;verbosity=minimal\"")} --results-directory {resultsDirectory}" );
+                $"--no-restore --logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory {resultsDirectory}" );
         }
 
         public override bool Restore( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "restore", "--no-cache" );
@@ -102,16 +102,30 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                     }
                 }
 
+                // Export .trx test files to TeamCity.
+                if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+                {
+                    TeamCityServiceMessageProvider.SendImportDataMessage( "vstest", "artifacts/testResults/*.trx", this.Name );
+                }
+
                 return true;
             }
             else
             {
-                return DotNetHelper.Run(
+                var success = DotNetHelper.Run(
                     context,
                     settings,
                     Path.Combine( context.RepoDirectory, this.SolutionPath ),
                     command,
                     string.Join( " ", allArguments ) );
+
+                // Export .trx test files to TeamCity.
+                if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+                {
+                    TeamCityServiceMessageProvider.SendImportDataMessage( "vstest", "artifacts/testResults/*.trx", this.Name );
+                }
+
+                return success;
             }
         }
     }

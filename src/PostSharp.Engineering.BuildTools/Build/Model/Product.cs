@@ -67,7 +67,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             get => this._bumpInfoFile ?? Path.Combine( this.EngineeringDirectory, "BumpInfo.txt" );
             init => this._bumpInfoFile = value;
         }
-        
+
         /// <summary>
         /// Gets the dependency from which the main version should be copied.
         /// </summary>
@@ -101,8 +101,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public Pattern PrivateArtifacts { get; init; } = Pattern.Empty;
 
         public Pattern PublicArtifacts { get; init; } = Pattern.Empty;
-
-        public bool PublishTestResults { get; init; }
 
         public VcsProvider? VcsProvider { get; }
 
@@ -155,6 +153,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// Gets the set of source code dependencies of this product. 
         /// </summary>
         public DependencyDefinition[] SourceDependencies { get; init; } = Array.Empty<DependencyDefinition>();
+
+        public IBumpStrategy BumpStrategy { get; init; } = new DefaultBumpStrategy();
 
         public DependencyDefinition? GetDependency( string name )
         {
@@ -473,7 +473,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return new BuildInfo( packageVersion, Enum.Parse<BuildConfiguration>( configuration ), this );
         }
 
-        private record MainVersionFileInfo(
+        public record MainVersionFileInfo(
             string MainVersion,
             string? OverriddenPatchVersion,
             string PackageVersionSuffix,
@@ -483,7 +483,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Reads MainVersion.props but does not interpret anything.
         /// </summary>
-        private MainVersionFileInfo ReadMainVersionFile( string path )
+        public MainVersionFileInfo ReadMainVersionFile( string path )
         {
             var versionFilePath = path;
             var versionFile = Project.FromFile( versionFilePath, new ProjectOptions() );
@@ -665,6 +665,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     return false;
                 }
+            }
+
+            if ( !Directory.Exists( this.TestResultsDirectory.ToString() ) )
+            {
+                Directory.CreateDirectory( this.TestResultsDirectory.ToString() );
+            }
+
+            if ( !Directory.GetFiles( this.TestResultsDirectory.ToString() ).Any() )
+            {
+                // We have to create an empty file, otherwise TeamCity will complain that
+                // artifacts are missing.
+                var emptyFile = Path.Combine( this.TestResultsDirectory.ToString(), ".empty" );
+
+                File.WriteAllText( emptyFile, "This file is intentionally empty." );
             }
 
             context.Console.WriteSuccess( $"Testing {this.ProductName} was successful" );
@@ -1433,11 +1447,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool SwapAfterPublishing( BuildContext context, PublishSettings publishSettings )
         {
-            var swapSettings = new SwapSettings()
-            {
-                BuildConfiguration = publishSettings.BuildConfiguration,
-                Dry = publishSettings.Dry,
-            };
+            var swapSettings = new SwapSettings() { BuildConfiguration = publishSettings.BuildConfiguration, Dry = publishSettings.Dry };
 
             return this.Swap( context, swapSettings );
         }
@@ -1466,7 +1476,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                                     // If any of the testers fail during swap, we do swap again to get the slots to their original state.
                                     case SuccessCode.Error:
-                                        context.Console.WriteError( $"Tester failed after swapping staging and production slots. Attempting to revert the swap." );
+                                        context.Console.WriteError(
+                                            $"Tester failed after swapping staging and production slots. Attempting to revert the swap." );
 
                                         switch ( swapper.Execute( context, settings, configuration ) )
                                         {
@@ -1577,7 +1588,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( this.MainVersionDependency == null )
             {
-                if ( !this.TryBumpVersion( context, out oldVersion, out newVersion ) )
+                if ( !this.BumpStrategy.TryBumpVersion( this, context, out oldVersion, out newVersion ) )
                 {
                     return false;
                 }
@@ -1661,10 +1672,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var artifactRules =
                     $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
 
-                if ( context.Product.PublishTestResults )
-                {
-                    artifactRules += $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}";
-                }
+                // Add testResults to artifacts
+                artifactRules += $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}";
 
                 if ( context.Product.SourceDependencies.Length > 0 )
                 {
@@ -1966,46 +1975,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool TryBumpVersion(
-            BuildContext context,
-            [NotNullWhen( true )] out Version? oldVersion,
-            [NotNullWhen( true )] out Version? newVersion )
-        {
-            var mainVersionFile = Path.Combine(
-                context.RepoDirectory,
-                this.MainVersionFilePath );
-
-            if ( !File.Exists( mainVersionFile ) )
-            {
-                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
-
-                oldVersion = null;
-                newVersion = null;
-
-                return false;
-            }
-
-            var currentMainVersionFile = this.ReadMainVersionFile( mainVersionFile );
-
-            oldVersion = new Version( currentMainVersionFile.MainVersion );
-
-            // Increment the version.
-            newVersion = new Version(
-                oldVersion.Major,
-                oldVersion.Minor,
-                oldVersion.Build + 1 );
-
-            // Save the MainVersion.props with new version.
-            if ( !TrySaveMainVersion( context, mainVersionFile, newVersion, null ) )
-            {
-                return false;
-            }
-
-            context.Console.WriteSuccess( $"Bumping the '{context.Product.ProductName}' version from '{oldVersion}' to '{newVersion}' was successful." );
-
-            return true;
-        }
-
         private bool TryCommitVersionBump( BuildContext context, Version? currentVersion, Version newVersion, CommonCommandSettings settings )
         {
             // Adds bumped MainVersion.props and updated BumpInfo.txt to Git staging area.
@@ -2145,51 +2114,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             preparedVersionInfo = new PreparedVersionInfo( currentVersion, mainVersionFileInfo.PackageVersionSuffix );
-
-            return true;
-        }
-
-        private static bool TrySaveMainVersion(
-            BuildContext context,
-            string mainVersionFile,
-            Version version,
-            int? patchNumber )
-        {
-            if ( !File.Exists( mainVersionFile ) )
-            {
-                context.Console.WriteError( $"Could not save '{mainVersionFile}': the file does not exist." );
-
-                return false;
-            }
-
-            var document = XDocument.Load( mainVersionFile );
-            var project = document.Root;
-            var properties = project!.Element( "PropertyGroup" );
-            var mainVersionElement = properties!.Element( "MainVersion" );
-            var ourPatchVersionElement = properties.Element( "OurPatchVersion" );
-
-            // If OurPatchVersion is defined in MainVersion.props, we write the incremented patch number to it.
-            if ( patchNumber != null && ourPatchVersionElement != null )
-            {
-                ourPatchVersionElement.Value = patchNumber.Value.ToString( CultureInfo.InvariantCulture );
-            }
-
-            // Otherwise we replace the whole MainVersion with new version.
-            else
-            {
-                mainVersionElement!.Value = version.ToString();
-            }
-
-            // Using settings to keep the indentation as well as encoding identical to original MainVersion.props.
-            var xmlWriterSettings =
-                new XmlWriterSettings { OmitXmlDeclaration = true, Indent = true, IndentChars = "    ", Encoding = new UTF8Encoding( false ) };
-
-            using ( var xmlWriter = XmlWriter.Create( mainVersionFile, xmlWriterSettings ) )
-            {
-                document.Save( xmlWriter );
-            }
-
-            context.Console.WriteMessage( $"Writing '{mainVersionFile}'." );
 
             return true;
         }
