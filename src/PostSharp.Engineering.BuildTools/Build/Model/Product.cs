@@ -1628,9 +1628,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var mainVersionContent = dependency.Repo.DownloadTextFile( dependency.DefaultBranch, mainVersionFile );
 
                 var document = XDocument.Parse( mainVersionContent );
-                var project = document.Root;
-                var properties = project?.Element( "PropertyGroup" );
-                var mainVersionPropertyValue = properties?.Element( "MainVersion" )?.Value;
+                var project = Project.FromXmlReader( document.CreateReader(), new ProjectOptions() );
+                var mainVersionPropertyValue = project.Properties.FirstOrDefault( p => p.Name == "MainVersion" )?.EvaluatedValue;
 
                 if ( string.IsNullOrEmpty( mainVersionPropertyValue ) )
                 {
