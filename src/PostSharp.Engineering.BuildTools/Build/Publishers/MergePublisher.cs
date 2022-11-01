@@ -129,11 +129,11 @@ public class MergePublisher : IndependentPublisher
 
     private static bool MergeBranchToMaster( BuildContext context, BaseBuildSettings settings, string branchToMerge )
     {
-        // Attempts merging branch to master.
+        // Attempts merging branch to master, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"merge {branchToMerge}",
+                $"merge {branchToMerge} --strategy-option theirs",
                 context.RepoDirectory ) )
         {
             return false;
@@ -233,26 +233,40 @@ public class MergePublisher : IndependentPublisher
             // Path to the downloaded build version file.
             var dependencyVersionFile = dependencySource.VersionFile;
 
-            if ( dependencyVersionFile == null )
+            if ( string.IsNullOrEmpty( dependencyVersionFile ) )
             {
+                context.Console.WriteError( $"Version file of '{dependency.Name}' does not exist." );
+
                 return false;
             }
 
-            // Load the up-to-date version file of dependency.
+            // Load the up-to-date version file of dependency and it's version value.
             var upToDateVersionDocument = XDocument.Load( dependencyVersionFile );
             var project = upToDateVersionDocument.Root;
             var props = project!.Element( "PropertyGroup" );
-            var currentDependencyVersionValue = props!.Element( $"{dependency.NameWithoutDot}Version" )!.Value;
+            var upToDateDependencyVersionValue = props!.Element( $"{dependency.NameWithoutDot}Version" )!.Value;
 
             // Load current product Versions.props.
-            var currentVersionDocument = XDocument.Load( productVersionsPropertiesFile, LoadOptions.PreserveWhitespace );
-            project = currentVersionDocument.Root;
+            var currentProductVersionsDocument = XDocument.Load( productVersionsPropertiesFile, LoadOptions.PreserveWhitespace );
+            project = currentProductVersionsDocument.Root;
             props = project!.Elements( "PropertyGroup" ).SingleOrDefault( p => p.Element( $"{dependency.NameWithoutDot}Version" ) != null );
-            var oldVersionElement = props!.Elements( $"{dependency.NameWithoutDot}Version" ).SingleOrDefault( p => !p.HasAttributes );
-            var oldVersionValue = oldVersionElement!.Value;
+
+            // Load current product dependency version, excluding version property with explicit branch.
+            // Fail if there is no such property.
+            var oldVersionElement = props!.Elements( $"{dependency.NameWithoutDot}Version" )
+                .SingleOrDefault( e => !e.Value.StartsWith( "branch", StringComparison.OrdinalIgnoreCase ) );
+
+            if ( oldVersionElement == null )
+            {
+                context.Console.WriteError( $"There is no '{dependency.NameWithoutDot}Version' property with explicit public version in '{productVersionsPropertiesFile}'." );
+
+                return false;
+            }
+
+            var oldVersionValue = oldVersionElement.Value;
 
             var currentDependencyVersionNumber =
-                Version.Parse( currentDependencyVersionValue.Substring( 0, currentDependencyVersionValue.IndexOf( '-', StringComparison.InvariantCulture ) ) );
+                Version.Parse( upToDateDependencyVersionValue.Substring( 0, upToDateDependencyVersionValue.IndexOf( '-', StringComparison.InvariantCulture ) ) );
 
             var oldDependencyVersionNumber = Version.Parse( oldVersionValue.Substring( 0, oldVersionValue.IndexOf( '-', StringComparison.InvariantCulture ) ) );
 
@@ -264,7 +278,7 @@ public class MergePublisher : IndependentPublisher
                 continue;
             }
 
-            oldVersionElement.Value = currentDependencyVersionValue;
+            oldVersionElement.Value = upToDateDependencyVersionValue;
             dependenciesUpdated = true;
 
             var xmlWriterSettings =
@@ -272,10 +286,10 @@ public class MergePublisher : IndependentPublisher
 
             using ( var xmlWriter = XmlWriter.Create( productVersionsPropertiesFile, xmlWriterSettings ) )
             {
-                currentVersionDocument.Save( xmlWriter );
+                currentProductVersionsDocument.Save( xmlWriter );
             }
 
-            context.Console.WriteMessage( $"Bumping version dependency '{dependency}' from '{oldVersionValue}' to '{currentDependencyVersionValue}'." );
+            context.Console.WriteMessage( $"Bumping version dependency '{dependency}' from '{oldVersionValue}' to '{upToDateDependencyVersionValue}'." );
         }
 
         return true;
