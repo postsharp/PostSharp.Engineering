@@ -6,11 +6,13 @@ using PostSharp.Engineering.BuildTools.Build;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Configuration.Provider;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 
@@ -62,6 +64,17 @@ public class VersionFile
 
         foreach ( var dependencyDefinition in context.Product.Dependencies )
         {
+            // If Product is on GitHub and dependency should have separate public version, Versions.props will be verified.
+            if ( context.Product.DependencyDefinition.Repo.Provider == VcsProvider.GitHub && dependencyDefinition.RequiresPublicVersionOnGitHub )
+            {
+                if ( !VerifyVersions( context, versionsPath, dependencyDefinition ) )
+                {
+                    versionFile = null;
+
+                    return false;
+                }
+            }
+
             var dependencyVersion = defaultDependencyProperties[dependencyDefinition.Name];
 
             DependencySource dependencySource;
@@ -168,5 +181,46 @@ public class VersionFile
         versionFile = new VersionFile( dependenciesBuilder.ToImmutable() );
 
         return true;
+    }
+
+    private static bool VerifyVersions( BuildContext context, string versionsPath, DependencyDefinition dependency )
+    {
+        // Load Versions.props and verify the file has versions of the dependency.
+        var currentProductVersionsDocument = XDocument.Load( versionsPath, LoadOptions.PreserveWhitespace );
+        var project = currentProductVersionsDocument.Root;
+        var props = project!.Elements( "PropertyGroup" ).SingleOrDefault( p => p.Element( $"{dependency.NameWithoutDot}Version" ) != null );
+
+        if ( props == null )
+        {
+            context.Console.WriteError( $"Missing both public and development version properties for '{dependency.Name}' in '{versionsPath}'." );
+
+            return false;
+        }
+
+        var success = true;
+
+        // Verify development dependency version is set.
+        var developmentVersionProperty = props!.Elements( $"{dependency.NameWithoutDot}Version" )
+            .SingleOrDefault( e => e.Value.StartsWith( "branch", StringComparison.OrdinalIgnoreCase ) );
+
+        if ( developmentVersionProperty == null )
+        {
+            context.Console.WriteError( $"Missing development '{dependency.NameWithoutDot}Version' property in '{versionsPath}'." );
+
+            success = false;
+        }
+
+        // Verify public dependency version is set.
+        var publicVersionProperty = props!.Elements( $"{dependency.NameWithoutDot}Version" )
+            .SingleOrDefault( e => char.IsDigit( e.Value[0] ) );
+
+        if ( publicVersionProperty == null )
+        {
+            context.Console.WriteError( $"Missing public '{dependency.NameWithoutDot}Version' property in '{versionsPath}'." );
+
+            success = false;
+        }
+
+        return success;
     }
 }
