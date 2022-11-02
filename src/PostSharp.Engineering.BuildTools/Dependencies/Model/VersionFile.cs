@@ -62,6 +62,8 @@ public class VersionFile
 
         ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
+        var versionsDocument = XDocument.Load( versionsPath, LoadOptions.PreserveWhitespace );
+        
         foreach ( var dependencyDefinition in context.Product.Dependencies )
         {
             var dependencyVersion = defaultDependencyProperties[dependencyDefinition.Name];
@@ -72,7 +74,7 @@ public class VersionFile
                 continue;
             }
 
-            if ( !VerifyVersionFile( context, versionsPath, dependencyDefinition, dependencyVersion, out var dependencySource ) )
+            if ( !TryParseAndVerifyDependency( context, versionsPath, dependencyDefinition, dependencyVersion, versionsDocument, out var dependencySource ) )
             {
                 versionFile = null;
 
@@ -87,13 +89,15 @@ public class VersionFile
         return true;
     }
 
-    private static bool VerifyVersionFile(
+    private static bool TryParseAndVerifyDependency(
         BuildContext context,
         string versionsPath,
         DependencyDefinition dependencyDefinition,
         string dependencyVersion,
+        XDocument versionDocument,
         [NotNullWhen( true )] out DependencySource? dependencySource )
     {
+        // Parse dependency version to create a dependency source from value provided in the dependency version.
         if ( dependencyVersion.Contains( "local", StringComparison.OrdinalIgnoreCase ) )
         {
             dependencySource = DependencySource.CreateLocal( DependencyConfigurationOrigin.Default );
@@ -184,32 +188,29 @@ public class VersionFile
             }
         }
 
-        // Load Versions.props and verify the file has versions of the dependency.
-        var currentProductVersionsDocument = XDocument.Load( versionsPath, LoadOptions.PreserveWhitespace );
-        var project = currentProductVersionsDocument.Root;
-        var properties = project!.Elements( "PropertyGroup" ).SingleOrDefault( p => p.Element( $"{dependencyDefinition.NameWithoutDot}Version" ) != null );
+        // Verify dependency version property.
+        var dependencyVersionPropertyName = $"{dependencyDefinition.NameWithoutDot}Version";
+        var dependencyVersionProperty = versionDocument.Root!.Elements( "PropertyGroup" ).SingleOrDefault( p => p.Element( dependencyVersionPropertyName ) != null );
 
-        if ( properties == null )
+        if ( dependencyVersionProperty == null )
         {
-            context.Console.WriteError( $"Missing version properties for '{dependencyDefinition.Name}' in '{versionsPath}'." );
+            context.Console.WriteError( $"Error in '{versionsPath}': The property '{dependencyVersionPropertyName}' is missing." );
 
             return false;
         }
 
-        // If current product is on GitHub and dependency should have separate public version of dependencies for this product,
-        // existence of version property and its condition attribute master branch is verified.
+        // If the current product is on GitHub (i.e. the product requires dependency to have a public version),
+        // we verify existence of version property with condition attribute for VcsBranch used in public version.
         if ( context.Product.DependencyDefinition.Repo.Provider == VcsProvider.GitHub && dependencyDefinition.RequiresPublicVersionOnGitHub )
         {
-            var attributeName = "Condition";
-
-            // Verify version property with condition attribute exists.
-            var publicVersionProperty = properties!.Elements( $"{dependencyDefinition.NameWithoutDot}Version" )
-                .SingleOrDefault( e => e.HasAttributes && e.Attribute( attributeName ) != null );
+            // Verify dependency version property has a condition attribute.
+            var publicVersionProperty = dependencyVersionProperty!.Elements( dependencyVersionPropertyName )
+                .SingleOrDefault( e => e.HasAttributes && e.Attribute( "Condition" ) != null );
 
             if ( publicVersionProperty == null )
             {
                 context.Console.WriteError(
-                    $"Error in '{versionsPath}': The property '{dependencyDefinition.NameWithoutDot}Version' with VcsBranch condition attribute is missing." );
+                    $"Error in '{versionsPath}': The property '{dependencyVersionPropertyName}' with VcsBranch condition attribute is missing." );
 
                 return false;
             }
