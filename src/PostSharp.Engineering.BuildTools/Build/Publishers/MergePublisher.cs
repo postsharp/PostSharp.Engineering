@@ -251,14 +251,14 @@ public class MergePublisher : IndependentPublisher
             project = currentProductVersionsDocument.Root;
             props = project!.Elements( "PropertyGroup" ).SingleOrDefault( p => p.Element( $"{dependency.NameWithoutDot}Version" ) != null );
 
-            // Load current product dependency version, excluding version property with explicit branch.
-            // Fail if there is no such property.
+            // Load current product dependency version with condition attribute
             var oldVersionElement = props!.Elements( $"{dependency.NameWithoutDot}Version" )
-                .SingleOrDefault( e => !e.Value.StartsWith( "branch", StringComparison.OrdinalIgnoreCase ) );
+                .SingleOrDefault( e => e.HasAttributes && e.Attribute( "Condition" ) != null );
 
             if ( oldVersionElement == null )
             {
-                context.Console.WriteError( $"There is no '{dependency.NameWithoutDot}Version' property with explicit public version in '{productVersionsPropertiesFile}'." );
+                context.Console.WriteError(
+                    $"Error in '{dependencyVersionFile}': The property '{dependency.NameWithoutDot}Version' with VcsBranch condition attribute is missing." );
 
                 return false;
             }
@@ -273,7 +273,7 @@ public class MergePublisher : IndependentPublisher
             // We don't need to rewrite the file if there is no change in version.
             if ( currentDependencyVersionNumber == oldDependencyVersionNumber )
             {
-                context.Console.WriteMessage( $"Version of '{dependency}' dependency is up to date." );
+                context.Console.WriteMessage( $"Version of '{dependency.Name}' dependency is up to date." );
 
                 continue;
             }
