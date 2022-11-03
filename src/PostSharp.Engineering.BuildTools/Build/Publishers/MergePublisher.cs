@@ -31,7 +31,7 @@ public class MergePublisher : IndependentPublisher
         }
 
         // Go through all dependencies and update their fixed version in Versions.props file.
-        if ( !TryParseAndUpdateDependencies( context, settings, out var dependenciesUpdated ) )
+        if ( !TryParseAndVerifyDependencies( context, settings, out var dependenciesUpdated ) )
         {
             return SuccessCode.Error;
         }
@@ -193,7 +193,7 @@ public class MergePublisher : IndependentPublisher
         return true;
     }
 
-    private static bool TryParseAndUpdateDependencies( BuildContext context, PublishSettings settings, out bool dependenciesUpdated )
+    private static bool TryParseAndVerifyDependencies( BuildContext context, PublishSettings settings, out bool dependenciesUpdated )
     {
         dependenciesUpdated = false;
         var productVersionsPropertiesFile = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
