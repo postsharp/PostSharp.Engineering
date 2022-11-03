@@ -247,11 +247,11 @@ public class MergePublisher : IndependentPublisher
             var currentDependencyVersionValue = props!.Element( $"{dependency.NameWithoutDot}Version" )!.Value;
 
             // Load current product Versions.props.
-            var currentVersionsDocument = XDocument.Load( productVersionsPropertiesFile, LoadOptions.PreserveWhitespace );
-            project = currentVersionsDocument.Root;
+            var currentVersionDocument = XDocument.Load( productVersionsPropertiesFile, LoadOptions.PreserveWhitespace );
+            project = currentVersionDocument.Root;
             props = project!.Elements( "PropertyGroup" ).SingleOrDefault( p => p.Element( $"{dependency.NameWithoutDot}Version" ) != null );
 
-            // Load current product dependency version with condition attribute
+            // Load dependency version from its property with condition attribute.
             var oldVersionElement = props!.Elements( $"{dependency.NameWithoutDot}Version" ).SingleOrDefault( p => p.HasAttributes );
 
             if ( oldVersionElement == null )
@@ -285,7 +285,7 @@ public class MergePublisher : IndependentPublisher
 
             using ( var xmlWriter = XmlWriter.Create( productVersionsPropertiesFile, xmlWriterSettings ) )
             {
-                currentVersionsDocument.Save( xmlWriter );
+                currentVersionDocument.Save( xmlWriter );
             }
 
             context.Console.WriteMessage( $"Bumping version dependency '{dependency}' from '{oldVersionValue}' to '{currentDependencyVersionValue}'." );
