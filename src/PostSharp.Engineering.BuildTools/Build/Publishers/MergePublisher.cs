@@ -31,7 +31,7 @@ public class MergePublisher : IndependentPublisher
         }
 
         // Go through all dependencies and update their fixed version in Versions.props file.
-        if ( !UpdateDependenciesVersions( context, settings, out var dependenciesUpdated ) )
+        if ( !TryParseAndVerifyDependencies( context, settings, out var dependenciesUpdated ) )
         {
             return SuccessCode.Error;
         }
@@ -129,11 +129,11 @@ public class MergePublisher : IndependentPublisher
 
     private static bool MergeBranchToMaster( BuildContext context, BaseBuildSettings settings, string branchToMerge )
     {
-        // Attempts merging branch to master.
+        // Attempts merging branch to master, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"merge {branchToMerge}",
+                $"merge {branchToMerge} --strategy-option theirs",
                 context.RepoDirectory ) )
         {
             return false;
@@ -193,7 +193,7 @@ public class MergePublisher : IndependentPublisher
         return true;
     }
 
-    private static bool UpdateDependenciesVersions( BuildContext context, PublishSettings settings, out bool dependenciesUpdated )
+    private static bool TryParseAndVerifyDependencies( BuildContext context, PublishSettings settings, out bool dependenciesUpdated )
     {
         dependenciesUpdated = false;
         var productVersionsPropertiesFile = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
@@ -235,6 +235,8 @@ public class MergePublisher : IndependentPublisher
 
             if ( dependencyVersionFile == null )
             {
+                context.Console.WriteError( $"Version file of '{dependency.Name}' does not exist." );
+
                 return false;
             }
 
@@ -248,8 +250,19 @@ public class MergePublisher : IndependentPublisher
             var currentVersionDocument = XDocument.Load( productVersionsPropertiesFile, LoadOptions.PreserveWhitespace );
             project = currentVersionDocument.Root;
             props = project!.Elements( "PropertyGroup" ).SingleOrDefault( p => p.Element( $"{dependency.NameWithoutDot}Version" ) != null );
-            var oldVersionElement = props!.Elements( $"{dependency.NameWithoutDot}Version" ).SingleOrDefault( p => !p.HasAttributes );
-            var oldVersionValue = oldVersionElement!.Value;
+
+            // Load dependency version from its property with condition attribute.
+            var oldVersionElement = props!.Elements( $"{dependency.NameWithoutDot}Version" ).SingleOrDefault( p => p.HasAttributes );
+
+            if ( oldVersionElement == null )
+            {
+                context.Console.WriteError(
+                    $"Error in '{dependencyVersionFile}': The property '{dependency.NameWithoutDot}Version' with VcsBranch condition attribute is missing." );
+
+                return false;
+            }
+
+            var oldVersionValue = oldVersionElement.Value;
 
             var currentDependencyVersionNumber =
                 Version.Parse( currentDependencyVersionValue.Substring( 0, currentDependencyVersionValue.IndexOf( '-', StringComparison.InvariantCulture ) ) );
@@ -259,7 +272,7 @@ public class MergePublisher : IndependentPublisher
             // We don't need to rewrite the file if there is no change in version.
             if ( currentDependencyVersionNumber == oldDependencyVersionNumber )
             {
-                context.Console.WriteMessage( $"Version of '{dependency}' dependency is up to date." );
+                context.Console.WriteMessage( $"Version of '{dependency.Name}' dependency is up to date." );
 
                 continue;
             }
