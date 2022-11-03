@@ -233,27 +233,26 @@ public class MergePublisher : IndependentPublisher
             // Path to the downloaded build version file.
             var dependencyVersionFile = dependencySource.VersionFile;
 
-            if ( string.IsNullOrEmpty( dependencyVersionFile ) )
+            if ( dependencyVersionFile == null )
             {
                 context.Console.WriteError( $"Version file of '{dependency.Name}' does not exist." );
 
                 return false;
             }
 
-            // Load the up-to-date version file of dependency and it's version value.
+            // Load the up-to-date version file of dependency.
             var upToDateVersionDocument = XDocument.Load( dependencyVersionFile );
             var project = upToDateVersionDocument.Root;
             var props = project!.Element( "PropertyGroup" );
-            var upToDateDependencyVersionValue = props!.Element( $"{dependency.NameWithoutDot}Version" )!.Value;
+            var currentDependencyVersionValue = props!.Element( $"{dependency.NameWithoutDot}Version" )!.Value;
 
             // Load current product Versions.props.
-            var currentProductVersionsDocument = XDocument.Load( productVersionsPropertiesFile, LoadOptions.PreserveWhitespace );
-            project = currentProductVersionsDocument.Root;
+            var currentVersionsDocument = XDocument.Load( productVersionsPropertiesFile, LoadOptions.PreserveWhitespace );
+            project = currentVersionsDocument.Root;
             props = project!.Elements( "PropertyGroup" ).SingleOrDefault( p => p.Element( $"{dependency.NameWithoutDot}Version" ) != null );
 
             // Load current product dependency version with condition attribute
-            var oldVersionElement = props!.Elements( $"{dependency.NameWithoutDot}Version" )
-                .SingleOrDefault( e => e.HasAttributes && e.Attribute( "Condition" ) != null );
+            var oldVersionElement = props!.Elements( $"{dependency.NameWithoutDot}Version" ).SingleOrDefault( p => p.HasAttributes );
 
             if ( oldVersionElement == null )
             {
@@ -266,7 +265,7 @@ public class MergePublisher : IndependentPublisher
             var oldVersionValue = oldVersionElement.Value;
 
             var currentDependencyVersionNumber =
-                Version.Parse( upToDateDependencyVersionValue.Substring( 0, upToDateDependencyVersionValue.IndexOf( '-', StringComparison.InvariantCulture ) ) );
+                Version.Parse( currentDependencyVersionValue.Substring( 0, currentDependencyVersionValue.IndexOf( '-', StringComparison.InvariantCulture ) ) );
 
             var oldDependencyVersionNumber = Version.Parse( oldVersionValue.Substring( 0, oldVersionValue.IndexOf( '-', StringComparison.InvariantCulture ) ) );
 
@@ -278,7 +277,7 @@ public class MergePublisher : IndependentPublisher
                 continue;
             }
 
-            oldVersionElement.Value = upToDateDependencyVersionValue;
+            oldVersionElement.Value = currentDependencyVersionValue;
             dependenciesUpdated = true;
 
             var xmlWriterSettings =
@@ -286,10 +285,10 @@ public class MergePublisher : IndependentPublisher
 
             using ( var xmlWriter = XmlWriter.Create( productVersionsPropertiesFile, xmlWriterSettings ) )
             {
-                currentProductVersionsDocument.Save( xmlWriter );
+                currentVersionsDocument.Save( xmlWriter );
             }
 
-            context.Console.WriteMessage( $"Bumping version dependency '{dependency}' from '{oldVersionValue}' to '{upToDateDependencyVersionValue}'." );
+            context.Console.WriteMessage( $"Bumping version dependency '{dependency}' from '{oldVersionValue}' to '{currentDependencyVersionValue}'." );
         }
 
         return true;
