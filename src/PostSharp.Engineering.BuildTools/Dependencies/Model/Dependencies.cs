@@ -68,8 +68,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             CiBuildTypes = new ConfigurationSpecific<string>(
                 "PostSharpEngineering_DebugBuild",
                 "PostSharpEngineering_DebugBuild",
-                "PostSharpEngineering_DebugBuild" ),
-            RequiresPublicVersionOnGitHub = false
+                "PostSharpEngineering_DebugBuild" )
         };
 
         [Obsolete( "Renamed to MetalamaBackstage" )]

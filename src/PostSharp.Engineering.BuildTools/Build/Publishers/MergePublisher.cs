@@ -31,7 +31,7 @@ public class MergePublisher : IndependentPublisher
         }
 
         // Go through all dependencies and update their fixed version in Versions.props file.
-        if ( !TryParseAndUpdateDependencies( context, settings, out var dependenciesUpdated ) )
+        if ( !UpdateDependenciesVersions( context, settings, out var dependenciesUpdated ) )
         {
             return SuccessCode.Error;
         }
@@ -193,9 +193,10 @@ public class MergePublisher : IndependentPublisher
         return true;
     }
 
-    private static bool TryParseAndUpdateDependencies( BuildContext context, PublishSettings settings, out bool dependenciesUpdated )
+    private static bool UpdateDependenciesVersions( BuildContext context, PublishSettings settings, out bool dependenciesUpdated )
     {
         dependenciesUpdated = false;
+        var productVersionsPropertiesFile = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
 
         // For following Prepare step we need to BuildSettings
         var buildSettings = new BuildSettings()
@@ -216,9 +217,6 @@ public class MergePublisher : IndependentPublisher
         }
 
         context.Console.WriteImportantMessage( "Updating versions of dependencies in 'Versions.props'." );
-
-        var productVersionsPropertiesFile = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
-        var productVersionsDocument = XDocument.Load( productVersionsPropertiesFile, LoadOptions.PreserveWhitespace );
 
         foreach ( var dependency in context.Product.Dependencies )
         {
@@ -242,44 +240,45 @@ public class MergePublisher : IndependentPublisher
                 return false;
             }
 
-            var propertyGroupName = "PropertyGroup";
-            var dependencyVersionPropertyName = $"{dependency.NameWithoutDot}Version";
+            // Load the up-to-date version file of dependency and it's version value.
+            var upToDateVersionDocument = XDocument.Load( dependencyVersionFile );
+            var project = upToDateVersionDocument.Root;
+            var props = project!.Element( "PropertyGroup" );
+            var upToDateDependencyVersionValue = props!.Element( $"{dependency.NameWithoutDot}Version" )!.Value;
 
-            // Load version file of dependency and read it's value.
-            var dependencyVersionDocument = XDocument.Load( dependencyVersionFile );
-            var dependencyVersionProps = dependencyVersionDocument.Root!.Element( propertyGroupName );
-            var upToDateDependencyVersionValue = dependencyVersionProps!.Element( dependencyVersionPropertyName )!.Value;
+            // Load current product Versions.props.
+            var currentProductVersionsDocument = XDocument.Load( productVersionsPropertiesFile, LoadOptions.PreserveWhitespace );
+            project = currentProductVersionsDocument.Root;
+            props = project!.Elements( "PropertyGroup" ).SingleOrDefault( p => p.Element( $"{dependency.NameWithoutDot}Version" ) != null );
 
-            // Load Versions.props of the current product and read it's value.
-            var productVersionProps = productVersionsDocument.Root!.Elements( propertyGroupName ).SingleOrDefault( p => p.Element( dependencyVersionPropertyName ) != null );
-
-            var productDependencyVersionElement = productVersionProps!.Elements( dependencyVersionPropertyName )
+            // Load current product dependency version with condition attribute
+            var oldVersionElement = props!.Elements( $"{dependency.NameWithoutDot}Version" )
                 .SingleOrDefault( e => e.HasAttributes && e.Attribute( "Condition" ) != null );
 
-            if ( productDependencyVersionElement == null )
+            if ( oldVersionElement == null )
             {
                 context.Console.WriteError(
-                    $"Error in '{dependencyVersionFile}': The property '{dependencyVersionPropertyName}' with VcsBranch condition attribute is missing." );
+                    $"Error in '{dependencyVersionFile}': The property '{dependency.NameWithoutDot}Version' with VcsBranch condition attribute is missing." );
 
                 return false;
             }
 
-            var oldVersionValue = productDependencyVersionElement.Value;
+            var oldVersionValue = oldVersionElement.Value;
 
-            var dependencyVersion =
+            var currentDependencyVersionNumber =
                 Version.Parse( upToDateDependencyVersionValue.Substring( 0, upToDateDependencyVersionValue.IndexOf( '-', StringComparison.InvariantCulture ) ) );
 
-            var productDependencyVersion = Version.Parse( oldVersionValue.Substring( 0, oldVersionValue.IndexOf( '-', StringComparison.InvariantCulture ) ) );
+            var oldDependencyVersionNumber = Version.Parse( oldVersionValue.Substring( 0, oldVersionValue.IndexOf( '-', StringComparison.InvariantCulture ) ) );
 
-            // We don't need to rewrite the file if product dependency version is the same as actual dependency version.
-            if ( dependencyVersion == productDependencyVersion )
+            // We don't need to rewrite the file if there is no change in version.
+            if ( currentDependencyVersionNumber == oldDependencyVersionNumber )
             {
                 context.Console.WriteMessage( $"Version of '{dependency.Name}' dependency is up to date." );
 
                 continue;
             }
 
-            productDependencyVersionElement.Value = upToDateDependencyVersionValue;
+            oldVersionElement.Value = upToDateDependencyVersionValue;
             dependenciesUpdated = true;
 
             var xmlWriterSettings =
@@ -287,7 +286,7 @@ public class MergePublisher : IndependentPublisher
 
             using ( var xmlWriter = XmlWriter.Create( productVersionsPropertiesFile, xmlWriterSettings ) )
             {
-                productVersionsDocument.Save( xmlWriter );
+                currentProductVersionsDocument.Save( xmlWriter );
             }
 
             context.Console.WriteMessage( $"Bumping version dependency '{dependency}' from '{oldVersionValue}' to '{upToDateDependencyVersionValue}'." );
