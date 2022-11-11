@@ -170,7 +170,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             if ( !httpResponseResult.IsSuccessStatusCode )
             {
                 context.Console.WriteError(
-                    $"Failed to retrieve TeamCity builds queue from API URI '{TeamCityHelper.TeamcityApiBuildQueueUri}'." );
+                    $"Failed to retrieve TeamCity builds queue from API URI '{TeamCityHelper.TeamcityApiBuildQueueUri}': HTTP status code: {httpResponseResult.StatusCode}." );
 
                 return false;
             }
@@ -202,7 +202,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             if ( !httpResponseResult.IsSuccessStatusCode )
             {
                 context.Console.WriteError(
-                    $"Failed to retrieve TeamCity running builds from API URI '{TeamCityHelper.TeamCityApiRunningBuildsUri}'." );
+                    $"Failed to retrieve TeamCity running builds from API URI '{TeamCityHelper.TeamCityApiRunningBuildsUri}': HTTP status code: {httpResponseResult.StatusCode}." );
 
                 return false;
             }
@@ -214,6 +214,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             if ( builds.Attribute( "count" )!.Value.Equals( "0", StringComparison.Ordinal ) )
             {
+                context.Console.WriteError( "No running TeamCity builds found. This might be a TeamCity API problem." );
+
                 return false;
             }
 
@@ -234,7 +236,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             if ( !httpResponseResult.IsSuccessStatusCode )
             {
                 context.Console.WriteError( 
-                    $"Failed to retrieve TeamCity finished builds from API URI '{TeamCityHelper.TeamCityApiFinishedBuildsUri}'." );
+                    $"Failed to retrieve TeamCity finished builds from API URI '{TeamCityHelper.TeamCityApiFinishedBuildsUri}': HTTP status code: {httpResponseResult.StatusCode}." );
 
                 return false;
             }
@@ -246,7 +248,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             if ( builds.Attribute( "count" )!.Value.Equals( "0", StringComparison.Ordinal ) )
             {
-                context.Console.WriteError( "No finished TeamCity builds found. " );
+                context.Console.WriteError( "No finished TeamCity builds found. This might be a TeamCity API problem." );
 
                 return false;
             }
@@ -255,7 +257,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             if ( build == null )
             {
-                context.Console.WriteError( $"No finished TeamCity build with ID '{buildId}' found. " );
+                context.Console.WriteError( $"No successfully finished TeamCity build with ID '{buildId}' found." );
 
                 return false;
             }
@@ -275,7 +277,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             if ( !httpResponseResult.IsSuccessStatusCode )
             {
                 context.Console.WriteError(
-                    $"Failed to retrieve TeamCity finished builds from API URI '{TeamCityHelper.TeamCityApiFinishedBuildsUri}'." );
+                    $"Failed to retrieve TeamCity finished builds from API URI '{TeamCityHelper.TeamCityApiFinishedBuildsUri}': HTTP status code: {httpResponseResult.StatusCode}." );
 
                 return false;
             }
@@ -287,7 +289,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             if ( builds.Attribute( "count" )!.Value.Equals( "0", StringComparison.Ordinal ) )
             {
-                context.Console.WriteError( "No finished TeamCity builds found. " );
+                context.Console.WriteError( "No finished TeamCity builds found. This might be a TeamCity API problem." );
 
                 return false;
             }
