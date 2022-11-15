@@ -108,14 +108,15 @@ public static class TeamCityHelper
 
         var scheduledBuildNumber = string.Empty;
 
-        if ( tc.IsBuildQueued( scheduledBuildId ) )
+        if ( tc.IsBuildQueued( context, scheduledBuildId ) )
         {
             context.Console.WriteMessage( "Waiting for build to start..." );
         }
 
-        while ( tc.IsBuildRunning( scheduledBuildId ) || tc.IsBuildQueued( scheduledBuildId ) )
+        // Poll the running build status until it is finished.
+        while ( !tc.HasBuildFinished( context, scheduledBuildId ) )
         {
-            if ( tc.IsBuildRunning( scheduledBuildId ) )
+            if ( tc.IsBuildRunning( context, scheduledBuildId ) )
             {
                 context.Console.WriteMessage( tc.PollRunningBuildStatus( scheduledBuildId, out var buildNumber ) );
                 scheduledBuildNumber = buildNumber;
@@ -130,7 +131,7 @@ public static class TeamCityHelper
             Thread.Sleep( 5000 );
         }
 
-        if ( !tc.HasBuildFinishedSuccessfully( scheduledBuildId ) )
+        if ( !tc.HasBuildFinishedSuccessfully( context, scheduledBuildId ) )
         {
             context.Console.WriteError( $"Build #{scheduledBuildNumber} of '{buildTypeId}' failed." );
 
