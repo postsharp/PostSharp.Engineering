@@ -106,7 +106,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool KeepEditorConfig { get; init; }
 
-        public string BuildAgentType { get; init; } = "caravela03";
+        public string BuildAgentType { get; init; } = "caravela04";
 
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
 

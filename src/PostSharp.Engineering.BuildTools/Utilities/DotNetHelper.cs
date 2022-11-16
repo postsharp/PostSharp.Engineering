@@ -53,7 +53,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             argsBuilder.Append(
                 CultureInfo.InvariantCulture,
-                $"{command} -p:Configuration={configuration.MSBuildName} \"{solution}\" -v:{settings.Verbosity.ToAlias()} --nologo" );
+                $"{command} \"{solution}\" -p:Configuration={configuration.MSBuildName} -v:{settings.Verbosity.ToAlias()} --nologo" );
 
             if ( settings.NoConcurrency )
             {
