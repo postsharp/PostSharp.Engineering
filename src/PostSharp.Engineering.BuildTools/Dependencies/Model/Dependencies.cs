@@ -37,12 +37,15 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public static DependencyDefinition MetalamaVsx { get; } = new( "Metalama.Vsx", VcsProvider.AzureRepos, "Metalama" );
 
+        [Obsolete( "This dependency is part of Metalama.Community" )]
         public static DependencyDefinition MetalamaOpenAutoCancellationToken { get; } =
             new( "Metalama.Open.AutoCancellationToken", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
 
+        [Obsolete( "This dependency is part of Metalama.Community" )]
         public static DependencyDefinition MetalamaOpenCostura { get; } =
             new( "Metalama.Open.Costura", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
 
+        [Obsolete( "This dependency is part of Metalama.Community" )]
         public static DependencyDefinition MetalamaOpenVirtuosity { get; } =
             new( "Metalama.Open.Virtuosity", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
 
@@ -103,6 +106,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencyDefinition MetalamaMigration { get; } =
             new DependencyDefinition( "Metalama.Migration", VcsProvider.GitHub, "Metalama.Migration" );
 
+        public static DependencyDefinition MetalamaPatterns { get; } =
+            new DependencyDefinition( "Metalama.Patterns", VcsProvider.AzureRepos, "Metalama" );
+
+        public static DependencyDefinition MetalamaCommunity { get; } =
+            new DependencyDefinition( "Metalama.Community", VcsProvider.GitHub, "Metalama" );
+
         public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
             MetalamaCompiler,
             Metalama,
@@ -110,15 +119,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             MetalamaSamples,
             MetalamaTry,
             MetalamaVsx,
-            MetalamaOpenAutoCancellationToken,
-            MetalamaOpenCostura,
-            MetalamaOpenVirtuosity,
             MetalamaExtensions,
             PostSharpEngineering,
             MetalamaBackstage,
             BusinessSystems,
             HelpBrowser,
             PostSharpWeb,
-            MetalamaMigration );
+            MetalamaMigration,
+            MetalamaPatterns,
+            MetalamaCommunity );
     }
 }
