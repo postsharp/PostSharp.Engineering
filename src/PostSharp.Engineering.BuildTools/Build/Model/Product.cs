@@ -667,16 +667,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            if ( !Directory.Exists( this.TestResultsDirectory.ToString() ) )
+            var testResultsDirectory = Path.Combine( context.RepoDirectory, this.TestResultsDirectory.ToString() );
+
+            if ( !Directory.Exists( testResultsDirectory ) )
             {
-                Directory.CreateDirectory( this.TestResultsDirectory.ToString() );
+                Directory.CreateDirectory( testResultsDirectory );
             }
 
-            if ( !Directory.GetFiles( this.TestResultsDirectory.ToString() ).Any() )
+            if ( !Directory.GetFiles( testResultsDirectory ).Any() )
             {
                 // We have to create an empty file, otherwise TeamCity will complain that
                 // artifacts are missing.
-                var emptyFile = Path.Combine( this.TestResultsDirectory.ToString(), ".empty" );
+                var emptyFile = Path.Combine( testResultsDirectory, ".empty" );
 
                 File.WriteAllText( emptyFile, "This file is intentionally empty." );
             }

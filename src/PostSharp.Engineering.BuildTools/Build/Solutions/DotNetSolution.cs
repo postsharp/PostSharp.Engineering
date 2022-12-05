@@ -24,7 +24,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
         public override bool Test( BuildContext context, BuildSettings settings )
         {
-            var resultsDirectory = context.Product.TestResultsDirectory.ToString( new BuildInfo( null!, settings.BuildConfiguration, context.Product ) );
+            var resultsDirectory = Path.Combine( context.RepoDirectory, context.Product.TestResultsDirectory.ToString( new BuildInfo( null!, settings.BuildConfiguration, context.Product ) ) );
 
             return this.RunDotNet(
                 context,
