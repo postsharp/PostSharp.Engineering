@@ -164,6 +164,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         {
             exitCode = 0;
             options ??= new ToolInvocationOptions();
+            var retry = false;
 
 #pragma warning disable CA1307 // There is no string.Contains that takes a StringComparison
             if ( fileName.Contains( new string( Path.DirectorySeparatorChar, 1 ) ) && !File.Exists( fileName ) )
@@ -221,6 +222,12 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         }
                         else
                         {
+                            // If ToolInvocationRetry.Regex matches output that causes build failure, we will set the build to retry.
+                            if ( options.Retry != null && options.Retry.Regex != null && options.Retry.Regex.IsMatch( args.Data ) )
+                            {
+                                retry = true;
+                            }
+                            
                             handleErrorData( args.Data );
                         }
                     }
@@ -240,6 +247,12 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         }
                         else
                         {
+                            // If ToolInvocationRetry.Regex matches output that causes build failure, we will set the build to retry.
+                            if ( options.Retry != null && options.Retry.Regex != null && options.Retry.Regex.IsMatch( args.Data ) )
+                            {
+                                retry = true;
+                            }
+
                             handleOutputData( args.Data );
                         }
                     }
@@ -327,6 +340,28 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
                     exitCode = process.ExitCode;
 
+                    // We will retry invocation if exit code is the one that is a reason to retry.
+                    if ( options.Retry != null && exitCode == options.Retry.ExitCode )
+                    {
+                        retry = true;
+                    }
+                    
+                    if ( retry )
+                    {
+                        console.WriteWarning( "Build failed. Retrying." );
+
+                        return InvokeTool(
+                            console,
+                            fileName,
+                            commandLine,
+                            workingDirectory,
+                            cancellationToken,
+                            out exitCode,
+                            handleErrorData,
+                            handleOutputData,
+                            options );
+                    }
+                    
                     return true;
                 }
             }
