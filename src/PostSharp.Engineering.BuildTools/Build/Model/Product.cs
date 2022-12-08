@@ -610,7 +610,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Test( BuildContext context, BuildSettings settings )
         {
-            if ( !settings.NoDependencies && !this.Build( context, settings.WithIncludeTests( true ) ) )
+            if ( !settings.NoDependencies && !this.Build( context, settings ) )
             {
                 return false;
             }
