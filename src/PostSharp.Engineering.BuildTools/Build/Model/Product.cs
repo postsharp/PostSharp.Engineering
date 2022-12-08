@@ -302,7 +302,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                             signSuccess = signSuccess && DotNetTool.SignClient.Invoke(
                                 context,
-                                $"Sign --baseDirectory \"{publicArtifactsDirectory}\" --input {filter} --config $(ToolsDirectory)\\signclient-appsettings.json --name {this.ProductName} --user sign-caravela@postsharp.net --secret %SIGNSERVER_SECRET%" );
+                                $"Sign --baseDirectory \"{publicArtifactsDirectory}\" --input {filter}" );
                         }
                     }
 
