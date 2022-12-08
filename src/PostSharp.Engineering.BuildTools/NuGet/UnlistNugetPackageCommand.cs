@@ -6,6 +6,7 @@ using Spectre.Console.Cli;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Net.Http;
 
 #pragma warning disable 8765
@@ -30,6 +31,8 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
         
         var packageName = settings.PackageName.ToLowerInvariant();
         
+        console.WriteMessage( $"Retrieving all versions of package '{packageName}'." );
+
         if ( !TryGetAllPackageVersions( console, packageName, out var versions ) )
         {
             console.WriteError( $"Failed to get all versions of '{packageName}' package." );
@@ -37,7 +40,16 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
             return false;
         }
 
-        if ( !UnlistPackage( console, packageName, versions ) ) 
+        if ( !TryDeserializeVersions( versions, out var packageVersions ) )
+        {
+            console.WriteError( $"Failed to deserialize versions of '{packageName}' package." );
+
+            return false;
+        }
+
+        console.WriteMessage( $"Unlisting all versions of package '{packageName}'." );
+
+        if ( !UnlistPackage( console, packageName, packageVersions ) ) 
         {
             console.WriteError( $"Failed to unlist all package versions of '{packageName}'." );
 
@@ -49,7 +61,7 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
         return true;
     }
 
-    private static bool TryGetAllPackageVersions( ConsoleHelper console, string packageName, [NotNullWhen( true )] out List<string>? versions )
+    private static bool TryGetAllPackageVersions( ConsoleHelper console, string packageName, [NotNullWhen( true )] out string? packageVersionsJson )
     {
         var httpClient = new HttpClient();
 
@@ -61,37 +73,39 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
         }
         catch ( Exception e )
         {
-            console.WriteError(
-                e.Message.Contains( "404", StringComparison.OrdinalIgnoreCase )
-                    ? $"NuGet package '{packageName}' not found."
-                    : e.Message );
+            console.WriteError( e.Message );
         }
 
         if ( string.IsNullOrEmpty( versionsJson ) )
         {
-            versions = null;
+            packageVersionsJson = null;
 
             return false;
         }
 
+        packageVersionsJson = versionsJson;
+
+        return true;
+    }
+
+    private static bool TryDeserializeVersions( string versionsJson, [NotNullWhen( true )] out List<string>? packageVersions )
+    {
         var deserializedVersions = JsonConvert.DeserializeObject<Versions>( versionsJson );
 
         if ( deserializedVersions == null || deserializedVersions.VersionsList == null )
         {
-            versions = null;
+            packageVersions = null;
 
             return false;
         }
 
-        versions = deserializedVersions.VersionsList;
+        packageVersions = deserializedVersions.VersionsList;
 
         return true;
     }
     
     private static bool UnlistPackage( ConsoleHelper console, string packageName, List<string> packageVersions )
     {
-        console.WriteMessage( $"Unlisting all versions of package '{packageName}'." );
-
         var nugetApiKey = Environment.ExpandEnvironmentVariables( "%NUGET_ORG_UNLIST_API_KEY%" );
         var nugetServerUrl = Environment.ExpandEnvironmentVariables( "%NUGET_ORG_GET_URL%" );
 
@@ -103,9 +117,12 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
                     console,
                     "dotnet",
                     $"nuget delete {packageName} {version} --api-key {nugetApiKey} --non-interactive --source {nugetServerUrl}",
-                    "" ) )
+                    Directory.GetCurrentDirectory() ) )
             {
                 success = false;
+
+                // We don't want to repeat the same error for all versions.
+                break;
             }
         }
 
