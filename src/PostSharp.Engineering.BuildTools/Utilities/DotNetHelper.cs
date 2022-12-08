@@ -66,7 +66,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             {
                 var configuration = context.Product.Configurations[settings.BuildConfiguration];
 
-                argsBuilder.Append( $" -c {configuration.MSBuildName}" );
+                argsBuilder.Append( CultureInfo.InvariantCulture, $" -c {configuration.MSBuildName}" );
             }
 
             if ( settings.NoConcurrency )
