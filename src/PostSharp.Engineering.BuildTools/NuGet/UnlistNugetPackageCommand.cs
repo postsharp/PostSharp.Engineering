@@ -32,13 +32,15 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
         
         if ( !TryGetAllPackageVersions( console, packageName, out var versions ) )
         {
-            console.WriteError( $"Failed to get all versions of '{settings.PackageName}' nuget package." );
+            console.WriteError( $"Failed to get all versions of '{packageName}' package." );
 
             return false;
         }
 
         if ( !UnlistPackage( console, packageName, versions ) ) 
         {
+            console.WriteError( $"Failed to unlist all package versions of '{packageName}'." );
+
             return false;
         }
         
