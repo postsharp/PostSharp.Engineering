@@ -206,6 +206,12 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 startInfo.Environment[blockedEnvironmentVariable] = null;
             }
 
+            // Filters process output where matching RegEx value indicates process failure.
+            bool FilterProcessOutput( string output )
+            {
+                return options.Retry != null && options.Retry.Regex != null && options.Retry.Regex.IsMatch( output );
+            }
+
             Path.GetFileName( fileName );
             Process process = new() { StartInfo = startInfo };
 
@@ -222,8 +228,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         }
                         else
                         {
-                            // If ToolInvocationRetry.Regex matches output that causes build failure, we will set the build to retry.
-                            if ( options.Retry != null && options.Retry.Regex != null && options.Retry.Regex.IsMatch( args.Data ) )
+                            if ( FilterProcessOutput( args.Data ) )
                             {
                                 retry = true;
                             }
@@ -247,8 +252,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         }
                         else
                         {
-                            // If ToolInvocationRetry.Regex matches output that causes build failure, we will set the build to retry.
-                            if ( options.Retry != null && options.Retry.Regex != null && options.Retry.Regex.IsMatch( args.Data ) )
+                            if ( FilterProcessOutput( args.Data ) )
                             {
                                 retry = true;
                             }
@@ -340,7 +344,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
                     exitCode = process.ExitCode;
 
-                    // We will retry invocation if exit code is the one that is a reason to retry.
+                    // We will retry invocation if exit code matches the one that is a reason to retry.
                     if ( options.Retry != null && exitCode == options.Retry.ExitCode )
                     {
                         retry = true;
