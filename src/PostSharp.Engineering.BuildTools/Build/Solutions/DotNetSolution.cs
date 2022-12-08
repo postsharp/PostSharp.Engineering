@@ -31,7 +31,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 context,
                 settings,
                 "test",
-                $"--no-restore --logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory {resultsDirectory}",
+                $"--logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory {resultsDirectory}",
                 true );
         }
 
