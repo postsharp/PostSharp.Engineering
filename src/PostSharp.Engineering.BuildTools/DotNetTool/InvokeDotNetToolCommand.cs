@@ -2,16 +2,12 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
-using Spectre.Console;
-using Spectre.Console.Cli;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools;
 
 public class InvokeDotNetToolCommand : BaseCommand<InvokeDotNetToolCommandSettings>
 {
-    public override ValidationResult Validate( CommandContext context, InvokeDotNetToolCommandSettings settings ) => ValidationResult.Success();
-
     protected override bool ExecuteCore( BuildContext context, InvokeDotNetToolCommandSettings settings )
     {
         var tool = DotNetTool.All.SingleOrDefault( t => t.Alias == context.CommandContext.Name );

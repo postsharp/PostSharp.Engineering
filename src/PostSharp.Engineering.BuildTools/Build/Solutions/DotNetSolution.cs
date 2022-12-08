@@ -4,7 +4,6 @@ using Newtonsoft.Json;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Utilities;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -24,13 +23,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
         public override bool Test( BuildContext context, BuildSettings settings )
         {
-            var resultsDirectory = Path.Combine( context.RepoDirectory, context.Product.TestResultsDirectory.ToString( new BuildInfo( null!, settings.BuildConfiguration, context.Product ) ) );
+            var resultsDirectory = Path.Combine(
+                context.RepoDirectory,
+                context.Product.TestResultsDirectory.ToString( new BuildInfo( null!, settings.BuildConfiguration, context.Product ) ) );
 
             return this.RunDotNet(
                 context,
                 settings,
                 "test",
-                $"--no-restore --logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory {resultsDirectory}", true );
+                $"--no-restore --logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory {resultsDirectory}",
+                true );
         }
 
         public override bool Restore( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "restore", "--no-cache", false );
@@ -119,7 +121,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                     Path.Combine( context.RepoDirectory, this.SolutionPath ),
                     command,
                     string.Join( " ", allArguments ),
-                    addConfigurationFlag);
+                    addConfigurationFlag );
 
                 // Export .trx test files to TeamCity.
                 if ( TeamCityHelper.IsTeamCityBuild( settings ) )

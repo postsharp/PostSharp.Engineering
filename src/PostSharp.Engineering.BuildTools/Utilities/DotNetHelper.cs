@@ -16,7 +16,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string solution,
             string command,
             string arguments = "",
-            bool addConfigurationFlag = false)
+            bool addConfigurationFlag = false )
         {
             var argsBuilder = CreateCommandLine( context, settings, solution, command, arguments, addConfigurationFlag );
 
@@ -48,10 +48,16 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 out output );
         }
 
-        private static string CreateCommandLine( BuildContext context, BuildSettings settings, string solution, string command, string arguments, bool addConfigurationFlag )
+        private static string CreateCommandLine(
+            BuildContext context,
+            BuildSettings settings,
+            string solution,
+            string command,
+            string arguments,
+            bool addConfigurationFlag )
         {
             var argsBuilder = new StringBuilder();
-            
+
             argsBuilder.Append(
                 CultureInfo.InvariantCulture,
                 $"{command} \"{solution}\" -v:{settings.Verbosity.ToAlias()} --nologo" );
