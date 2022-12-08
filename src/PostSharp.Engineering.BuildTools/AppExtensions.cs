@@ -137,6 +137,9 @@ namespace PostSharp.Engineering.BuildTools
                                         nuget.AddCommand<VerifyPublicPackageCommand>( "verify-public" )
                                             .WithDescription(
                                                 "Verifies that all packages in a directory have only references to packages published on nuget.org." );
+
+                                        nuget.AddCommand<UnlistNugetPackageCommand>( "unlist" )
+                                            .WithDescription( "Unlists package published on nuget.org." );
                                     } );
 
                                 tools.AddBranch(
