@@ -2,7 +2,6 @@
 
 using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Xml;
@@ -69,7 +68,6 @@ internal class DefaultBumpStrategy : IBumpStrategy
         var project = document.Root;
         var properties = project!.Element( "PropertyGroup" );
         var mainVersionElement = properties!.Element( "MainVersion" );
-        var ourPatchVersionElement = properties.Element( "OurPatchVersion" );
 
         mainVersionElement!.Value = version.ToString();
 

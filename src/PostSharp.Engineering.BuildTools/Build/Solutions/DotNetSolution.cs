@@ -4,7 +4,6 @@ using Newtonsoft.Json;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Utilities;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -18,24 +17,27 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
     {
         public DotNetSolution( string solutionPath ) : base( solutionPath ) { }
 
-        public override bool Build( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "build", "--no-restore" );
+        public override bool Build( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "build", "", true );
 
-        public override bool Pack( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "pack", "--no-restore" );
+        public override bool Pack( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "pack", "", true );
 
         public override bool Test( BuildContext context, BuildSettings settings )
         {
-            var resultsDirectory = Path.Combine( context.RepoDirectory, context.Product.TestResultsDirectory.ToString( new BuildInfo( null!, settings.BuildConfiguration, context.Product ) ) );
+            var resultsDirectory = Path.Combine(
+                context.RepoDirectory,
+                context.Product.TestResultsDirectory.ToString( new BuildInfo( null!, settings.BuildConfiguration, context.Product ) ) );
 
             return this.RunDotNet(
                 context,
                 settings,
                 "test",
-                $"--no-restore --logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory {resultsDirectory}" );
+                $"--no-restore --logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory {resultsDirectory}",
+                true );
         }
 
-        public override bool Restore( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "restore", "--no-cache" );
+        public override bool Restore( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "restore", "--no-cache", false );
 
-        private bool RunDotNet( BuildContext context, BuildSettings settings, string command, string arguments = "" )
+        private bool RunDotNet( BuildContext context, BuildSettings settings, string command, string arguments, bool addConfigurationFlag )
         {
             var allArguments = new List<string>() { arguments };
 
@@ -75,6 +77,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                         Path.Combine( context.RepoDirectory, this.SolutionPath ),
                         command,
                         string.Join( " ", allArguments ),
+                        addConfigurationFlag,
                         out var exitCode,
                         out var output ) )
                 {
@@ -117,7 +120,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                     settings,
                     Path.Combine( context.RepoDirectory, this.SolutionPath ),
                     command,
-                    string.Join( " ", allArguments ) );
+                    string.Join( " ", allArguments ),
+                    addConfigurationFlag );
 
                 // Export .trx test files to TeamCity.
                 if ( TeamCityHelper.IsTeamCityBuild( settings ) )

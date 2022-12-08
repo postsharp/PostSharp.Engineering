@@ -7,6 +7,7 @@ using PostSharp.Engineering.BuildTools.Csproj;
 using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Git;
 using PostSharp.Engineering.BuildTools.NuGet;
+using PostSharp.Engineering.BuildTools.Utilities;
 using PostSharp.Engineering.BuildTools.XmlDoc;
 using Spectre.Console.Cli;
 using System.Linq;
@@ -148,6 +149,13 @@ namespace PostSharp.Engineering.BuildTools
                                 tools.AddBranch(
                                     "xmldoc",
                                     xmldoc => xmldoc.AddCommand<RemoveInternalsCommand>( "clean" ).WithDescription( "Remove internals." ).WithData( product ) );
+
+                                foreach ( var tool in DotNetTool.All )
+                                {
+                                    tools.AddCommand<InvokeDotNetToolCommand>( tool.Alias )
+                                        .WithData( product )
+                                        .WithDescription( $"Execute dot net tool '{tool.Command}' from package '{tool.PackageId}' version {tool.Version}." );
+                                }
                             } );
 
                         root.AddBranch(

@@ -15,9 +15,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             BuildSettings settings,
             string solution,
             string command,
-            string arguments = "" )
+            string arguments = "",
+            bool addConfigurationFlag = false )
         {
-            var argsBuilder = CreateCommandLine( context, settings, solution, command, arguments );
+            var argsBuilder = CreateCommandLine( context, settings, solution, command, arguments, addConfigurationFlag );
 
             return ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -32,10 +33,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string solution,
             string command,
             string arguments,
+            bool addConfigurationFlag,
             out int exitCode,
             out string output )
         {
-            var argsBuilder = CreateCommandLine( context, settings, solution, command, arguments );
+            var argsBuilder = CreateCommandLine( context, settings, solution, command, arguments, addConfigurationFlag );
 
             return ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -46,14 +48,26 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 out output );
         }
 
-        private static string CreateCommandLine( BuildContext context, BuildSettings settings, string solution, string command, string arguments )
+        private static string CreateCommandLine(
+            BuildContext context,
+            BuildSettings settings,
+            string solution,
+            string command,
+            string arguments,
+            bool addConfigurationFlag )
         {
             var argsBuilder = new StringBuilder();
-            var configuration = context.Product.Configurations[settings.BuildConfiguration];
 
             argsBuilder.Append(
                 CultureInfo.InvariantCulture,
-                $"{command} \"{solution}\" -p:Configuration={configuration.MSBuildName} -v:{settings.Verbosity.ToAlias()} --nologo" );
+                $"{command} \"{solution}\" -v:{settings.Verbosity.ToAlias()} --nologo" );
+
+            if ( addConfigurationFlag )
+            {
+                var configuration = context.Product.Configurations[settings.BuildConfiguration];
+
+                argsBuilder.Append( CultureInfo.InvariantCulture, $" -c {configuration.MSBuildName}" );
+            }
 
             if ( settings.NoConcurrency )
             {

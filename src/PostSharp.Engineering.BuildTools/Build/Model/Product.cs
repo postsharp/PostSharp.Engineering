@@ -20,8 +20,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Xml;
 using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
@@ -302,7 +300,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                             signSuccess = signSuccess && DotNetTool.SignClient.Invoke(
                                 context,
-                                $"Sign --baseDirectory \"{publicArtifactsDirectory}\" --input {filter} --config $(ToolsDirectory)\\signclient-appsettings.json --name {this.ProductName} --user sign-caravela@postsharp.net --secret %SIGNSERVER_SECRET%" );
+                                $"Sign --baseDirectory \"{publicArtifactsDirectory}\" --input {filter}" );
                         }
                     }
 
@@ -610,7 +608,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Test( BuildContext context, BuildSettings settings )
         {
-            if ( !settings.NoDependencies && !this.Build( context, settings.WithIncludeTests( true ) ) )
+            if ( !settings.NoDependencies && !this.Build( context, settings ) )
             {
                 return false;
             }
