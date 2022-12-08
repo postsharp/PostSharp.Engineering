@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Text.Json;
 
@@ -15,18 +16,23 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         public string Version { get; }
 
-        public static DotNetTool SignClient { get; } = new( "SignClient", "1.3.155", "SignClient" );
+        public string Alias { get; }
 
-        public static DotNetTool Resharper { get; } = new( "JetBrains.Resharper.GlobalTools", "2021.3.3", "jb" );
+        public static DotNetTool SignClient { get; } = new SignTool();
 
-        public DotNetTool( string packageId, string version, string command )
+        public static DotNetTool Resharper { get; } = new( "jb", "JetBrains.Resharper.GlobalTools", "2021.3.3", "jb" );
+
+        public static ImmutableArray<DotNetTool> All { get; } = ImmutableArray.Create( SignClient, Resharper );
+
+        public DotNetTool( string alias, string packageId, string version, string command )
         {
+            this.Alias = alias;
             this.PackageId = packageId;
             this.Version = version;
             this.Command = command;
         }
 
-        public bool Invoke( BuildContext context, string command )
+        public virtual bool Invoke( BuildContext context, string command )
         {
             var toolsDirectory = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "tools" );
 

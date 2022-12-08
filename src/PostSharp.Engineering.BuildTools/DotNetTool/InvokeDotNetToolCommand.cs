@@ -1,0 +1,28 @@
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.Utilities;
+using Spectre.Console;
+using Spectre.Console.Cli;
+using System.Linq;
+
+namespace PostSharp.Engineering.BuildTools;
+
+public class InvokeDotNetToolCommand : BaseCommand<InvokeDotNetToolCommandSettings>
+{
+    public override ValidationResult Validate( CommandContext context, InvokeDotNetToolCommandSettings settings ) => ValidationResult.Success();
+
+    protected override bool ExecuteCore( BuildContext context, InvokeDotNetToolCommandSettings settings )
+    {
+        var tool = DotNetTool.All.SingleOrDefault( t => t.Alias == context.CommandContext.Name );
+
+        if ( tool == null )
+        {
+            context.Console.WriteError( $"There is no tool named '{context.CommandContext.Name}'." );
+
+            return false;
+        }
+
+        return tool.Invoke( context, settings.Arguments ?? "" );
+    }
+}
