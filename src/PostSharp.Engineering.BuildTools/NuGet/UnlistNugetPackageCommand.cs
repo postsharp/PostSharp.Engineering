@@ -110,8 +110,27 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
     
     private static bool UnlistPackage( ConsoleHelper console, string packageName, List<string> packageVersions )
     {
-        var nugetApiKey = Environment.ExpandEnvironmentVariables( "%NUGET_ORG_UNLIST_API_KEY%" );
-        var nugetServerUrl = Environment.ExpandEnvironmentVariables( "%NUGET_ORG_GET_URL%" );
+        var nugetUnlistApiKeyEnvironmentVariable = "NUGET_ORG_UNLIST_API_KEY";
+        var nugetUnlistApiKey = Environment.GetEnvironmentVariable( nugetUnlistApiKeyEnvironmentVariable );
+
+        if ( string.IsNullOrEmpty( nugetUnlistApiKey ) )
+        {
+            console.WriteImportantMessage(
+                $"'{nugetUnlistApiKeyEnvironmentVariable}' environment variable required for unlisting the package from NuGet.org is not set." );
+
+            return false;
+        }
+
+        var nugetServerUrlEnvironmentVariable = "NUGET_ORG_GET_URL";
+        var nugetServerUrl = Environment.GetEnvironmentVariable( nugetServerUrlEnvironmentVariable );
+
+        if ( string.IsNullOrEmpty( nugetServerUrl ) )
+        {
+            console.WriteImportantMessage(
+                $"'{nugetServerUrlEnvironmentVariable}' environment variable not set. Set it to a supported server URL, e.g. 'https://www.nuget.org'." );
+
+            return false;
+        }
 
         var success = true;
 
@@ -120,7 +139,7 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
             if ( !ToolInvocationHelper.InvokeTool(
                     console,
                     "dotnet",
-                    $"nuget delete {packageName} {version} --api-key {nugetApiKey} --non-interactive --source {nugetServerUrl}",
+                    $"nuget delete {packageName} {version} --api-key {nugetUnlistApiKey} --non-interactive --source {nugetServerUrl}",
                     Directory.GetCurrentDirectory() ) )
             {
                 success = false;

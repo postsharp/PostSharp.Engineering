@@ -164,172 +164,200 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         {
             exitCode = 0;
             options ??= new ToolInvocationOptions();
+            var processShouldRetry = false;
+            var retryAttempts = 3;
 
-#pragma warning disable CA1307 // There is no string.Contains that takes a StringComparison
-            if ( fileName.Contains( new string( Path.DirectorySeparatorChar, 1 ) ) && !File.Exists( fileName ) )
+            for ( var attempt = 0; attempt < retryAttempts; attempt++ )
             {
-                console.WriteError( "Cannot execute \"{0}\": file not found.", fileName );
+#pragma warning disable CA1307 // There is no string.Contains that takes a StringComparison
+                if ( fileName.Contains( new string( Path.DirectorySeparatorChar, 1 ) ) && !File.Exists( fileName ) )
+                {
+                    console.WriteError( "Cannot execute \"{0}\": file not found.", fileName );
 
-                return false;
-            }
+                    return false;
+                }
 #pragma warning restore CA1307
 
-            const int restartLimit = 3;
-            var restartCount = 0;
-        start:
+                const int restartLimit = 3;
+                var restartCount = 0;
+            start:
 
-            ProcessStartInfo startInfo =
-                new()
-                {
-                    FileName = fileName,
-                    Arguments = Environment.ExpandEnvironmentVariables( commandLine ),
-                    WorkingDirectory = workingDirectory,
-                    ErrorDialog = false,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardError = true,
-                    RedirectStandardOutput = true
-                };
-
-            if ( options.EnvironmentVariables != null )
-            {
-                foreach ( var pair in options.EnvironmentVariables )
-                {
-                    startInfo.Environment[pair.Key] = pair.Value;
-                }
-            }
-
-            // Some environment variables must not be passed from the current process to the child process.
-            foreach ( var blockedEnvironmentVariable in options.BlockedEnvironmentVariables )
-            {
-                startInfo.Environment[blockedEnvironmentVariable] = null;
-            }
-
-            Path.GetFileName( fileName );
-            Process process = new() { StartInfo = startInfo };
-
-            using ( ManualResetEvent stdErrorClosed = new( false ) )
-            using ( ManualResetEvent stdOutClosed = new( false ) )
-            {
-                process.ErrorDataReceived += ( _, args ) =>
-                {
-                    try
+                ProcessStartInfo startInfo =
+                    new()
                     {
-                        if ( args.Data == null )
-                        {
-                            stdErrorClosed.Set();
-                        }
-                        else
-                        {
-                            handleErrorData( args.Data );
-                        }
-                    }
-                    catch ( Exception e )
-                    {
-                        console.Error.WriteException( e );
-                    }
-                };
+                        FileName = fileName,
+                        Arguments = Environment.ExpandEnvironmentVariables( commandLine ),
+                        WorkingDirectory = workingDirectory,
+                        ErrorDialog = false,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        RedirectStandardError = true,
+                        RedirectStandardOutput = true
+                    };
 
-                process.OutputDataReceived += ( _, args ) =>
+                if ( options.EnvironmentVariables != null )
                 {
-                    try
+                    foreach ( var pair in options.EnvironmentVariables )
                     {
-                        if ( args.Data == null )
-                        {
-                            stdOutClosed.Set();
-                        }
-                        else
-                        {
-                            handleOutputData( args.Data );
-                        }
+                        startInfo.Environment[pair.Key] = pair.Value;
                     }
-                    catch ( Exception e )
-                    {
-                        console.Error.WriteException( e );
-                    }
-                };
-
-                // Log the command line, but not the one with expanded environment variables, so we don't expose secrets.
-                if ( !options.Silent )
-                {
-                    console.WriteImportantMessage( "{0} {1}", process.StartInfo.FileName, commandLine );
                 }
 
-                using ( process )
+                // Some environment variables must not be passed from the current process to the child process.
+                foreach ( var blockedEnvironmentVariable in options.BlockedEnvironmentVariables )
                 {
-                    try
+                    startInfo.Environment[blockedEnvironmentVariable] = null;
+                }
+
+                // Filters process output where matching RegEx value indicates process failure.
+                void FilterProcessOutput( string output )
+                {
+                    if ( options.Retry != null && options.Retry.Regex != null && options.Retry.Regex.IsMatch( output ) )
                     {
-                        process.Start();
+                        processShouldRetry = true;
                     }
-                    catch ( Win32Exception e ) when ( (uint) e.NativeErrorCode == 0x80004005 )
+                }
+
+                Path.GetFileName( fileName );
+                Process process = new() { StartInfo = startInfo };
+
+                using ( ManualResetEvent stdErrorClosed = new( false ) )
+                using ( ManualResetEvent stdOutClosed = new( false ) )
+                {
+                    process.ErrorDataReceived += ( _, args ) =>
                     {
-                        if ( restartCount < restartLimit )
+                        try
                         {
-                            console.WriteWarning(
-                                "Access denied when starting a process. This might be caused by an anti virus software. Waiting 1000 ms and restarting." );
-
-                            Thread.Sleep( 1000 );
-                            restartCount++;
-
-                            goto start;
-                        }
-
-                        throw;
-                    }
-
-                    if ( !cancellationToken.HasValue )
-                    {
-                        process.BeginErrorReadLine();
-                        process.BeginOutputReadLine();
-                        process.WaitForExit();
-                    }
-                    else
-                    {
-                        using ( ManualResetEvent cancelledEvent = new( false ) )
-                        using ( ManualResetEvent exitedEvent = new( false ) )
-                        {
-                            process.EnableRaisingEvents = true;
-                            process.Exited += ( _, _ ) => exitedEvent.Set();
-
-                            using ( cancellationToken.Value.Register( () => cancelledEvent.Set() ) )
+                            if ( args.Data == null )
                             {
-                                process.BeginErrorReadLine();
-                                process.BeginOutputReadLine();
+                                stdErrorClosed.Set();
+                            }
+                            else
+                            {
+                                FilterProcessOutput( args.Data );
 
-                                if ( !process.HasExited )
+                                handleErrorData( args.Data );
+                            }
+                        }
+                        catch ( Exception e )
+                        {
+                            console.Error.WriteException( e );
+                        }
+                    };
+
+                    process.OutputDataReceived += ( _, args ) =>
+                    {
+                        try
+                        {
+                            if ( args.Data == null )
+                            {
+                                stdOutClosed.Set();
+                            }
+                            else
+                            {
+                                FilterProcessOutput( args.Data );
+
+                                handleOutputData( args.Data );
+                            }
+                        }
+                        catch ( Exception e )
+                        {
+                            console.Error.WriteException( e );
+                        }
+                    };
+
+                    // Log the command line, but not the one with expanded environment variables, so we don't expose secrets.
+                    if ( !options.Silent )
+                    {
+                        console.WriteImportantMessage( "{0} {1}", process.StartInfo.FileName, commandLine );
+                    }
+
+                    using ( process )
+                    {
+                        try
+                        {
+                            process.Start();
+                        }
+                        catch ( Win32Exception e ) when ( (uint) e.NativeErrorCode == 0x80004005 )
+                        {
+                            if ( restartCount < restartLimit )
+                            {
+                                console.WriteWarning(
+                                    "Access denied when starting a process. This might be caused by an anti virus software. Waiting 1000 ms and restarting." );
+
+                                Thread.Sleep( 1000 );
+                                restartCount++;
+
+                                goto start;
+                            }
+
+                            throw;
+                        }
+
+                        if ( !cancellationToken.HasValue )
+                        {
+                            process.BeginErrorReadLine();
+                            process.BeginOutputReadLine();
+                            process.WaitForExit();
+                        }
+                        else
+                        {
+                            using ( ManualResetEvent cancelledEvent = new( false ) )
+                            using ( ManualResetEvent exitedEvent = new( false ) )
+                            {
+                                process.EnableRaisingEvents = true;
+                                process.Exited += ( _, _ ) => exitedEvent.Set();
+
+                                using ( cancellationToken.Value.Register( () => cancelledEvent.Set() ) )
                                 {
-                                    var signal = WaitHandle.WaitAny( new WaitHandle[] { exitedEvent, cancelledEvent } );
+                                    process.BeginErrorReadLine();
+                                    process.BeginOutputReadLine();
 
-                                    if ( signal == 1 )
+                                    if ( !process.HasExited )
                                     {
-                                        cancellationToken.Value.ThrowIfCancellationRequested();
+                                        var signal = WaitHandle.WaitAny( new WaitHandle[] { exitedEvent, cancelledEvent } );
+
+                                        if ( signal == 1 )
+                                        {
+                                            cancellationToken.Value.ThrowIfCancellationRequested();
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    // We will wait for a while for all output to be processed.
-                    if ( !cancellationToken.HasValue )
-                    {
-                        WaitHandle.WaitAll( new WaitHandle[] { stdErrorClosed, stdOutClosed }, 10000 );
-                    }
-                    else
-                    {
-                        var i = 0;
-
-                        while ( !WaitHandle.WaitAll( new WaitHandle[] { stdErrorClosed, stdOutClosed }, 100 ) &&
-                                i++ < 100 )
+                        // We will wait for a while for all output to be processed.
+                        if ( !cancellationToken.HasValue )
                         {
-                            cancellationToken.Value.ThrowIfCancellationRequested();
+                            WaitHandle.WaitAll( new WaitHandle[] { stdErrorClosed, stdOutClosed }, 10000 );
                         }
+                        else
+                        {
+                            var i = 0;
+
+                            while ( !WaitHandle.WaitAll( new WaitHandle[] { stdErrorClosed, stdOutClosed }, 100 ) &&
+                                    i++ < 100 )
+                            {
+                                cancellationToken.Value.ThrowIfCancellationRequested();
+                            }
+                        }
+
+                        exitCode = process.ExitCode;
+
+                        // We will retry if the process output indicates we should retry and exit code indicates failure.
+                        if ( processShouldRetry && options.Retry != null && exitCode == options.Retry.ExitCode )
+                        {
+                            console.WriteWarning( "Build failed. Retrying." );
+
+                            continue;
+                        }
+
+                        return true;
                     }
-
-                    exitCode = process.ExitCode;
-
-                    return true;
                 }
             }
+
+            return true;
         }
     }
 }
