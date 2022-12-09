@@ -74,6 +74,10 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
         catch ( Exception e )
         {
             console.WriteError( e.Message );
+
+            packageVersionsJson = null;
+
+            return false;
         }
 
         if ( string.IsNullOrEmpty( versionsJson ) )
