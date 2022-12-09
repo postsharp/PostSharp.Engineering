@@ -35,6 +35,8 @@ namespace PostSharp.Engineering.BuildTools.Build
         /// </summary>
         public string Branch { get; }
 
+        public CommandContext CommandContext { get; }
+
         /// <summary>
         /// Gets the full path of the current manifest file (i.e. the file called <c>My.Product.version.props</c>)
         /// for a given <see cref="BuildConfiguration"/>.
@@ -48,16 +50,17 @@ namespace PostSharp.Engineering.BuildTools.Build
                 $"{this.Product.ProductName}.version.props" );
         }
 
-        private BuildContext( ConsoleHelper console, string repoDirectory, Product product, string branch )
+        private BuildContext( ConsoleHelper console, string repoDirectory, Product product, string branch, CommandContext commandContext )
         {
             this.Console = console;
             this.RepoDirectory = repoDirectory;
             this.Product = product;
             this.Branch = branch;
+            this.CommandContext = commandContext;
         }
 
         /// <summary>
-        /// Tries to create a <see cref="BuildContext"/> from a <see cref="CommandContext"/>.
+        /// Tries to create a <see cref="BuildContext"/> from a <see cref="Spectre.Console.Cli.CommandContext"/>.
         /// </summary>
         public static bool TryCreate(
             CommandContext commandContext,
@@ -82,7 +85,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                 return false;
             }
 
-            buildContext = new BuildContext( console, repoDirectory, (Product) commandContext.Data!, gitOutput.Trim() );
+            buildContext = new BuildContext( console, repoDirectory, (Product) commandContext.Data!, gitOutput.Trim(), commandContext );
 
             return true;
         }
