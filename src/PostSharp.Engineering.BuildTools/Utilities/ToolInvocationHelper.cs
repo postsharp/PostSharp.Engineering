@@ -207,9 +207,12 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
 
             // Filters process output where matching RegEx value indicates process failure.
-            bool FilterProcessOutput( string output )
+            void FilterProcessOutput( string output )
             {
-                return options.Retry != null && options.Retry.Regex != null && options.Retry.Regex.IsMatch( output );
+                if ( options.Retry != null && options.Retry.Regex != null && options.Retry.Regex.IsMatch( output ) )
+                {
+                    retry = true;
+                }
             }
 
             Path.GetFileName( fileName );
@@ -228,11 +231,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         }
                         else
                         {
-                            if ( FilterProcessOutput( args.Data ) )
-                            {
-                                retry = true;
-                            }
-                            
+                            FilterProcessOutput( args.Data );
+
                             handleErrorData( args.Data );
                         }
                     }
@@ -252,10 +252,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         }
                         else
                         {
-                            if ( FilterProcessOutput( args.Data ) )
-                            {
-                                retry = true;
-                            }
+                            FilterProcessOutput( args.Data );
 
                             handleOutputData( args.Data );
                         }
