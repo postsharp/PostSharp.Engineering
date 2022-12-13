@@ -112,6 +112,14 @@ namespace PostSharp.Engineering.BuildTools
                                     codestyle.AddCommand<FormatCommand>( "format" )
                                         .WithData( product )
                                         .WithDescription( "Formats the code" );
+
+                                    codestyle.AddCommand<InspectCommand>( "inspect" )
+                                        .WithData( product )
+                                        .WithDescription( "Inspects the code for warnings" );
+
+                                    codestyle.AddCommand<ProcessInspectOutputCommand>( "process-inspect-output" )
+                                        .WithData( product )
+                                        .WithDescription( "Prints errors and warnings for the output of the 'inspect' command" );
                                 }
                             } );
 

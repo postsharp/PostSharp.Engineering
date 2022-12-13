@@ -1,18 +1,21 @@
-﻿using PostSharp.Engineering.BuildTools.Build;
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle;
 
-public abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
+internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
 {
-   
     protected abstract string Title { get; }
 
     protected abstract string GetCommand( BuildContext context, Solution solution );
+
+    protected virtual void OnSuccessfulExecution( BuildContext context, Solution solution ) { }
+
     protected sealed override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
     {
-         
         context.Console.WriteHeading( this.Title );
 
         if ( !VcsHelper.CheckNoChange( context, settings, context.RepoDirectory ) )
@@ -32,8 +35,11 @@ public abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
                 {
                     return false;
                 }
-                    
+
                 var command = this.GetCommand( context, solution ).Trim();
+
+                // Exclude user- and machine-specific layers.
+                command += " --disable-settings-layers:\"GlobalAll;GlobalPerProduct;SolutionPersonal;ProjectPersonal\"";
 
                 // Exclude .nuget directory to prevent formatting the code inside NuGet packages.
                 command += " --exclude:\"**\\.nuget\\**\\*";
@@ -43,11 +49,9 @@ public abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
                     command += $";{string.Join( ';', solution.FormatExclusions )}\"";
                 }
 
-                // Sets MSBuild property 'FormattingCode' to true during code formatting, this allows for exclusion of specific projects from Compile target when code formatting is run.
-                command += $" --properties:FormattingCode=true";
-                    
                 // This is to force the tool to use a specific version of the .NET SDK. It does not work without that.
-                command += " --dotnetcoresdk=7.0.100 --toolset=17.4";
+                // ReSharper disable once StringLiteralTypo
+                command += " --dotnetcoresdk=7.0.100";
 
                 command += " --verbosity=WARN";
 
@@ -55,6 +59,8 @@ public abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
                 {
                     return false;
                 }
+
+                this.OnSuccessfulExecution( context, solution );
             }
         }
 

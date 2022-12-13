@@ -19,7 +19,7 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
     {
         return Execute( new ConsoleHelper(), settings ) ? 0 : 1;
     }
-    
+
     public static bool Execute( ConsoleHelper console, UnlistNugetPackageCommandSettings settings )
     {
         if ( string.IsNullOrEmpty( settings.PackageName ) )
@@ -28,9 +28,9 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
 
             return false;
         }
-        
+
         var packageName = settings.PackageName.ToLowerInvariant();
-        
+
         console.WriteMessage( $"Retrieving all versions of package '{packageName}'." );
 
         if ( !TryGetAllPackageVersions( console, packageName, out var versions ) )
@@ -49,13 +49,13 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
 
         console.WriteMessage( $"Unlisting all versions of package '{packageName}'." );
 
-        if ( !UnlistPackage( console, packageName, packageVersions ) ) 
+        if ( !UnlistPackage( console, packageName, packageVersions ) )
         {
             console.WriteError( $"Failed to unlist all package versions of '{packageName}'." );
 
             return false;
         }
-        
+
         console.WriteSuccess( $"Successfully unlisted all versions of '{packageName}' package." );
 
         return true;
@@ -65,7 +65,7 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
     {
         var httpClient = new HttpClient();
 
-        string? versionsJson = null;
+        string? versionsJson;
 
         try
         {
@@ -107,7 +107,7 @@ public class UnlistNugetPackageCommand : Command<UnlistNugetPackageCommandSettin
 
         return true;
     }
-    
+
     private static bool UnlistPackage( ConsoleHelper console, string packageName, List<string> packageVersions )
     {
         var nugetUnlistApiKeyEnvironmentVariable = "NUGET_ORG_UNLIST_API_KEY";
