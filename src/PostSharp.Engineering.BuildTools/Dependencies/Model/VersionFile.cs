@@ -49,7 +49,11 @@ public class VersionFile
             return false;
         }
 
-        var projectOptions = new ProjectOptions { GlobalProperties = new Dictionary<string, string>() { ["VcsBranch"] = context.Branch, ["DoNotLoadGeneratedVersionFiles"] = "True" } };
+        var projectOptions = new ProjectOptions
+        {
+            GlobalProperties = new Dictionary<string, string>() { ["VcsBranch"] = context.Branch, ["DoNotLoadGeneratedVersionFiles"] = "True" }
+        };
+
         var projectFile = Project.FromFile( versionsPath, projectOptions );
 
         var defaultDependencyProperties = context.Product.Dependencies

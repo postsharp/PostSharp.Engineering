@@ -41,10 +41,10 @@ public class PatchVersionBumpStrategy : IBumpStrategy
             context.Console.WriteError( "OurPatchVersion property value is null." );
             oldVersion = null;
             newVersion = null;
-            
+
             return false;
         }
-        
+
         // Increment the version.
         var newOurPatchVersion = oldOurPatchVersion + 1;
 
@@ -56,10 +56,10 @@ public class PatchVersionBumpStrategy : IBumpStrategy
 
             return false;
         }
-        
+
         var updatedMainVersionFile = product.ReadMainVersionFile( mainVersionFile );
         newVersion = new Version( updatedMainVersionFile.MainVersion );
-        
+
         context.Console.WriteSuccess( $"Bumping the '{context.Product.ProductName}' version from '{oldVersion}' to '{newVersion}' was successful." );
 
         return true;

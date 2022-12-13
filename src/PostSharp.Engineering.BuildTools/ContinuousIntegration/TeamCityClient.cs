@@ -235,7 +235,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             if ( !httpResponseResult.IsSuccessStatusCode )
             {
-                context.Console.WriteError( 
+                context.Console.WriteError(
                     $"Failed to retrieve TeamCity finished builds from API URI '{TeamCityHelper.TeamCityApiFinishedBuildsUri}': HTTP status code: {httpResponseResult.StatusCode}." );
 
                 return false;

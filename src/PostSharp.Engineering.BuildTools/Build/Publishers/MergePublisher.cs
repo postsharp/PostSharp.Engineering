@@ -45,7 +45,7 @@ public class MergePublisher : IndependentPublisher
                 return SuccessCode.Error;
             }
         }
-        
+
         // Returns the reference name of the current branch.
         ToolInvocationHelper.InvokeTool(
             context.Console,

@@ -21,7 +21,6 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
             command += $" --properties:FormattingCode=true";
 
             return command;
-
         }
     }
 }

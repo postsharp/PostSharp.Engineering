@@ -46,7 +46,7 @@ public class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
             globalJsonProperty.Replace( new JValue( lastVersion ) );
             using var writer = new StreamWriter( globalJsonPath );
             var jsonTextWriter = new JsonTextWriter( writer ) { Formatting = Formatting.Indented };
-            
+
             globalJson.WriteTo( jsonTextWriter );
         }
         else
@@ -71,7 +71,7 @@ public class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
         }
 
         versionsFile.Save( versionsFilePath );
-        
+
         context.Console.WriteSuccess( "Engineering successfully updated." );
 
         return true;
