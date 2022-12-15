@@ -14,14 +14,9 @@ internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
 
     protected virtual void OnSuccessfulExecution( BuildContext context, Solution solution ) { }
 
-    protected sealed override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
+    protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
     {
         context.Console.WriteHeading( this.Title );
-
-        if ( !VcsHelper.CheckNoChange( context, settings, context.RepoDirectory ) )
-        {
-            return false;
-        }
 
         var buildSettings = new BuildSettings();
         buildSettings.Initialize( context );

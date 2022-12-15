@@ -55,6 +55,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// Gets or sets the method (typically <see cref="Test"/> or <c>None</c>) that must be invoked when executing the <c>test</c> command.
         /// </summary>
         public BuildMethod? TestMethod { get; init; }
+        
+        public string? SolutionFilterPathForInspectCode { get; init; }
 
         /// <summary>
         /// Gets the method (<see cref="Build"/>, <see cref="Test"/> or <see cref="Pack"/>) that must be invoked when executing the <c>build</c> command.

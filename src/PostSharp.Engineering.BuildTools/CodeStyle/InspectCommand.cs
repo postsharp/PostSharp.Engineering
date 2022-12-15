@@ -17,7 +17,7 @@ internal class InspectCommand : ResharperCommand
 
         context.Console.WriteImportantMessage( $"Writing resul to '{outputPath}'." );
 
-        return $"inspectcode \"{Path.Combine( context.RepoDirectory, solution.SolutionPath )}\" --build -o={outputPath} --severity=WARNING -f=Xml";
+        return $"inspectcode \"{Path.Combine( context.RepoDirectory, solution.SolutionFilterPathForInspectCode ?? solution.SolutionPath )}\" --build -o={outputPath} --severity=WARNING -f=Xml";
     }
 
     protected override void OnSuccessfulExecution( BuildContext context, Solution solution )

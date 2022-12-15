@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Utilities;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle
@@ -21,6 +22,16 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
             command += $" --properties:FormattingCode=true";
 
             return command;
+        }
+
+        protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
+        {
+            if ( !VcsHelper.CheckNoChange( context, settings, context.RepoDirectory ) )
+            {
+                return false;
+            }
+
+            return base.ExecuteCore( context, settings );
         }
     }
 }
