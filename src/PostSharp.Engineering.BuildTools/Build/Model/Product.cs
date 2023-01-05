@@ -1544,7 +1544,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Read the current version of the dependencies directly from source control.
-            if ( !this.TryReadDependencyVersionsFromSourceRepos( context, out var dependencyVersions ) )
+            if ( !this.TryReadDependencyVersionsFromSourceRepos( context, true, out var dependencyVersions ) )
             {
                 return false;
             }
@@ -1617,12 +1617,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool TryReadDependencyVersionsFromSourceRepos( BuildContext context, [NotNullWhen( true )] out Dictionary<string, Version>? dependencyVersions )
+        private bool TryReadDependencyVersionsFromSourceRepos( BuildContext context, bool snapshotDependenciesOnly, [NotNullWhen( true )] out Dictionary<string, Version>? dependencyVersions )
         {
             dependencyVersions = new Dictionary<string, Version>();
 
             foreach ( var dependency in this.Dependencies.Union( this.SourceDependencies ) )
             {
+                if ( snapshotDependenciesOnly && !dependency.GenerateSnapshotDependency )
+                {
+                    continue;
+                }
+
                 var mainVersionFile = Path.Combine( dependency.EngineeringDirectory, "MainVersion.props" );
                 context.Console.WriteMessage( $"Downloading '{mainVersionFile}' from '{dependency.Repo.RepoUrl}'." );
                 var mainVersionContent = dependency.Repo.DownloadTextFile( dependency.DefaultBranch, mainVersionFile );
