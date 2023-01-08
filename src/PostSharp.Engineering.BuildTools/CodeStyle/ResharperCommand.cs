@@ -1,8 +1,10 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using Microsoft.Build.Locator;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle;
 
@@ -41,9 +43,11 @@ internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
 
                 if ( solution.FormatExclusions is { Length: > 0 } )
                 {
-                    command += $";{string.Join( ';', solution.FormatExclusions )}\"";
+                    command += $";{string.Join( ';', solution.FormatExclusions )}";
                 }
 
+                command += "\"";
+                
                 // This is to force the tool to use a specific version of the .NET SDK. It does not work without that.
                 // ReSharper disable once StringLiteralTypo
                 command += " --dotnetcoresdk=7.0.100";

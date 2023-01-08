@@ -49,11 +49,9 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         public ConsoleHelper()
         {
-            var factory = new AnsiConsoleFactory();
-
             IAnsiConsole CreateConsole( TextWriter writer )
             {
-                return factory.Create( new AnsiConsoleSettings { Out = new AnsiConsoleOutputWrapper( writer ) } );
+                return AnsiConsole.Create( new AnsiConsoleSettings { Out = new AnsiConsoleOutputWrapper( writer ) } );
             }
 
             this.Out = CreateConsole( Console.Out );
