@@ -251,8 +251,8 @@ public class MergePublisher : IndependentPublisher
             project = currentVersionDocument.Root;
             props = project!.Elements( "PropertyGroup" ).SingleOrDefault( p => p.Element( $"{dependency.NameWithoutDot}Version" ) != null );
 
-            // Load dependency version from its property with condition attribute.
-            var oldVersionElement = props!.Elements( $"{dependency.NameWithoutDot}Version" ).SingleOrDefault( p => p.HasAttributes );
+            // Load dependency version from public version (no condition attribute).
+            var oldVersionElement = props!.Elements( $"{dependency.NameWithoutDot}Version" ).SingleOrDefault( p => !p.HasAttributes );
 
             if ( oldVersionElement == null )
             {
