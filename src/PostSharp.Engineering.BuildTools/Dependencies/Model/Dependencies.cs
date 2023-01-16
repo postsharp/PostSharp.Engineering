@@ -112,6 +112,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencyDefinition MetalamaCommunity { get; } =
             new DependencyDefinition( "Metalama.Community", VcsProvider.GitHub, "Metalama" );
 
+        public static DependencyDefinition MetalamaLinqPad { get; } =
+            new DependencyDefinition( "Metalama.LinqPad", VcsProvider.GitHub, "Metalama" );
+
         public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
             MetalamaCompiler,
             Metalama,
@@ -127,6 +130,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             PostSharpWeb,
             MetalamaMigration,
             MetalamaPatterns,
-            MetalamaCommunity );
+            MetalamaCommunity,
+            MetalamaLinqPad );
     }
 }
