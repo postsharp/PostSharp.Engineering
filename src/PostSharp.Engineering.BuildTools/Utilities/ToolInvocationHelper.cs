@@ -1,6 +1,5 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Spectre.Console;
 using System;
 using System.ComponentModel;
@@ -86,6 +85,16 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 {
                     if ( !string.IsNullOrWhiteSpace( s ) )
                     {
+                        foreach ( var replace in options.ReplacePatterns )
+                        {
+                            if ( replace.Regex.IsMatch( s ) )
+                            {
+                                s = replace.Regex.Replace( s, replace.GetReplacement );
+
+                                break;
+                            }
+                        }
+
                         if ( options.SilentPatterns.Any( p => p.IsMatch( s ) ) )
                         {
                             // Ignored.
