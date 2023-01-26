@@ -549,7 +549,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         protected virtual bool BuildCore( BuildContext context, BuildSettings settings )
         {
-            foreach ( var solution in this.Solutions )
+            IEnumerable<Solution> solutionsToBuild;
+
+            if ( settings.SolutionId != null )
+            {
+                var solution = this.Solutions[settings.SolutionId.Value - 1];
+                solutionsToBuild = new[] { solution };
+            }
+            else
+            {
+                solutionsToBuild = this.Solutions;
+            }
+
+            foreach ( var solution in solutionsToBuild )
             {
                 if ( settings.IncludeTests || !solution.IsTestOnly )
                 {
@@ -1617,7 +1629,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool TryReadDependencyVersionsFromSourceRepos( BuildContext context, bool snapshotDependenciesOnly, [NotNullWhen( true )] out Dictionary<string, Version>? dependencyVersions )
+        private bool TryReadDependencyVersionsFromSourceRepos(
+            BuildContext context,
+            bool snapshotDependenciesOnly,
+            [NotNullWhen( true )] out Dictionary<string, Version>? dependencyVersions )
         {
             dependencyVersions = new Dictionary<string, Version>();
 

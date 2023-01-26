@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using System;
@@ -8,6 +9,7 @@ using System.Text;
 
 namespace PostSharp.Engineering.BuildTools.Utilities
 {
+    [PublicAPI]
     public static class DotNetHelper
     {
         public static bool Run(
@@ -16,7 +18,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string solution,
             string command,
             string arguments = "",
-            bool addConfigurationFlag = false )
+            bool addConfigurationFlag = false,
+            ToolInvocationOptions? options = null )
         {
             var argsBuilder = CreateCommandLine( context, settings, solution, command, arguments, addConfigurationFlag );
 
@@ -24,7 +27,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 context.Console,
                 "dotnet",
                 argsBuilder,
-                Environment.CurrentDirectory );
+                Environment.CurrentDirectory,
+                options );
         }
 
         public static bool Run(
@@ -35,7 +39,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string arguments,
             bool addConfigurationFlag,
             out int exitCode,
-            out string output )
+            out string output,
+            ToolInvocationOptions? options = null )
         {
             var argsBuilder = CreateCommandLine( context, settings, solution, command, arguments, addConfigurationFlag );
 
@@ -45,7 +50,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 argsBuilder,
                 Environment.CurrentDirectory,
                 out exitCode,
-                out output );
+                out output,
+                options );
         }
 
         private static string CreateCommandLine(

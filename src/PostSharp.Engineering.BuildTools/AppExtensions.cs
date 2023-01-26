@@ -36,6 +36,10 @@ namespace PostSharp.Engineering.BuildTools
                             .WithData( product )
                             .WithDescription( "Builds all packages in the product (implies 'prepare')" );
 
+                        root.AddCommand<ListSolutionsCommand>( "list-solutions" )
+                            .WithData( product )
+                            .WithDescription( "Lists the solutions in the build sequence." );
+
                         root.AddCommand<TestCommand>( "test" )
                             .WithData( product )
                             .WithDescription( "Builds all packages then run all tests (implies 'build')" );

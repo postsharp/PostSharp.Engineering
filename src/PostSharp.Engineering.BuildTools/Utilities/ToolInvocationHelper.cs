@@ -1,10 +1,12 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Spectre.Console;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 
@@ -63,7 +65,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string workingDirectory,
             out int exitCode,
             ToolInvocationOptions? options = null )
-            => InvokeTool(
+        {
+            options ??= ToolInvocationOptions.Default;
+
+            return InvokeTool(
                 console,
                 fileName,
                 commandLine,
@@ -81,21 +86,23 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 {
                     if ( !string.IsNullOrWhiteSpace( s ) )
                     {
-                        if ( s.Contains( ": warning ", StringComparison.Ordinal ) ||
-                             s.Contains( "]Warning:[", StringComparison.Ordinal ) /*docfx*/ )
+                        if ( options.SilentPatterns.Any( p => p.IsMatch( s ) ) )
                         {
-                            console.WriteWarning( s );
+                            // Ignored.
                         }
-                        else if ( s.Contains( ": error ", StringComparison.Ordinal ) ||
-                                  s.Contains( "]error:[", StringComparison.Ordinal ) /*docfx*/ )
+                        else if ( options.ErrorPatterns.Any( p => p.IsMatch( s ) ) )
                         {
                             console.WriteError( s );
                         }
-                        else if ( s.StartsWith( "Passed! ", StringComparison.Ordinal ) )
+                        else if ( options.WarningPatterns.Any( p => p.IsMatch( s ) ) )
+                        {
+                            console.WriteWarning( s );
+                        }
+                        else if ( options.SuccessPatterns.Any( p => p.IsMatch( s ) ) )
                         {
                             console.WriteSuccess( s );
                         }
-                        else if ( s.StartsWith( "Test run for ", StringComparison.Ordinal ) )
+                        else if ( options.ImportantMessagePatterns.Any( p => p.IsMatch( s ) ) )
                         {
                             console.WriteImportantMessage( s );
                         }
@@ -106,6 +113,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     }
                 },
                 options );
+        }
 
         // #16205 We don't allow cancellation here because there's no other working way to wait for a process exit
         // than Process.WaitForExit() on .NET Core when capturing process output.

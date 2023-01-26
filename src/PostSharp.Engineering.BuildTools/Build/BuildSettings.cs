@@ -12,6 +12,8 @@ namespace PostSharp.Engineering.BuildTools.Build
     /// </summary>
     public class BuildSettings : BaseBuildSettings
     {
+        private int? _solutionId;
+
         [Description( "Creates a numbered build (typically for an internal CI build). This option is ignored when the build configuration is 'Public'." )]
         [CommandOption( "--buildNumber" )]
         public int BuildNumber { get; set; }
@@ -32,6 +34,20 @@ namespace PostSharp.Engineering.BuildTools.Build
         [Description( "Disables concurrent processing" )]
         [CommandOption( "--no-concurrency" )]
         public bool NoConcurrency { get; set; }
+
+        [Description(
+            "Specifies the solution that should be built. The list of solutions and their id is given by the `list-solutions` command." +
+            "Setting this property automaticallys adds the --no-dependencies option." )]
+        [CommandOption( "--solution" )]
+        public int? SolutionId
+        {
+            get => this._solutionId;
+            set
+            {
+                this._solutionId = value;
+                this.NoDependencies = true;
+            }
+        }
 
         public BuildSettings WithIncludeTests( bool value )
         {
