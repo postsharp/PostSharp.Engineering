@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using System;
 using System.Collections.Immutable;
@@ -22,8 +23,9 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         public static DotNetTool Resharper { get; } = new( "jb", "JetBrains.Resharper.GlobalTools", "2022.3.1", "jb" );
 
-        public static ImmutableArray<DotNetTool> All { get; } = ImmutableArray.Create( SignClient, Resharper );
+        public static ImmutableArray<DotNetTool> DefaultTools { get; } = ImmutableArray.Create( SignClient, Resharper );
 
+        [PublicAPI]
         public DotNetTool( string alias, string packageId, string version, string command )
         {
             this.Alias = alias;
@@ -32,23 +34,18 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             this.Command = command;
         }
 
-        public virtual bool Invoke( BuildContext context, string command )
+        public bool Install(BuildContext context)
         {
-            var toolsDirectory = Path.Combine( context.RepoDirectory, context.Product.EngineeringDirectory, "tools" );
-
-            if ( !Directory.Exists( toolsDirectory ) )
-            {
-                Directory.CreateDirectory( toolsDirectory );
-            }
+            var baseDirectory = context.RepoDirectory;
 
             // 1. Create the dotnet tool manifest.
-            if ( !Directory.Exists( Path.Combine( toolsDirectory, ".config" ) ) )
+            if ( !Directory.Exists( Path.Combine( baseDirectory, ".config" ) ) )
             {
                 if ( !ToolInvocationHelper.InvokeTool(
                         context.Console,
                         "dotnet",
                         $"new tool-manifest",
-                        toolsDirectory ) )
+                        baseDirectory ) )
                 {
                     return false;
                 }
@@ -56,7 +53,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             // Open the config file and see if we have to install or update.
             string? installVerb = null;
-            var configFilePath = Path.Combine( toolsDirectory, ".config", "dotnet-tools.json" );
+            var configFilePath = Path.Combine( baseDirectory, ".config", "dotnet-tools.json" );
             var configDocument = JsonDocument.Parse( File.ReadAllText( configFilePath ) );
 
             var installedVersionString = configDocument.RootElement.GetPropertyOrNull( "tools" )
@@ -85,7 +82,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         context.Console,
                         "dotnet",
                         $"tool {installVerb} {this.PackageId} --version {this.Version} --local --add-source \"https://api.nuget.org/v3/index.json\"",
-                        toolsDirectory ) )
+                        baseDirectory ) )
                 {
                     return false;
                 }
@@ -102,7 +99,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 {
                     using var resource = assembly.GetManifestResourceStream( resourceName );
 
-                    var file = Path.Combine( toolsDirectory, resourceName.Substring( prefix.Length ) );
+                    var file = Path.Combine( baseDirectory, resourceName.Substring( prefix.Length ) );
 
                     using ( var outputStream = File.Create( file ) )
                     {
@@ -111,14 +108,25 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 }
             }
 
-            command = command.Replace( "$(ToolsDirectory)", toolsDirectory, StringComparison.Ordinal );
+            return true;
+        }
+
+        public virtual bool Invoke( BuildContext context, string command, ToolInvocationOptions? options = null )
+        {
+            if ( !this.Install( context ) )
+            {
+                return false;
+            }
+
+            command = command.Replace( "$(ToolsDirectory)",  context.RepoDirectory, StringComparison.Ordinal );
 
             // 4. Invoke the tool.
             return ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "dotnet",
                 $"tool run {this.Command} {command}",
-                toolsDirectory );
+                null,
+                options );
         }
     }
 }

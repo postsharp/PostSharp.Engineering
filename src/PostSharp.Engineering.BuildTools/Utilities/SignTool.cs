@@ -8,11 +8,11 @@ internal class SignTool : DotNetTool
 {
     public SignTool() : base( "sign", "SignClient", "1.3.155", "SignClient" ) { }
 
-    public override bool Invoke( BuildContext context, string command )
+    public override bool Invoke( BuildContext context, string command, ToolInvocationOptions? options = null )
     {
         command +=
             $" --config $(ToolsDirectory)\\signclient-appsettings.json --name {context.Product.ProductName} --user sign-caravela@postsharp.net --secret %SIGNSERVER_SECRET%";
 
-        return base.Invoke( context, command );
+        return base.Invoke( context, command, options );
     }
 }

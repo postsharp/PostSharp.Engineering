@@ -165,6 +165,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool RequiresEngineeringSdk { get; init; } = true;
 
+        public ImmutableArray<DotNetTool> DotNetTools { get; init; } = DotNetTool.DefaultTools;
+
+
         public bool Build( BuildContext context, BuildSettings settings )
         {
             var configuration = settings.BuildConfiguration;

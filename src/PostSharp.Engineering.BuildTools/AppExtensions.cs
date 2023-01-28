@@ -165,7 +165,7 @@ namespace PostSharp.Engineering.BuildTools
                                     "xmldoc",
                                     xmldoc => xmldoc.AddCommand<RemoveInternalsCommand>( "clean" ).WithDescription( "Remove internals." ).WithData( product ) );
 
-                                foreach ( var tool in DotNetTool.All )
+                                foreach ( var tool in product.DotNetTools )
                                 {
                                     tools.AddCommand<InvokeDotNetToolCommand>( tool.Alias )
                                         .WithData( product )

@@ -1,7 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.Utilities;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools;
@@ -10,7 +9,7 @@ public class InvokeDotNetToolCommand : BaseCommand<InvokeDotNetToolCommandSettin
 {
     protected override bool ExecuteCore( BuildContext context, InvokeDotNetToolCommandSettings settings )
     {
-        var tool = DotNetTool.All.SingleOrDefault( t => t.Alias == context.CommandContext.Name );
+        var tool = context.Product.DotNetTools.SingleOrDefault( t => t.Alias == context.CommandContext.Name );
 
         if ( tool == null )
         {
