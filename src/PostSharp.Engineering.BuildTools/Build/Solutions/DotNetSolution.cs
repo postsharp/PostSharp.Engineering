@@ -54,9 +54,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             allArguments.Add( $"-bl:{binaryLogFilePath}" );
 
             // Get the test.json file location relative to solution file based on full solution location path.
+            var solutionPath = FileSystemHelper.GetFinalPath( this.SolutionPath );
+
             var testJsonFile = Path.Combine(
-                Path.GetDirectoryName( Path.GetFullPath( this.SolutionPath ) )
-                ?? Path.Combine( context.RepoDirectory, this.SolutionPath ),
+                Path.GetDirectoryName( Path.GetFullPath( solutionPath ) )
+                ?? Path.Combine( context.RepoDirectory, solutionPath ),
                 "test.json" );
 
             if ( File.Exists( testJsonFile ) )
@@ -74,7 +76,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 if ( !DotNetHelper.Run(
                         context,
                         settings,
-                        Path.Combine( context.RepoDirectory, this.SolutionPath ),
+                        Path.Combine( context.RepoDirectory, solutionPath ),
                         command,
                         string.Join( " ", allArguments ),
                         addConfigurationFlag,
@@ -118,7 +120,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 var success = DotNetHelper.Run(
                     context,
                     settings,
-                    Path.Combine( context.RepoDirectory, this.SolutionPath ),
+                    Path.Combine( context.RepoDirectory, solutionPath ),
                     command,
                     string.Join( " ", allArguments ),
                     addConfigurationFlag );

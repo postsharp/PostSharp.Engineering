@@ -34,7 +34,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             this.Command = command;
         }
 
-        public bool Install(BuildContext context)
+        public bool Install( BuildContext context )
         {
             var baseDirectory = context.RepoDirectory;
 
@@ -118,7 +118,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 return false;
             }
 
-            command = command.Replace( "$(ToolsDirectory)",  context.RepoDirectory, StringComparison.Ordinal );
+            command = command.Replace( "$(ToolsDirectory)", context.RepoDirectory, StringComparison.Ordinal );
 
             // 4. Invoke the tool.
             return ToolInvocationHelper.InvokeTool(

@@ -167,7 +167,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ImmutableArray<DotNetTool> DotNetTools { get; init; } = DotNetTool.DefaultTools;
 
-
         public bool Build( BuildContext context, BuildSettings settings )
         {
             var configuration = settings.BuildConfiguration;

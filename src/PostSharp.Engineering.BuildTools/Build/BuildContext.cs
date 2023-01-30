@@ -94,7 +94,17 @@ namespace PostSharp.Engineering.BuildTools.Build
         {
             if ( Directory.Exists( Path.Combine( directory, ".git" ) ) )
             {
-                return directory;
+                var globalJson = Path.Combine( directory, "global.json" );
+
+                if ( !File.Exists( globalJson ) )
+                {
+                    throw new FileNotFoundException( $"The file '{globalJson}' must exist, even empty." );
+                }
+
+                // Resolve links and junctions.
+                var realPath = FileSystemHelper.GetFinalPath( globalJson );
+
+                return Path.GetDirectoryName( realPath );
             }
             else
             {

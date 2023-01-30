@@ -32,7 +32,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             ConsoleHelper console,
             string fileName,
             string commandLine,
-            string workingDirectory,
+            string? workingDirectory,
             ToolInvocationOptions? options = null )
         {
             if ( !InvokeTool(
@@ -61,7 +61,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             ConsoleHelper console,
             string fileName,
             string commandLine,
-            string workingDirectory,
+            string? workingDirectory,
             out int exitCode,
             ToolInvocationOptions? options = null )
         {
@@ -172,7 +172,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             ConsoleHelper console,
             string fileName,
             string commandLine,
-            string workingDirectory,
+            string? workingDirectory,
             CancellationToken? cancellationToken,
             out int exitCode,
             Action<string> handleErrorData,
@@ -204,7 +204,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     {
                         FileName = fileName,
                         Arguments = Environment.ExpandEnvironmentVariables( commandLine ),
-                        WorkingDirectory = workingDirectory,
+                        WorkingDirectory = workingDirectory ?? Environment.CurrentDirectory,
                         ErrorDialog = false,
                         UseShellExecute = false,
                         CreateNoWindow = true,
