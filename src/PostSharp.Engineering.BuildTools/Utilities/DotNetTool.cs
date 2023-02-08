@@ -38,8 +38,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         {
             var baseDirectory = context.RepoDirectory;
 
+            var configFilePath = Path.Combine( baseDirectory, ".config", "dotnet-tools.json" );
+            var resourceDirectory = Path.Combine( baseDirectory, ".tools" );
+
             // 1. Create the dotnet tool manifest.
-            if ( !Directory.Exists( Path.Combine( baseDirectory, ".config" ) ) )
+            if ( !File.Exists( configFilePath ) )
             {
                 if ( !ToolInvocationHelper.InvokeTool(
                         context.Console,
@@ -53,7 +56,6 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             // Open the config file and see if we have to install or update.
             string? installVerb = null;
-            var configFilePath = Path.Combine( baseDirectory, ".config", "dotnet-tools.json" );
             var configDocument = JsonDocument.Parse( File.ReadAllText( configFilePath ) );
 
             var installedVersionString = configDocument.RootElement.GetPropertyOrNull( "tools" )
@@ -89,6 +91,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
 
             // 3. Restore resource tools.
+            Directory.CreateDirectory( resourceDirectory );
             var assembly = this.GetType().Assembly;
 
             foreach ( var resourceName in assembly.GetManifestResourceNames() )
@@ -99,7 +102,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 {
                     using var resource = assembly.GetManifestResourceStream( resourceName );
 
-                    var file = Path.Combine( baseDirectory, resourceName.Substring( prefix.Length ) );
+                    var file = Path.Combine( resourceDirectory, resourceName.Substring( prefix.Length ) );
 
                     using ( var outputStream = File.Create( file ) )
                     {
@@ -117,8 +120,10 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             {
                 return false;
             }
+            
+            var resourceDirectory = Path.Combine( context.RepoDirectory, ".tools" );
 
-            command = command.Replace( "$(ToolsDirectory)", context.RepoDirectory, StringComparison.Ordinal );
+            command = command.Replace( "$(ToolsDirectory)", resourceDirectory, StringComparison.Ordinal );
 
             // 4. Invoke the tool.
             return ToolInvocationHelper.InvokeTool(
