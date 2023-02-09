@@ -217,11 +217,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             void AddImport( string file, bool required = true, string? label = null )
             {
-                // We're generating a relative path so that the path can be resolved even when the filesystem is mounted
-                // to a different location than the current one (used e.g. when using Hyper-V).
-                var relativePath = "$(MSBuildThisFileDirectory)\\" + Path.GetRelativePath( Path.GetDirectoryName( this.FilePath )!, file );
-
-                var element = new XElement( "Import", new XAttribute( "Project", relativePath ), new XAttribute( "Condition", $"Exists( '{relativePath}' )" ) );
+                // We used to generate relative paths and not absolute because the filesystem could be accessed from a different machine or virtual
+                // machine. Now, we are using absolute path because we want to support junctions in source dependencies. It seems that both
+                // requirements cannot be reconciled.
+                
+                var element = new XElement( "Import", new XAttribute( "Project", file ), new XAttribute( "Condition", $"Exists( '{file}' )" ) );
 
                 if ( label != null )
                 {
@@ -232,7 +232,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                 if ( required )
                 {
-                    requiredFiles.Add( relativePath );
+                    requiredFiles.Add( file );
                 }
             }
 

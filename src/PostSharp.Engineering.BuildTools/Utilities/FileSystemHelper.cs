@@ -11,7 +11,7 @@ public static class FileSystemHelper
 {
     public static string GetFinalPath( string path )
     {
-        using ( var fileStream = new FileStream( path, FileMode.Open ) )
+        using ( var fileStream = new FileStream( path, FileMode.Open, FileAccess.Read ) )
         {
             var fileHandle = fileStream.SafeFileHandle;
             var buffer = new StringBuilder( 1024 );

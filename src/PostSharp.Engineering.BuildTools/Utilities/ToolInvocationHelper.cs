@@ -15,19 +15,6 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 {
     public static class ToolInvocationHelper
     {
-        public static bool InvokePowershell(
-            ConsoleHelper console,
-            string fileName,
-            string commandLine,
-            string workingDirectory,
-            ToolInvocationOptions? options = null )
-            => InvokeTool(
-                console,
-                "powershell",
-                $"-NonInteractive -File {fileName} {commandLine}",
-                workingDirectory,
-                options );
-
         public static bool InvokeTool(
             ConsoleHelper console,
             string fileName,
@@ -229,7 +216,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 // Filters process output where matching RegEx value indicates process failure.
                 void FilterProcessOutput( string output )
                 {
-                    if ( options.Retry != null && options.Retry.Regex != null && options.Retry.Regex.IsMatch( output ) )
+                    if ( options.Retry is { Regex: { } } && options.Retry.Regex.IsMatch( output ) )
                     {
                         processShouldRetry = true;
                     }

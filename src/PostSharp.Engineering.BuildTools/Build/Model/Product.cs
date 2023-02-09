@@ -648,8 +648,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 properties = ImmutableDictionary<string, string>.Empty;
             }
-
-            foreach ( var solution in this.Solutions )
+            
+            Solution[] solutionsToTest;
+            
+            if ( settings.SolutionId != null )
+            {
+                var solution = this.Solutions[settings.SolutionId.Value - 1];
+                solutionsToTest = new[] { solution };
+            }
+            else
+            {
+                solutionsToTest = this.Solutions;
+            }
+            
+            foreach ( var solution in solutionsToTest )
             {
                 var solutionSettings = settings;
 
