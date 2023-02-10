@@ -66,6 +66,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "postsharp" )
         {
             GenerateSnapshotDependency = false,
+            
+            
 
             // We always use the debug build for engineering.
             CiBuildTypes = new ConfigurationSpecific<string>(

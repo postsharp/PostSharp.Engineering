@@ -27,7 +27,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public string CodeStyle { get; init; } = "Standard";
 
         public VcsRepo Repo { get; }
-
+        
         public DependencyDefinition( string dependencyName, VcsProvider vcsProvider, string vcsProjectName, bool isVersioned = true )
         {
             this.Name = dependencyName;

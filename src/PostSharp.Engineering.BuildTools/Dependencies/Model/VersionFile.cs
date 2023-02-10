@@ -85,7 +85,7 @@ public class VersionFile
 
             DependencySource dependencySource;
 
-            if ( BuildContext.IsGuestDevice )
+            if ( BuildContext.IsGuestDevice || !dependencyDefinition.GenerateSnapshotDependency )
             {
                 if ( dependencyVersion == "" )
                 {
