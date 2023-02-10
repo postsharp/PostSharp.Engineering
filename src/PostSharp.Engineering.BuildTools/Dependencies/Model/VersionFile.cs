@@ -3,14 +3,14 @@
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using PostSharp.Engineering.BuildTools.Build;
-using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
+using System.Xml.XPath;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 
@@ -19,14 +19,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 /// </summary>
 public class VersionFile
 {
-    private static readonly Regex _dependencyVersionRegex = new(
-        "^(?<Kind>[^:]+):(?<Arguments>.+)$",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant );
-
-    private static readonly Regex _buildSettingsRegex = new(
-        @"^Number=(?<Number>\d+)(;TypeId=(?<TypeId>[^;]+))?(;TypeId=(?<Branch>[^;]+))?$",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant );
-
     private VersionFile( ImmutableDictionary<string, DependencySource> dependencies )
     {
         this.Dependencies = dependencies;
@@ -49,18 +41,14 @@ public class VersionFile
             return false;
         }
 
-        var projectOptions = new ProjectOptions
-        {
-            GlobalProperties = new Dictionary<string, string>() { ["VcsBranch"] = context.Branch, ["DoNotLoadGeneratedVersionFiles"] = "True" }
-        };
+        var projectOptions = new ProjectOptions { GlobalProperties = new Dictionary<string, string>() { ["DoNotLoadGeneratedVersionFiles"] = "True" } };
 
         var projectFile = Project.FromFile( versionsPath, projectOptions );
 
         var defaultDependencyProperties = context.Product.Dependencies
             .ToDictionary(
                 d => d.Name,
-                d => projectFile.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" )
-                    ?.EvaluatedValue );
+                d => projectFile.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" )?.EvaluatedValue );
 
         ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
@@ -68,102 +56,53 @@ public class VersionFile
         {
             var dependencyVersion = defaultDependencyProperties[dependencyDefinition.Name];
 
-            DependencySource dependencySource;
-
             if ( dependencyVersion == null )
             {
-                // This is possible and legal when the dependency does not have its own version.
+                // A property is required because we update it during the release process.
+
+                context.Console.WriteError( $"{versionsPath}: a property named '{dependencyDefinition.Name}Version' must exist, even with empty value." );
+
                 continue;
             }
 
-            if ( dependencyVersion.Contains( "local", StringComparison.OrdinalIgnoreCase ) )
+            dependencyVersion = dependencyVersion.Trim();
+
+            // The property value can be either empty either a semantic version, but empty values are not allowed on guest devices,
+            // i.e. for build outside of our VPN.
+
+            if ( dependencyVersion != "" &&
+                 !Regex.IsMatch(
+                     dependencyVersion,
+                     @"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$" ) )
             {
-                dependencySource = DependencySource.CreateLocal( DependencyConfigurationOrigin.Default );
+                context.Console.WriteError(
+                    $"{versionsPath}: invalid value '{dependencyVersion}' for property '{dependencyDefinition.Name}Version': the value is neither empty nor a valid version number." );
+
+                versionFile = null;
+
+                return false;
             }
-            else
+
+            DependencySource dependencySource;
+
+            if ( BuildContext.IsGuestDevice )
             {
-                var dependencyVersionMatch = _dependencyVersionRegex.Match( dependencyVersion );
-
-                if ( dependencyVersionMatch.Success )
+                if ( dependencyVersion == "" )
                 {
-                    switch ( dependencyVersionMatch.Groups["Kind"].Value.ToLowerInvariant() )
-                    {
-                        case "branch":
-                            {
-                                var branch = dependencyVersionMatch.Groups["Arguments"].Value;
-
-                                dependencySource = DependencySource.CreateBuildServerSource(
-                                    new CiLatestBuildOfBranch( branch ),
-                                    DependencyConfigurationOrigin.Default );
-
-                                break;
-                            }
-
-                        case "build":
-                            {
-                                var arguments = dependencyVersionMatch.Groups["Arguments"].Value;
-
-                                var buildSettingsMatch = _buildSettingsRegex.Match( arguments );
-
-                                if ( !buildSettingsMatch.Success )
-                                {
-                                    context.Console.WriteError(
-                                        $"The TeamCity build configuration '{arguments}' of dependency '{dependencyDefinition.Name}' does not have a correct format." );
-
-                                    versionFile = null;
-
-                                    return false;
-                                }
-
-                                var buildNumber = int.Parse( buildSettingsMatch.Groups["Number"].Value, CultureInfo.InvariantCulture );
-                                var ciBuildTypeId = buildSettingsMatch.Groups.GetValueOrDefault( "TypeId" )?.Value;
-
-                                if ( string.IsNullOrEmpty( ciBuildTypeId ) )
-                                {
-                                    context.Console.WriteError(
-                                        $"The TypeId property of dependency '{dependencyDefinition.Name}' does is required in '{versionsPath}'." );
-                                }
-
-                                dependencySource = DependencySource.CreateBuildServerSource(
-                                    new CiBuildId( buildNumber, ciBuildTypeId ),
-                                    DependencyConfigurationOrigin.Default );
-
-                                break;
-                            }
-
-                        case "transitive":
-                            {
-                                context.Console.WriteError( $"Error in '{versionsPath}': explicit transitive dependencies are no longer supported." );
-
-                                versionFile = null;
-
-                                return false;
-                            }
-
-                        default:
-                            {
-                                context.Console.WriteError(
-                                    $"Error in '{versionsPath}': cannot parse the value '{dependencyVersion}' for dependency '{dependencyDefinition.Name}' in '{versionsPath}'." );
-
-                                versionFile = null;
-
-                                return false;
-                            }
-                    }
-                }
-                else if ( char.IsDigit( dependencyVersion[0] ) )
-                {
-                    dependencySource = DependencySource.CreateFeed( dependencyVersion, DependencyConfigurationOrigin.Default );
-                }
-                else
-                {
-                    context.Console.WriteError(
-                        $"Error in '{versionsPath}': cannot parse the dependency '{dependencyDefinition.Name}' from '{versionsPath}'." );
+                    context.Console.WriteError( $"{versionsPath}: missing value for property '{dependencyDefinition.Name}Version'." );
 
                     versionFile = null;
 
                     return false;
                 }
+
+                dependencySource = DependencySource.CreateFeed( dependencyVersion, DependencyConfigurationOrigin.Default );
+            }
+            else
+            {
+                dependencySource = DependencySource.CreateBuildServerSource(
+                    new CiLatestBuildOfBranch( dependencyDefinition.DefaultBranch ),
+                    DependencyConfigurationOrigin.Default );
             }
 
             dependenciesBuilder[dependencyDefinition.Name] = dependencySource;
@@ -172,5 +111,37 @@ public class VersionFile
         versionFile = new VersionFile( dependenciesBuilder.ToImmutable() );
 
         return true;
+    }
+
+    public static bool Validate( BuildContext context, DependenciesOverrideFile dependenciesOverrideFile )
+    {
+        var versionsPath = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
+        var document = XDocument.Load( versionsPath );
+        var hasError = false;
+
+        foreach ( var dependency in dependenciesOverrideFile.Dependencies.Keys )
+        {
+            var dependencyDefinition = Model.Dependencies.All.Single( d => d.Name == dependency );
+            var propertyName = $"{dependencyDefinition.NameWithoutDot}Version";
+
+            var elements = document.Root!.XPathSelectElements( $"/Project/PropertyGroup/{propertyName}" ).ToList();
+
+            switch ( elements.Count )
+            {
+                case > 1:
+                    context.Console.WriteError( $"{versionsPath}: the file contains more than one definition of the '{propertyName}' property." );
+                    hasError = true;
+
+                    break;
+
+                case 1 when elements[0].HasAttributes:
+                    context.Console.WriteError( $"{versionsPath}: the '{propertyName}' property definition should not have any attribute." );
+                    hasError = true;
+
+                    break;
+            }
+        }
+
+        return !hasError;
     }
 }

@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using Spectre.Console;
 using System;
 using System.ComponentModel;
@@ -15,6 +16,20 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 {
     public static class ToolInvocationHelper
     {
+        [PublicAPI] // Used by Metalama.Compiler
+        public static bool InvokePowershell(
+            ConsoleHelper console,
+            string fileName,
+            string commandLine,
+            string workingDirectory,
+            ToolInvocationOptions? options = null )
+            => InvokeTool(
+                console,
+                "powershell",
+                $"-NonInteractive -File {fileName} {commandLine}",
+                workingDirectory,
+                options );
+
         public static bool InvokeTool(
             ConsoleHelper console,
             string fileName,

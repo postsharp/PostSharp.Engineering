@@ -19,6 +19,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static readonly VcsProvider GitHub = new GitHubProvider();
         public static readonly VcsProvider AzureRepos = new AzureRepoProvider();
 
+        public abstract string DefaultBranch { get; }
+
         private class GitHubProvider : VcsProvider
         {
             public override bool SshAgentRequired => true;
@@ -31,6 +33,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                 return httpClient.GetStringAsync( $"https://raw.githubusercontent.com/postsharp/{repo.RepoName}/{branch}/{path}" ).Result;
             }
+
+            public override string DefaultBranch => "dev";
         }
 
         private class AzureRepoProvider : VcsProvider
@@ -52,6 +56,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         $"https://dev.azure.com/postsharp/{repo.ProjectName}/_apis/git/repositories/{repo.RepoName}/items?path={path}" )
                     .Result;
             }
+
+            public override string DefaultBranch => "master";
         }
     }
 }

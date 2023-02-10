@@ -10,6 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using System.Xml.XPath;
 
 namespace PostSharp.Engineering.BuildTools.Build.Publishers;
 
@@ -196,7 +197,8 @@ public class MergePublisher : IndependentPublisher
     private static bool TryParseAndVerifyDependencies( BuildContext context, PublishSettings settings, out bool dependenciesUpdated )
     {
         dependenciesUpdated = false;
-        var productVersionsPropertiesFile = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
+        var versionsPropertiesFilePath = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
+        var currentVersionDocument = XDocument.Load( versionsPropertiesFilePath, LoadOptions.PreserveWhitespace );
 
         // For following Prepare step we need to BuildSettings
         var buildSettings = new BuildSettings()
@@ -218,9 +220,10 @@ public class MergePublisher : IndependentPublisher
 
         context.Console.WriteImportantMessage( "Updating versions of dependencies in 'Versions.props'." );
 
-        foreach ( var dependency in context.Product.Dependencies )
+        foreach ( var dependencyOverride in dependenciesOverrideFile.Dependencies )
         {
-            var dependencySource = dependenciesOverrideFile.Dependencies[dependency.Name];
+            var dependencySource = dependencyOverride.Value;
+            var dependency = Dependencies.Model.Dependencies.All.Single( d => d.Name == dependencyOverride.Key );
 
             // We don't automatically change version of Feed or Local dependencies.
             if ( dependencySource.SourceKind == DependencySourceKind.Feed || dependencySource.SourceKind == DependencySourceKind.Local )
@@ -231,9 +234,9 @@ public class MergePublisher : IndependentPublisher
             }
 
             // Path to the downloaded build version file.
-            var dependencyVersionFile = dependencySource.VersionFile;
+            var dependencyVersionPath = dependencySource.VersionFile;
 
-            if ( dependencyVersionFile == null )
+            if ( dependencyVersionPath == null )
             {
                 context.Console.WriteError( $"Version file of '{dependency.Name}' does not exist." );
 
@@ -241,54 +244,45 @@ public class MergePublisher : IndependentPublisher
             }
 
             // Load the up-to-date version file of dependency.
-            var upToDateVersionDocument = XDocument.Load( dependencyVersionFile );
-            var project = upToDateVersionDocument.Root;
-            var props = project!.Element( "PropertyGroup" );
-            var currentDependencyVersionValue = props!.Element( $"{dependency.NameWithoutDot}Version" )!.Value;
+            var dependencyVersionDocument = XDocument.Load( dependencyVersionPath );
 
-            // Load current product Versions.props.
-            var currentVersionDocument = XDocument.Load( productVersionsPropertiesFile, LoadOptions.PreserveWhitespace );
-            project = currentVersionDocument.Root;
-            props = project!.Elements( "PropertyGroup" ).SingleOrDefault( p => p.Element( $"{dependency.NameWithoutDot}Version" ) != null );
+            var currentDependencyVersionValue =
+                dependencyVersionDocument.Root!.Element( "PropertyGroup" )!.Element( $"{dependency.NameWithoutDot}Version" )!.Value;
 
             // Load dependency version from public version (no condition attribute).
-            var oldVersionElement = props!.Elements( $"{dependency.NameWithoutDot}Version" ).SingleOrDefault( p => !p.HasAttributes );
+            var versionElement = currentVersionDocument.XPathSelectElements( $"/Project/PropertyGroup/{dependency.NameWithoutDot}Version" )
+                .SingleOrDefault( p => !p.HasAttributes );
 
-            if ( oldVersionElement == null )
+            if ( versionElement == null )
             {
-                context.Console.WriteError(
-                    $"Error in '{dependencyVersionFile}': The property '{dependency.NameWithoutDot}Version' with VcsBranch condition attribute is missing." );
-
-                return false;
+                continue;
             }
 
-            var oldVersionValue = oldVersionElement.Value;
-
-            var currentDependencyVersionNumber =
-                Version.Parse( currentDependencyVersionValue.Substring( 0, currentDependencyVersionValue.IndexOf( '-', StringComparison.InvariantCulture ) ) );
-
-            var oldDependencyVersionNumber = Version.Parse( oldVersionValue.Substring( 0, oldVersionValue.IndexOf( '-', StringComparison.InvariantCulture ) ) );
+            var oldVersionValue = versionElement.Value;
 
             // We don't need to rewrite the file if there is no change in version.
-            if ( currentDependencyVersionNumber == oldDependencyVersionNumber )
+            if ( oldVersionValue == currentDependencyVersionValue )
             {
                 context.Console.WriteMessage( $"Version of '{dependency.Name}' dependency is up to date." );
 
                 continue;
             }
 
-            oldVersionElement.Value = currentDependencyVersionValue;
+            versionElement.Value = currentDependencyVersionValue;
             dependenciesUpdated = true;
 
+            context.Console.WriteMessage( $"Bumping version dependency '{dependency}' from '{oldVersionValue}' to '{currentDependencyVersionValue}'." );
+        }
+
+        if ( dependenciesUpdated )
+        {
             var xmlWriterSettings =
                 new XmlWriterSettings { OmitXmlDeclaration = true, Indent = true, IndentChars = "    ", Encoding = new UTF8Encoding( false ) };
 
-            using ( var xmlWriter = XmlWriter.Create( productVersionsPropertiesFile, xmlWriterSettings ) )
+            using ( var xmlWriter = XmlWriter.Create( versionsPropertiesFilePath, xmlWriterSettings ) )
             {
                 currentVersionDocument.Save( xmlWriter );
             }
-
-            context.Console.WriteMessage( $"Bumping version dependency '{dependency}' from '{oldVersionValue}' to '{currentDependencyVersionValue}'." );
         }
 
         return true;

@@ -3,7 +3,7 @@
 using Spectre.Console.Cli;
 using System.ComponentModel;
 
-namespace PostSharp.Engineering.BuildTools;
+namespace PostSharp.Engineering.BuildTools.Tools;
 
 public class InvokeDotNetToolCommandSettings : CommonCommandSettings
 {

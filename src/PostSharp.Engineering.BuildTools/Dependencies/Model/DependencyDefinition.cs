@@ -32,7 +32,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         {
             this.Name = dependencyName;
             this.Repo = new VcsRepo( dependencyName, vcsProjectName, vcsProvider );
-            this.DefaultBranch = "master";
+            this.DefaultBranch = vcsProvider.DefaultBranch;
             this.IsVersioned = isVersioned;
             var vcsProjectNameWithUnderscore = vcsProjectName.Replace( ".", "_", StringComparison.Ordinal );
 

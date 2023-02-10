@@ -78,121 +78,123 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 return false;
             }
 
-            // Override defaults from the version file.
-            if ( File.Exists( file.FilePath ) )
+            if ( !File.Exists( file.FilePath ) )
             {
-                var document = XDocument.Load( file.FilePath );
-                var project = document.Root!;
+                return true;
+            }
 
-                var localImport = project.Elements( "Import" )
-                    .SingleOrDefault( i => i.Attribute( "Label" )?.Value.Equals( "Current", StringComparison.OrdinalIgnoreCase ) ?? false );
+            // Override defaults from the version file.
+            var document = XDocument.Load( file.FilePath );
+            var project = document.Root!;
 
-                file.LocalBuildFile = localImport?.Attribute( "Project" )?.Value;
+            var localImport = project.Elements( "Import" )
+                .SingleOrDefault( i => i.Attribute( "Label" )?.Value.Equals( "Current", StringComparison.OrdinalIgnoreCase ) ?? false );
 
-                var itemGroup = project.Element( "ItemGroup" );
+            file.LocalBuildFile = localImport?.Attribute( "Project" )?.Value;
 
-                if ( itemGroup != null )
+            var itemGroup = project.Element( "ItemGroup" );
+
+            if ( itemGroup != null )
+            {
+                foreach ( var item in itemGroup.Elements() )
                 {
-                    foreach ( var item in itemGroup.Elements() )
+                    var name = item.Attribute( "Include" )?.Value;
+                    var kindString = item.Element( "Kind" )?.Value;
+
+                    if ( name == null || kindString == null )
                     {
-                        var name = item.Attribute( "Include" )?.Value;
-                        var kindString = item.Element( "Kind" )?.Value;
+                        context.Console.WriteMessage( $"Invalid dependency file." );
 
-                        if ( name == null || kindString == null )
-                        {
-                            context.Console.WriteMessage( $"Invalid dependency file." );
+                        continue;
+                    }
 
-                            continue;
-                        }
+                    if ( !Enum.TryParse<DependencySourceKind>( kindString, out var kind ) )
+                    {
+                        context.Console.WriteWarning(
+                            $"The dependency kind '{kindString}' defined in '{file.FilePath}' is not supported. Skipping the parsing of this dependency." );
 
-                        if ( !Enum.TryParse<DependencySourceKind>( kindString, out var kind ) )
-                        {
-                            context.Console.WriteWarning(
-                                $"The dependency kind '{kindString}' defined in '{file.FilePath}' is not supported. Skipping the parsing of this dependency." );
+                        continue;
+                    }
 
-                            continue;
-                        }
+                    var originString = item.Element( "Origin" )?.Value;
 
-                        var originString = item.Element( "Origin" )?.Value;
+                    if ( originString == null || !Enum.TryParse( originString, out DependencyConfigurationOrigin origin ) )
+                    {
+                        origin = DependencyConfigurationOrigin.Unknown;
+                    }
 
-                        if ( originString == null || !Enum.TryParse( originString, out DependencyConfigurationOrigin origin ) )
-                        {
-                            origin = DependencyConfigurationOrigin.Unknown;
-                        }
+                    switch ( kind )
+                    {
+                        case DependencySourceKind.Feed:
+                            var version = item.Element( "Version" )?.Value;
 
-                        switch ( kind )
-                        {
-                            case DependencySourceKind.Feed:
-                                var version = item.Element( "Version" )?.Value;
+                            // Note that the version can be null here. It means that the version should default to the version defined in Versions.props.
 
-                                // Note that the version can be null here. It means that the version should default to the version defined in Versions.props.
+                            file.Dependencies[name] = DependencySource.CreateFeed( version, origin );
 
-                                file.Dependencies[name] = DependencySource.CreateFeed( version, origin );
+                            break;
+
+                        case DependencySourceKind.Local:
+                            {
+                                var dependencySource = DependencySource.CreateLocal( origin );
+
+                                dependencySource.VersionFile = Path.GetFullPath(
+                                    Path.Combine(
+                                        context.RepoDirectory,
+                                        "..",
+                                        name,
+                                        name + ".Import.props" ) );
+
+                                file.Dependencies[name] = dependencySource;
 
                                 break;
+                            }
 
-                            case DependencySourceKind.Local:
+                        case DependencySourceKind.BuildServer:
+                            {
+                                var branch = item.Element( "Branch" )?.Value;
+                                var buildNumber = item.Element( "BuildNumber" )?.Value;
+                                var ciBuildTypeId = item.Element( "CiBuildTypeId" )?.Value;
+                                var versionFile = item.Element( "VersionFile" )?.Value;
+
+                                ICiBuildSpec buildSpec;
+
+                                if ( !string.IsNullOrEmpty( buildNumber ) )
                                 {
-                                    var dependencySource = DependencySource.CreateLocal( origin );
-
-                                    dependencySource.VersionFile = Path.GetFullPath(
-                                        Path.Combine(
-                                            context.RepoDirectory,
-                                            "..",
-                                            name,
-                                            name + ".Import.props" ) );
-
-                                    file.Dependencies[name] = dependencySource;
-
-                                    break;
-                                }
-
-                            case DependencySourceKind.BuildServer:
-                                {
-                                    var branch = item.Element( "Branch" )?.Value;
-                                    var buildNumber = item.Element( "BuildNumber" )?.Value;
-                                    var ciBuildTypeId = item.Element( "CiBuildTypeId" )?.Value;
-                                    var versionFile = item.Element( "VersionFile" )?.Value;
-
-                                    ICiBuildSpec buildSpec;
-
-                                    if ( !string.IsNullOrEmpty( buildNumber ) )
+                                    if ( string.IsNullOrEmpty( ciBuildTypeId ) )
                                     {
-                                        if ( string.IsNullOrEmpty( ciBuildTypeId ) )
-                                        {
-                                            context.Console.WriteError( $"The property CiBuildTypeId of dependency {name} is required in '{file.FilePath}'." );
-
-                                            return false;
-                                        }
-
-                                        buildSpec = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId );
-                                    }
-                                    else if ( !string.IsNullOrEmpty( branch ) )
-                                    {
-                                        buildSpec = new CiLatestBuildOfBranch( branch );
-                                    }
-                                    else
-                                    {
-                                        context.Console.WriteError(
-                                            $"The dependency {name}  in '{file.FilePath}' requires one of these properties: Branch or BuildNumber." );
+                                        context.Console.WriteError( $"The property CiBuildTypeId of dependency {name} is required in '{file.FilePath}'." );
 
                                         return false;
                                     }
 
-                                    var dependencySource =
-                                        DependencySource.CreateBuildServerSource(
-                                            buildSpec,
-                                            origin );
+                                    buildSpec = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId );
+                                }
+                                else if ( !string.IsNullOrEmpty( branch ) )
+                                {
+                                    buildSpec = new CiLatestBuildOfBranch( branch );
+                                }
+                                else
+                                {
+                                    context.Console.WriteError(
+                                        $"The dependency {name}  in '{file.FilePath}' requires one of these properties: Branch or BuildNumber." );
 
-                                    dependencySource.VersionFile = versionFile;
-                                    file.Dependencies[name] = dependencySource;
-
-                                    break;
+                                    return false;
                                 }
 
-                            default:
-                                throw new InvalidVersionFileException();
-                        }
+                                var dependencySource =
+                                    DependencySource.CreateBuildServerSource(
+                                        buildSpec,
+                                        origin );
+
+                                dependencySource.VersionFile = versionFile;
+                                file.Dependencies[name] = dependencySource;
+
+                                break;
+                            }
+
+                        default:
+                            throw new InvalidVersionFileException();
                     }
                 }
             }
@@ -220,7 +222,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 // We used to generate relative paths and not absolute because the filesystem could be accessed from a different machine or virtual
                 // machine. Now, we are using absolute path because we want to support junctions in source dependencies. It seems that both
                 // requirements cannot be reconciled.
-                
+
                 var element = new XElement( "Import", new XAttribute( "Project", file ), new XAttribute( "Condition", $"Exists( '{file}' )" ) );
 
                 if ( label != null )

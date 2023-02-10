@@ -38,6 +38,12 @@ namespace PostSharp.Engineering.BuildTools.Build
         public CommandContext CommandContext { get; }
 
         /// <summary>
+        /// Gets a value indicating whether the current device is a guest device, as opposed to a device owned and configured by PostSharp.
+        /// The main difference is that guest devices use feed packages while company devices use TeamCity artefacts.
+        /// </summary>
+        public static bool IsGuestDevice => !bool.TryParse( Environment.GetEnvironmentVariable( "IS_POSTSHARP_OWNED" ), out var value ) || !value;
+
+        /// <summary>
         /// Gets the full path of the current manifest file (i.e. the file called <c>My.Product.version.props</c>)
         /// for a given <see cref="BuildConfiguration"/>.
         /// </summary>

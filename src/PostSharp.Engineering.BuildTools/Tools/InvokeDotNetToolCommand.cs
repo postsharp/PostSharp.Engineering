@@ -3,7 +3,7 @@
 using PostSharp.Engineering.BuildTools.Build;
 using System.Linq;
 
-namespace PostSharp.Engineering.BuildTools;
+namespace PostSharp.Engineering.BuildTools.Tools;
 
 public class InvokeDotNetToolCommand : BaseCommand<InvokeDotNetToolCommandSettings>
 {

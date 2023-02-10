@@ -7,6 +7,7 @@ using PostSharp.Engineering.BuildTools.Csproj;
 using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Git;
 using PostSharp.Engineering.BuildTools.NuGet;
+using PostSharp.Engineering.BuildTools.Tools;
 using PostSharp.Engineering.BuildTools.XmlDoc;
 using Spectre.Console.Cli;
 using System.Linq;
