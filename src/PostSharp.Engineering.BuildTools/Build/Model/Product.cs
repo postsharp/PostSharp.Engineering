@@ -1456,16 +1456,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 context.Console.WriteSuccess( "Swap after publishing has succeeded." );
             }
-
-            // Only versioned products use version tags.
-            if ( this.DependencyDefinition.IsVersioned )
+            
+            // After successful artifact publishing the last commit is tagged with current version tag.
+            if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
             {
-                // After successful artifact publishing the last commit is tagged with current version tag.
-                if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
-                {
-                    context.Console.WriteError(
-                        $"Could not tag the latest commit with version '{preparedVersionInfo.Version}{preparedVersionInfo.PackageVersionSuffix}'." );
-                }
+                context.Console.WriteError(
+                    $"Could not tag the latest commit with version '{preparedVersionInfo.Version}{preparedVersionInfo.PackageVersionSuffix}'." );
             }
 
             return true;
