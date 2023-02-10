@@ -1564,7 +1564,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( hasBumpSinceLastDeployment )
             {
-                context.Console.WriteWarning( "Version has been bumped." );
+                context.Console.WriteWarning( "Version has already been bumped since the last deployment." );
 
                 return true;
             }
@@ -1922,17 +1922,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private static bool AddTagToLastCommit( BuildContext context, PreparedVersionInfo preparedVersionInfo, BaseBuildSettings settings )
         {
-            string versionTag;
-
-            // The tag will contain 'release-' prefix if the version is intended for release and not only testing (i.e. -alpha, -beta suffixes).
-            if ( preparedVersionInfo.PackageVersionSuffix == "-preview" || string.IsNullOrEmpty( preparedVersionInfo.PackageVersionSuffix ) )
-            {
-                versionTag = string.Concat( "release/", preparedVersionInfo.Version, preparedVersionInfo.PackageVersionSuffix );
-            }
-            else
-            {
-                versionTag = string.Concat( preparedVersionInfo.Version, preparedVersionInfo.PackageVersionSuffix );
-            }
+            var versionTag = string.Concat( "release/", preparedVersionInfo.Version, preparedVersionInfo.PackageVersionSuffix );
 
             ToolInvocationHelper.InvokeTool(
                 context.Console,
