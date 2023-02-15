@@ -1,3 +1,4 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project>
 
     <!-- Set the default version -->
@@ -17,7 +18,7 @@
     </PropertyGroup>
 
     <!-- Import overrides for the local build -->
-    <Import Project="Versions.g.props" Condition="Exists('Versions.g.props')"/>
+    <Import Project="Versions.g.props" Condition="Exists('Versions.g.props')" />
 
     <PropertyGroup>
         <AssemblyVersion>$(PostSharpEngineeringAssemblyVersion)</AssemblyVersion>

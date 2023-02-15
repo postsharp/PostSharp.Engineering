@@ -24,7 +24,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             switch ( settings.Source )
             {
                 case DependencySourceKind.Local:
-                    dependencySource = DependencySource.CreateLocal( DependencyConfigurationOrigin.Override );
+                    dependencySource = DependencySource.CreateLocalRepo( DependencyConfigurationOrigin.Override );
+
+                    break;
+
+                case DependencySourceKind.LocalDependency:
+                    dependencySource = DependencySource.CreateLocalDependency( DependencyConfigurationOrigin.Override );
 
                     break;
 

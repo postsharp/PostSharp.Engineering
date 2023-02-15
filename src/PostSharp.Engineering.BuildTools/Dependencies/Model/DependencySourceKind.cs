@@ -17,6 +17,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// <summary>
         /// Means that the package source is a build artifact set of a continuous integration build.
         /// </summary>
-        BuildServer
+        BuildServer,
+
+        /// <summary>
+        /// Means that the artefacts have been restored under the .\dependencies directory.
+        /// </summary>
+        LocalDependency
     }
 }

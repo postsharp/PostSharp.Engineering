@@ -136,7 +136,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                         case DependencySourceKind.Local:
                             {
-                                var dependencySource = DependencySource.CreateLocal( origin );
+                                var dependencySource = DependencySource.CreateLocalRepo( origin );
 
                                 dependencySource.VersionFile = Path.GetFullPath(
                                     Path.Combine(
@@ -144,6 +144,22 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                         "..",
                                         name,
                                         name + ".Import.props" ) );
+
+                                file.Dependencies[name] = dependencySource;
+
+                                break;
+                            }
+
+                        case DependencySourceKind.LocalDependency:
+                            {
+                                var dependencySource = DependencySource.CreateLocalDependency( origin );
+
+                                dependencySource.VersionFile = Path.GetFullPath(
+                                    Path.Combine(
+                                        context.RepoDirectory,
+                                        "dependencies",
+                                        name,
+                                        name + ".version.props" ) );
 
                                 file.Dependencies[name] = dependencySource;
 
@@ -320,6 +336,20 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                         break;
 
+                    case DependencySourceKind.LocalDependency:
+                        {
+                            var importProjectFile = Path.GetFullPath(
+                                Path.Combine(
+                                    context.RepoDirectory,
+                                    "dependencies",
+                                    dependency.Key,
+                                    dependency.Key + ".version.props" ) );
+
+                            AddImport( importProjectFile );
+                        }
+
+                        break;
+
                     case DependencySourceKind.Feed:
                         {
                             AddIfNotNull( "Version", dependency.Value.Version );
@@ -367,6 +397,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             table.AddColumn( "Id" );
             table.AddColumn( "Name" );
             table.AddColumn( "Source" );
+            table.AddColumn( "Path" );
 
             // Add direct dependencies.
             for ( var i = 0; i < context.Product.Dependencies.Length; i++ )
@@ -377,11 +408,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                 if ( !this.Dependencies.TryGetValue( name, out var source ) )
                 {
-                    table.AddRow( rowNumber, name, "?" );
+                    table.AddRow( rowNumber, name, "<missing>", "" );
                 }
                 else
                 {
-                    table.AddRow( rowNumber, name, source.ToString() );
+                    table.AddRow( rowNumber, name, source.ToString(), source.VersionFile ?? "" );
                 }
             }
 
@@ -393,7 +424,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     continue;
                 }
 
-                table.AddRow( "*", dependency.Key, dependency.Value.ToString() );
+                table.AddRow( "*", dependency.Key, dependency.Value.ToString(), dependency.Value.VersionFile ?? "" );
             }
 
             context.Console.Out.Write( table );

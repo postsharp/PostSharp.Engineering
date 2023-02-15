@@ -17,8 +17,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public DependencyConfigurationOrigin Origin { get; internal init; }
 
-        public static DependencySource CreateLocal( DependencyConfigurationOrigin origin )
+        public static DependencySource CreateLocalRepo( DependencyConfigurationOrigin origin )
             => new() { Origin = origin, SourceKind = DependencySourceKind.Local };
+
+        public static DependencySource CreateLocalDependency( DependencyConfigurationOrigin origin )
+            => new() { Origin = origin, SourceKind = DependencySourceKind.LocalDependency };
 
         public static DependencySource CreateFeed( string? version, DependencyConfigurationOrigin origin )
             => new() { Origin = origin, SourceKind = DependencySourceKind.Feed, Version = version };
@@ -33,7 +36,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 case DependencySourceKind.BuildServer:
                     return $"BuildServer, {this.BuildServerSource}, Origin={this.Origin}";
 
-                case DependencySourceKind.Local:
+                case DependencySourceKind.Local or DependencySourceKind.LocalDependency:
                     {
                         return $"{this.SourceKind}, Origin='{this.Origin}'";
                     }

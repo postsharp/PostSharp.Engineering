@@ -1,6 +1,8 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build.Model;
 using System;
+using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
@@ -27,7 +29,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public string CodeStyle { get; init; } = "Standard";
 
         public VcsRepo Repo { get; }
-        
+
+        public ParametricString PrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "private" );
+
         public DependencyDefinition( string dependencyName, VcsProvider vcsProvider, string vcsProjectName, bool isVersioned = true )
         {
             this.Name = dependencyName;

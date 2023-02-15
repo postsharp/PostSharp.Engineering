@@ -19,7 +19,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             CiBuildTypes = new ConfigurationSpecific<string>(
                 "Metalama_MetalamaCompiler_ReleaseBuild",
                 "Metalama_MetalamaCompiler_ReleaseBuild",
-                "Metalama_MetalamaCompiler_PublicBuild" )
+                "Metalama_MetalamaCompiler_PublicBuild" ),
+            PrivateArtifactsDirectory = "artifacts\\packages\\$(MSSBuildConfiguration)\\Shipping"
         };
 
         public static DependencyDefinition Metalama { get; } = new(
@@ -66,8 +67,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "postsharp" )
         {
             GenerateSnapshotDependency = false,
-            
-            
 
             // We always use the debug build for engineering.
             CiBuildTypes = new ConfigurationSpecific<string>(
@@ -105,17 +104,13 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "WebsitesAndBusinessSystems",
             false );
 
-        public static DependencyDefinition MetalamaMigration { get; } =
-            new DependencyDefinition( "Metalama.Migration", VcsProvider.GitHub, "Metalama.Migration" );
+        public static DependencyDefinition MetalamaMigration { get; } = new( "Metalama.Migration", VcsProvider.GitHub, "Metalama.Migration" );
 
-        public static DependencyDefinition MetalamaPatterns { get; } =
-            new DependencyDefinition( "Metalama.Patterns", VcsProvider.AzureRepos, "Metalama" );
+        public static DependencyDefinition MetalamaPatterns { get; } = new( "Metalama.Patterns", VcsProvider.AzureRepos, "Metalama" );
 
-        public static DependencyDefinition MetalamaCommunity { get; } =
-            new DependencyDefinition( "Metalama.Community", VcsProvider.GitHub, "Metalama" );
+        public static DependencyDefinition MetalamaCommunity { get; } = new( "Metalama.Community", VcsProvider.GitHub, "Metalama" );
 
-        public static DependencyDefinition MetalamaLinqPad { get; } =
-            new DependencyDefinition( "Metalama.LinqPad", VcsProvider.GitHub, "Metalama" );
+        public static DependencyDefinition MetalamaLinqPad { get; } = new( "Metalama.LinqPad", VcsProvider.GitHub, "Metalama" );
 
         public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
             MetalamaCompiler,

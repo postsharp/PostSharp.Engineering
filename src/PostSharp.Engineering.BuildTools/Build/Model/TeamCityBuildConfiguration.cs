@@ -4,6 +4,8 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
+    internal record TeamCitySnapshotDependency( string ObjectName, string? ArtifactsRule = null );
+
     internal class TeamCityBuildConfiguration
     {
         public Product Product { get; }
@@ -26,7 +28,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public IBuildTrigger[]? BuildTriggers { get; init; }
 
-        public string[]? SnapshotDependencyObjectNames { get; init; }
+        public TeamCitySnapshotDependency[]? SnapshotDependencies { get; init; }
 
         public (string ObjectName, string ArtifactRules)[]? ArtifactDependencies { get; init; }
 
@@ -141,7 +143,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Dependencies
-            var hasSnapshotDependencies = this.SnapshotDependencyObjectNames is { Length: > 0 };
+            var hasSnapshotDependencies = this.SnapshotDependencies is { Length: > 0 };
             var hasArtifactDependencies = this.ArtifactDependencies is { Length: > 0 };
             var hasDependencies = hasSnapshotDependencies || hasArtifactDependencies;
 
@@ -155,13 +157,29 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Snapshot dependencies.
             if ( hasSnapshotDependencies )
             {
-                foreach ( var dependency in this.SnapshotDependencyObjectNames! )
+                foreach ( var dependency in this.SnapshotDependencies! )
                 {
                     writer.WriteLine(
                         $@"
-        snapshot(AbsoluteId(""{dependency}"")) {{
+        dependency({dependency.ObjectName}) {{
+            snapshot {{
                      onDependencyFailure = FailureAction.FAIL_TO_START
-                }}" );
+            }}
+" );
+
+                    if ( dependency.ArtifactsRule != null )
+                    {
+                        writer.WriteLine(
+                            $@"
+            artifacts {{
+                cleanDestination = true
+                artifactRules = ""{dependency.ArtifactsRule}""
+            }}" );
+                    }
+
+                    writer.WriteLine(
+                        $@"
+        }}" );
                 }
             }
 

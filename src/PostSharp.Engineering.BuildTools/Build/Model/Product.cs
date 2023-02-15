@@ -24,8 +24,6 @@ using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
-    internal record TransitiveDependency( DependencyDefinition Dependency, bool IsTransitive );
-
     public class Product
     {
         public DependencyDefinition DependencyDefinition { get; }
@@ -82,7 +80,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string ProductNameWithoutDot => this.ProductName.Replace( ".", "", StringComparison.OrdinalIgnoreCase );
 
-        public ParametricString PrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "private" );
+        public ParametricString PrivateArtifactsDirectory => this.DependencyDefinition.PrivateArtifactsDirectory;
 
         public ParametricString PublicArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "public" );
 
@@ -761,13 +759,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Prepare the versions file.
-            if ( !this.PrepareVersionsFile( context, settings, out var packageVersion ) )
+            if ( !this.PrepareVersionsFile( context, settings, out var packageVersion, out var dependenciesOverrideFile ) )
             {
                 return false;
             }
 
             // Generating the TeamCity file.
-            if ( !this.GenerateTeamcityConfiguration( context, packageVersion ) )
+            if ( !this.GenerateTeamcityConfiguration( context, packageVersion, dependenciesOverrideFile ) )
             {
                 return false;
             }
@@ -863,7 +861,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        public bool PrepareVersionsFile( BuildContext context, BuildSettings settings, out string preparedPackageVersion )
+        public bool PrepareVersionsFile(
+            BuildContext context,
+            BuildSettings settings,
+            out string preparedPackageVersion,
+            [NotNullWhen( true )] out DependenciesOverrideFile? dependenciesOverrideFile )
         {
             var configuration = settings.BuildConfiguration;
             preparedPackageVersion = string.Empty;
@@ -884,7 +886,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var propsFilePath = Path.Combine( artifactsDir, propsFileName );
 
             // Load Versions.g.props.
-            if ( !DependenciesOverrideFile.TryLoad( context, configuration, out var dependenciesOverrideFile ) )
+            if ( !DependenciesOverrideFile.TryLoad( context, configuration, out dependenciesOverrideFile ) )
             {
                 return false;
             }
@@ -1683,7 +1685,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )
+        private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion, DependenciesOverrideFile dependenciesOverrideFile )
         {
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
 
@@ -1728,6 +1730,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 if ( configurationInfo.ExportsToTeamCityBuild )
                 {
+                    var dependencies =
+                        dependenciesOverrideFile.Dependencies.Select(
+                                x => (Name: x.Key,
+                                      Definition: BuildTools.Dependencies.Model.Dependencies.All.Single( d => d.Name == x.Key ),
+                                      Source: x.Value) )
+                            .Select( x => (x.Name, x.Definition, Configuration: GetDependencyConfiguration( x.Definition, x.Source )) );
+
+                    var artifactDependencies = dependencies.Where( d => d.Definition.GenerateSnapshotDependency )
+                        .Select(
+                            d => new TeamCitySnapshotDependency(
+                                d.Definition.CiBuildTypes[d.Configuration],
+                                $"+:{d.Definition.PrivateArtifactsDirectory.ToString( new BuildInfo( packageVersion, d.Configuration, this ) ).Replace( '\\', '/' )}/**/*=>dependencies/{d.Name}" ) );
+
+                    var sourceDependencies = this.SourceDependencies.Where( d => d.GenerateSnapshotDependency )
+                        .Select( d => new TeamCitySnapshotDependency( d.CiBuildTypes[configuration] ) );
+
                     buildTeamCityConfiguration = new TeamCityBuildConfiguration(
                         this,
                         objectName: $"{configuration}Build",
@@ -1739,10 +1757,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         ArtifactRules = artifactRules,
                         AdditionalArtifactRules = additionalArtifactRules.ToArray(),
                         BuildTriggers = configurationInfo.BuildTriggers,
-                        SnapshotDependencyObjectNames = this.Dependencies?.Union( this.SourceDependencies )
-                            .Where( d => d.GenerateSnapshotDependency )
-                            .Select( d => d.CiBuildTypes[configuration] )
-                            .ToArray()
+                        SnapshotDependencies = artifactDependencies.Union( sourceDependencies ).ToArray()
                     };
 
                     teamCityBuildConfigurations.Add( buildTeamCityConfiguration );
@@ -1764,9 +1779,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         {
                             IsDeployment = true,
                             ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) },
-                            SnapshotDependencyObjectNames = this.Dependencies?.Union( this.SourceDependencies )
+                            SnapshotDependencies = this.Dependencies?.Union( this.SourceDependencies )
                                 .Where( d => d.GenerateSnapshotDependency )
-                                .Select( d => d.DeploymentBuildType )
+                                .Select( d => new TeamCitySnapshotDependency( d.DeploymentBuildType ) )
                                 .ToArray()
                         };
 
@@ -1788,9 +1803,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             buildAgentType: this.BuildAgentType )
                         {
                             IsDeployment = true,
-                            SnapshotDependencyObjectNames = teamCityDeploymentConfiguration == null
+                            SnapshotDependencies = teamCityDeploymentConfiguration == null
                                 ? null
-                                : new[] { teamCityDeploymentConfiguration.ObjectName },
+                                : new[] { new TeamCitySnapshotDependency( teamCityDeploymentConfiguration.ObjectName ) },
                             ArtifactDependencies = new[] { (buildTeamCityConfiguration.ObjectName, artifactRules) }
                         } );
                 }
@@ -1826,6 +1841,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             return true;
+        }
+
+        private static BuildConfiguration GetDependencyConfiguration( DependencyDefinition definition, DependencySource source )
+        {
+            if ( source.VersionFile == null )
+            {
+                throw new InvalidOperationException( $"The dependency '{definition.Name}' is not resolved." );
+            }
+
+            var project = Project.FromFile( source.VersionFile, new ProjectOptions() );
+            var property = project.AllEvaluatedProperties.Single( p => p.Name == $"{definition.NameWithoutDot}BuildConfiguration" );
+
+            ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
+
+            return Enum.Parse<BuildConfiguration>( property.EvaluatedValue );
         }
 
         private static bool TryAnalyzeGitHistory(

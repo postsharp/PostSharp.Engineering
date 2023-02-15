@@ -3,6 +3,7 @@
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
@@ -83,6 +84,7 @@ public class VersionFile
                 return false;
             }
 
+            // Set the default source of the dependency according to the build context.
             DependencySource dependencySource;
 
             if ( BuildContext.IsGuestDevice || !dependencyDefinition.GenerateSnapshotDependency )
@@ -97,6 +99,10 @@ public class VersionFile
                 }
 
                 dependencySource = DependencySource.CreateFeed( dependencyVersion, DependencyConfigurationOrigin.Default );
+            }
+            else if ( TeamCityHelper.IsTeamCityBuild() )
+            {
+                dependencySource = DependencySource.CreateLocalDependency( DependencyConfigurationOrigin.Default );
             }
             else
             {

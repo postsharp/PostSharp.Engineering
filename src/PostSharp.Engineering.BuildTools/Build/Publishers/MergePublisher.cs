@@ -207,7 +207,7 @@ public class MergePublisher : IndependentPublisher
         };
 
         // Do prepare step to get Version.Public.g.props to load up-to-date versions from.
-        if ( !context.Product.PrepareVersionsFile( context, buildSettings, out _ ) )
+        if ( !context.Product.PrepareVersionsFile( context, buildSettings, out _, out _ ) )
         {
             return false;
         }
@@ -226,7 +226,7 @@ public class MergePublisher : IndependentPublisher
             var dependency = Dependencies.Model.Dependencies.All.Single( d => d.Name == dependencyOverride.Key );
 
             // We don't automatically change version of Feed or Local dependencies.
-            if ( dependencySource.SourceKind == DependencySourceKind.Feed || dependencySource.SourceKind == DependencySourceKind.Local )
+            if ( dependencySource.SourceKind is DependencySourceKind.Feed or DependencySourceKind.Local or DependencySourceKind.LocalDependency )
             {
                 context.Console.WriteMessage( $"Skipping version update of local/feed dependency '{dependency.Name}'." );
 

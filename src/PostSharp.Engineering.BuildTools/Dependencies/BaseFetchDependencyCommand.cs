@@ -215,7 +215,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                             break;
 
                         case DependencySourceKind.Local:
-                            dependencySource = DependencySource.CreateLocal( DependencyConfigurationOrigin.Transitive );
+                            dependencySource = DependencySource.CreateLocalRepo( DependencyConfigurationOrigin.Transitive );
+
+                            break;
+
+                        case DependencySourceKind.LocalDependency:
+                            dependencySource = DependencySource.CreateLocalDependency( DependencyConfigurationOrigin.Transitive );
 
                             break;
 
@@ -370,16 +375,29 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
         private static bool ResolveLocalDependencies( BuildContext context, ImmutableDictionary<string, Dependency> dependencies )
         {
-            foreach ( var dependency in dependencies.Values.Where( d => d.Source.SourceKind == DependencySourceKind.Local ) )
+            foreach ( var dependency in dependencies.Values.Where(
+                         d => d.Source.SourceKind is DependencySourceKind.Local or DependencySourceKind.LocalDependency ) )
             {
                 if ( dependency.Source.VersionFile == null )
                 {
-                    dependency.Source.VersionFile = Path.GetFullPath(
-                        Path.Combine(
-                            context.RepoDirectory,
-                            "..",
-                            dependency.Definition.Name,
-                            dependency.Definition.Name + ".Import.props" ) );
+                    if ( dependency.Source.SourceKind == DependencySourceKind.Local )
+                    {
+                        dependency.Source.VersionFile = Path.GetFullPath(
+                            Path.Combine(
+                                context.RepoDirectory,
+                                "..",
+                                dependency.Definition.Name,
+                                dependency.Definition.Name + ".Import.props" ) );
+                    }
+                    else
+                    {
+                        dependency.Source.VersionFile = Path.GetFullPath(
+                            Path.Combine(
+                                context.RepoDirectory,
+                                "dependencies",
+                                dependency.Definition.Name,
+                                dependency.Definition.Name + ".version.props" ) );
+                    }
                 }
 
                 if ( !File.Exists( dependency.Source.VersionFile ) )
