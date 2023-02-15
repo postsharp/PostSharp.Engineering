@@ -1,10 +1,11 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using System;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
-    internal record TeamCitySnapshotDependency( string ObjectName, string? ArtifactsRule = null );
+    internal record TeamCitySnapshotDependency( string ObjectId, bool IsAbsoluteId, string? ArtifactsRules = null );
 
     internal class TeamCityBuildConfiguration
     {
@@ -28,9 +29,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public IBuildTrigger[]? BuildTriggers { get; init; }
 
-        public TeamCitySnapshotDependency[]? SnapshotDependencies { get; init; }
-
-        public (string ObjectName, string ArtifactRules)[]? ArtifactDependencies { get; init; }
+        public TeamCitySnapshotDependency[]? Dependencies { get; init; }
 
         public TeamCityBuildConfiguration( Product product, string objectName, string name, string buildArguments, string buildAgentType )
         {
@@ -143,37 +142,33 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Dependencies
-            var hasSnapshotDependencies = this.SnapshotDependencies is { Length: > 0 };
-            var hasArtifactDependencies = this.ArtifactDependencies is { Length: > 0 };
-            var hasDependencies = hasSnapshotDependencies || hasArtifactDependencies;
+            var hasSnapshotDependencies = this.Dependencies is { Length: > 0 };
 
-            if ( hasDependencies )
+            if ( hasSnapshotDependencies )
             {
                 writer.WriteLine(
                     $@"
     dependencies {{" );
-            }
 
-            // Snapshot dependencies.
-            if ( hasSnapshotDependencies )
-            {
-                foreach ( var dependency in this.SnapshotDependencies! )
+                foreach ( var dependency in this.Dependencies! )
                 {
+                    var objectName = dependency.IsAbsoluteId ? @$"AbsoluteId(""{dependency.ObjectId}"")" : dependency.ObjectId;
+
                     writer.WriteLine(
                         $@"
-        dependency({dependency.ObjectName}) {{
+        dependency({objectName}) {{
             snapshot {{
                      onDependencyFailure = FailureAction.FAIL_TO_START
             }}
 " );
 
-                    if ( dependency.ArtifactsRule != null )
+                    if ( dependency.ArtifactsRules != null )
                     {
                         writer.WriteLine(
                             $@"
             artifacts {{
                 cleanDestination = true
-                artifactRules = ""{dependency.ArtifactsRule}""
+                artifactRules = ""{dependency.ArtifactsRules}""
             }}" );
                     }
 
@@ -181,30 +176,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         $@"
         }}" );
                 }
-            }
 
-            // Artifact dependencies
-            if ( hasArtifactDependencies )
-            {
-                foreach ( var dependency in this.ArtifactDependencies! )
-                {
-                    writer.WriteLine(
-                        $@"
-        dependency({dependency.ObjectName}) {{
-            snapshot {{
-                onDependencyFailure = FailureAction.FAIL_TO_START
-            }}
-
-            artifacts {{
-                cleanDestination = true
-                artifactRules = ""{dependency.ArtifactRules}""
-            }}
-        }}" );
-                }
-            }
-
-            if ( hasDependencies )
-            {
                 writer.WriteLine(
                     $@"
      }}" );

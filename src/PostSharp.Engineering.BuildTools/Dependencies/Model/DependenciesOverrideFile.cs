@@ -18,15 +18,18 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
     /// </summary>
     public class DependenciesOverrideFile
     {
+        public BuildConfiguration Configuration { get; }
+
         public Dictionary<string, DependencySource> Dependencies { get; } = new();
 
         public string? LocalBuildFile { get; set; }
 
         public string FilePath { get; }
 
-        private DependenciesOverrideFile( string path )
+        private DependenciesOverrideFile( string path, BuildConfiguration configuration )
         {
             this.FilePath = path;
+            this.Configuration = configuration;
         }
 
         /// <summary>
@@ -59,7 +62,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 context.Product.EngineeringDirectory,
                 $"Versions.{configuration}.g.props" );
 
-            file = new DependenciesOverrideFile( configurationSpecificVersionFilePath );
+            file = new DependenciesOverrideFile( configurationSpecificVersionFilePath, configuration );
 
             if ( !file.TryLoadDefaultDependencies( context ) )
             {
@@ -428,6 +431,16 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             }
 
             context.Console.Out.Write( table );
+        }
+
+        public void Fetch( BuildContext context )
+        {
+            // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 
+            if ( this.Dependencies.Any( d => d.Value.SourceKind != DependencySourceKind.Feed && d.Value.VersionFile == null ) )
+            {
+                context.Console.WriteMessage( $"Fetching dependencies for configuration {this.Configuration}." );
+                BaseFetchDependencyCommand.UpdateOrFetchDependencies( context, this.Configuration, this, false );
+            }
         }
     }
 }

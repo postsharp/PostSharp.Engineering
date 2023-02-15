@@ -157,13 +157,15 @@ object PublicDeployment : BuildType({
 
         dependency(PublicBuild) {
             snapshot {
-                onDependencyFailure = FailureAction.FAIL_TO_START
+                     onDependencyFailure = FailureAction.FAIL_TO_START
             }
+
 
             artifacts {
                 cleanDestination = true
                 artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults"
             }
+
         }
 
      }
