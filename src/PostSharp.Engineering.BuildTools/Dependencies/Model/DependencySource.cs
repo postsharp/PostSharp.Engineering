@@ -14,7 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// <summary>
         /// Gets the NuGet version of the dependency, if <see cref="SourceKind"/> is set to <see cref="DependencySourceKind.Feed"/>.
         /// </summary>
-        public string? Version { get; internal set; }
+        public string? Version { get; private set; }
 
         public ICiBuildSpec? BuildServerSource { get; internal set; }
 
@@ -71,16 +71,16 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         {
             switch ( this.SourceKind )
             {
-                case DependencySourceKind.BuildServer:
-                    return $"BuildServer, {this.BuildServerSource}, Origin={this.Origin}";
+                case DependencySourceKind.BuildServer or DependencySourceKind.RestoredDependency:
+                    return $"{this.SourceKind}, {this.BuildServerSource}, Origin={this.Origin}";
 
-                case DependencySourceKind.Local or DependencySourceKind.RestoredDependency:
+                case DependencySourceKind.Local:
                     {
-                        return $"{this.SourceKind}, Origin='{this.Origin}'";
+                        return $"{this.SourceKind}, Origin={this.Origin}";
                     }
 
                 case DependencySourceKind.Feed:
-                    return $"{this.SourceKind}, Version='{this.Version}', Origin='{this.Origin}'";
+                    return $"{this.SourceKind}, {this.Version}, Origin={this.Origin}";
 
                 default:
                     return "<Error>";

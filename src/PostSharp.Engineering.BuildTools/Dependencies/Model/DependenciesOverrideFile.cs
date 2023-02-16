@@ -305,10 +305,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             {
                 var ignoreDependency = false;
 
+                var dependencySource = dependency.Value;
+
                 var item = new XElement(
                     "LocalDependencySource",
                     new XAttribute( "Include", dependency.Key ),
-                    new XElement( "Kind", dependency.Value.SourceKind ) );
+                    new XElement( "Kind", dependencySource.SourceKind ) );
 
                 void AddIfNotNull( string name, string? value )
                 {
@@ -318,9 +320,27 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     }
                 }
 
-                switch ( dependency.Value.SourceKind )
+                void WriteBuildServerSource()
+                {
+                    switch ( dependencySource.BuildServerSource )
+                    {
+                        case CiLatestBuildOfBranch branch:
+                            AddIfNotNull( "Branch", branch.Name );
+
+                            break;
+
+                        case CiBuildId buildId:
+                            AddIfNotNull( "BuildNumber", buildId.BuildNumber.ToString( CultureInfo.InvariantCulture ) );
+                            AddIfNotNull( "CiBuildTypeId", buildId.BuildTypeId );
+
+                            break;
+                    }
+                }
+
+                switch ( dependencySource.SourceKind )
                 {
                     case DependencySourceKind.BuildServer:
+                    case DependencySourceKind.RestoredDependency when !TeamCityHelper.IsTeamCityBuild():
                         {
                             var dependencyDefinition = context.Product.Dependencies.SingleOrDefault( p => p.Name == dependency.Key )
                                                        ?? Model.Dependencies.All.SingleOrDefault( d => d.Name == dependency.Key )
@@ -333,26 +353,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                             }
                             else
                             {
-                                var versionFile = dependency.Value.VersionFile;
+                                var versionFile = dependencySource.VersionFile;
 
                                 if ( versionFile == null )
                                 {
                                     throw new InvalidOperationException( "The VersionFile property of dependencies should be set." );
                                 }
 
-                                switch ( dependency.Value.BuildServerSource )
-                                {
-                                    case CiLatestBuildOfBranch branch:
-                                        AddIfNotNull( "Branch", branch.Name );
-
-                                        break;
-
-                                    case CiBuildId buildId:
-                                        AddIfNotNull( "BuildNumber", buildId.BuildNumber.ToString( CultureInfo.InvariantCulture ) );
-                                        AddIfNotNull( "CiBuildTypeId", buildId.BuildTypeId );
-
-                                        break;
-                                }
+                                WriteBuildServerSource();
 
                                 AddIfNotNull( "VersionFile", versionFile );
                                 AddImport( versionFile );
@@ -385,13 +393,15 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                     dependency.Key + ".version.props" ) );
 
                             AddImport( importProjectFile );
+
+                            WriteBuildServerSource();
                         }
 
                         break;
 
                     case DependencySourceKind.Feed:
                         {
-                            AddIfNotNull( "Version", dependency.Value.Version );
+                            AddIfNotNull( "Version", dependencySource.Version );
                         }
 
                         break;
@@ -400,7 +410,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         throw new InvalidVersionFileException();
                 }
 
-                item.Add( new XElement( "Origin", dependency.Value.Origin ) );
+                item.Add( new XElement( "Origin", dependencySource.Origin ) );
 
                 if ( !ignoreDependency )
                 {
