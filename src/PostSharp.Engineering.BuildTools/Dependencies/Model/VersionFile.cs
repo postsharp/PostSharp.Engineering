@@ -102,7 +102,7 @@ public class VersionFile
             }
             else if ( TeamCityHelper.IsTeamCityBuild() )
             {
-                dependencySource = DependencySource.CreateLocalDependency( DependencyConfigurationOrigin.Default );
+                dependencySource = DependencySource.CreateRestoredDependency( context, dependencyDefinition, DependencyConfigurationOrigin.Default );
             }
             else
             {

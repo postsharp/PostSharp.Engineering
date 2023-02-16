@@ -28,8 +28,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                     break;
 
-                case DependencySourceKind.LocalDependency:
-                    dependencySource = DependencySource.CreateLocalDependency( DependencyConfigurationOrigin.Override );
+                case DependencySourceKind.RestoredDependency:
+                    dependencySource = DependencySource.CreateRestoredDependency( context, dependencyDefinition, DependencyConfigurationOrigin.Override );
 
                     break;
 

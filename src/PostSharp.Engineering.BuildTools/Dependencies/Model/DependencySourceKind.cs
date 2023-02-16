@@ -22,6 +22,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// <summary>
         /// Means that the artefacts have been restored under the .\dependencies directory.
         /// </summary>
-        LocalDependency
+        RestoredDependency
     }
 }

@@ -194,23 +194,39 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     // Create a DependencySource.
                     DependencySource dependencySource;
 
+                    bool TryGetBuildId( [NotNullWhen( true )] out CiBuildId? ciBuildId )
+                    {
+                        var buildNumber = transitiveDependency.GetMetadataValue( "BuildNumber" );
+                        var ciBuildTypeId = transitiveDependency.GetMetadataValue( "CiBuildTypeId" );
+
+                        if ( string.IsNullOrEmpty( buildNumber ) || string.IsNullOrEmpty( ciBuildTypeId ) )
+                        {
+                            context.Console.WriteError(
+                                $"The dependency '{name}' must have both BuildNumber and CiBuildTypeId properties in {directDependency.Source.VersionFile}." );
+
+                            ciBuildId = null;
+
+                            return false;
+                        }
+
+                        ciBuildId = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId );
+
+                        return true;
+                    }
+
                     switch ( sourceKind )
                     {
                         case DependencySourceKind.BuildServer:
-                            var buildNumber = transitiveDependency.GetMetadataValue( "BuildNumber" );
-                            var ciBuildTypeId = transitiveDependency.GetMetadataValue( "CiBuildTypeId" );
-
-                            if ( string.IsNullOrEmpty( buildNumber ) || string.IsNullOrEmpty( ciBuildTypeId ) )
                             {
-                                context.Console.WriteError(
-                                    $"The dependency '{name}' must have both BuildNumber and CiBuildTypeId properties in {directDependency.Source.VersionFile}." );
+                                if ( !TryGetBuildId( out var buildId ) )
+                                {
+                                    return false;
+                                }
 
-                                return false;
+                                dependencySource = DependencySource.CreateBuildServerSource(
+                                    buildId,
+                                    DependencyConfigurationOrigin.Transitive );
                             }
-
-                            dependencySource = DependencySource.CreateBuildServerSource(
-                                new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId ),
-                                DependencyConfigurationOrigin.Transitive );
 
                             break;
 
@@ -219,8 +235,15 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                             break;
 
-                        case DependencySourceKind.LocalDependency:
-                            dependencySource = DependencySource.CreateLocalDependency( DependencyConfigurationOrigin.Transitive );
+                        case DependencySourceKind.RestoredDependency:
+                            {
+                                if ( !TryGetBuildId( out var buildId ) )
+                                {
+                                    return false;
+                                }
+
+                                dependencySource = DependencySource.CreateRestoredDependency( buildId, DependencyConfigurationOrigin.Transitive );
+                            }
 
                             break;
 
@@ -376,7 +399,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         private static bool ResolveLocalDependencies( BuildContext context, ImmutableDictionary<string, Dependency> dependencies )
         {
             foreach ( var dependency in dependencies.Values.Where(
-                         d => d.Source.SourceKind is DependencySourceKind.Local or DependencySourceKind.LocalDependency ) )
+                         d => d.Source.SourceKind is DependencySourceKind.Local or DependencySourceKind.RestoredDependency ) )
             {
                 if ( dependency.Source.VersionFile == null )
                 {

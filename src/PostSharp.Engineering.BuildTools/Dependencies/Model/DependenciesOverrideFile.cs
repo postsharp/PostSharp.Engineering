@@ -1,6 +1,7 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using System;
@@ -81,13 +82,15 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 return false;
             }
 
-            if ( !File.Exists( file.FilePath ) )
+            var filePath = file.FilePath;
+
+            if ( !File.Exists( filePath ) )
             {
                 return true;
             }
 
             // Override defaults from the version file.
-            var document = XDocument.Load( file.FilePath );
+            var document = XDocument.Load( filePath );
             var project = document.Root!;
 
             var localImport = project.Elements( "Import" )
@@ -114,7 +117,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     if ( !Enum.TryParse<DependencySourceKind>( kindString, out var kind ) )
                     {
                         context.Console.WriteWarning(
-                            $"The dependency kind '{kindString}' defined in '{file.FilePath}' is not supported. Skipping the parsing of this dependency." );
+                            $"The dependency kind '{kindString}' defined in '{filePath}' is not supported. Skipping the parsing of this dependency." );
 
                         continue;
                     }
@@ -124,6 +127,42 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     if ( originString == null || !Enum.TryParse( originString, out DependencyConfigurationOrigin origin ) )
                     {
                         origin = DependencyConfigurationOrigin.Unknown;
+                    }
+
+                    bool TryGetBuildId( out string? versionFile1, [NotNullWhen( true )] out ICiBuildSpec? ciBuildSpec )
+                    {
+                        var branch = item.Element( "Branch" )?.Value;
+                        var buildNumber = item.Element( "BuildNumber" )?.Value;
+                        var ciBuildTypeId = item.Element( "CiBuildTypeId" )?.Value;
+                        versionFile1 = item.Element( "VersionFile" )?.Value;
+
+                        if ( !string.IsNullOrEmpty( buildNumber ) )
+                        {
+                            if ( string.IsNullOrEmpty( ciBuildTypeId ) )
+                            {
+                                context.Console.WriteError( $"The property CiBuildTypeId of dependency {name} is required in '{filePath}'." );
+
+                                ciBuildSpec = null;
+
+                                return false;
+                            }
+
+                            ciBuildSpec = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId );
+                        }
+                        else if ( !string.IsNullOrEmpty( branch ) )
+                        {
+                            ciBuildSpec = new CiLatestBuildOfBranch( branch );
+                        }
+                        else
+                        {
+                            context.Console.WriteError( $"The dependency {name}  in '{filePath}' requires one of these properties: Branch or BuildNumber." );
+
+                            ciBuildSpec = null;
+
+                            return false;
+                        }
+
+                        return true;
                     }
 
                     switch ( kind )
@@ -153,51 +192,48 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                 break;
                             }
 
-                        case DependencySourceKind.LocalDependency:
+                        case DependencySourceKind.RestoredDependency:
                             {
-                                var dependencySource = DependencySource.CreateLocalDependency( origin );
+                                if ( !TryGetBuildId( out var versionFile, out var buildSpec ) )
+                                {
+                                    return false;
+                                }
 
-                                dependencySource.VersionFile = Path.GetFullPath(
-                                    Path.Combine(
-                                        context.RepoDirectory,
-                                        "dependencies",
-                                        name,
-                                        name + ".version.props" ) );
+                                if ( TeamCityHelper.IsTeamCityBuild() )
+                                {
+                                    var dependencySource = DependencySource.CreateRestoredDependency( (CiBuildId) buildSpec, origin );
 
-                                file.Dependencies[name] = dependencySource;
+                                    dependencySource.VersionFile = Path.GetFullPath(
+                                        Path.Combine(
+                                            context.RepoDirectory,
+                                            "dependencies",
+                                            name,
+                                            name + ".version.props" ) );
+
+                                    file.Dependencies[name] = dependencySource;
+                                }
+                                else
+                                {
+                                    // We can have a LocalDependency on a developer machine because of transitive dependencies
+                                    // of TeamCity build. In this case, we consider that the source is the CI build itself
+                                    // -- the exact build number with which the first-level dependency was built.
+
+                                    var dependencySource =
+                                        DependencySource.CreateBuildServerSource(
+                                            buildSpec,
+                                            origin );
+
+                                    dependencySource.VersionFile = versionFile;
+                                    file.Dependencies[name] = dependencySource;
+                                }
 
                                 break;
                             }
 
                         case DependencySourceKind.BuildServer:
                             {
-                                var branch = item.Element( "Branch" )?.Value;
-                                var buildNumber = item.Element( "BuildNumber" )?.Value;
-                                var ciBuildTypeId = item.Element( "CiBuildTypeId" )?.Value;
-                                var versionFile = item.Element( "VersionFile" )?.Value;
-
-                                ICiBuildSpec buildSpec;
-
-                                if ( !string.IsNullOrEmpty( buildNumber ) )
+                                if ( !TryGetBuildId( out var versionFile, out var buildSpec ) )
                                 {
-                                    if ( string.IsNullOrEmpty( ciBuildTypeId ) )
-                                    {
-                                        context.Console.WriteError( $"The property CiBuildTypeId of dependency {name} is required in '{file.FilePath}'." );
-
-                                        return false;
-                                    }
-
-                                    buildSpec = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), ciBuildTypeId );
-                                }
-                                else if ( !string.IsNullOrEmpty( branch ) )
-                                {
-                                    buildSpec = new CiLatestBuildOfBranch( branch );
-                                }
-                                else
-                                {
-                                    context.Console.WriteError(
-                                        $"The dependency {name}  in '{file.FilePath}' requires one of these properties: Branch or BuildNumber." );
-
                                     return false;
                                 }
 
@@ -228,7 +264,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             var project = new XElement( "Project", new XAttribute( "InitialTargets", "VerifyProductDependencies" ) );
             var document = new XDocument( project );
 
-            project.Add( new XComment( $"File generated by PostSharp.Engineering  {VersionHelper.EngineeringVersion}." ) );
+            project.Add( new XComment( $"File generated by PostSharp.Engineering {VersionHelper.EngineeringVersion}." ) );
 
             var properties = new XElement( "PropertyGroup" );
             project.Add( properties );
@@ -339,7 +375,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                         break;
 
-                    case DependencySourceKind.LocalDependency:
+                    case DependencySourceKind.RestoredDependency:
                         {
                             var importProjectFile = Path.GetFullPath(
                                 Path.Combine(

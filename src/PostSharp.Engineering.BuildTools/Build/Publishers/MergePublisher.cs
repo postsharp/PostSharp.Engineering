@@ -226,7 +226,7 @@ public class MergePublisher : IndependentPublisher
             var dependency = Dependencies.Model.Dependencies.All.Single( d => d.Name == dependencyOverride.Key );
 
             // We don't automatically change version of Feed or Local dependencies.
-            if ( dependencySource.SourceKind is DependencySourceKind.Feed or DependencySourceKind.Local or DependencySourceKind.LocalDependency )
+            if ( dependencySource.SourceKind is DependencySourceKind.Feed or DependencySourceKind.Local or DependencySourceKind.RestoredDependency )
             {
                 context.Console.WriteMessage( $"Skipping version update of local/feed dependency '{dependency.Name}'." );
 

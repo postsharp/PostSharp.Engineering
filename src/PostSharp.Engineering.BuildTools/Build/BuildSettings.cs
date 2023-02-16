@@ -16,7 +16,11 @@ namespace PostSharp.Engineering.BuildTools.Build
 
         [Description( "Creates a numbered build (typically for an internal CI build). This option is ignored when the build configuration is 'Public'." )]
         [CommandOption( "--buildNumber" )]
-        public int BuildNumber { get; set; }
+        public int? BuildNumber { get; set; }
+
+        [Description( "Specifies the name of the build type in TeamCity." )]
+        [CommandOption( "--buildType" )]
+        public string? BuildType { get; set; }
 
         [Description( "Sets the verbosity" )]
         [CommandOption( "-v|--verbosity" )]
@@ -27,7 +31,7 @@ namespace PostSharp.Engineering.BuildTools.Build
         [CommandOption( "--no-dependencies" )]
         public bool NoDependencies { get; set; }
 
-        [Description( "Determines wether test-only assemblies should be included in the operation" )]
+        [Description( "Determines whether test-only assemblies should be included in the operation" )]
         [CommandOption( "--include-tests" )]
         public bool IncludeTests { get; set; }
 
@@ -37,7 +41,7 @@ namespace PostSharp.Engineering.BuildTools.Build
 
         [Description(
             "Specifies the solution that should be built. The list of solutions and their id is given by the `list-solutions` command." +
-            "Setting this property automaticallys adds the --no-dependencies option." )]
+            "Setting this property automatically adds the --no-dependencies option." )]
         [CommandOption( "--solution" )]
         public int? SolutionId
         {
@@ -81,8 +85,8 @@ namespace PostSharp.Engineering.BuildTools.Build
         public VersionSpec GetVersionSpec( BuildConfiguration configuration )
             => configuration == BuildConfiguration.Public
                 ? new VersionSpec( VersionKind.Public )
-                : this.BuildNumber > 0
-                    ? new VersionSpec( VersionKind.Numbered, this.BuildNumber )
+                : this.BuildNumber != null
+                    ? new VersionSpec( VersionKind.Numbered, this.BuildNumber.Value )
                     : new VersionSpec( VersionKind.Local );
 
         [Description( "Does not sign the assemblies and packages" )]

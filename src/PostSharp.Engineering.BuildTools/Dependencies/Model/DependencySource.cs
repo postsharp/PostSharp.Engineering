@@ -1,5 +1,12 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
+using System;
+using System.Globalization;
+using System.IO;
+using System.Xml.Linq;
+using System.Xml.XPath;
+
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
     public sealed class DependencySource
@@ -20,8 +27,39 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencySource CreateLocalRepo( DependencyConfigurationOrigin origin )
             => new() { Origin = origin, SourceKind = DependencySourceKind.Local };
 
-        public static DependencySource CreateLocalDependency( DependencyConfigurationOrigin origin )
-            => new() { Origin = origin, SourceKind = DependencySourceKind.LocalDependency };
+        /// <summary>
+        /// Creates a <see cref="DependencySource"/> that represents a build server artifact dependency that has been restored,
+        /// and that exists under the 'dependencies' directory.
+        /// </summary>
+        public static DependencySource CreateRestoredDependency(
+            BuildContext context,
+            DependencyDefinition dependencyDefinition,
+            DependencyConfigurationOrigin origin )
+        {
+            var path = Path.Combine( context.RepoDirectory, "dependencies", dependencyDefinition.Name, $"{dependencyDefinition.Name}.version.props" );
+            var document = XDocument.Load( path );
+
+            var buildNumber = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependencyDefinition.NameWithoutDot}BuildNumber" )?.Value;
+
+            if ( buildNumber == null )
+            {
+                throw new InvalidOperationException( $"The file '{path}' does not have a property {dependencyDefinition.NameWithoutDot}BuildNumber" );
+            }
+
+            var buildType = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependencyDefinition.NameWithoutDot}BuildType" )?.Value;
+
+            if ( buildType == null )
+            {
+                throw new InvalidOperationException( $"The file '{path}' does not have a property {dependencyDefinition.NameWithoutDot}BuildType" );
+            }
+
+            var buildId = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), buildType );
+
+            return CreateRestoredDependency( buildId, origin );
+        }
+
+        public static DependencySource CreateRestoredDependency( CiBuildId buildId, DependencyConfigurationOrigin origin )
+            => new() { Origin = origin, SourceKind = DependencySourceKind.RestoredDependency, BuildServerSource = buildId };
 
         public static DependencySource CreateFeed( string? version, DependencyConfigurationOrigin origin )
             => new() { Origin = origin, SourceKind = DependencySourceKind.Feed, Version = version };
@@ -36,7 +74,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 case DependencySourceKind.BuildServer:
                     return $"BuildServer, {this.BuildServerSource}, Origin={this.Origin}";
 
-                case DependencySourceKind.Local or DependencySourceKind.LocalDependency:
+                case DependencySourceKind.Local or DependencySourceKind.RestoredDependency:
                     {
                         return $"{this.SourceKind}, Origin='{this.Origin}'";
                     }
