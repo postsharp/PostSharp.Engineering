@@ -54,7 +54,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
             allArguments.Add( $"-bl:{binaryLogFilePath}" );
 
             // Get the test.json file location relative to solution file based on full solution location path.
-            var solutionPath = FileSystemHelper.GetFinalPath( this.SolutionPath );
+            var solutionPath = FileSystemHelper.GetFinalPath( Path.Combine( context.RepoDirectory, this.SolutionPath ) );
 
             var testJsonFile = Path.Combine(
                 Path.GetDirectoryName( Path.GetFullPath( solutionPath ) )
