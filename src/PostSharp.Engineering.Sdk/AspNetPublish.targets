@@ -1,0 +1,24 @@
+<Project>
+
+    <!-- We don't want debug build to be slown down by packing. -->
+    <PropertyGroup Condition="'$(Configuration)'=='Release' AND '$(IsPublishable)'!='false'">
+        <DeployOnBuild>true</DeployOnBuild>
+        <PackageAsSingleFile>true</PackageAsSingleFile>
+        <WebPublishMethod>Package</WebPublishMethod>
+        <PublishProfile>Release</PublishProfile>
+        <SkipInvalidConfigurations>false</SkipInvalidConfigurations>
+        <GenerateSampleDeployScript>false</GenerateSampleDeployScript>
+        <!-- It is not possible to disable generation of the manifest, so we set the path to bin not to have it in the artifacts, since we don't need it for az deploy. -->
+        <PackageSourceManifest>$(OutputPath)\$(MSBuildProjectName).SourceManifest.xml</PackageSourceManifest>
+        <PackageLocation>$(PackageOutputPath)</PackageLocation>
+        <DefaultPackageFileName>$(AssemblyName).$(Version).zip</DefaultPackageFileName>
+    </PropertyGroup>
+
+    <!-- To avoid error of build validation in engineering, we create a fake public package for debug build. -->
+    <Target Name="FakePublish" AfterTargets="Build"
+            Condition="'$(Configuration)'=='Debug' AND '$(IsPublishable)'!='false'">
+        <MakeDir Directories="$(PackageOutputPath)" />
+        <Touch Files="$(PackageOutputPath)\$(AssemblyName).$(Version).zip" AlwaysCreate="true" />
+    </Target>
+
+</Project>
