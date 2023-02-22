@@ -1872,6 +1872,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             IsDeployment = true,
                             Dependencies = buildDependencies.Where( d => d.ArtifactsRules != null )
                                 .Concat( new[] { new TeamCitySnapshotDependency( buildTeamCityConfiguration.ObjectName, false, artifactRules ) } )
+                                .Concat(
+                                    this.Dependencies.Union( this.SourceDependencies )
+                                        .Where( d => d.GenerateSnapshotDependency )
+                                        .Select( d => new TeamCitySnapshotDependency( d.DeploymentBuildType, true ) ) )
                                 .ToArray()
                         };
 
