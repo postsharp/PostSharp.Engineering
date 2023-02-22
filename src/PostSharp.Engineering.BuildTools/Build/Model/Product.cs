@@ -171,10 +171,77 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var configuration = settings.BuildConfiguration;
             var buildConfigurationInfo = this.Configurations[configuration];
 
-            // Build dependencies.
-            if ( !settings.NoDependencies && !this.Prepare( context, settings ) )
+            // Skip if we have a date tag and a fresh build.
+            DateTime dateTag;
+
+            if ( settings.DateTag != null )
             {
-                return false;
+                dateTag = DateTime.FromBinary( settings.DateTag.Value );
+                var propsFile = this.GetVersionPropertiesFilePath( context, settings );
+
+                if ( !File.Exists( propsFile ) || File.GetLastWriteTime( propsFile ) > dateTag )
+                {
+                    context.Console.WriteMessage( "There is already a fresh build." );
+
+                    return true;
+                }
+            }
+            else
+            {
+                dateTag = DateTime.Now;
+            }
+
+            // Build dependencies.
+            DependenciesOverrideFile? dependenciesOverrideFile;
+
+            if ( !settings.NoDependencies )
+            {
+                if ( !this.Prepare( context, settings, out dependenciesOverrideFile ) )
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                // Read the resolved dependencies.
+                if ( !DependenciesOverrideFile.TryLoad( context, configuration, out dependenciesOverrideFile ) )
+                {
+                    return false;
+                }
+            }
+
+            // If we have a recursive build, build local dependencies.
+            if ( settings.Recursive )
+            {
+                foreach ( var dependency in dependenciesOverrideFile.Dependencies )
+                {
+                    if ( dependency.Value.SourceKind == DependencySourceKind.Local )
+                    {
+                        context.Console.WriteHeading( $"Build dependency {dependency.Key}" );
+
+                        var dependencyDirectory = Path.GetDirectoryName( dependency.Value.VersionFile! )!;
+
+                        var buildFile = Path.Combine( dependencyDirectory, "Build.ps1" );
+
+                        if ( !File.Exists( buildFile ) )
+                        {
+                            context.Console.WriteError( $"Cannot find '{buildFile}'." );
+
+                            return false;
+                        }
+
+                        if ( !ToolInvocationHelper.InvokePowershell(
+                                context.Console,
+                                buildFile,
+                                $"build --recursive --if-older={dateTag.ToBinary()} --nologo",
+                                dependencyDirectory ) )
+                        {
+                            context.Console.WriteError( $"Cannot build the dependency {dependency.Key}." );
+
+                            return false;
+                        }
+                    }
+                }
             }
 
             // Delete the root import file in the repo because the presence of this file means a successful build.
@@ -341,10 +408,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteMessage( $"Creating '{consolidatedDirectory}'." );
 
                 // Copy dependencies.
-                if ( !DependenciesOverrideFile.TryLoad( context, configuration, out var dependenciesOverrideFile ) )
-                {
-                    return false;
-                }
 
                 foreach ( var dependency in dependenciesOverrideFile.Dependencies )
                 {
@@ -742,7 +805,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return Enum.Parse<BuildConfiguration>( configuration );
         }
 
-        public bool Prepare( BuildContext context, BuildSettings settings )
+        public bool Prepare( BuildContext context, BuildSettings settings ) => this.Prepare( context, settings, out _ );
+
+        public bool Prepare( BuildContext context, BuildSettings settings, [NotNullWhen( true )] out DependenciesOverrideFile? dependenciesOverrideFile )
         {
             if ( !settings.NoDependencies )
             {
@@ -754,11 +819,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteError(
                     "Cannot prepare a public configuration on a local machine without --force because it may corrupt the package cache." );
 
+                dependenciesOverrideFile = null;
+
                 return false;
             }
 
             // Prepare the versions file.
-            if ( !this.PrepareVersionsFile( context, settings, out var packageVersion, out _ ) )
+            if ( !this.PrepareVersionsFile( context, settings, out var packageVersion, out dependenciesOverrideFile ) )
             {
                 return false;
             }
@@ -860,6 +927,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
+        private string GetVersionPropertiesFilePath( BuildContext context, BuildSettings settings )
+        {
+            var privateArtifactsRelativeDir =
+                this.PrivateArtifactsDirectory.ToString( new BuildInfo( null!, settings.BuildConfiguration, this ) );
+
+            var artifactsDir = Path.Combine( context.RepoDirectory, privateArtifactsRelativeDir );
+
+            var propsFileName = $"{this.ProductName}.version.props";
+            var propsFilePath = Path.Combine( artifactsDir, propsFileName );
+
+            return propsFilePath;
+        }
+
         public bool PrepareVersionsFile(
             BuildContext context,
             BuildSettings settings,
@@ -871,18 +951,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteHeading( "Preparing the version file" );
 
-            var privateArtifactsRelativeDir =
-                this.PrivateArtifactsDirectory.ToString( new BuildInfo( null!, configuration, this ) );
-
-            var artifactsDir = Path.Combine( context.RepoDirectory, privateArtifactsRelativeDir );
-
-            if ( !Directory.Exists( artifactsDir ) )
-            {
-                Directory.CreateDirectory( artifactsDir );
-            }
-
-            var propsFileName = $"{this.ProductName}.version.props";
-            var propsFilePath = Path.Combine( artifactsDir, propsFileName );
+            var propsFilePath = this.GetVersionPropertiesFilePath( context, settings );
+            Directory.CreateDirectory( Path.GetDirectoryName( propsFilePath )! );
 
             // Load Versions.g.props.
             if ( !DependenciesOverrideFile.TryLoad( context, configuration, out dependenciesOverrideFile ) )
@@ -1706,7 +1776,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     continue;
                 }
-                
+
                 var versionInfo = new BuildInfo( packageVersion, configuration, this );
 
                 var publicArtifactsDirectory =
@@ -1767,10 +1837,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     .Select( d => new TeamCitySnapshotDependency( d.CiBuildTypes[configuration], true ) );
 
                 var buildDependencies = snapshotDependencies.Concat( sourceDependencies ).ToArray();
-                
-                TeamCityBuildConfiguration? buildTeamCityConfiguration = null;
-                
-                buildTeamCityConfiguration = new TeamCityBuildConfiguration(
+
+                var buildTeamCityConfiguration = new TeamCityBuildConfiguration(
                     this,
                     objectName: $"{configuration}Build",
                     name: configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
@@ -1785,7 +1853,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 };
 
                 teamCityBuildConfigurations.Add( buildTeamCityConfiguration );
-            
+
                 TeamCityBuildConfiguration? teamCityDeploymentConfiguration = null;
 
                 // Create a TeamCity configuration for Deploy.
@@ -1839,7 +1907,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 var dependencyDefinitions = this.Dependencies;
 
-                if ( dependencyDefinitions != null )
+                if ( dependencyDefinitions != null! )
                 {
                     teamCityBuildConfigurations.Add(
                         new TeamCityBuildConfiguration(

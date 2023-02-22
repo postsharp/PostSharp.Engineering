@@ -53,6 +53,15 @@ namespace PostSharp.Engineering.BuildTools.Build
             }
         }
 
+        [Description( "Recursively builds any local dependency before building the current repo." )]
+        [CommandOption( "--recursive" )]
+        public bool Recursive { get; set; }
+
+        [Description(
+            "Does not build if there is already a build newer than the indicated date. This setting is used internally to implement --recursive, and should not be used manually." )]
+        [CommandOption( "--if-older", IsHidden = true )]
+        public long? DateTag { get; set; }
+
         public BuildSettings WithIncludeTests( bool value )
         {
             var clone = (BuildSettings) this.MemberwiseClone();

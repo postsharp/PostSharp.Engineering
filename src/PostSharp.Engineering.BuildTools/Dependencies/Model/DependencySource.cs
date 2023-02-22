@@ -14,7 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// <summary>
         /// Gets the NuGet version of the dependency, if <see cref="SourceKind"/> is set to <see cref="DependencySourceKind.Feed"/>.
         /// </summary>
-        public string? Version { get; private set; }
+        public string? Version { get; private init; }
 
         public ICiBuildSpec? BuildServerSource { get; internal set; }
 
