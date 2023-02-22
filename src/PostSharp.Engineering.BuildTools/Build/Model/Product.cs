@@ -1954,8 +1954,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // Check if we bumped since last deployment.
-            hasBumpSinceLastDeployment = gitLogOutput.Contains( "VERSION_BUMP", StringComparison.OrdinalIgnoreCase );
+            // Check if we bumped since last deployment by looking in the Git log. We cannot match the last line because it would mean that
+            // the last commit to be released was specifically the bumping commit.
+            var gitLog = gitLogOutput.Split( new[] { '\n', '\r' }, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries );
+
+            var lastVersionDump = gitLog.Select( ( s, i ) => (Log: s, LineNumber: i) )
+                .FirstOrDefault( s => s.Log.Contains( "<<VERSION_BUMP>>", StringComparison.OrdinalIgnoreCase ) );
+
+            hasBumpSinceLastDeployment = lastVersionDump.Log != null && lastVersionDump.LineNumber != gitLog.Length - 1;
 
             // Get count of commits since last deployment excluding version bumps and check if there are any changes.
             ToolInvocationHelper.InvokeTool(
