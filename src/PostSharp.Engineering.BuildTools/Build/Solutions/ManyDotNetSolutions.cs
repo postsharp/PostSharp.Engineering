@@ -1,12 +1,14 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using Microsoft.Extensions.FileSystemGlobbing;
-using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Utilities;
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.BuildTools.Build.Solutions;
 
@@ -17,98 +19,168 @@ public class ManyDotNetSolutions : Solution
     /// <summary>
     /// Initializes a new instance of the <see cref="ManyDotNetSolutions"/> class.
     /// </summary>
-    /// <param name="solutions">A clobbing pattern relative to the repo root directory.</param>
-    public ManyDotNetSolutions( string solutions ) : base( solutions ) { }
+    /// <param name="directory">A directory.</param>
+    public ManyDotNetSolutions( string directory ) : base( directory )
+    {
+        this.IsTestOnly = true;
+    }
 
     public override bool Build( BuildContext context, BuildSettings settings )
     {
-        var success = true;
-
-        if ( !this.TryGetSolutions( context, out var solutions ) )
-        {
-            return false;
-        }
-
-        foreach ( var solution in solutions )
-        {
-            success &= solution.Build( context, settings );
-        }
-
-        return success;
+        throw new NotSupportedException();
     }
 
     public override bool Pack( BuildContext context, BuildSettings settings )
     {
-        var success = true;
-
-        if ( !this.TryGetSolutions( context, out var solutions ) )
-        {
-            return false;
-        }
-
-        foreach ( var solution in solutions )
-        {
-            success &= solution.Pack( context, settings );
-        }
-
-        return success;
+        throw new NotSupportedException();
     }
 
     public override bool Test( BuildContext context, BuildSettings settings )
     {
-        var success = true;
+        var failedProjects = new List<DotNetSolution>();
 
         if ( !this.TryGetSolutions( context, out var solutions ) )
         {
             return false;
         }
 
+        var tasks = new List<Task>();
+        var semaphore = new SemaphoreSlim( Environment.ProcessorCount );
+        var consoleSync = new object();
+
         foreach ( var solution in solutions )
         {
-            success &= solution.Test( context, settings );
+            // We need to build explicitly because some projects may not have a test target,
+            // and may be ignored if we only test.
+
+            var task = Task.Run(
+                async () =>
+                {
+                    await semaphore.WaitAsync();
+
+                    // Write the build output to a buffer so we don't get mixed output.
+                    var bufferingConsole = BufferingConsoleHelper.Create( context.Console );
+                    var bufferingContext = context.WithConsoleHelper( bufferingConsole );
+
+                    try
+                    {
+                        if ( solution.Build( bufferingContext, settings ) )
+                        {
+                            if ( solution.TestMethod == Model.BuildMethod.Test )
+                            {
+                                if ( !solution.Test( bufferingContext, settings ) )
+                                {
+                                    failedProjects.Add( solution );
+                                }
+                            }
+                        }
+                        else
+                        {
+                            failedProjects.Add( solution );
+                        }
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+
+                        // Write the output, but within a lock to avoid mixes.
+                        lock ( consoleSync )
+                        {
+                            context.Console.WriteHeading( $"Testing {solution.SolutionPath}" );
+                            bufferingConsole.Replay();
+                        }
+                    }
+                } );
+
+            tasks.Add( task );
         }
 
-        return success;
+        Task.WaitAll( tasks.ToArray() );
+
+        if ( failedProjects.Count > 0 )
+        {
+            context.Console.WriteError( $"{failedProjects.Count} project(s) failed: {string.Join( ", ", failedProjects.Select( x => x.SolutionPath ) )}." );
+
+            return false;
+        }
+
+        return true;
     }
 
     public override bool Restore( BuildContext context, BuildSettings settings )
     {
-        var success = true;
-
         if ( !this.TryGetSolutions( context, out var solutions ) )
         {
             return false;
         }
 
+        var failures = 0;
+
         foreach ( var solution in solutions )
         {
-            success &= solution.Restore( context, settings );
+            if ( !solution.Restore( context, settings ) )
+            {
+                failures++;
+            }
         }
 
-        return success;
+        if ( failures > 0 )
+        {
+            context.Console.WriteError( $"{failures} project(s) failed to restore." );
+
+            return false;
+        }
+
+        return true;
     }
 
     private bool TryGetSolutions( BuildContext context, out ImmutableArray<DotNetSolution> solutions )
     {
+        var rootDirectory = Path.Combine( context.RepoDirectory, this.SolutionPath );
+
+        if ( !Directory.Exists( rootDirectory ) )
+        {
+            throw new FileNotFoundException( $"'{rootDirectory}' is not a valid directory." );
+        }
+
         if ( this._solutions.IsDefault )
         {
-            var matcher = new Matcher( StringComparison.OrdinalIgnoreCase );
-            var pattern = this.SolutionPath;
-            matcher.AddInclude( pattern );
+            var builder = ImmutableArray.CreateBuilder<DotNetSolution>();
 
-            var directory = Path.Combine( context.RepoDirectory );
-            var matches = matcher.Execute( new DirectoryInfoWrapper( new DirectoryInfo( directory ) ) );
-
-            if ( !matches.Files.Any() )
+            bool AddFiles( string directory, string searchPattern, BuildMethod testMethod = Model.BuildMethod.Test )
             {
-                context.Console.WriteError( $"'{directory}\\{pattern}' did not match any file." );
+                var projFiles = Directory.GetFiles( directory, searchPattern );
 
-                solutions = default;
+                if ( projFiles.Length > 0 )
+                {
+                    builder.AddRange(
+                        projFiles.Select( f => new DotNetSolution( f ) { EnvironmentVariables = this.EnvironmentVariables, TestMethod = testMethod } ) );
+
+                    return true;
+                }
 
                 return false;
             }
 
-            this._solutions = matches.Files.Select( x => new DotNetSolution( Path.Combine( directory, x.Path ) ) ).ToImmutableArray();
+            void ProcessDirectory( string directory )
+            {
+                // Do not process recursively if we find a file we can build.
+                // The order of processing is significant.
+                if ( AddFiles( directory, "*.proj", Model.BuildMethod.Build ) || AddFiles( directory, "*.sln" ) || AddFiles( directory, "*.csproj" ) )
+                {
+                    return;
+                }
+
+                // Continue recursively if we have not found anything.
+                foreach ( var subdirectory in Directory.GetDirectories( directory ) )
+                {
+                    ProcessDirectory( subdirectory );
+                }
+            }
+
+            ProcessDirectory( rootDirectory );
+
+            this._solutions = builder.ToImmutable();
         }
 
         solutions = this._solutions;

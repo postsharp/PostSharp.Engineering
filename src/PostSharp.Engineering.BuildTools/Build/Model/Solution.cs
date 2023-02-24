@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using System;
+using System.Collections.Immutable;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
@@ -55,8 +56,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// Gets or sets the method (typically <see cref="Test"/> or <c>None</c>) that must be invoked when executing the <c>test</c> command.
         /// </summary>
         public BuildMethod? TestMethod { get; init; }
-        
+
         public string? SolutionFilterPathForInspectCode { get; init; }
+
+        /// <summary>
+        /// Gets or sets the environment variables that are passed to the build process.
+        /// </summary>
+        public ImmutableDictionary<string, string?> EnvironmentVariables { get; init; } = ImmutableDictionary<string, string?>.Empty;
 
         /// <summary>
         /// Gets the method (<see cref="Build"/>, <see cref="Test"/> or <see cref="Pack"/>) that must be invoked when executing the <c>build</c> command.

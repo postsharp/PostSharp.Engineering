@@ -6,5 +6,5 @@ public class TestOptions
 {
     public bool IgnoreExitCode { get; set; }
 
-    public string[]? OutputRegexes { get; set; }
+    public string[]? ErrorRegexes { get; set; }
 }

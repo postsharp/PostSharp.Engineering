@@ -36,6 +36,10 @@ namespace PostSharp.Engineering.BuildTools
                             .WithData( product )
                             .WithDescription( "Builds all packages in the product (implies 'prepare')" );
 
+                        root.AddCommand<GenerateCiScripts>( "generate-scripts" )
+                            .WithData( product )
+                            .WithDescription( "Generates the continuous integration scripts" );
+
                         root.AddCommand<ListSolutionsCommand>( "list-solutions" )
                             .WithData( product )
                             .WithDescription( "Lists the solutions in the build sequence." );

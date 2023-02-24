@@ -825,13 +825,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Prepare the versions file.
-            if ( !this.PrepareVersionsFile( context, settings, out var packageVersion, out dependenciesOverrideFile ) )
-            {
-                return false;
-            }
-
-            // Generating the TeamCity file.
-            if ( !this.GenerateTeamcityConfiguration( context, packageVersion ) )
+            if ( !this.PrepareVersionsFile( context, settings, out _, out dependenciesOverrideFile ) )
             {
                 return false;
             }
@@ -1752,17 +1746,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private bool GenerateTeamcityConfiguration( BuildContext context, string packageVersion )
+        public bool GenerateTeamcityConfiguration( BuildContext context )
         {
-            if ( TeamCityHelper.IsTeamCityBuild() || BuildContext.IsGuestDevice )
-            {
-                // Do not attempt to generate TeamCity configuration on TeamCity because it is useless and some dependencies
-                // are not resolved because they are feed-only. 
+            context.Console.WriteHeading( "Generating build integration scripts" );
 
-                context.Console.WriteMessage( "Skipping generation of the TeamCity configuration." );
-
-                return true;
-            }
+            const string packageVersion = "<INVALID>";
 
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
 
@@ -1934,6 +1922,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteWarning( $"Replacing '{filePath}'." );
                 File.WriteAllText( filePath, content.ToString() );
             }
+
+            context.Console.WriteSuccess( "Continuous integration scripts generated." );
 
             return true;
         }

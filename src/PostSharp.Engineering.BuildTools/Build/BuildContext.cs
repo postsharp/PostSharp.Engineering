@@ -126,5 +126,8 @@ namespace PostSharp.Engineering.BuildTools.Build
                 }
             }
         }
+
+        public BuildContext WithConsoleHelper( ConsoleHelper consoleHelper )
+            => new( consoleHelper, this.RepoDirectory, this.Product, this.Branch, this.CommandContext );
     }
 }

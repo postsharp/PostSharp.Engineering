@@ -57,5 +57,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             this.Out = CreateConsole( Console.Out );
             this.Error = CreateConsole( Console.Error );
         }
+
+        protected ConsoleHelper( IAnsiConsole outConsole, IAnsiConsole errorConsole )
+        {
+            this.Out = outConsole;
+            this.Error = errorConsole;
+        }
     }
 }

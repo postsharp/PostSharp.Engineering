@@ -81,7 +81,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                         string.Join( " ", allArguments ),
                         addConfigurationFlag,
                         out var exitCode,
-                        out var output ) )
+                        out var output,
+                        new ToolInvocationOptions( this.EnvironmentVariables ) ) )
                 {
                     context.Console.WriteError( output );
 
@@ -93,9 +94,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                     return false;
                 }
 
-                if ( testOptions.OutputRegexes != null )
+                if ( testOptions.ErrorRegexes != null )
                 {
-                    foreach ( var regex in testOptions.OutputRegexes )
+                    foreach ( var regex in testOptions.ErrorRegexes )
                     {
                         if ( Regex.IsMatch( output, regex, RegexOptions.IgnoreCase ) )
                         {
