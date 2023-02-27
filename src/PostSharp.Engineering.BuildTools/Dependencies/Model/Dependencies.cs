@@ -33,6 +33,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public static DependencyDefinition MetalamaDocumentation { get; } = new( "Metalama.Documentation", VcsProvider.GitHub, "Metalama", false );
 
+        public static DependencyDefinition PostSharpDocumentation { get; } = new( "PostSharp.Documentation", VcsProvider.GitHub, "PostSharp", false );
+
         public static DependencyDefinition MetalamaTry { get; } =
             new( "Metalama.Try", VcsProvider.AzureRepos, "Metalama", false ) { EngineeringDirectory = "eng-Metalama" };
 
