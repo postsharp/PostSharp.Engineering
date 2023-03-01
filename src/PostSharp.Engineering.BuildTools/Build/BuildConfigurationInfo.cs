@@ -35,4 +35,5 @@ public record BuildConfigurationInfo(
     bool SwapAfterPublishing = false,
     string[]? AdditionalArtifactRules = null,
     bool ExportsToTeamCityBuild = true,
-    bool ExportsToTeamCityDeploy = true );
+    bool ExportsToTeamCityDeploy = true,
+    bool ExportsToTeamCityDeployWithoutDependencies = false );

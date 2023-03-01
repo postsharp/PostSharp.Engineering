@@ -1845,10 +1845,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 TeamCityBuildConfiguration? teamCityDeploymentConfiguration = null;
 
                 // Create a TeamCity configuration for Deploy.
-                if ( buildTeamCityConfiguration != null && configurationInfo.ExportsToTeamCityDeploy )
+                if ( configurationInfo.PrivatePublishers != null || configurationInfo.PublicPublishers != null )
                 {
-                    if ( configurationInfo.PrivatePublishers != null
-                         || configurationInfo.PublicPublishers != null )
+                    if ( configurationInfo.ExportsToTeamCityDeploy )
                     {
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
                             this,
@@ -1864,6 +1863,24 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                     this.Dependencies.Union( this.SourceDependencies )
                                         .Where( d => d.GenerateSnapshotDependency )
                                         .Select( d => new TeamCitySnapshotDependency( d.DeploymentBuildType, true ) ) )
+                                .ToArray()
+                        };
+
+                        teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
+                    }
+
+                    if ( configurationInfo.ExportsToTeamCityDeployWithoutDependencies )
+                    {
+                        teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
+                            this,
+                            objectName: $"{configuration}DeploymentNoDependency",
+                            name: configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
+                            buildArguments: $"publish --configuration {configuration}",
+                            buildAgentType: this.BuildAgentType )
+                        {
+                            IsDeployment = true,
+                            Dependencies = buildDependencies.Where( d => d.ArtifactsRules != null )
+                                .Concat( new[] { new TeamCitySnapshotDependency( buildTeamCityConfiguration.ObjectName, false, artifactRules ) } )
                                 .ToArray()
                         };
 
