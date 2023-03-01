@@ -1852,7 +1852,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
                             this,
                             objectName: $"{configuration}Deployment",
-                            name: configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
+                            name: configurationInfo.TeamCityDeploymentName ?? $"Standalone Deploy [{configuration}]",
                             buildArguments: $"publish --configuration {configuration}",
                             buildAgentType: this.BuildAgentType )
                         {
