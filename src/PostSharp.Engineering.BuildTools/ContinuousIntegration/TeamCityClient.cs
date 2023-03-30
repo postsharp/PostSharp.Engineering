@@ -26,8 +26,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             this._httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Bearer", token );
         }
 
-        public string? GetBranchFromBuildNumber( CiBuildId buildId, CancellationToken cancellationToken )
+        public bool TryGetBranchFromBuildNumber( BuildContext context, CiBuildId buildId, out string? branch )
         {
+            var cancellationToken = ConsoleHelper.CancellationToken;
+            
             var url =
                 $"https://tc.postsharp.net/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildId.BuildTypeId},number:{buildId.BuildNumber}";
 
@@ -35,7 +37,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             if ( !result.IsSuccessStatusCode )
             {
-                return null;
+                context.Console.WriteError( $"Cannot determine the branch of '{buildId}': '{url}' returned {result.StatusCode} {result.ReasonPhrase}." );
+                branch = null;
+
+                return false;
             }
 
             var content = result.Content.ReadAsStringAsync( cancellationToken ).Result;
@@ -44,19 +49,30 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             if ( build == null )
             {
-                return null;
+                context.Console.WriteError( $"Cannot determine the branch of '{buildId}': cannot find any build in '{url}'." );
+
+                branch = null;
+
+                return false;
             }
 
-            var branch = build.Attribute( "branchName" )!.Value;
+            var branchWithPrefix = build.Attribute( "branchName" )!.Value;
 
             const string prefix = "refs/heads/";
 
-            if ( !branch.StartsWith( prefix, StringComparison.OrdinalIgnoreCase ) )
+            if ( !branchWithPrefix.StartsWith( prefix, StringComparison.OrdinalIgnoreCase ) )
             {
-                return null;
+                context.Console.WriteError(
+                    $"Cannot determine the branch of '{buildId}': found a branch '{prefix}', but it does not start with the prefix '{prefix}'." );
+
+                branch = null;
+
+                return false;
             }
 
-            return branch.Substring( prefix.Length );
+            branch = branchWithPrefix.Substring( prefix.Length );
+
+            return true;
         }
 
         public CiBuildId? GetLatestBuildNumber( string buildTypeId, string branch, CancellationToken cancellationToken )

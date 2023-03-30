@@ -316,12 +316,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         // In this case, we do not change the BuildIdType.
 
                         ciBuildType = buildId.BuildTypeId ?? dependency.Definition.CiBuildTypes[configuration];
-                        var previousBranchName = teamCity.GetBranchFromBuildNumber( buildId, ConsoleHelper.CancellationToken );
 
-                        if ( previousBranchName == null )
+                        if ( !teamCity.TryGetBranchFromBuildNumber( context, buildId, out var previousBranchName ) )
                         {
-                            context.Console.WriteError( $"Cannot determine the branch for build {buildId}." );
-
                             return false;
                         }
 
