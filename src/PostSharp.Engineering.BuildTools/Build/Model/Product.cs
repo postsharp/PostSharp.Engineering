@@ -2016,6 +2016,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             lastTagVersion = lastTag.Replace( "release/", "", StringComparison.OrdinalIgnoreCase );
 
             // Get commits log since the last deployment formatted to one line per commit.
+            // Note that the log does NOT include the released commit.
             // ReSharper disable once StringLiteralTypo
             ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -2035,14 +2036,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            // Check if we bumped since last deployment by looking in the Git log. We cannot match the last line because it would mean that
-            // the last commit to be released was specifically the bumping commit.
+            // Check if we bumped since last deployment by looking in the Git log. 
             var gitLog = gitLogOutput.Split( new[] { '\n', '\r' }, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries );
 
             var lastVersionDump = gitLog.Select( ( s, i ) => (Log: s, LineNumber: i) )
                 .FirstOrDefault( s => s.Log.Contains( "<<VERSION_BUMP>>", StringComparison.OrdinalIgnoreCase ) );
 
-            hasBumpSinceLastDeployment = lastVersionDump.Log != null && lastVersionDump.LineNumber != gitLog.Length - 1;
+            hasBumpSinceLastDeployment = lastVersionDump.Log != null;
 
             // Get count of commits since last deployment excluding version bumps and check if there are any changes.
             ToolInvocationHelper.InvokeTool(
