@@ -1772,19 +1772,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var testResultsDirectory =
                     context.Product.TestResultsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
-                var sourceDependenciesDirectory =
-                    context.Product.SourceDependenciesDirectory.ToString().Replace( "\\", "/", StringComparison.Ordinal );
-
                 var artifactRules =
                     $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
 
                 // Add testResults to artifacts
                 artifactRules += $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}";
-
-                if ( context.Product.SourceDependencies.Length > 0 )
-                {
-                    artifactRules += $@"\n+:{sourceDependenciesDirectory}/**/*=>{sourceDependenciesDirectory}";
-                }
 
                 var additionalArtifactRules = this.DefaultArtifactRules;
 
