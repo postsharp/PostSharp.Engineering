@@ -1379,7 +1379,20 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     context.RepoDirectory,
                     this.LogsDirectory.ToString() ) );
 
-            CleanRecursive( context.RepoDirectory );
+            foreach ( var directory in Directory.GetDirectories( context.RepoDirectory ) )
+            {
+                switch ( Path.GetFileName( directory ) )
+                {
+                    case "source-dependencies":
+                    case "dependencies":
+                        continue;
+
+                    default:
+                        CleanRecursive( context.RepoDirectory );
+
+                        break;
+                }
+            }
         }
 
         private (string Private, string Public) GetArtifactsDirectories( BuildContext context, BuildInfo buildInfo )
