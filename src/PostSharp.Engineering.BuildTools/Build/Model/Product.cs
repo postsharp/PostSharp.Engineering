@@ -1385,6 +1385,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     case "source-dependencies":
                     case "dependencies":
+                    case { } s when s == this.EngineeringDirectory:
                         continue;
 
                     default:
