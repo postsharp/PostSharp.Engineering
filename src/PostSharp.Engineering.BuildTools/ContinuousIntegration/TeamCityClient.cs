@@ -4,6 +4,7 @@ using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
@@ -26,10 +27,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             this._httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Bearer", token );
         }
 
-        public bool TryGetBranchFromBuildNumber( BuildContext context, CiBuildId buildId, out string? branch )
+        public bool TryGetBranchFromBuildNumber( BuildContext context, CiBuildId buildId, [NotNullWhen( true )] out string? branch )
         {
             var cancellationToken = ConsoleHelper.CancellationToken;
-            
+
             var url =
                 $"https://tc.postsharp.net/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildId.BuildTypeId},number:{buildId.BuildNumber}";
 
