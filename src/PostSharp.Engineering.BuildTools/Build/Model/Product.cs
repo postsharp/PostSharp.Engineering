@@ -888,6 +888,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             return false;
                         }
                     }
+                    else
+                    {
+                        context.Console.WriteMessage( $"Directory '{targetDirectory}' already exists." );
+                    }
                 }
                 else
                 {
@@ -905,15 +909,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     }
                     else
                     {
-                        // If the target directory exists, we only pull the latest changes.
-                        if ( !ToolInvocationHelper.InvokeTool(
-                                context.Console,
-                                "git",
-                                $"pull",
-                                targetDirectory ) )
-                        {
-                            return false;
-                        }
+                        context.Console.WriteMessage( $"Directory '{targetDirectory}' already exists." );
                     }
                 }
             }

@@ -32,6 +32,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public ParametricString PrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "private" );
 
+        public string VcsConfigName { get; init; }
+
         public DependencyDefinition( string dependencyName, VcsProvider vcsProvider, string vcsProjectName, bool isVersioned = true )
         {
             this.Name = dependencyName;
@@ -51,6 +53,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             }
 
             this.DeploymentBuildType = $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_PublicDeployment";
+            this.VcsConfigName = $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}";
         }
 
         public override string ToString() => this.Name;

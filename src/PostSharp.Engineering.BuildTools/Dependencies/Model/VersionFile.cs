@@ -61,7 +61,7 @@ public class VersionFile
             {
                 // A property is required because we update it during the release process.
 
-                context.Console.WriteError( $"{versionsPath}: a property named '{dependencyDefinition.Name}Version' must exist, even with empty value." );
+                context.Console.WriteError( $"{versionsPath}: a property named '{dependencyDefinition.NameWithoutDot}Version' must exist, even with empty value." );
 
                 continue;
             }
@@ -91,7 +91,7 @@ public class VersionFile
             {
                 if ( dependencyVersion == "" )
                 {
-                    context.Console.WriteError( $"{versionsPath}: missing value for property '{dependencyDefinition.Name}Version'." );
+                    context.Console.WriteError( $"{versionsPath}: missing value for property '{dependencyDefinition.NameWithoutDot}Version'." );
 
                     versionFile = null;
 
