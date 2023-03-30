@@ -1388,7 +1388,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         continue;
 
                     default:
-                        CleanRecursive( context.RepoDirectory );
+                        CleanRecursive( directory );
 
                         break;
                 }
