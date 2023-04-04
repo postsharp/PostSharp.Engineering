@@ -9,7 +9,17 @@ namespace PostSharp.Engineering.BuildTools.Build
     {
         protected override bool ExecuteCore( BuildContext context, BuildSettings settings )
         {
-            return context.Product.Build( context, settings );
+            if ( context.Product.TestOnBuild )
+            {
+                context.Console.WriteWarning( "'test' command executed instead." );
+                
+                return context.Product.Test( context, settings );    
+            }
+            else
+            {
+                return context.Product.Build( context, settings );
+            }
+            
         }
     }
 }
