@@ -11,32 +11,32 @@ namespace PostSharp.Engineering.BuildTools.Search;
 public class Snippet
 {
     [JsonPropertyName( "title" )]
-    public string? Title { get; set; }
+    public string Title { get; set; } = null!;
 
     [JsonPropertyName( "text" )]
-    public string? Text { get; set; }
+    public string Text { get; set; } = null!;
 
     [JsonPropertyName( "source" )]
-    public string? Source { get; set; }
+    public string Source { get; set; } = null!;
 
     [JsonPropertyName( "link" )]
-    public string? Link { get; set; }
+    public string Link { get; set; } = null!;
 
     [JsonPropertyName( "products" )]
-    public string[]? Products { get; set; }
+    public string[] Products { get; set; } = null!;
 
     [JsonPropertyName( "kinds" )]
-    public string[]? Kinds { get; set; }
+    public string[] Kinds { get; set; } = null!;
 
     [JsonIgnore]
     [Range( 0, 99 )]
     public int KindRank { get; set; }
 
     [JsonPropertyName( "categories" )]
-    public string[]? Categories { get; set; }
+    public string[] Categories { get; set; } = null!;
 
     [JsonPropertyName( "complexity-levels" )]
-    public int[]? ComplexityLevels { get; set; }
+    public int[] ComplexityLevels { get; set; } = null!;
 
     [JsonIgnore]
     [Range( 0, 999 )]

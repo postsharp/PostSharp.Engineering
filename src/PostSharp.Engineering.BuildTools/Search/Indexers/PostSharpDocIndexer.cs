@@ -9,6 +9,6 @@ namespace PostSharp.Engineering.BuildTools.Search.Indexers;
 
 public class PostSharpDocIndexer : DocFxIndexer
 {
-    public PostSharpDocIndexer( SearchBackend search, HttpClient client, ConsoleHelper console )
-        : base( search, client, console, new PostSharpDocCrawler() ) { }
+    public PostSharpDocIndexer( SearchBackend search, HttpClient web, ConsoleHelper console )
+        : base( search, web, console, new PostSharpDocCrawler() ) { }
 }

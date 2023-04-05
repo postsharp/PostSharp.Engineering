@@ -19,30 +19,30 @@ namespace PostSharp.Engineering.BuildTools.Search.Indexers;
 public abstract class DocFxIndexer
 {
     private readonly SearchBackend _search;
-    private readonly HttpClient _client;
+    private readonly HttpClient _web;
     private readonly ConsoleHelper _console;
     private readonly DocFxCrawler _crawler;
 
-    protected DocFxIndexer( SearchBackend search, HttpClient client, ConsoleHelper console, DocFxCrawler crawler )
+    protected DocFxIndexer( SearchBackend search, HttpClient web, ConsoleHelper console, DocFxCrawler crawler )
     {
         this._search = search;
-        this._client = client;
+        this._web = web;
         this._console = console;
         this._crawler = crawler;
     }
 
-    public async Task IndexSiteMapAsync( bool dry, string collection, string source, string[] products, string url )
+    public async Task IndexSiteMapAsync( string collection, string source, string[] products, string url )
     {
         this._console.WriteMessage( $"Loading sitemap from '{url}'." );
         
-        var documents = await new SiteMapCrawler( this._client ).GetDocumentsAsync( url );
+        var documents = await new SiteMapCrawler( this._web ).GetDocumentsAsync( url );
         
         this._console.WriteMessage( "Sitemap loaded." );
 
-        await this.IndexArticlesAsync( dry, collection, source, products, documents.ToArray() );
+        await this.IndexArticlesAsync( collection, source, products, documents.ToArray() );
     }
     
-    public async Task IndexArticlesAsync( bool dry, string collection, string source, string[] products, params string[] urls )
+    public async Task IndexArticlesAsync( string collection, string source, string[] products, params string[] urls )
     {
         var sw = new Stopwatch();
         sw.Start();
@@ -66,13 +66,6 @@ public abstract class DocFxIndexer
 
         void StartBatch()
         {
-            if ( dry )
-            {
-                batch.Clear();
-
-                return;
-            }
-            
             var documentsInBatch = batch
                 .Select(
                     s => s.Link!
@@ -118,7 +111,7 @@ public abstract class DocFxIndexer
         foreach ( var url in urls )
         {
             Stream stream;
-            var httpTask = this._client.GetStreamAsync( url );
+            var httpTask = this._web.GetStreamAsync( url );
 
             try
             {
@@ -149,25 +142,6 @@ public abstract class DocFxIndexer
                 if ( batch.Count == batchSize )
                 {
                     StartBatch();
-                }
-
-                if ( dry )
-                {
-                    this._console.WriteMessage( snippet.Title! );
-                    this._console.WriteMessage( "" );
-                    this._console.WriteMessage( snippet.Text! );
-                    this._console.WriteMessage( "" );
-                    this._console.WriteMessage( $"Source: {snippet.Source}" );
-                    this._console.WriteMessage( $"Link: {snippet.Link}" );
-                    this._console.WriteMessage( $"Products: {string.Join( "; ", snippet.Products! )}" );
-                    this._console.WriteMessage( $"Kinds: {string.Join( "; ", snippet.Kinds! )} ({snippet.KindRank})" );
-                    this._console.WriteMessage( $"Categories: {string.Join( "; ", snippet.Categories! )}" );
-                    this._console.WriteMessage( $"ComplexityLevels: {string.Join( "; ", snippet.ComplexityLevels! )} ({snippet.ComplexityLevelRank})" );
-                    this._console.WriteMessage( $"NavigationLevel: {snippet.NavigationLevel} ({snippet.NavigationLevelRank})" );
-                    this._console.WriteMessage( $"Rank: [{snippet.Rank}]" );
-                    this._console.WriteMessage( "" );
-                    this._console.WriteMessage( "--------------" );
-                    this._console.WriteMessage( "" );
                 }
 
                 batch.Add( snippet );
