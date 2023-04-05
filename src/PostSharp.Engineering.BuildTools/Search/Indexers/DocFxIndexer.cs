@@ -61,7 +61,6 @@ public abstract class DocFxIndexer
         var finished = 0;
         var total = 0;
         var parsedDocuments = new HashSet<string>();
-        List<ImportResponse> failedImports = new();
         List<Task> failedTasks = new();
 
         void StartBatch()
@@ -89,12 +88,11 @@ public abstract class DocFxIndexer
         async Task HandleNextCompletedTask( int t )
         {
             // TODO: Cancellation, delay
-            var completedTask = (Task<List<ImportResponse>>) await Task.WhenAny( tasks.ToArray() );
+            var completedTask = await Task.WhenAny( tasks.ToArray() );
 
             try
             {
-                var response = await completedTask;
-                failedImports.AddRange( response.Where( r => !r.Success ) );
+                await completedTask;
             }
             catch
             {
@@ -158,22 +156,9 @@ public abstract class DocFxIndexer
             await HandleNextCompletedTask( total );
         }
 
-        if ( failedImports.Count > 0 || failedTasks.Count > 0 )
+        if ( failedTasks.Count > 0 )
         {
             Console.WriteLine( $"{sw.Elapsed}: Indexing failed." );
-
-            if ( failedTasks.Count > 0 )
-            {
-                Console.WriteLine( "Failed imports:" );
-
-                failedImports.ForEach(
-                    r =>
-                    {
-                        Console.WriteLine( r.Error );
-                        Console.WriteLine( r.Document );
-                        Console.WriteLine();
-                    } );
-            }
 
             if ( failedTasks.Count > 0 )
             {
