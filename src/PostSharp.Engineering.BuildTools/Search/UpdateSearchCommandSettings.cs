@@ -13,7 +13,7 @@ public class UpdateSearchCommandSettings : TypesenseCommandSettings
 
     [Description( "URL of the source." )]
     [CommandArgument( 2, "<source-url>" )]
-    public string Url { get; init; } = null!;
+    public string SourceUrl { get; init; } = null!;
 
     [Description( "Collection name to be updated. This parameter is used for development only." )]
     [CommandArgument( 3, "[collection]" )]

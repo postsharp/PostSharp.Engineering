@@ -14,4 +14,8 @@ public class TypesenseCommandSettings : CommandSettings
     [Description( "Ignores TLS errors when retrieving data from the sources." )]
     [CommandOption( "--ignore-tls" )]
     public bool IgnoreTls { get; init; } = false;
+
+    [Description( "Attach the debugger to the process before executing the command" )]
+    [CommandOption( "--debug" )]
+    public bool Debug { get; init; } = false;
 }

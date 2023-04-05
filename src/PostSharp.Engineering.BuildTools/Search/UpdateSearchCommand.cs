@@ -5,6 +5,7 @@ using PostSharp.Engineering.BuildTools.Search.Indexers;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console.Cli;
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -15,6 +16,11 @@ public class UpdateSearchCommand : AsyncCommand<UpdateSearchCommandSettings>
 {
     public override async Task<int> ExecuteAsync( CommandContext context, UpdateSearchCommandSettings settings )
     {
+        if ( settings.Debug )
+        {
+            Debugger.Launch();
+        }
+
         var console = new ConsoleHelper();
         SearchBackend search;
 
@@ -34,7 +40,7 @@ public class UpdateSearchCommand : AsyncCommand<UpdateSearchCommandSettings>
                 return -1;
             }
             
-            var uri = new Uri( settings.Url );
+            var uri = new Uri( settings.TypesenseUri );
             search = new TypesenseBackend( apiKey, uri.Host, uri.Port.ToString( CultureInfo.InvariantCulture ), uri.Scheme );
         }
 
@@ -86,11 +92,11 @@ public class UpdateSearchCommand : AsyncCommand<UpdateSearchCommandSettings>
 
             if ( settings.SinglePage )
             {
-                await indexer.IndexArticlesAsync( collection, source, products, settings.Url );
+                await indexer.IndexArticlesAsync( collection, source, products, settings.SourceUrl );
             }
             else
             {
-                await indexer.IndexSiteMapAsync( collection, source, products, settings.Url );
+                await indexer.IndexSiteMapAsync( collection, source, products, settings.SourceUrl );
             }
 
             return 0;
