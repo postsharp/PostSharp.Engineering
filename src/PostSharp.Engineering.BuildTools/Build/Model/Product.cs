@@ -172,7 +172,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool Build( BuildContext context, BuildSettings settings )
         {
-
             var configuration = settings.BuildConfiguration;
             var buildConfigurationInfo = this.Configurations[configuration];
 
