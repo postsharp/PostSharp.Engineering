@@ -27,4 +27,8 @@ public class UpdateSearchCommandSettings : TypesenseCommandSettings
     [Description( "Does not change any data and writes the retrieved snippets to console. Use with --verbose." )]
     [CommandOption( "--dry" )]
     public bool Dry { get; init; } = false;
+    
+    [Description( "Ignores TLS errors when retrieving data from the sources." )]
+    [CommandOption( "--ignore-tls" )]
+    public bool IgnoreTls { get; init; } = false;
 }

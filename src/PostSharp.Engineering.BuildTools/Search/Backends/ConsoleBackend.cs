@@ -1,8 +1,10 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Utilities;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Typesense;
 
 namespace PostSharp.Engineering.BuildTools.Search.Backends;
 
@@ -15,6 +17,22 @@ public class ConsoleBackend : SearchBackend
     {
         this._console = console;
     }
+
+    public override Task CreateCollectionAsync( Schema schema ) => throw new NotSupportedException();
+
+    public override Task DeleteCollectionAsync( string collection ) => throw new NotSupportedException();
+    
+    public override Task<bool> TryDeleteCollectionAsync( string collection ) => throw new NotSupportedException();
+
+    public override Task<IEnumerable<CollectionResponse>> RetrieveCollectionsAsync() => throw new NotSupportedException();
+
+    public override Task UpsertCollectionAliasAsync( string alias, string targetCollection ) => throw new NotSupportedException();
+
+    public override Task DeleteCollectionAliasAsync( string alias ) => throw new NotSupportedException();
+
+    public override Task<IEnumerable<CollectionAliasResponse>> RetrieveCollectionAliasesAsync() => throw new NotSupportedException();
+
+    public override Task<string> GetTargetOfCollectionAliasAsync( string alias ) => throw new NotSupportedException();
 
     private void WriteSnippet( Snippet snippet )
     {
