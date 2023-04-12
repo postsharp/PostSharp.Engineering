@@ -168,6 +168,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         
         public bool TestOnBuild { get; init; }
 
+        public ProductExtension[] Extensions { get; init; } = Array.Empty<ProductExtension>();
+
         public bool Build( BuildContext context, BuildSettings settings )
         {
 
@@ -1930,6 +1932,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             name: $"Version Bump",
                             buildArguments: $"bump",
                             buildAgentType: this.BuildAgentType ) { IsDeployment = true } );
+                }
+            }
+            
+            // Add from extensions.
+            foreach ( var extension in this.Extensions )
+            {
+                if ( !extension.AddTeamcityBuildConfiguration( context, teamCityBuildConfigurations ) )
+                {
+                    return false;
                 }
             }
 
