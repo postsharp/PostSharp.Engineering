@@ -611,6 +611,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public event Action<BuildCompletedEventArgs>? BuildCompleted;
 
         /// <summary>
+        /// An event raised when the tests runs are completed.
+        /// </summary>
+        public event Action<BuildCompletedEventArgs>? TestCompleted; 
+
+        /// <summary>
         /// An event raised when the Prepare phase is complete.
         /// </summary>
         public event Action<PrepareCompletedEventArgs>? PrepareCompleted;
@@ -771,6 +776,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var emptyFile = Path.Combine( testResultsDirectory, ".empty" );
 
                 File.WriteAllText( emptyFile, "This file is intentionally empty." );
+            }
+
+            // Raise the post-test event.
+            if ( this.TestCompleted != null )
+            {
+                var versionInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
+
+                var privateArtifactsDir = Path.Combine(
+                    context.RepoDirectory,
+                    this.PrivateArtifactsDirectory.ToString( versionInfo ) );
+
+                var eventArgs = new BuildCompletedEventArgs( context, settings, privateArtifactsDir );
+                this.TestCompleted?.Invoke( eventArgs );
             }
 
             context.Console.WriteSuccess( $"Testing {this.ProductName} was successful" );
