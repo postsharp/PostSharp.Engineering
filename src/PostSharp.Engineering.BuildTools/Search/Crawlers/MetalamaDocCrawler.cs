@@ -10,11 +10,14 @@ public class MetalamaDocCrawler : DocFxCrawler
 {
     protected override (BreadcrumbInfo Data, Func<HtmlNode, HtmlNode?> GetRootNode) GetBreadcrumbData( HtmlNode[] breadcrumbLinks )
     {
+        var relevantBreadCrumbTitles = breadcrumbLinks
+            .Skip( 7 )
+            .Select( n => n.GetText() )
+            .ToArray();
+
         var breadcrumb = string.Join(
             " > ",
-            breadcrumbLinks
-                .Skip( 7 )
-                .Select( n => n.GetText() ) );
+            relevantBreadCrumbTitles );
 
         var isDefaultKind = breadcrumbLinks.Length < 5;
 
@@ -54,6 +57,7 @@ public class MetalamaDocCrawler : DocFxCrawler
             ? null
             : NormalizeCategoryName( breadcrumbLinks.Skip( 5 ).First().GetText() );
 
-        return (new( breadcrumb, new[] { kind }, kindRank, category == null ? Array.Empty<string>() : new[] { category } ), getRootNode);
+        return (new( breadcrumb, new[] { kind }, kindRank, category == null ? Array.Empty<string>() : new[] { category }, relevantBreadCrumbTitles.Length ),
+                getRootNode);
     }
 }

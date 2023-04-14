@@ -36,9 +36,19 @@ public class ConsoleBackend : SearchBackend
 
     private void WriteSnippet( Snippet snippet )
     {
-        this._console.WriteMessage( snippet.Title );
+        this._console.WriteMessage( $"Breadcrumb: {snippet.Breadcrumb}" );
+        this._console.WriteMessage( $"H1: {string.Join( "; ", snippet.H1 )}" );
+        this._console.WriteMessage( $"H2: {string.Join( "; ", snippet.H2 )}" );
+        this._console.WriteMessage( $"H3: {string.Join( "; ", snippet.H3 )}" );
+        this._console.WriteMessage( $"H4: {string.Join( "; ", snippet.H4 )}" );
+        this._console.WriteMessage( $"H5: {string.Join( "; ", snippet.H5 )}" );
+        this._console.WriteMessage( $"H6: {string.Join( "; ", snippet.H6 )}" );
         this._console.WriteMessage( "" );
-        this._console.WriteMessage( snippet.Text );
+        this._console.WriteMessage( "Summary:" );
+        this._console.WriteMessage( snippet.Summary );
+        this._console.WriteMessage( "" );
+        this._console.WriteMessage( "Text:" );
+        this._console.WriteMessage( string.Join( $"{Environment.NewLine}{Environment.NewLine}", snippet.Text ) );
         this._console.WriteMessage( "" );
         this._console.WriteMessage( $"Source: {snippet.Source}" );
         this._console.WriteMessage( $"Link: {snippet.Link}" );
@@ -46,8 +56,7 @@ public class ConsoleBackend : SearchBackend
         this._console.WriteMessage( $"Kinds: {string.Join( "; ", snippet.Kinds )} ({snippet.KindRank})" );
         this._console.WriteMessage( $"Categories: {string.Join( "; ", snippet.Categories )}" );
         this._console.WriteMessage( $"ComplexityLevels: {string.Join( "; ", snippet.ComplexityLevels )} ({snippet.ComplexityLevelRank})" );
-        this._console.WriteMessage( $"NavigationLevel: {snippet.NavigationLevel} ({snippet.NavigationLevelRank})" );
-        this._console.WriteMessage( $"Rank: [{snippet.Rank}]" );
+        this._console.WriteMessage( $"NavigationLevel: {snippet.NavigationLevel}" );
         this._console.WriteMessage( "" );
         this._console.WriteMessage( "--------------" );
         this._console.WriteMessage( "" );

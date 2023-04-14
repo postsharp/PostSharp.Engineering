@@ -54,8 +54,8 @@ public abstract class DocFxIndexer
 
         WriteMessage( "Indexing started." );
         
-        const int parallelism = 8;
-        const int batchSize = 40;
+        const int parallelism = 1;
+        const int batchSize = 1;
         var tasks = new List<Task>( parallelism );
         var batch = new List<Snippet>( batchSize );
         var finished = 0;

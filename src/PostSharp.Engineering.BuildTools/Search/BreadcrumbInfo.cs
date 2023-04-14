@@ -4,4 +4,5 @@ public record BreadcrumbInfo(
     string Breadcrumb,
     string[] Kinds,
     int KindRank,
-    string[] Categories );
+    string[] Categories,
+    int NavigationLevel );

@@ -11,4 +11,5 @@ internal record ContentInfo(
     string Source,
     string[] Products,
     int ComplexityLevel,
-    int ComplexityLevelRank );
+    int ComplexityLevelRank,
+    int NavigationLevel );

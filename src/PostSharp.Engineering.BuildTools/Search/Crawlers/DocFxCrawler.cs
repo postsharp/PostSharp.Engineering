@@ -3,6 +3,7 @@
 using HtmlAgilityPack;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -15,11 +16,28 @@ public abstract class DocFxCrawler
 {
     private static readonly char _newLineCharacter = Environment.NewLine[^1];
     private bool _isTextPreformatted;
-    private readonly Dictionary<HtmlNode, int> _nodeLevels = new();
-    private readonly Dictionary<HtmlNode, string?> _anchors = new();
-    private readonly Headings _headings = new Headings();
-    private string? _anchor;
-    private readonly StringBuilder _text = new StringBuilder();
+    private readonly List<string> _h1 = new();
+    private readonly List<string> _h2 = new();
+    private readonly List<string> _h3 = new();
+    private readonly List<string> _h4 = new();
+    private readonly List<string> _h5 = new();
+    private readonly List<string> _h6 = new();
+    private readonly IReadOnlyDictionary<int, List<string>> _headings;
+    private readonly StringBuilder _textBuilder = new StringBuilder();
+    private readonly List<string> _text = new();
+
+    protected DocFxCrawler()
+    {
+        this._headings = new Dictionary<int, List<string>>
+        {
+            { 1, this._h1 },
+            { 2, this._h2 },
+            { 3, this._h3 },
+            { 4, this._h4 },
+            { 5, this._h5 },
+            { 6, this._h6 }
+        }.ToImmutableDictionary();
+    }
 
     public async IAsyncEnumerable<Snippet> GetSnippetsFromDocument(
         HtmlDocument document,
@@ -27,6 +45,8 @@ public abstract class DocFxCrawler
         string source,
         string[] products )
     {
+        Console.WriteLine( $"--- {url}" );
+        
         var breadcrumbLinks = document.DocumentNode
             .SelectSingleNode( "//div[@id=\"breadcrum\"]" )
             .SelectNodes( ".//a|.//span[@class=\"current\"]" )
@@ -41,7 +61,7 @@ public abstract class DocFxCrawler
             ? 0
             : int.Parse( complexityLevelString, CultureInfo.InvariantCulture );
 
-        var complexityLeveRank = 1000 - complexityLevel - 1;
+        var complexityLevelRank = 1000 - complexityLevel - 1;
 
         await foreach ( var snippet in this.CrawlAsync(
                            document.DocumentNode
@@ -55,7 +75,8 @@ public abstract class DocFxCrawler
                                source,
                                products,
                                complexityLevel,
-                               complexityLeveRank ) ) )
+                               complexityLevelRank,
+                               breadcrumb.Data.NavigationLevel ) ) )
         {
             if ( snippet != null )
             {
@@ -68,15 +89,14 @@ public abstract class DocFxCrawler
 
     private async IAsyncEnumerable<Snippet?> CrawlAsync( HtmlNode node, ContentInfo contentInfo )
     {
-        await foreach ( var snippet in this.CrawlRecursivelyAsync( node, null, contentInfo, true ) )
-        {
-            yield return snippet;
-        }
+        await this.CrawlRecursivelyAsync( node, true );
+
+        this.FinishParagraph();
 
         yield return this.CreateSnippet( contentInfo );
     }
 
-    private async IAsyncEnumerable<Snippet?> CrawlRecursivelyAsync( HtmlNode node, HtmlNode? parentNode, ContentInfo contentInfo, bool skipNextSibling = false )
+    private async Task CrawlRecursivelyAsync( HtmlNode node, bool skipNextSibling = false )
     {
         await Task.Yield();
 
@@ -85,19 +105,11 @@ public abstract class DocFxCrawler
 
         if ( Regex.IsMatch( nodeName, @"^h\d$" ) )
         {
-            yield return this.CreateSnippet( contentInfo );
+            this.FinishParagraph();
 
             var level = node.Name[1] - '0';
-
-            if ( parentNode != null )
-            {
-                this._nodeLevels[parentNode] = level;
-                this._anchors[parentNode] = this._anchor;
-            }
-
-            this._headings.Set( level, this.GetNodeText( node ) );
-            this._anchor = node.Attributes["id"]?.Value;
-            this._text.Clear();
+            var text = this.GetNodeText( node );
+            this._headings[level].Add( text );
 
             skipChildNodes = true;
         }
@@ -107,12 +119,12 @@ public abstract class DocFxCrawler
 
             if ( innerText != "" )
             {
-                if ( this._text.Length > 0 && char.IsLetterOrDigit( innerText[0] ) && !char.IsWhiteSpace( this._text[^1] ) )
+                if ( this._textBuilder.Length > 0 && char.IsLetterOrDigit( innerText[0] ) && !char.IsWhiteSpace( this._textBuilder[^1] ) )
                 {
-                    this._text.Append( ' ' );
+                    this._textBuilder.Append( ' ' );
                 }
 
-                this._text.Append( innerText );
+                this._textBuilder.Append( innerText );
             }
         }
         else
@@ -148,7 +160,7 @@ public abstract class DocFxCrawler
                     break;
 
                 case "li":
-                    this._text.Append( "- " );
+                    this._textBuilder.Append( "- " );
 
                     break;
 
@@ -158,10 +170,7 @@ public abstract class DocFxCrawler
                     break;
 
                 case "table":
-                    foreach ( var snippet in this.CrawlTable( node, contentInfo ) )
-                    {
-                        yield return snippet;
-                    }
+                    this.CrawlTable( node );
 
                     skipChildNodes = true;
 
@@ -171,27 +180,21 @@ public abstract class DocFxCrawler
 
         if ( !skipChildNodes && node.HasChildNodes )
         {
-            await foreach ( var snippet in this.CrawlRecursivelyAsync( node.FirstChild, node, contentInfo ) )
-            {
-                yield return snippet;
-            }
+            await this.CrawlRecursivelyAsync( node.FirstChild );
         }
 
         switch ( nodeName )
         {
             case "br":
-                this._text.AppendLine();
+                this._textBuilder.AppendLine();
 
                 break;
 
             // TODO: We could improve this by figuring out if the node is a block element.
-            case "p" or "div" or "li" or "pre" when this._text.Length > 0
-                                                    && this._text[^1] != _newLineCharacter:
-                this._text.AppendLine();
-
-                yield return this.CreateSnippet( contentInfo );
-
-                this._text.Clear();
+            case "p" or "div" or "li" or "pre" when this._textBuilder.Length > 0
+                                                    && this._textBuilder[^1] != _newLineCharacter:
+                this._textBuilder.AppendLine();
+                this.FinishParagraph();
 
                 break;
 
@@ -201,61 +204,39 @@ public abstract class DocFxCrawler
                 break;
         }
 
-        if ( this._nodeLevels.TryGetValue( node, out var finishedLevel ) )
-        {
-            this._headings.Reset( finishedLevel );
-            this._anchor = this._anchors.TryGetValue( node, out var parentAnchor ) ? parentAnchor : null;
-            this._nodeLevels.Remove( node );
-            this._anchors.Remove( node );
-        }
-
         if ( !skipNextSibling && node.NextSibling != null )
         {
-            await foreach ( var snippet in this.CrawlRecursivelyAsync( node.NextSibling, parentNode, contentInfo ) )
-            {
-                yield return snippet;
-            }
+            await this.CrawlRecursivelyAsync( node.NextSibling );
         }
     }
 
+    private void FinishParagraph()
+    {
+        var text = this._textBuilder.ToString().Trim();
+        
+        if ( text.Length == 0 )
+        {
+            return;
+        }
+        
+        this._text.Add( text );
+        this._textBuilder.Clear();
+    }
+    
     private Snippet? CreateSnippet( ContentInfo contentInfo )
     {
-        var trimmedText = this._text.ToString().Trim();
-
-        if ( trimmedText == "" )
-        {
-            return null;
-        }
-
-        string title;
-
-        switch ( contentInfo.Breadcrumb )
-        {
-            case "" when this._headings.AreEmpty:
-                title = string.Join( " > ", contentInfo.Kinds.Concat( contentInfo.Categories ) );
-
-                break;
-
-            case "":
-                title = this._headings.ToString();
-
-                break;
-
-            default:
-                {
-                    title = this._headings.AreEmpty
-                        ? contentInfo.Breadcrumb
-                        : string.Join( " > ", contentInfo.Breadcrumb, this._headings );
-
-                    break;
-                }
-        }
-
         return new()
         {
-            Title = title,
-            Text = trimmedText,
-            Link = this._anchor == null ? contentInfo.Url : $"{contentInfo.Url}#{this._anchor}",
+            Breadcrumb = contentInfo.Breadcrumb,
+            Summary = "", // TODO
+            Text = this._text.ToArray(),
+            H1 = this._h1.ToArray(),
+            H2 = this._h2.ToArray(),
+            H3 = this._h3.ToArray(),
+            H4 = this._h4.ToArray(),
+            H5 = this._h5.ToArray(),
+            H6 = this._h6.ToArray(),
+            Link = contentInfo.Url,
             Source = contentInfo.Source,
             Products = contentInfo.Products,
             Kinds = contentInfo.Kinds,
@@ -263,14 +244,13 @@ public abstract class DocFxCrawler
             Categories = contentInfo.Categories,
             ComplexityLevels = contentInfo.ComplexityLevel < 100 ? Array.Empty<int>() : new[] { contentInfo.ComplexityLevel },
             ComplexityLevelRank = contentInfo.ComplexityLevelRank,
-            NavigationLevel = this._headings.Level,
-            NavigationLevelRank = this._headings.Rank
+            NavigationLevel = contentInfo.NavigationLevel
         };
     }
 
     private string GetNodeText( HtmlNode node ) => node.GetText( this._isTextPreformatted );
 
-    private IEnumerable<Snippet?> CrawlTable( HtmlNode table, ContentInfo contentInfo )
+    private void CrawlTable( HtmlNode table )
     {
         // TODO: rowspan, colspan
         // TODO: Crawl children instead of using GetText.
@@ -287,11 +267,8 @@ public abstract class DocFxCrawler
                     ?? Enumerable.Empty<string>() )
                 .Trim();
 
-            this._text.AppendLine( rowText );
-
-            yield return this.CreateSnippet( contentInfo );
-
-            this._text.Clear();
+            this._textBuilder.AppendLine( rowText );
+            this.FinishParagraph();
         }
     }
     
