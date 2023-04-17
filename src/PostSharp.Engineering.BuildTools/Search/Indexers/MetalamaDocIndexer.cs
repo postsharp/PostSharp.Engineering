@@ -10,5 +10,5 @@ namespace PostSharp.Engineering.BuildTools.Search.Indexers;
 public class MetalamaDocIndexer : DocFxIndexer
 {
     public MetalamaDocIndexer( SearchBackend search, HttpClient web, ConsoleHelper console )
-        : base( search, web, console, new MetalamaDocCrawler() ) { }
+        : base( search, web, console, () => new MetalamaDocCrawler() ) { }
 }

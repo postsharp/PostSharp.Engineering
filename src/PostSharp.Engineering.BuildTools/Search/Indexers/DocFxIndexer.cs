@@ -21,14 +21,14 @@ public abstract class DocFxIndexer
     private readonly SearchBackend _search;
     private readonly HttpClient _web;
     private readonly ConsoleHelper _console;
-    private readonly DocFxCrawler _crawler;
+    private readonly Func<DocFxCrawler> _crawlerFactory;
 
-    protected DocFxIndexer( SearchBackend search, HttpClient web, ConsoleHelper console, DocFxCrawler crawler )
+    protected DocFxIndexer( SearchBackend search, HttpClient web, ConsoleHelper console, Func<DocFxCrawler> crawlerFactory )
     {
         this._search = search;
         this._web = web;
         this._console = console;
-        this._crawler = crawler;
+        this._crawlerFactory = crawlerFactory;
     }
 
     public async Task IndexSiteMapAsync( string collection, string source, string[] products, string url )
@@ -54,8 +54,8 @@ public abstract class DocFxIndexer
 
         WriteMessage( "Indexing started." );
         
-        const int parallelism = 1;
-        const int batchSize = 1;
+        const int parallelism = 8;
+        const int batchSize = 40;
         var tasks = new List<Task>( parallelism );
         var batch = new List<Snippet>( batchSize );
         var finished = 0;
@@ -130,7 +130,7 @@ public abstract class DocFxIndexer
                 document.Load( stream );
             }
 
-            await foreach ( var snippet in this._crawler.GetSnippetsFromDocument( document, url, source, products ) )
+            await foreach ( var snippet in this._crawlerFactory().GetSnippetsFromDocument( document, url, source, products ) )
             {
                 if ( tasks.Count == parallelism )
                 {
