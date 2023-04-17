@@ -10,21 +10,15 @@ public class MetalamaDocCrawler : DocFxCrawler
 {
     protected override BreadcrumbInfo GetBreadcrumbData( HtmlNode[] breadcrumbLinks )
     {
-        var relevantBreadCrumbTitles = breadcrumbLinks
-            .Skip( 7 )
-            .Select( n => n.GetText() )
-            .ToArray();
-
-        var breadcrumb = string.Join(
-            " > ",
-            relevantBreadCrumbTitles );
-
         var isDefaultKind = breadcrumbLinks.Length < 5;
 
         var kind = isDefaultKind
             ? "General Information"
             : NormalizeCategoryName( breadcrumbLinks.Skip( 4 ).First().GetText() );
 
+        var breadcrumbTitlesCountToSkip = 6;
+        var hasCategory = true;
+        
         int kindRank;
         
         Func<HtmlNode, bool> isNextParagraphIgnored = n => false;
@@ -35,6 +29,8 @@ public class MetalamaDocCrawler : DocFxCrawler
         }
         else if ( kind.Contains( "example", StringComparison.OrdinalIgnoreCase ) )
         {
+            breadcrumbTitlesCountToSkip = 5;
+            hasCategory = false;
             kindRank = (int) DocFxKindRank.Examples;
         }
         else if ( kind.Contains( "concept", StringComparison.OrdinalIgnoreCase ) )
@@ -50,8 +46,17 @@ public class MetalamaDocCrawler : DocFxCrawler
         {
             kindRank = (int) DocFxKindRank.Unknown;
         }
+        
+        var relevantBreadCrumbTitles = breadcrumbLinks
+            .Skip( breadcrumbTitlesCountToSkip )
+            .Select( n => n.GetText() )
+            .ToArray();
 
-        var category = breadcrumbLinks.Length < 6
+        var breadcrumb = string.Join(
+            " > ",
+            relevantBreadCrumbTitles );
+
+        var category = !hasCategory || breadcrumbLinks.Length < 6
             ? null
             : NormalizeCategoryName( breadcrumbLinks.Skip( 5 ).First().GetText() );
 

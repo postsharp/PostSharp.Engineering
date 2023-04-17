@@ -154,7 +154,10 @@ public abstract class DocFxCrawler
                              || cssClass.Contains( "tabGroup", StringComparison.OrdinalIgnoreCase )
 
                              // Ignore diff code in examples
-                             || cssClass.Contains( "compare", StringComparison.OrdinalIgnoreCase ) )
+                             || cssClass.Contains( "compare", StringComparison.OrdinalIgnoreCase )
+                            
+                             // Ignore graphs.
+                             || cssClass.Contains( "mermaid", StringComparison.OrdinalIgnoreCase ) )
                         {
                             skipChildNodes = true;
                         }
