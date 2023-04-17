@@ -8,7 +8,7 @@ namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
 
 public class PostSharpDocCrawler : DocFxCrawler
 {
-    protected override (BreadcrumbInfo Data, Func<HtmlNode, HtmlNode?> GetRootNode) GetBreadcrumbData( HtmlNode[] breadcrumbLinks )
+    protected override BreadcrumbInfo GetBreadcrumbData( HtmlNode[] breadcrumbLinks )
     {
         var relevantBreadCrumbTitles = breadcrumbLinks
             .Skip( 6 )
@@ -35,17 +35,15 @@ public class PostSharpDocCrawler : DocFxCrawler
 
         int kindRank;
         
-        Func<HtmlNode, HtmlNode?> getRootNode = n => n;
-
+        Func<HtmlNode, bool> isNextParagraphIgnored = n => false;
+        
         if ( isDefaultKind )
         {
             kindRank = (int) DocFxKindRank.Common;
         }
         else if ( isApiReference )
         {
-            // For API documentation, we consider only the main description on each page,
-            // because everything else is redundant or useless.
-            getRootNode = n => n.SelectSingleNode( ".//div[contains(@class, 'markdown level0 summary')]" );
+            isNextParagraphIgnored = DocFxApiArticleHelper.IsNextParagraphIgnored;
             kindRank = (int) DocFxKindRank.Api;
         }
         else
@@ -53,7 +51,6 @@ public class PostSharpDocCrawler : DocFxCrawler
             kindRank = (int) DocFxKindRank.Conceptual;
         }
 
-        return (new( breadcrumb, new[] { kind }, kindRank, category == null ? Array.Empty<string>() : new[] { category }, relevantBreadCrumbTitles.Length ),
-                getRootNode);
+        return new( breadcrumb, new[] { kind }, kindRank, category == null ? Array.Empty<string>() : new[] { category }, relevantBreadCrumbTitles.Length, isNextParagraphIgnored );
     }
 }

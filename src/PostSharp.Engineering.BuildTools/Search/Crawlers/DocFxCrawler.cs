@@ -15,7 +15,7 @@ namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
 public abstract class DocFxCrawler
 {
     private static readonly char _newLineCharacter = Environment.NewLine[^1];
-    private bool _isTextPreformatted;
+    private ContentInfo? _contentInfo;
     private readonly List<string> _h1 = new();
     private readonly List<string> _h2 = new();
     private readonly List<string> _h3 = new();
@@ -25,6 +25,8 @@ public abstract class DocFxCrawler
     private readonly IReadOnlyDictionary<int, List<string>> _headings;
     private readonly StringBuilder _textBuilder = new StringBuilder();
     private readonly List<string> _text = new();
+    private bool _isTextPreformatted;
+    private bool _isParagraphIgnored;
 
     protected DocFxCrawler()
     {
@@ -46,6 +48,12 @@ public abstract class DocFxCrawler
         string[] products )
     {
         Console.WriteLine( $"--- {url}" );
+
+        // TODO: The design could be improved, so we don't need to check this.
+        if ( this._contentInfo != null )
+        {
+            throw new InvalidOperationException( "This object is not reusable." );
+        }
         
         var breadcrumbLinks = document.DocumentNode
             .SelectSingleNode( "//div[@id=\"breadcrum\"]" )
@@ -63,20 +71,22 @@ public abstract class DocFxCrawler
 
         var complexityLevelRank = 1000 - complexityLevel - 1;
 
+        this._contentInfo = new(
+            breadcrumb.Breadcrumb,
+            url,
+            breadcrumb.Kinds,
+            breadcrumb.KindRank,
+            breadcrumb.Categories,
+            source,
+            products,
+            complexityLevel,
+            complexityLevelRank,
+            breadcrumb.NavigationLevel,
+            breadcrumb.IsNextParagraphIgnored );
+
         await foreach ( var snippet in this.CrawlAsync(
                            document.DocumentNode
-                               .SelectSingleNode( "//div[@id=\"content\"]" ),
-                           new(
-                               breadcrumb.Data.Breadcrumb,
-                               url,
-                               breadcrumb.Data.Kinds,
-                               breadcrumb.Data.KindRank,
-                               breadcrumb.Data.Categories,
-                               source,
-                               products,
-                               complexityLevel,
-                               complexityLevelRank,
-                               breadcrumb.Data.NavigationLevel ) ) )
+                               .SelectSingleNode( "//div[@id=\"content\"]" ) ) )
         {
             if ( snippet != null )
             {
@@ -85,15 +95,15 @@ public abstract class DocFxCrawler
         }
     }
 
-    protected abstract (BreadcrumbInfo Data, Func<HtmlNode, HtmlNode?> GetRootNode) GetBreadcrumbData( HtmlNode[] breadcrumbLinks );
+    protected abstract BreadcrumbInfo GetBreadcrumbData( HtmlNode[] breadcrumbLinks );
 
-    private async IAsyncEnumerable<Snippet?> CrawlAsync( HtmlNode node, ContentInfo contentInfo )
+    private async IAsyncEnumerable<Snippet?> CrawlAsync( HtmlNode node )
     {
         await this.CrawlRecursivelyAsync( node, true );
 
         this.FinishParagraph();
 
-        yield return this.CreateSnippet( contentInfo );
+        yield return this.CreateSnippet();
     }
 
     private async Task CrawlRecursivelyAsync( HtmlNode node, bool skipNextSibling = false )
@@ -110,6 +120,7 @@ public abstract class DocFxCrawler
             var level = node.Name[1] - '0';
             var text = this.GetNodeText( node );
             this._headings[level].Add( text );
+            this._isParagraphIgnored = this._contentInfo!.IsNextParagraphIgnored( node );
 
             skipChildNodes = true;
         }
@@ -212,22 +223,31 @@ public abstract class DocFxCrawler
 
     private void FinishParagraph()
     {
-        var text = this._textBuilder.ToString().Trim();
-        
-        if ( text.Length == 0 )
+        // TODO: The performance can be improved by skipping the ignored nodes,
+        // but it's not worth the effort at the moment.
+        if ( !this._isParagraphIgnored )
         {
-            return;
+            var text = this._textBuilder.ToString().Trim();
+
+            if ( text.Length > 0 )
+            {
+                this._text.Add( text );
+            }
         }
-        
-        this._text.Add( text );
+
         this._textBuilder.Clear();
     }
     
-    private Snippet? CreateSnippet( ContentInfo contentInfo )
+    private Snippet? CreateSnippet()
     {
+        if ( this._contentInfo == null )
+        {
+            throw new InvalidOperationException( $"{nameof(this._contentInfo)} field is not set." );
+        }
+
         return new()
         {
-            Breadcrumb = contentInfo.Breadcrumb,
+            Breadcrumb = this._contentInfo.Breadcrumb,
             Summary = "", // TODO
             Text = this._text.ToArray(),
             H1 = this._h1.ToArray(),
@@ -236,15 +256,15 @@ public abstract class DocFxCrawler
             H4 = this._h4.ToArray(),
             H5 = this._h5.ToArray(),
             H6 = this._h6.ToArray(),
-            Link = contentInfo.Url,
-            Source = contentInfo.Source,
-            Products = contentInfo.Products,
-            Kinds = contentInfo.Kinds,
-            KindRank = contentInfo.KindRank,
-            Categories = contentInfo.Categories,
-            ComplexityLevels = contentInfo.ComplexityLevel < 100 ? Array.Empty<int>() : new[] { contentInfo.ComplexityLevel },
-            ComplexityLevelRank = contentInfo.ComplexityLevelRank,
-            NavigationLevel = contentInfo.NavigationLevel
+            Link = this._contentInfo.Url,
+            Source = this._contentInfo.Source,
+            Products = this._contentInfo.Products,
+            Kinds = this._contentInfo.Kinds,
+            KindRank = this._contentInfo.KindRank,
+            Categories = this._contentInfo.Categories,
+            ComplexityLevels = this._contentInfo.ComplexityLevel < 100 ? Array.Empty<int>() : new[] { this._contentInfo.ComplexityLevel },
+            ComplexityLevelRank = this._contentInfo.ComplexityLevelRank,
+            NavigationLevel = this._contentInfo.NavigationLevel
         };
     }
 
