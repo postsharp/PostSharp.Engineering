@@ -106,6 +106,8 @@ public class UpdateSearchCommand : AsyncCommand<UpdateSearchCommandSettings>
             web = new HttpClient();
         }
 
+        bool success;
+        
         using ( web )
         {
             var indexer = indexerFactory( search, web, console );
@@ -113,16 +115,16 @@ public class UpdateSearchCommand : AsyncCommand<UpdateSearchCommandSettings>
             if ( settings.SinglePage )
             {
                 console.WriteMessage( $"Indexing single page '{settings.SourceUrl}' to '{targetCollection}' collection." );
-                await indexer.IndexArticlesAsync( targetCollection, source, products, settings.SourceUrl );
+                success = await indexer.IndexArticlesAsync( targetCollection, source, products, settings.SourceUrl );
             }
             else
             {
                 console.WriteMessage( $"Indexing sitemap '{settings.SourceUrl}' to '{targetCollection}' collection." );
-                await indexer.IndexSiteMapAsync( targetCollection, source, products, settings.SourceUrl );
+                success = await indexer.IndexSiteMapAsync( targetCollection, source, products, settings.SourceUrl );
             }
         }
 
-        if ( !settings.Dry && alias != null )
+        if ( success && !settings.Dry && alias != null )
         {
             var sourceCollectionDescription = targetCollections.Production == null
                 ? "none"
@@ -131,9 +133,16 @@ public class UpdateSearchCommand : AsyncCommand<UpdateSearchCommandSettings>
             console.WriteMessage( $"Swapping '{alias}' from {sourceCollectionDescription} to '{targetCollection}' collection." );
             await search.UpsertCollectionAliasAsync( alias, targetCollection );
         }
-        
-        console.WriteMessage( "Done." );
-        
+
+        if ( success )
+        {
+            console.WriteMessage( "Done." );
+        }
+        else
+        {
+            console.WriteError( "Failed. See the error messages above." );
+        }
+
         return 0;
     }
 

@@ -31,7 +31,7 @@ public abstract class DocFxIndexer
         this._crawlerFactory = crawlerFactory;
     }
 
-    public async Task IndexSiteMapAsync( string collection, string source, string[] products, string url )
+    public async Task<bool> IndexSiteMapAsync( string collection, string source, string[] products, string url )
     {
         this._console.WriteMessage( $"Loading sitemap from '{url}'." );
         
@@ -39,10 +39,10 @@ public abstract class DocFxIndexer
         
         this._console.WriteMessage( "Sitemap loaded." );
 
-        await this.IndexArticlesAsync( collection, source, products, documents.ToArray() );
+        return await this.IndexArticlesAsync( collection, source, products, documents.ToArray() );
     }
     
-    public async Task IndexArticlesAsync( string collection, string source, string[] products, params string[] urls )
+    public async Task<bool> IndexArticlesAsync( string collection, string source, string[] products, params string[] urls )
     {
         var sw = new Stopwatch();
         sw.Start();
@@ -170,10 +170,14 @@ public abstract class DocFxIndexer
                         Console.WriteLine( t.Exception );
                     } );
             }
+
+            return false;
         }
         else
         {
             Console.WriteLine( $"{sw.Elapsed}: Indexing completed." );
+
+            return true;
         }
     }
 }
