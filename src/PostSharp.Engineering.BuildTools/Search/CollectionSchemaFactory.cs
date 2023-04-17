@@ -13,7 +13,7 @@ public static class CollectionSchemaFactory
             new List<Field>
             {
                 new( "breadcrumb", FieldType.String ),
-                new( "summary", FieldType.StringArray ),
+                new( "summary", FieldType.String ),
                 new( "h1", FieldType.StringArray ),
                 new( "h2", FieldType.StringArray ),
                 new( "h3", FieldType.StringArray ),

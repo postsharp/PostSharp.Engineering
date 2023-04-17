@@ -12,7 +12,6 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Typesense;
 
 namespace PostSharp.Engineering.BuildTools.Search.Indexers;
 
@@ -67,7 +66,7 @@ public abstract class DocFxIndexer
         {
             var documentsInBatch = batch
                 .Select(
-                    s => s.Link!
+                    s => s.Link
                         .Contains( '#', StringComparison.Ordinal )
                         ? s.Link.Substring( 0, s.Link.IndexOf( '#', StringComparison.Ordinal ) )
                         : s.Link )
@@ -94,8 +93,9 @@ public abstract class DocFxIndexer
             {
                 await completedTask;
             }
-            catch
+            catch ( Exception e )
             {
+                this._console.WriteError( e.ToString() );
                 failedTasks.Add( completedTask );
             }
 
@@ -115,8 +115,9 @@ public abstract class DocFxIndexer
             {
                 stream = await httpTask;
             }
-            catch
+            catch ( Exception e )
             {
+                this._console.WriteError( e.ToString() );
                 failedTasks.Add( httpTask );
 
                 continue;
@@ -160,16 +161,13 @@ public abstract class DocFxIndexer
         {
             this._console.WriteError( $"{sw.Elapsed}: Indexing failed." );
 
-            if ( failedTasks.Count > 0 )
-            {
-                this._console.WriteError( "Exceptions:" );
+            this._console.WriteError( "Exceptions:" );
 
-                failedTasks.ForEach(
-                    t =>
-                    {
-                        this._console.WriteError( t.Exception?.ToString() ?? "<unknown>" );
-                    } );
-            }
+            failedTasks.ForEach(
+                t =>
+                {
+                    this._console.WriteError( t.Exception?.ToString() ?? "<unknown>" );
+                } );
 
             return false;
         }
