@@ -47,8 +47,6 @@ public abstract class DocFxCrawler
         string source,
         string[] products )
     {
-        Console.WriteLine( $"--- {url}" );
-
         // TODO: The design could be improved, so we don't need to check this.
         if ( this._contentInfo != null )
         {

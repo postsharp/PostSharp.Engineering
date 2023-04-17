@@ -102,7 +102,7 @@ public abstract class DocFxIndexer
             tasks.Remove( completedTask );
             finished++;
 
-            Console.WriteLine(
+            this._console.WriteMessage(
                 $"{sw.Elapsed}: Batch completed. Queued: {tasks.Count}; Finished: {finished}; Total: {t}; Parsed documents: {parsedDocuments.Count}/{urls.Length}" );
         }
 
@@ -158,16 +158,16 @@ public abstract class DocFxIndexer
 
         if ( failedTasks.Count > 0 )
         {
-            Console.WriteLine( $"{sw.Elapsed}: Indexing failed." );
+            this._console.WriteError( $"{sw.Elapsed}: Indexing failed." );
 
             if ( failedTasks.Count > 0 )
             {
-                Console.WriteLine( "Exceptions:" );
+                this._console.WriteError( "Exceptions:" );
 
                 failedTasks.ForEach(
                     t =>
                     {
-                        Console.WriteLine( t.Exception );
+                        this._console.WriteError( t.Exception?.ToString() ?? "<unknown>" );
                     } );
             }
 
@@ -175,7 +175,7 @@ public abstract class DocFxIndexer
         }
         else
         {
-            Console.WriteLine( $"{sw.Elapsed}: Indexing completed." );
+            this._console.WriteMessage( $"{sw.Elapsed}: Indexing completed." );
 
             return true;
         }
