@@ -33,6 +33,7 @@ public abstract class DocFxCrawler
     private bool _isTextPreformatted;
     private bool _isParagraphIgnored;
     private bool _isCurrentContentIgnored;
+    private readonly List<Snippet> _snippets = new();
 
     protected DocFxCrawler()
     {
@@ -47,7 +48,7 @@ public abstract class DocFxCrawler
         }.ToImmutableDictionary();
     }
 
-    public async IAsyncEnumerable<Snippet> GetSnippetsFromDocument(
+    public async Task<IEnumerable<Snippet>> GetSnippetsFromDocument(
         HtmlDocument document,
         string source,
         string[] products )
@@ -57,7 +58,7 @@ public abstract class DocFxCrawler
         {
             throw new InvalidOperationException( "This object is not reusable." );
         }
-        
+
         var breadcrumbLinks = document.DocumentNode
             .SelectSingleNode( "//div[@id=\"breadcrum\"]" )
             .SelectNodes( ".//a|.//span[@class=\"current\"]" )
@@ -67,11 +68,11 @@ public abstract class DocFxCrawler
 
         if ( breadcrumb.IsPageIgnored )
         {
-            yield break;
+            return Enumerable.Empty<Snippet>();
         }
-        
+
         var canonicalUrlNode = document.DocumentNode.SelectSingleNode( "//link[@rel=\"canonical\"]" );
-        this._canonicalUrl = canonicalUrlNode?.Attributes["href"]?.Value?.Trim() ?? throw new InvalidOperationException( "Canonical URL is missing." ); 
+        this._canonicalUrl = canonicalUrlNode?.Attributes["href"]?.Value?.Trim() ?? throw new InvalidOperationException( "Canonical URL is missing." );
 
         var titleNode = document.DocumentNode.SelectSingleNode( "//meta[@name=\"title\"]" );
 
@@ -79,7 +80,7 @@ public abstract class DocFxCrawler
                           .Attributes["content"]
                           ?.Value
                           ?.Trim()
-                          ?.Replace( "&#xD;&#xA;", "", StringComparison.OrdinalIgnoreCase ) // This is appended to each title by the HelpServer. Might be a bug.
+                          .Replace( "&#xD;&#xA;", "", StringComparison.OrdinalIgnoreCase ) // This is appended to each title by the HelpServer. Might be a bug.
                       ?? throw new InvalidOperationException( "Title is missing." );
 
         // API pages containing H4s that don't belong to member lists
@@ -123,32 +124,24 @@ public abstract class DocFxCrawler
             breadcrumb.NavigationLevel,
             breadcrumb.IsApiDoc );
 
-        await foreach ( var snippet in this.CrawlAsync(
-                           document.DocumentNode
-                               .SelectSingleNode( "//div[@id=\"content\"]" ) ) )
-        {
-            if ( snippet != null )
-            {
-                yield return snippet;
-            }
-        }
+        var snippets = await this.CrawlAsync(
+            document.DocumentNode
+                .SelectSingleNode( "//div[@id=\"content\"]" ) );
+
+        return snippets;
     }
 
     protected abstract BreadcrumbInfo GetBreadcrumbData( HtmlNode[] breadcrumbLinks );
 
-    private async IAsyncEnumerable<Snippet?> CrawlAsync( HtmlNode node )
+    private async Task<IEnumerable<Snippet>> CrawlAsync( HtmlNode node )
     {
-        await foreach ( var snippet in this.CrawlRecursivelyAsync( node, true ) )
-        {
-            yield return snippet;
-        }
+        await this.CrawlRecursivelyAsync( node, true );
+        this.CreateSnippet();
 
-        this.FinishParagraph();
-
-        yield return this.CreateSnippet();
+        return this._snippets.ToImmutableArray();
     }
 
-    private async IAsyncEnumerable<Snippet?> CrawlRecursivelyAsync( HtmlNode node, bool skipNextSibling = false )
+    private async Task CrawlRecursivelyAsync( HtmlNode node, bool skipNextSibling = false )
     {
         await Task.Yield();
 
@@ -168,7 +161,7 @@ public abstract class DocFxCrawler
                 {
                     if ( !this._isCurrentContentIgnored )
                     {
-                        yield return this.CreateSnippet();
+                        this.CreateSnippet();
                     }
 
                     this._isCurrentContentIgnored = false;
@@ -261,10 +254,7 @@ public abstract class DocFxCrawler
 
         if ( !skipChildNodes && node.HasChildNodes )
         {
-            await foreach ( var snippet in this.CrawlRecursivelyAsync( node.FirstChild ) )
-            {
-                yield return snippet;
-            }
+            await this.CrawlRecursivelyAsync( node.FirstChild );
         }
 
         switch ( nodeName )
@@ -290,10 +280,7 @@ public abstract class DocFxCrawler
 
         if ( !skipNextSibling && node.NextSibling != null )
         {
-            await foreach ( var snippet in this.CrawlRecursivelyAsync( node.NextSibling ) )
-            {
-                yield return snippet;
-            }
+            await this.CrawlRecursivelyAsync( node.NextSibling );
         }
     }
 
@@ -314,7 +301,7 @@ public abstract class DocFxCrawler
         this._textBuilder.Clear();
     }
     
-    private Snippet? CreateSnippet()
+    private void CreateSnippet()
     {
         if ( this._contentInfo == null )
         {
@@ -374,7 +361,7 @@ public abstract class DocFxCrawler
         this._summary = "";
         this._text.Clear();
 
-        return snippet;
+        this._snippets.Add( snippet );
     }
 
     private string GetNodeText( HtmlNode node ) => node.GetText( this._isTextPreformatted );

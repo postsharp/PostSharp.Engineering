@@ -131,7 +131,9 @@ public abstract class DocFxIndexer
                 document.Load( stream );
             }
 
-            await foreach ( var snippet in this._crawlerFactory().GetSnippetsFromDocument( document, source, products ) )
+            var snippets = await this._crawlerFactory().GetSnippetsFromDocument( document, source, products );
+            
+            foreach ( var snippet in snippets )
             {
                 if ( tasks.Count == parallelism )
                 {
