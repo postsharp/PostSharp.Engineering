@@ -329,12 +329,23 @@ public abstract class DocFxCrawler
         var link = this._anchor == null
             ? this._canonicalUrl
             : $"{this._canonicalUrl}#{this._anchor}";
+
+        string summary;
+
+        if ( this._contentInfo.IsApiDoc )
+        {
+            summary = this._text.Count > 0 ? this._text[0] : this._summary;
+        }
+        else
+        {
+            summary = this._summary;
+        }
         
         var snippet = new Snippet()
         {
             Breadcrumb = this._contentInfo.Breadcrumb,
             Title = $"{this._titlePrefix}{this._title}",
-            Summary = this._summary,
+            Summary = summary,
             Text = this._text.ToArray(),
             H1 = this._h1.ToArray(),
             H2 = this._h2.ToArray(),
