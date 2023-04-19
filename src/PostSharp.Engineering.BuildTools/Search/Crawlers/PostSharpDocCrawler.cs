@@ -34,7 +34,6 @@ public class PostSharpDocCrawler : DocFxCrawler
                 : "Conceptual Documentation";
 
         int kindRank;
-        Func<HtmlNode, bool> isNextParagraphIgnored = _ => false;
         
         if ( isDefaultKind )
         {
@@ -42,7 +41,6 @@ public class PostSharpDocCrawler : DocFxCrawler
         }
         else if ( isApiReference )
         {
-            isNextParagraphIgnored = DocFxApiArticleHelper.IsNextParagraphIgnored;
             kindRank = (int) DocFxKindRank.Api;
         }
         else
@@ -57,6 +55,6 @@ public class PostSharpDocCrawler : DocFxCrawler
             category == null ? Array.Empty<string>() : new[] { category },
             relevantBreadCrumbTitles.Length,
             false,
-            isNextParagraphIgnored );
+            isApiReference );
     }
 }

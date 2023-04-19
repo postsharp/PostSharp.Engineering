@@ -35,7 +35,7 @@ public class MetalamaDocCrawler : DocFxCrawler
             : NormalizeCategoryName( breadcrumbLinks.Skip( 5 ).First().GetText() );
         
         int kindRank;
-        Func<HtmlNode, bool> isNextParagraphIgnored = _ => false;
+        var isApiDoc = false; 
         var isPageIgnored = false;
         
         if ( isDefaultKind )
@@ -54,8 +54,8 @@ public class MetalamaDocCrawler : DocFxCrawler
         {
             // The PostSharp API migration doc goes to another collection,
             // so it doesn't clutter the search results for Metalama.
-            isPageIgnored = category!.Contains( "postsharp", StringComparison.OrdinalIgnoreCase );
-            isNextParagraphIgnored = DocFxApiArticleHelper.IsNextParagraphIgnored;
+            isPageIgnored = category?.Contains( "postsharp", StringComparison.OrdinalIgnoreCase ) ?? false;
+            isApiDoc = true;
             kindRank = (int) DocFxKindRank.Api;
         }
         else
@@ -70,6 +70,6 @@ public class MetalamaDocCrawler : DocFxCrawler
             category == null ? Array.Empty<string>() : new[] { category },
             relevantBreadCrumbTitles.Length,
             isPageIgnored,
-            isNextParagraphIgnored );
+            isApiDoc );
     }
 }

@@ -12,6 +12,7 @@ public static class CollectionSchemaFactory
             collectionName,
             new List<Field>
             {
+                new( "title", FieldType.String ),
                 new( "breadcrumb", FieldType.String ),
                 new( "summary", FieldType.String ),
                 new( "h1", FieldType.StringArray ),

@@ -16,6 +16,11 @@ public abstract class DocFxCrawler
 {
     private static readonly char _newLineCharacter = Environment.NewLine[^1];
     private ContentInfo? _contentInfo;
+    private string _titlePrefix = "";
+    private string _title = "";
+    private string? _canonicalUrl;
+    private string? _anchor;
+    private string _summary = "";
     private readonly List<string> _h1 = new();
     private readonly List<string> _h2 = new();
     private readonly List<string> _h3 = new();
@@ -27,6 +32,7 @@ public abstract class DocFxCrawler
     private readonly List<string> _text = new();
     private bool _isTextPreformatted;
     private bool _isParagraphIgnored;
+    private bool _isCurrentContentIgnored;
 
     protected DocFxCrawler()
     {
@@ -43,7 +49,6 @@ public abstract class DocFxCrawler
 
     public async IAsyncEnumerable<Snippet> GetSnippetsFromDocument(
         HtmlDocument document,
-        string url,
         string source,
         string[] products )
     {
@@ -64,6 +69,38 @@ public abstract class DocFxCrawler
         {
             yield break;
         }
+        
+        var canonicalUrlNode = document.DocumentNode.SelectSingleNode( "//link[@rel=\"canonical\"]" );
+        this._canonicalUrl = canonicalUrlNode?.Attributes["href"]?.Value?.Trim() ?? throw new InvalidOperationException( "Canonical URL is missing." ); 
+
+        var titleNode = document.DocumentNode.SelectSingleNode( "//meta[@name=\"title\"]" );
+
+        this._title = titleNode?
+                          .Attributes["content"]
+                          ?.Value
+                          ?.Trim()
+                          ?.Replace( "&#xD;&#xA;", "", StringComparison.OrdinalIgnoreCase ) // This is appended to each title by the HelpServer. Might be a bug.
+                      ?? throw new InvalidOperationException( "Title is missing." );
+
+        // API pages containing H4s that don't belong to member lists
+        // are split to individual snippets according to the H4s.
+        if ( breadcrumb.IsApiDoc && (document.DocumentNode.SelectNodes( "//h4" )
+                ?.Any(
+                    h =>
+                    {
+                        var id = h.Attributes["id"]?.Value;
+
+                        return id == null || !DocFxApiArticleHelper.IsMemberListItemId( id );
+                    } ) ?? false) )
+        {
+            // Eg. Method, Constructor, Property, Operator, ...
+            this._titlePrefix = this._title.Split(
+                ' ',
+                StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries )[0] + " ";
+
+            this._isParagraphIgnored = true;
+            this._isCurrentContentIgnored = true;
+        }
 
         var complexityLevelNode = document.DocumentNode.SelectSingleNode( "//meta[@name=\"postsharp:level\"]" );
         var complexityLevelString = complexityLevelNode?.Attributes["content"]?.Value;
@@ -76,7 +113,6 @@ public abstract class DocFxCrawler
 
         this._contentInfo = new(
             breadcrumb.Breadcrumb,
-            url,
             breadcrumb.Kinds,
             breadcrumb.KindRank,
             breadcrumb.Categories,
@@ -85,7 +121,7 @@ public abstract class DocFxCrawler
             complexityLevel,
             complexityLevelRank,
             breadcrumb.NavigationLevel,
-            breadcrumb.IsNextParagraphIgnored );
+            breadcrumb.IsApiDoc );
 
         await foreach ( var snippet in this.CrawlAsync(
                            document.DocumentNode
@@ -102,14 +138,17 @@ public abstract class DocFxCrawler
 
     private async IAsyncEnumerable<Snippet?> CrawlAsync( HtmlNode node )
     {
-        await this.CrawlRecursivelyAsync( node, true );
+        await foreach ( var snippet in this.CrawlRecursivelyAsync( node, true ) )
+        {
+            yield return snippet;
+        }
 
         this.FinishParagraph();
 
         yield return this.CreateSnippet();
     }
 
-    private async Task CrawlRecursivelyAsync( HtmlNode node, bool skipNextSibling = false )
+    private async IAsyncEnumerable<Snippet?> CrawlRecursivelyAsync( HtmlNode node, bool skipNextSibling = false )
     {
         await Task.Yield();
 
@@ -118,12 +157,37 @@ public abstract class DocFxCrawler
 
         if ( Regex.IsMatch( nodeName, @"^h\d$" ) )
         {
-            this.FinishParagraph();
-
             var level = node.Name[1] - '0';
             var text = this.GetNodeText( node );
-            this._headings[level].Add( text );
-            this._isParagraphIgnored = this._contentInfo!.IsNextParagraphIgnored( node );
+            
+            if ( this._contentInfo!.IsApiDoc )
+            {
+                var strategy = DocFxApiArticleHelper.GetNextParagraphStrategy( node );
+
+                if ( strategy.IsNextSnippet )
+                {
+                    if ( !this._isCurrentContentIgnored )
+                    {
+                        yield return this.CreateSnippet();
+                    }
+
+                    this._isCurrentContentIgnored = false;
+                    this._title = text;
+
+                    this._anchor = node.Attributes["id"]?.Value;
+                }
+                else
+                {
+                    this.FinishParagraph();
+                }
+
+                this._isParagraphIgnored = strategy.IsIgnored;
+            }
+            else
+            {
+                this.FinishParagraph();
+                this._headings[level].Add( text );
+            }
 
             skipChildNodes = true;
         }
@@ -197,7 +261,10 @@ public abstract class DocFxCrawler
 
         if ( !skipChildNodes && node.HasChildNodes )
         {
-            await this.CrawlRecursivelyAsync( node.FirstChild );
+            await foreach ( var snippet in this.CrawlRecursivelyAsync( node.FirstChild ) )
+            {
+                yield return snippet;
+            }
         }
 
         switch ( nodeName )
@@ -223,7 +290,10 @@ public abstract class DocFxCrawler
 
         if ( !skipNextSibling && node.NextSibling != null )
         {
-            await this.CrawlRecursivelyAsync( node.NextSibling );
+            await foreach ( var snippet in this.CrawlRecursivelyAsync( node.NextSibling ) )
+            {
+                yield return snippet;
+            }
         }
     }
 
@@ -251,10 +321,20 @@ public abstract class DocFxCrawler
             throw new InvalidOperationException( $"{nameof(this._contentInfo)} field is not set." );
         }
 
-        return new()
+        if ( this._canonicalUrl == null )
+        {
+            throw new InvalidOperationException( $"{nameof(this._canonicalUrl)} field is not set." );
+        }
+
+        var link = this._anchor == null
+            ? this._canonicalUrl
+            : $"{this._canonicalUrl}#{this._anchor}";
+        
+        var snippet = new Snippet()
         {
             Breadcrumb = this._contentInfo.Breadcrumb,
-            Summary = "", // TODO
+            Title = $"{this._titlePrefix}{this._title}",
+            Summary = this._summary,
             Text = this._text.ToArray(),
             H1 = this._h1.ToArray(),
             H2 = this._h2.ToArray(),
@@ -262,7 +342,7 @@ public abstract class DocFxCrawler
             H4 = this._h4.ToArray(),
             H5 = this._h5.ToArray(),
             H6 = this._h6.ToArray(),
-            Link = this._contentInfo.Url,
+            Link = link,
             Source = this._contentInfo.Source,
             Products = this._contentInfo.Products,
             Kinds = this._contentInfo.Kinds,
@@ -272,6 +352,18 @@ public abstract class DocFxCrawler
             ComplexityLevelRank = this._contentInfo.ComplexityLevelRank,
             NavigationLevel = this._contentInfo.NavigationLevel
         };
+        
+        this.FinishParagraph();
+        
+        this._h2.Clear();
+        this._h3.Clear();
+        this._h4.Clear();
+        this._h5.Clear();
+        this._h6.Clear();
+        this._summary = "";
+        this._text.Clear();
+
+        return snippet;
     }
 
     private string GetNodeText( HtmlNode node ) => node.GetText( this._isTextPreformatted );

@@ -3,7 +3,7 @@
 using HtmlAgilityPack;
 using System;
 
-namespace PostSharp.Engineering.BuildTools.Search;
+namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
 
 internal static class HtmlNodeExtensions
 {

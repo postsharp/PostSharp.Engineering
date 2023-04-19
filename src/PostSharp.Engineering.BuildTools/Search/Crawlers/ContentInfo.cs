@@ -3,11 +3,10 @@
 using HtmlAgilityPack;
 using System;
 
-namespace PostSharp.Engineering.BuildTools.Search;
+namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
 
 internal record ContentInfo(
     string Breadcrumb,
-    string Url,
     string[] Kinds,
     int KindRank,
     string[] Categories,
@@ -16,4 +15,4 @@ internal record ContentInfo(
     int ComplexityLevel,
     int ComplexityLevelRank,
     int NavigationLevel,
-    Func<HtmlNode, bool> IsNextParagraphIgnored );
+    bool IsApiDoc );

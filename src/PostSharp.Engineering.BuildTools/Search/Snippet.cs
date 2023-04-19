@@ -6,6 +6,9 @@ namespace PostSharp.Engineering.BuildTools.Search;
 
 public class Snippet
 {
+    [JsonPropertyName( "title" )]
+    public string Title { get; set; } = null!;
+    
     [JsonPropertyName( "breadcrumb" )]
     public string Breadcrumb { get; set; } = null!;
     

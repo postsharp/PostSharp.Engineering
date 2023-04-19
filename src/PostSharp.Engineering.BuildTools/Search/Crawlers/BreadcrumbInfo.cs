@@ -1,7 +1,7 @@
 ﻿using HtmlAgilityPack;
 using System;
 
-namespace PostSharp.Engineering.BuildTools.Search;
+namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
 
 public record BreadcrumbInfo(
     string Breadcrumb,
@@ -10,4 +10,4 @@ public record BreadcrumbInfo(
     string[] Categories,
     int NavigationLevel,
     bool IsPageIgnored,
-    Func<HtmlNode, bool> IsNextParagraphIgnored );
+    bool IsApiDoc );

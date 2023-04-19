@@ -36,6 +36,7 @@ public class ConsoleBackend : SearchBackend
 
     private void WriteSnippet( Snippet snippet )
     {
+        this._console.WriteMessage( $"Title: {snippet.Title}" );
         this._console.WriteMessage( $"Breadcrumb: {snippet.Breadcrumb}" );
         this._console.WriteMessage( $"H1: {string.Join( "; ", snippet.H1 )}" );
         this._console.WriteMessage( $"H2: {string.Join( "; ", snippet.H2 )}" );
