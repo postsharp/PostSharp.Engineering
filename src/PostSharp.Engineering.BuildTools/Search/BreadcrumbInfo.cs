@@ -9,4 +9,5 @@ public record BreadcrumbInfo(
     int KindRank,
     string[] Categories,
     int NavigationLevel,
+    bool IsPageIgnored,
     Func<HtmlNode, bool> IsNextParagraphIgnored );

@@ -11,7 +11,7 @@ public class PostSharpDocCrawler : DocFxCrawler
     protected override BreadcrumbInfo GetBreadcrumbData( HtmlNode[] breadcrumbLinks )
     {
         var relevantBreadCrumbTitles = breadcrumbLinks
-            .Skip( 6 )
+            .Skip( 4 )
             .Select( n => n.GetText() )
             .ToArray(); 
         
@@ -34,8 +34,7 @@ public class PostSharpDocCrawler : DocFxCrawler
                 : "Conceptual Documentation";
 
         int kindRank;
-        
-        Func<HtmlNode, bool> isNextParagraphIgnored = n => false;
+        Func<HtmlNode, bool> isNextParagraphIgnored = _ => false;
         
         if ( isDefaultKind )
         {
@@ -51,6 +50,13 @@ public class PostSharpDocCrawler : DocFxCrawler
             kindRank = (int) DocFxKindRank.Conceptual;
         }
 
-        return new( breadcrumb, new[] { kind }, kindRank, category == null ? Array.Empty<string>() : new[] { category }, relevantBreadCrumbTitles.Length, isNextParagraphIgnored );
+        return new(
+            breadcrumb,
+            new[] { kind },
+            kindRank,
+            category == null ? Array.Empty<string>() : new[] { category },
+            relevantBreadCrumbTitles.Length,
+            false,
+            isNextParagraphIgnored );
     }
 }

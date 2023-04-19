@@ -16,36 +16,7 @@ public class MetalamaDocCrawler : DocFxCrawler
             ? "General Information"
             : NormalizeCategoryName( breadcrumbLinks.Skip( 4 ).First().GetText() );
 
-        var breadcrumbTitlesCountToSkip = 6;
-        var hasCategory = true;
-        
-        int kindRank;
-        
-        Func<HtmlNode, bool> isNextParagraphIgnored = n => false;
-
-        if ( isDefaultKind )
-        {
-            kindRank = (int) DocFxKindRank.Common;
-        }
-        else if ( kind.Contains( "example", StringComparison.OrdinalIgnoreCase ) )
-        {
-            breadcrumbTitlesCountToSkip = 5;
-            hasCategory = false;
-            kindRank = (int) DocFxKindRank.Examples;
-        }
-        else if ( kind.Contains( "concept", StringComparison.OrdinalIgnoreCase ) )
-        {
-            kindRank = (int) DocFxKindRank.Conceptual;
-        }
-        else if ( kind.Contains( "api", StringComparison.OrdinalIgnoreCase ) )
-        {
-            isNextParagraphIgnored = DocFxApiArticleHelper.IsNextParagraphIgnored;
-            kindRank = (int) DocFxKindRank.Api;
-        }
-        else
-        {
-            kindRank = (int) DocFxKindRank.Unknown;
-        }
+        var breadcrumbTitlesCountToSkip = 4;
         
         var relevantBreadCrumbTitles = breadcrumbLinks
             .Skip( breadcrumbTitlesCountToSkip )
@@ -56,10 +27,49 @@ public class MetalamaDocCrawler : DocFxCrawler
             " > ",
             relevantBreadCrumbTitles );
 
+        var isExamplesKind = kind.Contains( "example", StringComparison.OrdinalIgnoreCase );
+        var hasCategory = !isExamplesKind;
+        
         var category = !hasCategory || breadcrumbLinks.Length < 6
             ? null
             : NormalizeCategoryName( breadcrumbLinks.Skip( 5 ).First().GetText() );
+        
+        int kindRank;
+        Func<HtmlNode, bool> isNextParagraphIgnored = _ => false;
+        var isPageIgnored = false;
+        
+        if ( isDefaultKind )
+        {
+            kindRank = (int) DocFxKindRank.Common;
+        }
+        else if ( isExamplesKind )
+        {
+            kindRank = (int) DocFxKindRank.Examples;
+        }
+        else if ( kind.Contains( "concept", StringComparison.OrdinalIgnoreCase ) )
+        {
+            kindRank = (int) DocFxKindRank.Conceptual;
+        }
+        else if ( kind.Contains( "api", StringComparison.OrdinalIgnoreCase ) )
+        {
+            // The PostSharp API migration doc goes to another collection,
+            // so it doesn't clutter the search results for Metalama.
+            isPageIgnored = category!.Contains( "postsharp", StringComparison.OrdinalIgnoreCase );
+            isNextParagraphIgnored = DocFxApiArticleHelper.IsNextParagraphIgnored;
+            kindRank = (int) DocFxKindRank.Api;
+        }
+        else
+        {
+            kindRank = (int) DocFxKindRank.Unknown;
+        }
 
-        return new( breadcrumb, new[] { kind }, kindRank, category == null ? Array.Empty<string>() : new[] { category }, relevantBreadCrumbTitles.Length, isNextParagraphIgnored );
+        return new(
+            breadcrumb,
+            new[] { kind },
+            kindRank,
+            category == null ? Array.Empty<string>() : new[] { category },
+            relevantBreadCrumbTitles.Length,
+            isPageIgnored,
+            isNextParagraphIgnored );
     }
 }

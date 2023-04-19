@@ -60,6 +60,11 @@ public abstract class DocFxCrawler
 
         var breadcrumb = this.GetBreadcrumbData( breadcrumbLinks );
 
+        if ( breadcrumb.IsPageIgnored )
+        {
+            yield break;
+        }
+
         var complexityLevelNode = document.DocumentNode.SelectSingleNode( "//meta[@name=\"postsharp:level\"]" );
         var complexityLevelString = complexityLevelNode?.Attributes["content"]?.Value;
 
