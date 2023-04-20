@@ -38,5 +38,11 @@
         <EmbeddedResource Include="ToolsResources\*.*" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Compile Include="..\..\eng\MainVersion.cs">
+        <Link>MainVersion.cs</Link>
+      </Compile>
+    </ItemGroup>
+
 
 </Project>

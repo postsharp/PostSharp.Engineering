@@ -20,6 +20,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static readonly VcsProvider AzureRepos = new AzureRepoProvider();
 
         public abstract string DefaultBranch { get; }
+        
+        public abstract string? DefaultPublishingBranch { get; }
 
         private class GitHubProvider : VcsProvider
         {
@@ -34,7 +36,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 return httpClient.GetStringAsync( $"https://raw.githubusercontent.com/postsharp/{repo.RepoName}/{branch}/{path}" ).Result;
             }
 
-            public override string DefaultBranch => "dev";
+            public override string DefaultBranch => $"dev/{MainVersion.Value}";
+
+            public override string? DefaultPublishingBranch => $"release/{MainVersion.Value}";
         }
 
         private class AzureRepoProvider : VcsProvider
@@ -57,7 +61,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     .Result;
             }
 
-            public override string DefaultBranch => "master";
+            public override string DefaultBranch => $"release/{MainVersion.Value}";
+            
+            public override string? DefaultPublishingBranch => null;
         }
     }
 }

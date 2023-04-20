@@ -64,17 +64,25 @@ public class MergePublisher : IndependentPublisher
         }
 
         var currentBranch = gitOutput.Trim();
+        var targetBranch = context.Product.VcsProvider?.DefaultPublishingBranch;
 
-        context.Console.WriteHeading( $"Merging branch '{currentBranch}' to 'master' after publishing artifacts." );
+        if ( targetBranch == null )
+        {
+            context.Console.WriteError( "Unknown target branch." );
 
-        // Checkout to master branch and pull to update the local repository.
-        if ( !TryCheckoutAndPullMaster( context ) )
+            return SuccessCode.Error;
+        }
+
+        context.Console.WriteHeading( $"Merging branch '{currentBranch}' to '{targetBranch}' after publishing artifacts." );
+
+        // Checkout target branch and pull to update the local repository.
+        if ( !TryCheckoutAndPull( context, targetBranch ) )
         {
             return SuccessCode.Error;
         }
 
-        // Merge current branch to master.
-        if ( !MergeBranchToMaster( context, settings, currentBranch ) )
+        // Merge current branch to target branch.
+        if ( !MergeBranch( context, settings, currentBranch ) )
         {
             return SuccessCode.Error;
         }
@@ -84,13 +92,13 @@ public class MergePublisher : IndependentPublisher
         return SuccessCode.Success;
     }
 
-    private static bool TryCheckoutAndPullMaster( BuildContext context )
+    private static bool TryCheckoutAndPull( BuildContext context, string branch )
     {
-        // Add origin/master branch to the list of currently tracked branches because local repository may be initialized with only the default branch.
+        // Add remote target branch to the list of currently tracked branches because local repository may be initialized with only the default branch.
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"remote set-branches --add origin master",
+                $"remote set-branches --add origin {branch}",
                 context.RepoDirectory ) )
         {
             return false;
@@ -99,27 +107,27 @@ public class MergePublisher : IndependentPublisher
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"fetch",
+                "fetch",
                 context.RepoDirectory ) )
         {
             return false;
         }
 
-        // Switch to the master branch before we do merge.
+        // Switch to the target branch before we do merge.
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"checkout master",
+                $"checkout {branch}",
                 context.RepoDirectory ) )
         {
             return false;
         }
 
-        // Pull remote master changes because local master may not contain all changes or upstream may not be set for local master.
+        // Pull remote target branch changes because local target branch may not contain all changes or upstream may not be set for local target branch.
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"pull origin master",
+                $"pull origin {branch}",
                 context.RepoDirectory ) )
         {
             return false;
@@ -128,9 +136,9 @@ public class MergePublisher : IndependentPublisher
         return true;
     }
 
-    private static bool MergeBranchToMaster( BuildContext context, BaseBuildSettings settings, string branchToMerge )
+    private static bool MergeBranch( BuildContext context, BaseBuildSettings settings, string branchToMerge )
     {
-        // Attempts merging branch to master, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
+        // Attempts merging branch to branch, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
@@ -189,7 +197,7 @@ public class MergePublisher : IndependentPublisher
             return false;
         }
 
-        context.Console.WriteSuccess( $"Merging '{branchToMerge}' into 'master' branch was successful." );
+        context.Console.WriteSuccess( $"Merging '{branchToMerge}' branch was successful." );
 
         return true;
     }
