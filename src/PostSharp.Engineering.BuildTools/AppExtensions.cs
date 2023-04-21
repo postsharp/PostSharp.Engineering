@@ -7,6 +7,7 @@ using PostSharp.Engineering.BuildTools.Csproj;
 using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Git;
 using PostSharp.Engineering.BuildTools.NuGet;
+using PostSharp.Engineering.BuildTools.Search;
 using PostSharp.Engineering.BuildTools.Tools;
 using PostSharp.Engineering.BuildTools.XmlDoc;
 using Spectre.Console.Cli;
@@ -168,6 +169,21 @@ namespace PostSharp.Engineering.BuildTools
                                 tools.AddBranch(
                                     "xmldoc",
                                     xmldoc => xmldoc.AddCommand<RemoveInternalsCommand>( "clean" ).WithDescription( "Remove internals." ).WithData( product ) );
+
+                                tools.AddBranch(
+                                    "search",
+                                    search =>
+                                    {
+                                        search.AddCommand<UpdateSearchCommand>( "update" )
+                                            .WithDescription(
+                                                "Updates a search collection from the given source or writes data retrieved by a crawler to the console when --dry option is used." )
+                                            .WithExample(
+                                                new[]
+                                                {
+                                                    "metalamadoc http://localhost:8108 https://doc.example.com/sitemap.xml",
+                                                    "metalamadoc http://localhost:8108 https://doc.example.com/conceptual/tryme --page --dry"
+                                                } );
+                                    } );
 
                                 foreach ( var tool in product.DotNetTools )
                                 {

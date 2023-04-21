@@ -11,8 +11,7 @@ var product = new Product( Dependencies.PostSharpEngineering )
     Solutions = new Solution[] { new DotNetSolution( "PostSharp.Engineering.sln" ) { SupportsTestCoverage = true, CanFormatCode = true } },
     PublicArtifacts = Pattern.Create(
         "PostSharp.Engineering.Sdk.$(PackageVersion).nupkg",
-        "PostSharp.Engineering.BuildTools.$(PackageVersion).nupkg",
-        "PostSharp.Engineering.BuildTools.AWS.$(PackageVersion).nupkg" ),
+        "PostSharp.Engineering.BuildTools.$(PackageVersion).nupkg" ),
     RequiresEngineeringSdk = false
 };
 
