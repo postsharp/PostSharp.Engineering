@@ -22,6 +22,24 @@ public static class TeamCityHelper
     public static bool IsTeamCityBuild( CommonCommandSettings? settings = null )
         => settings?.ContinuousIntegration == true || Environment.GetEnvironmentVariable( "IS_TEAMCITY_AGENT" )?.ToLowerInvariant() == "true";
 
+    public static bool TryGetTeamcityToken( BuildContext context, [NotNullWhen( true )] out string? token )
+    {
+        const string teamcityTokenVariable = "TEAMCITY_CLOUD_TOKEN";
+
+        token = Environment.GetEnvironmentVariable( teamcityTokenVariable );
+
+        if ( string.IsNullOrEmpty( token ) )
+        {
+            context.Console.WriteError( $"The {teamcityTokenVariable} environment variable is not defined." );
+
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+    
     public static bool TryGetTeamCitySourceWriteToken( out string environmentVariableName, [NotNullWhen( true )] out string? teamCitySourceWriteToken )
     {
         environmentVariableName = "SOURCE_CODE_WRITING_TOKEN";
@@ -85,12 +103,8 @@ public static class TeamCityHelper
             return false;
         }
 
-        var token = Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" );
-
-        if ( string.IsNullOrEmpty( token ) )
+        if ( !TryGetTeamcityToken( context, out var token ) )
         {
-            context.Console.WriteError( "The TEAMCITY_TOKEN environment variable is not defined." );
-
             return false;
         }
 

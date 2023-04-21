@@ -83,12 +83,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return true;
             }
 
-            var token = Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" );
-
-            if ( string.IsNullOrEmpty( token ) )
+            if ( !TeamCityHelper.TryGetTeamcityToken( context, out var token ) )
             {
-                context.Console.WriteError( "The TEAMCITY_TOKEN environment variable is not defined." );
-
                 return false;
             }
 

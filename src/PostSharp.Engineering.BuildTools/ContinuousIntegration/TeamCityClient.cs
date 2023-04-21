@@ -21,7 +21,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
     {
         private readonly HttpClient _httpClient;
 
-        public TeamCityClient( string token )
+        public TeamCityClient( string? token = null )
         {
             this._httpClient = new HttpClient();
             this._httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Bearer", token );
