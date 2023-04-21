@@ -44,7 +44,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             if ( includeVersionInCiProjectName )
             {
-                ciProjectName += MainVersion.Value.Replace( ".", "", StringComparison.Ordinal );
+                ciProjectName = $"{ciProjectName}_{ciProjectName}{MainVersion.ValueWithoutDots}";
             }
 
             this.CiBuildTypes = new ConfigurationSpecific<string>(
