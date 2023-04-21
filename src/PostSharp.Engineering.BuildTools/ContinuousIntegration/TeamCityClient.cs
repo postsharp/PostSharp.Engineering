@@ -76,10 +76,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             return true;
         }
 
-        public CiBuildId? GetLatestBuildNumber( string buildTypeId, string branch, CancellationToken cancellationToken )
+        public CiBuildId? GetLatestBuildNumber( string buildTypeId, string branchName, bool isDefaultBranch, CancellationToken cancellationToken )
         {
+            // In some cases, the default branch is not set for the TeamCity build and we need to use the "default:true" locator.
+            var branchLocator = isDefaultBranch ? "default:true" : $"refs/heads/{branchName}";
+            
             var url =
-                $"{TeamCityHelper.TeamCityUrl}/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId},branch:refs/heads/{branch}";
+                $"{TeamCityHelper.TeamCityUrl}/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId},branch:{branchLocator}";
 
             var result = this._httpClient.GetAsync( url, cancellationToken ).Result;
 

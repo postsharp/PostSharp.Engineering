@@ -326,15 +326,23 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         branchName = dependency.Definition.DefaultBranch;
                     }
 
+                    if ( context.Product.VcsProvider == null )
+                    {
+                        throw new InvalidOperationException( "VCS provider is missing for the product." );
+                    }
+
+                    var isDefaultBranch = branchName == context.Product.VcsProvider.DefaultBranch;
+                    
                     var latestBuildNumber = teamCity.GetLatestBuildNumber(
                         ciBuildType,
                         branchName,
+                        isDefaultBranch,
                         ConsoleHelper.CancellationToken );
 
                     if ( latestBuildNumber == null )
                     {
                         context.Console.WriteError(
-                            $"No successful build for {dependency.Definition.Name} on branch {branchName} (BuildTypeId={ciBuildType}." );
+                            $"No successful build for {dependency.Definition.Name} on branch {branchName} (BuildTypeId={ciBuildType},IsDefaultBranch={isDefaultBranch}." );
 
                         return false;
                     }
