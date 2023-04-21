@@ -9,3 +9,4 @@ eng/tools
 *.user
 .teamcity/.idea
 .teamcity/target
+/.config/dotnet-tools.json
