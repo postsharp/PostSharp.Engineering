@@ -331,7 +331,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         throw new InvalidOperationException( "VCS provider is missing for the product." );
                     }
 
-                    var isDefaultBranch = branchName == context.Product.VcsProvider.DefaultBranch;
+                    var isDefaultBranch = branchName == dependency.Definition.DefaultBranch;
                     
                     var latestBuildNumber = teamCity.GetLatestBuildNumber(
                         ciBuildType,
