@@ -36,9 +36,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 return httpClient.GetStringAsync( $"https://raw.githubusercontent.com/postsharp/{repo.RepoName}/{branch}/{path}" ).Result;
             }
 
-            public override string DefaultBranch => $"dev/{MainVersion.Value}";
+            public override string DefaultBranch => $"release/{MainVersion.Value}";
 
-            public override string? DefaultPublishingBranch => $"release/{MainVersion.Value}";
+            // Source code publishing disabled for 2023.1.
+            public override string? DefaultPublishingBranch => null;
         }
 
         private class AzureRepoProvider : VcsProvider
