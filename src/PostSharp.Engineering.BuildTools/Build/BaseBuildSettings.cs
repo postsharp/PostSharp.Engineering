@@ -1,6 +1,8 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using Spectre.Console.Cli;
 using System;
+using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Build;
 
@@ -12,6 +14,8 @@ public class BaseBuildSettings : CommonCommandSettings
 {
     private BuildConfiguration? _resolvedConfiguration;
 
+    [Description( "Sets the build configuration (Debug | Release | Public)" )]
+    [CommandOption( "-c|--configuration" )]
     public BuildConfiguration BuildConfiguration
     {
         get
@@ -22,6 +26,11 @@ public class BaseBuildSettings : CommonCommandSettings
 
     public override void Initialize( BuildContext context )
     {
+        if ( this._resolvedConfiguration != null )
+        {
+            return;
+        }
+        
         var defaultConfiguration = context.Product.ReadDefaultConfiguration( context );
 
         if ( defaultConfiguration == null )
