@@ -36,9 +36,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public Product( DependencyDefinition dependencyDefinition )
         {
             this.DependencyDefinition = dependencyDefinition;
-#pragma warning disable CS0618 // Obsolete init accessor should cause warning only outside constructor.
             this.ProductName = dependencyDefinition.Name;
-#pragma warning restore CS0618
             this.VcsProvider = dependencyDefinition.Repo.Provider;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
         }
@@ -70,12 +68,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// </summary>
         public DependencyDefinition? MainVersionDependency { get; init; }
 
-        public string ProductName
-        {
-            get;
-            [Obsolete( "Product name is set in constructor using DependencyDefinition." )]
-            init;
-        }
+        public string ProductName { get; }
 
         public string ProductNameWithoutDot => this.ProductName.Replace( ".", "", StringComparison.OrdinalIgnoreCase );
 

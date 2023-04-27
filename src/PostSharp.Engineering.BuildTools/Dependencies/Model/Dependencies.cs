@@ -40,22 +40,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public static DependencyDefinition MetalamaVsx { get; } = new( "Metalama.Vsx", VcsProvider.AzureRepos, "Metalama" );
 
-        [Obsolete( "This dependency is part of Metalama.Community" )]
-        public static DependencyDefinition MetalamaOpenAutoCancellationToken { get; } =
-            new( "Metalama.Open.AutoCancellationToken", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
-
-        [Obsolete( "This dependency is part of Metalama.Community" )]
-        public static DependencyDefinition MetalamaOpenCostura { get; } =
-            new( "Metalama.Open.Costura", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
-
-        [Obsolete( "This dependency is part of Metalama.Community" )]
-        public static DependencyDefinition MetalamaOpenVirtuosity { get; } =
-            new( "Metalama.Open.Virtuosity", VcsProvider.GitHub, "Metalama.MetalamaOpen" );
-
-        [Obsolete( "Renamed to MetalamaExtensions" )]
-        public static DependencyDefinition MetalamaFrameworkExtensions { get; } =
-            new( "Metalama.Framework.Extensions", VcsProvider.GitHub, "Metalama" );
-
         public static DependencyDefinition MetalamaExtensions { get; } =
             new( "Metalama.Extensions", VcsProvider.GitHub, "Metalama" );
 
@@ -76,12 +60,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 "PostSharpEngineering_DebugBuild",
                 "PostSharpEngineering_DebugBuild" )
         };
-
-        [Obsolete( "Renamed to MetalamaBackstage" )]
-        public static DependencyDefinition PostSharpBackstageSettings { get; } = new(
-            "PostSharp.Backstage.Settings",
-            VcsProvider.AzureRepos,
-            "Metalama" );
 
         public static DependencyDefinition MetalamaBackstage { get; } = new(
             "Metalama.Backstage",
@@ -106,7 +84,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             "WebsitesAndBusinessSystems",
             false );
 
-        public static DependencyDefinition MetalamaMigration { get; } = new( "Metalama.Migration", VcsProvider.GitHub, "Metalama.Migration" );
+        public static DependencyDefinition MetalamaMigration { get; } = new( "Metalama.Migration", VcsProvider.GitHub, "Metalama" );
 
         public static DependencyDefinition MetalamaPatterns { get; } = new( "Metalama.Patterns", VcsProvider.AzureRepos, "Metalama" );
 
