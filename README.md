@@ -29,9 +29,11 @@
     - [Commands](#commands)
     - [Required environment variables](#required-environment-variables)
 
-## Content
+## Overview
 
-This repository contains common development, build and publishing scripts. It produces two NuGet packages:
+This repository contains build scripts and tools common to all Metalama repos. We released `PostSharp.Engineering` under an open-source license because it is a dependency of other open-source Metalama projects. Although you can use this project to build your own products, our intention is not to maintain a build framework for the general public, but an ad-hoc solution for our own needs.
+
+This repo produces two NuGet packages:
  
 * _PostSharp.Engineering.BuildTools_ is meant to be added as a package reference from the facade C# build program.
   
@@ -49,16 +51,15 @@ This repository contains common development, build and publishing scripts. It pr
   * `WebPublish.targets`: Configures the release build of web projects to be published as a zipped artifact.
   * `TestsPublish.targets`: Configures the release build of test projects to be published as a zipped artifact.
 
-Both packages must be used at the same time.
-
+Both packages must be used at the same time and the versions must match.
 
 ## Concepts
 
 ### Terminology
 
-A _product_ is almost synonym for _repository_. There is a single product per repository, and the product name must be the same as the repository name. A product can contain several C# solutions.
+A _product_ is almost a synonym for _repository__. There is a single product per repository, and the product name must be the same as the repository name. A product can contain several C# solutions.
 
-### Build and testing locally
+### Building and testing locally
 
 For details, do `Build.ps1` in PowerShell and read the help.
 
@@ -129,8 +130,8 @@ Create `eng\Packaging.props` file. The content should look like this:
     <!-- Properties of NuGet packages-->
     <PropertyGroup>
         <Authors>PostSharp Technologies</Authors>
-        <PackageProjectUrl>https://github.com/postsharp/Caravela</PackageProjectUrl>
-        <PackageTags>PostSharp Caravela AOP</PackageTags>
+        <PackageProjectUrl>https://github.com/postsharp/Metalama</PackageProjectUrl>
+        <PackageTags>PostSharp Metalama AOP</PackageTags>
         <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
         <PackageIcon>PostSharpIcon.png</PackageIcon>
         <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
@@ -183,7 +184,7 @@ Create `eng\Versions.props` file. The content should look like this (replace `My
     <!-- Versions of dependencies -->
     <PropertyGroup>
         <RoslynVersion>3.8.0</RoslynVersion>
-        <CaravelaCompilerVersion>3.8.12-preview</CaravelaCompilerVersion>
+        <MetalamaCompilerVersion>3.8.12-preview</MetalamaCompilerVersion>
         <MicrosoftCSharpVersion>4.7.0</MicrosoftCSharpVersion>
     </PropertyGroup>
 
@@ -270,7 +271,7 @@ using PostSharp.Engineering.BuildTools.Commands.Build;
 using Spectre.Console.Cli;
 using System.Collections.Immutable;
 
-namespace BuildCaravela
+namespace BuildMetalama
 {
     internal class Program
     {
@@ -278,25 +279,25 @@ namespace BuildCaravela
         {
             var product = new Product
             {
-                ProductName = "Caravela",
+                ProductName = "Metalama",
                 Solutions = ImmutableArray.Create<Solution>(
-                    new DotNetSolution( "Caravela.sln" )
+                    new DotNetSolution( "Metalama.sln" )
                     {
                         SupportsTestCoverage = true
                     },
-                    new DotNetSolution( "Tests\\Caravela.Framework.TestApp\\Caravela.Framework.TestApp.sln" )
+                    new DotNetSolution( "Tests\\Metalama.Framework.TestApp\\Metalama.Framework.TestApp.sln" )
                     {
                         IsTestOnly = true
                     } ),
                 PublicArtifacts = ImmutableArray.Create(
-                    "bin\\$(Configuration)\\Caravela.Framework.$(PackageVersion).nupkg",
-                    "bin\\$(Configuration)\\Caravela.TestFramework.$(PackageVersion).nupkg",
-                    "bin\\$(Configuration)\\Caravela.Framework.Redist.$(PackageVersion).nupkg",
-                    "bin\\$(Configuration)\\Caravela.Framework.Sdk.$(PackageVersion).nupkg",
-                    "bin\\$(Configuration)\\Caravela.Framework.Impl.$(PackageVersion).nupkg",
-                    "bin\\$(Configuration)\\Caravela.Framework.DesignTime.Contracts.$(PackageVersion).nupkg" ),
+                    "bin\\$(Configuration)\\Metalama.Framework.$(PackageVersion).nupkg",
+                    "bin\\$(Configuration)\\Metalama.TestFramework.$(PackageVersion).nupkg",
+                    "bin\\$(Configuration)\\Metalama.Framework.Redist.$(PackageVersion).nupkg",
+                    "bin\\$(Configuration)\\Metalama.Framework.Sdk.$(PackageVersion).nupkg",
+                    "bin\\$(Configuration)\\Metalama.Framework.Impl.$(PackageVersion).nupkg",
+                    "bin\\$(Configuration)\\Metalama.Framework.DesignTime.Contracts.$(PackageVersion).nupkg" ),
                  Dependencies = ImmutableArray.Create(
-                    new ProductDependency("Caravela.Compiler"), 
+                    new ProductDependency("Metalama.Compiler"), 
                     new ProductDependency("PostSharp.Engineering.BuildTools") )    
             };
             var commandApp = new CommandApp();
