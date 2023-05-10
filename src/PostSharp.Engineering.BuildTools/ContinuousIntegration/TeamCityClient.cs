@@ -57,21 +57,23 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 return false;
             }
 
-            var branchWithPrefix = build.Attribute( "branchName" )!.Value;
+            branch = build.Attribute( "branchName" )!.Value;
 
             const string prefix = "refs/heads/";
 
-            if ( !branchWithPrefix.StartsWith( prefix, StringComparison.OrdinalIgnoreCase ) )
+            if ( branch.StartsWith( prefix, StringComparison.OrdinalIgnoreCase ) )
             {
-                context.Console.WriteError(
-                    $"Cannot determine the branch of '{buildId}': found a branch '{prefix}', but it does not start with the prefix '{prefix}'." );
+                branch = branch.Substring( prefix.Length );
+            }
 
+            if ( string.IsNullOrEmpty( branch ) )
+            {
+                context.Console.WriteError( $"Cannot determine the branch of '{buildId}': the branch name is empty." );
+                
                 branch = null;
 
                 return false;
             }
-
-            branch = branchWithPrefix.Substring( prefix.Length );
 
             return true;
         }
