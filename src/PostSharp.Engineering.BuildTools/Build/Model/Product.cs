@@ -2064,8 +2064,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Check if we bumped since last deployment by looking in the Git log. 
             var gitLog = gitLogOutput.Split( new[] { '\n', '\r' }, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries );
 
+            // This is to consider only version bumps from the current release. (E.g. 2023.1)
+            // Downstream merge would otherwise break the logic and version bump would be skipped.
+            var versionBumpLogComment = $"<<VERSION_BUMP>> {MainVersion.Value}";
+            
             var lastVersionDump = gitLog.Select( ( s, i ) => (Log: s, LineNumber: i) )
-                .FirstOrDefault( s => s.Log.Contains( "<<VERSION_BUMP>>", StringComparison.OrdinalIgnoreCase ) );
+                .FirstOrDefault( s => s.Log.Contains( versionBumpLogComment, StringComparison.OrdinalIgnoreCase ) );
 
             hasBumpSinceLastDeployment = lastVersionDump.Log != null;
 
@@ -2073,7 +2077,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"rev-list --count \"{lastTag}..HEAD\" --invert-grep --grep=\"<<VERSION_BUMP>>\"",
+                $"rev-list --count \"{lastTag}..HEAD\" --invert-grep --grep=\"{versionBumpLogComment}\"",
                 context.RepoDirectory,
                 out exitCode,
                 out var commitsCount );
