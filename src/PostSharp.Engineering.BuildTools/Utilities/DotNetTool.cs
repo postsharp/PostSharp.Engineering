@@ -3,8 +3,10 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace PostSharp.Engineering.BuildTools.Utilities
@@ -37,6 +39,21 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         public bool Install( BuildContext context )
         {
             var baseDirectory = context.RepoDirectory;
+
+            var gitIgnoreFileName = ".gitignore";
+            var gitIgnoreFilePath = Path.Combine( baseDirectory, gitIgnoreFileName );
+            var requiredGitIgnoreEntries = new[] { "/.config/dotnet-tools.json", "/.tools" };
+            var actualGitIgnoreEntries = File.ReadAllLines( gitIgnoreFilePath );
+
+            foreach ( var requiredGitIgnoreEntry in requiredGitIgnoreEntries )
+            {
+                if ( actualGitIgnoreEntries.All( actualGitIgnoreEntry => actualGitIgnoreEntry != requiredGitIgnoreEntry ) )
+                {
+                    context.Console.WriteError( $"'{requiredGitIgnoreEntry}' is not part of the '{gitIgnoreFileName}' file." );
+
+                    return false;
+                }
+            }
 
             var configFilePath = Path.Combine( baseDirectory, ".config", "dotnet-tools.json" );
             var resourceDirectory = Path.Combine( baseDirectory, ".tools" );
