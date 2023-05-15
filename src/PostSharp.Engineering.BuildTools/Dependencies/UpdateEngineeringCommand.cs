@@ -3,6 +3,7 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PostSharp.Engineering.BuildTools.Build;
+using System;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -23,11 +24,14 @@ public class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
 
         var jsonText = nugetResponse.Content.ReadAsStringAsync().Result;
         var json = JsonDocument.Parse( jsonText );
+        var currentVersion = this.GetType().Assembly.GetName().Version!;
+        var majorVersion = currentVersion.ToString( 2 );
 
         var versions = json.RootElement.GetProperty( "data" )
             .EnumerateArray()
             .SelectMany( i => i.GetProperty( "versions" ).EnumerateArray() )
-            .Select( v => v.GetProperty( "version" ).GetString() )
+            .Select( v => v.GetProperty( "version" ).GetString()! )
+            .Where( v => v.StartsWith( majorVersion, StringComparison.Ordinal ) )
             .ToList();
 
         var lastVersion = versions.Last()!;

@@ -74,7 +74,7 @@ public class VersionFile
             if ( dependencyVersion != "" &&
                  !Regex.IsMatch(
                      dependencyVersion,
-                     @"^[1-9]+.*$" ) )
+                     @"^\d+.*$" ) )
             {
                 context.Console.WriteError(
                     $"{versionsPath}: invalid value '{dependencyVersion}' for property '{dependencyDefinition.Name}Version': the value is neither empty nor a valid version number." );

@@ -236,9 +236,9 @@ public class MergePublisher : IndependentPublisher
                              ?? TestDependencies.All.Single( d => d.Name == dependencyOverride.Key );
 
             // We don't automatically change version of Feed or Local dependencies.
-            if ( dependencySource.SourceKind is DependencySourceKind.Feed or DependencySourceKind.Local or DependencySourceKind.RestoredDependency )
+            if ( dependencySource.SourceKind is DependencySourceKind.Feed )
             {
-                context.Console.WriteMessage( $"Skipping version update of local/feed dependency '{dependency.Name}'." );
+                context.Console.WriteMessage( $"Skipping version update of feed dependency '{dependency.Name}'." );
 
                 continue;
             }
@@ -265,6 +265,8 @@ public class MergePublisher : IndependentPublisher
 
             if ( versionElement == null )
             {
+                context.Console.WriteWarning( $"No property '{dependency.NameWithoutDot}Version'." );
+                
                 continue;
             }
 
