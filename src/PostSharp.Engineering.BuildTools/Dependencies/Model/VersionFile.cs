@@ -127,7 +127,9 @@ public class VersionFile
 
         foreach ( var dependency in dependenciesOverrideFile.Dependencies.Keys )
         {
-            var dependencyDefinition = Model.Dependencies.All.Single( d => d.Name == dependency );
+            var dependencyDefinition = Model.Dependencies.All.SingleOrDefault( d => d.Name == dependency )
+                                       ?? TestDependencies.All.Single( d => d.Name == dependency );
+
             var propertyName = $"{dependencyDefinition.NameWithoutDot}Version";
 
             var elements = document.Root!.XPathSelectElements( $"/Project/PropertyGroup/{propertyName}" ).ToList();

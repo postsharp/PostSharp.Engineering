@@ -12,11 +12,11 @@ public static class TestDependencies
         "Engineering" )
     {
         CiBuildTypes = new ConfigurationSpecific<string>(
-            "Test_PostSharpEngineeringTestTestProduct_DebugBuild",
-            "Test_PostSharpEngineeringTestTestProduct_ReleaseBuild",
-            "Test_PostSharpEngineeringTestTestProduct_PublicBuild" ),
-        DeploymentBuildType = "Test_PostSharpEngineeringTestTestProduct_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestTestProduct_VersionBump"
+            $"Test_Test{MainVersion.ValueWithoutDots}_TestProduct_DebugBuild",
+            $"Test_Test{MainVersion.ValueWithoutDots}_TestProduct_ReleaseBuild",
+            $"Test_Test{MainVersion.ValueWithoutDots}_TestProduct_PublicBuild" ),
+        DeploymentBuildType = $"Test_Test{MainVersion.ValueWithoutDots}_TestProduct_PublicDeployment",
+        BumpBuildType = $"Test_Test{MainVersion.ValueWithoutDots}_TestProduct_VersionBump"
     };
 
     public static DependencyDefinition Dependency { get; } = new(
@@ -25,11 +25,11 @@ public static class TestDependencies
         "Engineering" )
     {
         CiBuildTypes = new ConfigurationSpecific<string>(
-            "Test_PostSharpEngineeringTestDependency_DebugBuild",
-            "Test_PostSharpEngineeringTestDependency_ReleaseBuild",
-            "Test_PostSharpEngineeringTestDependency_PublicBuild" ),
-        DeploymentBuildType = "Test_PostSharpEngineeringTestDependency_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestDependency_VersionBump"
+            $"Test_Test{MainVersion.ValueWithoutDots}_Dependency_DebugBuild",
+            $"Test_Test{MainVersion.ValueWithoutDots}_Dependency_ReleaseBuild",
+            $"Test_Test{MainVersion.ValueWithoutDots}_Dependency_PublicBuild" ),
+        DeploymentBuildType = $"Test_Test{MainVersion.ValueWithoutDots}_Dependency_PublicDeployment",
+        BumpBuildType = $"Test_Test{MainVersion.ValueWithoutDots}_Dependency_VersionBump"
     };
 
     public static DependencyDefinition TransitiveDependency { get; } = new(
@@ -38,11 +38,11 @@ public static class TestDependencies
         "Engineering" )
     {
         CiBuildTypes = new ConfigurationSpecific<string>(
-            "Test_PostSharpEngineeringTestTransitiveDependency_DebugBuild",
-            "Test_PostSharpEngineeringTestTransitiveDependency_ReleaseBuild",
-            "Test_PostSharpEngineeringTestTransitiveDependency_PublicBuild" ),
-        DeploymentBuildType = "Test_PostSharpEngineeringTestTransitiveDependency_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestTransitiveDependency_VersionBump"
+            $"Test_Test{MainVersion.ValueWithoutDots}_TransitiveDependency_DebugBuild",
+            $"Test_Test{MainVersion.ValueWithoutDots}_TransitiveDependency_ReleaseBuild",
+            $"Test_Test{MainVersion.ValueWithoutDots}_TransitiveDependency_PublicBuild" ),
+        DeploymentBuildType = $"Test_Test{MainVersion.ValueWithoutDots}_TransitiveDependency_PublicDeployment",
+        BumpBuildType = $"Test_Test{MainVersion.ValueWithoutDots}_TransitiveDependency_VersionBump"
     };
 
     public static DependencyDefinition GitHub { get; } = new(
@@ -51,11 +51,11 @@ public static class TestDependencies
         "postsharp" )
     {
         CiBuildTypes = new ConfigurationSpecific<string>(
-            "Test_PostSharpEngineeringTestGitHub_DebugBuild",
-            "Test_PostSharpEngineeringTestGitHub_ReleaseBuild",
-            "Test_PostSharpEngineeringTestGitHub_PublicBuild" ),
-        DeploymentBuildType = "Test_PostSharpEngineeringTestGitHub_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestGitHub_VersionBump"
+            $"Test_Test{MainVersion.ValueWithoutDots}_GitHub_DebugBuild",
+            $"Test_Test{MainVersion.ValueWithoutDots}_GitHub_ReleaseBuild",
+            $"Test_Test{MainVersion.ValueWithoutDots}_GitHub_PublicBuild" ),
+        DeploymentBuildType = $"Test_Test{MainVersion.ValueWithoutDots}_GitHub_PublicDeployment",
+        BumpBuildType = $"Test_Test{MainVersion.ValueWithoutDots}_GitHub_VersionBump"
     };
 
     public static DependencyDefinition MainVersionDependency { get; } = new(
@@ -64,11 +64,11 @@ public static class TestDependencies
         "Engineering" )
     {
         CiBuildTypes = new ConfigurationSpecific<string>(
-            "Test_PostSharpEngineeringTestMainVersionDependency_DebugBuild",
-            "Test_PostSharpEngineeringTestMainVersionDependency_ReleaseBuild",
-            "Test_PostSharpEngineeringTestMainVersionDependency_PublicBuild" ),
-        DeploymentBuildType = "Test_PostSharpEngineeringTestMainVersionDependency_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestMainVersionDependency_VersionBump"
+            $"Test_Test{MainVersion.ValueWithoutDots}_MainVersionDependency_DebugBuild",
+            $"Test_Test{MainVersion.ValueWithoutDots}_MainVersionDependency_ReleaseBuild",
+            $"Test_Test{MainVersion.ValueWithoutDots}_MainVersionDependency_PublicBuild" ),
+        DeploymentBuildType = $"Test_Test{MainVersion.ValueWithoutDots}_MainVersionDependency_PublicDeployment",
+        BumpBuildType = $"Test_Test{MainVersion.ValueWithoutDots}_MainVersionDependency_VersionBump"
     };
 
     public static DependencyDefinition PatchVersion { get; } = new(
@@ -77,11 +77,11 @@ public static class TestDependencies
         "Engineering" )
     {
         CiBuildTypes = new ConfigurationSpecific<string>(
-            "Test_PostSharpEngineeringTestPatchVersion_DebugBuild",
-            "Test_PostSharpEngineeringTestPatchVersion_ReleaseBuild",
-            "Test_PostSharpEngineeringTestPatchVersion_PublicBuild" ),
-        DeploymentBuildType = "Test_PostSharpEngineeringPatchVersion_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestPatchVersion_VersionBump"
+            $"Test_Test{MainVersion.ValueWithoutDots}_PatchVersion_DebugBuild",
+            $"Test_Test{MainVersion.ValueWithoutDots}_PatchVersion_ReleaseBuild",
+            $"Test_Test{MainVersion.ValueWithoutDots}_PatchVersion_PublicBuild" ),
+        DeploymentBuildType = $"Test_Test{MainVersion.ValueWithoutDots}_PatchVersion_PublicDeployment",
+        BumpBuildType = $"Test_Test{MainVersion.ValueWithoutDots}_PatchVersion_VersionBump"
     };
 
     public static DependencyDefinition NopCommerce { get; } = new(

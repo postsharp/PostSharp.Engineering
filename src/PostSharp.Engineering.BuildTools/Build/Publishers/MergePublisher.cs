@@ -231,7 +231,9 @@ public class MergePublisher : IndependentPublisher
         foreach ( var dependencyOverride in dependenciesOverrideFile.Dependencies )
         {
             var dependencySource = dependencyOverride.Value;
-            var dependency = Dependencies.Model.Dependencies.All.Single( d => d.Name == dependencyOverride.Key );
+
+            var dependency = Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == dependencyOverride.Key )
+                             ?? TestDependencies.All.Single( d => d.Name == dependencyOverride.Key );
 
             // We don't automatically change version of Feed or Local dependencies.
             if ( dependencySource.SourceKind is DependencySourceKind.Feed or DependencySourceKind.Local or DependencySourceKind.RestoredDependency )
