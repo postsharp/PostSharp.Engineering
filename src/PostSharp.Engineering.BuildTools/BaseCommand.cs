@@ -1,6 +1,5 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using Microsoft.Build.Locator;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -22,14 +21,6 @@ namespace PostSharp.Engineering.BuildTools
     public abstract class BaseCommand<T> : Command<T>
         where T : CommonCommandSettings
     {
-        static BaseCommand()
-        {
-            if ( MSBuildLocator.CanRegister )
-            {
-                MSBuildLocator.RegisterDefaults();
-            }
-        }
-
         public sealed override int Execute( CommandContext context, T settings )
         {
             try
@@ -45,101 +36,101 @@ namespace PostSharp.Engineering.BuildTools
                 {
                     return 1;
                 }
-                else
+
+                MSBuildInitializer.Initialize();
+
+                // Validate custom properties.
+                if ( settings.ListProperties )
                 {
-                    // Validate custom properties.
-                    if ( settings.ListProperties )
+                    if ( buildContext.Product.SupportedProperties.Count > 0 )
                     {
-                        if ( buildContext.Product.SupportedProperties.Count > 0 )
+                        buildContext.Console.WriteImportantMessage( "The following properties are supported by this product:" );
+
+                        foreach ( var property in buildContext.Product.SupportedProperties )
                         {
-                            buildContext.Console.WriteImportantMessage( "The following properties are supported by this product:" );
-
-                            foreach ( var property in buildContext.Product.SupportedProperties )
-                            {
-                                buildContext.Console.WriteImportantMessage( $"\t{property.Key}: {property.Value}" );
-                            }
-                        }
-                        else
-                        {
-                            buildContext.Console.WriteImportantMessage( "The current product does not support any property." );
-                        }
-
-                        return 1;
-                    }
-
-                    var unsupportedProperties =
-                        settings.Properties.Keys
-                            .Where( name => !buildContext.Product.SupportedProperties.ContainsKey( name ) )
-                            .ToList();
-
-                    if ( unsupportedProperties.Count > 0 )
-                    {
-                        buildContext.Console.WriteError(
-                            $"The following properties are not supported: {string.Join( ", ", unsupportedProperties )}. Use --list-properties to list the supported properties." );
-
-                        return 1;
-                    }
-
-                    var myVersion = VersionHelper.EngineeringVersion;
-
-                    // Display the logo.
-                    if ( !settings.NoLogo )
-                    {
-                        buildContext.Console.Out.Write(
-                            new FigletText( buildContext.Product.ProductName )
-                                .LeftAligned()
-                                .Color( Color.Purple ) );
-
-                        buildContext.Console.Out.WriteLine();
-                        buildContext.Console.WriteMessage( $"Using PostSharp.Engineering v{myVersion}." );
-                        buildContext.Console.Out.WriteLine();
-                    }
-
-                    // Validate the sdk version in global.sdk.
-                    if ( buildContext.Product.RequiresEngineeringSdk )
-                    {
-                        var globalJsonPath = Path.Combine( buildContext.RepoDirectory, "global.json" );
-
-                        if ( !File.Exists( globalJsonPath ) )
-                        {
-                            buildContext.Console.WriteWarning( "global.json does not exist." );
-                            buildContext.Console.Out.WriteLine();
-                        }
-
-                        var globalJson = JsonDocument.Parse( File.ReadAllText( globalJsonPath ) );
-
-                        if ( !globalJson.RootElement.TryGetProperty( "msbuild-sdks", out var sdks ) ||
-                             !sdks.TryGetProperty( "PostSharp.Engineering.Sdk", out var sdk ) ||
-                             sdk.GetString() == null )
-                        {
-                            buildContext.Console.WriteWarning( "global.json does not import the PostSharp.Engineering.Sdk." );
-                            buildContext.Console.Out.WriteLine();
-                        }
-                        else
-                        {
-                            if ( sdk.GetString() != myVersion )
-                            {
-                                buildContext.Console.WriteWarning(
-                                    $"global.json imports PostSharp.Engineering.Sdk version {sdk.GetString()}, but the BuildTools version is {myVersion}." );
-
-                                buildContext.Console.Out.WriteLine();
-                            }
+                            buildContext.Console.WriteImportantMessage( $"\t{property.Key}: {property.Value}" );
                         }
                     }
-
-                    // Initialize the settings with the build context.
-                    settings.Initialize( buildContext );
-
-                    // Execute the command itself.
-                    var success = this.ExecuteCore( buildContext, settings );
-
-                    if ( !settings.NoLogo )
+                    else
                     {
-                        buildContext.Console.WriteMessage( $"Finished at {DateTime.Now} after {stopwatch.Elapsed}." );
+                        buildContext.Console.WriteImportantMessage( "The current product does not support any property." );
                     }
 
-                    return success ? 0 : 1;
+                    return 1;
                 }
+
+                var unsupportedProperties =
+                    settings.Properties.Keys
+                        .Where( name => !buildContext.Product.SupportedProperties.ContainsKey( name ) )
+                        .ToList();
+
+                if ( unsupportedProperties.Count > 0 )
+                {
+                    buildContext.Console.WriteError(
+                        $"The following properties are not supported: {string.Join( ", ", unsupportedProperties )}. Use --list-properties to list the supported properties." );
+
+                    return 1;
+                }
+
+                var myVersion = VersionHelper.EngineeringVersion;
+
+                // Display the logo.
+                if ( !settings.NoLogo )
+                {
+                    buildContext.Console.Out.Write(
+                        new FigletText( buildContext.Product.ProductName )
+                            .LeftAligned()
+                            .Color( Color.Purple ) );
+
+                    buildContext.Console.Out.WriteLine();
+                    buildContext.Console.WriteMessage( $"Using PostSharp.Engineering v{myVersion}." );
+                    buildContext.Console.Out.WriteLine();
+                }
+
+                // Validate the sdk version in global.sdk.
+                if ( buildContext.Product.RequiresEngineeringSdk )
+                {
+                    var globalJsonPath = Path.Combine( buildContext.RepoDirectory, "global.json" );
+
+                    if ( !File.Exists( globalJsonPath ) )
+                    {
+                        buildContext.Console.WriteWarning( "global.json does not exist." );
+                        buildContext.Console.Out.WriteLine();
+                    }
+
+                    var globalJson = JsonDocument.Parse( File.ReadAllText( globalJsonPath ) );
+
+                    if ( !globalJson.RootElement.TryGetProperty( "msbuild-sdks", out var sdks ) ||
+                         !sdks.TryGetProperty( "PostSharp.Engineering.Sdk", out var sdk ) ||
+                         sdk.GetString() == null )
+                    {
+                        buildContext.Console.WriteWarning( "global.json does not import the PostSharp.Engineering.Sdk." );
+                        buildContext.Console.Out.WriteLine();
+                    }
+                    else
+                    {
+                        if ( sdk.GetString() != myVersion )
+                        {
+                            buildContext.Console.WriteWarning(
+                                $"global.json imports PostSharp.Engineering.Sdk version {sdk.GetString()}, but the BuildTools version is {myVersion}." );
+
+                            buildContext.Console.Out.WriteLine();
+                        }
+                    }
+                }
+
+                // Initialize the settings with the build context.
+                settings.Initialize( buildContext );
+
+                // Execute the command itself.
+                var success = this.ExecuteCore( buildContext, settings );
+
+                if ( !settings.NoLogo )
+                {
+                    buildContext.Console.WriteMessage( $"Finished at {DateTime.Now} after {stopwatch.Elapsed}." );
+                }
+
+                return success ? 0 : 1;
             }
             catch ( Exception ex )
             {
