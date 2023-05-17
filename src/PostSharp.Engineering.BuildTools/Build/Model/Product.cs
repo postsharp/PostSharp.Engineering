@@ -2014,7 +2014,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Get string of the last published release tag matched by glob pattern and trim newline.
-            var globMatch = "release/*";
+            var globMatch = $"release/{MainVersion.Value}.*";
 
             ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -2032,7 +2032,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteError( gitTagOutput );
 
                 context.Console.WriteError(
-                    $"The repository may not have any tags matching pattern: '{globMatch}'. If so add 'release/0.0.0' tag to initial commit." );
+                    $"The repository may not have any tags matching pattern: '{globMatch}'. If so add 'release/{MainVersion.Value}.0' tag to initial commit." );
 
                 return false;
             }
