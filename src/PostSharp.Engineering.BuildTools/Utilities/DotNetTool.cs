@@ -89,8 +89,20 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     return false;
                 }
             }
+            
+            // 3. Restore the tools from the manifest
+            // The manifest might contain tools, that have been removed from the machine, or not yet installed.
+            // The tools are stored in NuGet package cache, that can be cleaned.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "dotnet",
+                    $"tool restore --add-source \"https://api.nuget.org/v3/index.json\"",
+                    baseDirectory ) )
+            {
+                return false;
+            }
 
-            // 3. Restore resource tools.
+            // 4. Restore resource tools.
             Directory.CreateDirectory( resourceDirectory );
             var assembly = this.GetType().Assembly;
 
