@@ -3,10 +3,8 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 
 namespace PostSharp.Engineering.BuildTools.Utilities
@@ -39,21 +37,6 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         public bool Install( BuildContext context )
         {
             var baseDirectory = context.RepoDirectory;
-
-            var gitIgnoreFileName = ".gitignore";
-            var gitIgnoreFilePath = Path.Combine( baseDirectory, gitIgnoreFileName );
-            var requiredGitIgnoreEntries = new[] { "/.config/dotnet-tools.json", "/.tools" };
-            var actualGitIgnoreEntries = File.ReadAllLines( gitIgnoreFilePath );
-
-            foreach ( var requiredGitIgnoreEntry in requiredGitIgnoreEntries )
-            {
-                if ( actualGitIgnoreEntries.All( actualGitIgnoreEntry => actualGitIgnoreEntry != requiredGitIgnoreEntry ) )
-                {
-                    context.Console.WriteError( $"'{requiredGitIgnoreEntry}' is not part of the '{gitIgnoreFileName}' file." );
-
-                    return false;
-                }
-            }
 
             var configFilePath = Path.Combine( baseDirectory, ".config", "dotnet-tools.json" );
             var resourceDirectory = Path.Combine( baseDirectory, ".tools" );
@@ -106,8 +89,20 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     return false;
                 }
             }
+            
+            // 3. Restore the tools from the manifest
+            // The manifest might contain tools, that have been removed from the machine, or not yet installed.
+            // The tools are stored in NuGet package cache, that can be cleaned.
+            if ( !ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "dotnet",
+                    $"tool restore --add-source \"https://api.nuget.org/v3/index.json\"",
+                    baseDirectory ) )
+            {
+                return false;
+            }
 
-            // 3. Restore resource tools.
+            // 4. Restore resource tools.
             Directory.CreateDirectory( resourceDirectory );
             var assembly = this.GetType().Assembly;
 
