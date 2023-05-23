@@ -165,7 +165,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool RequiresEngineeringSdk { get; init; } = true;
 
         public ImmutableArray<DotNetTool> DotNetTools { get; init; } = DotNetTool.DefaultTools;
-        
+
         public bool TestOnBuild { get; init; }
 
         public ProductExtension[] Extensions { get; init; } = Array.Empty<ProductExtension>();
@@ -544,7 +544,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             string? OverriddenPatchVersion,
             string PackageVersionSuffix,
             int? OurPatchVersion,
-            ImmutableDictionary<string, string?> ExportedProperties );
+            ImmutableDictionary<string, string?> ExportedProperties )
+        {
+            public string Release => new Version( this.MainVersion ).ToString( 2 );
+        }
 
         /// <summary>
         /// Reads MainVersion.props but does not interpret anything.
@@ -613,7 +616,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// An event raised when the tests runs are completed.
         /// </summary>
-        public event Action<BuildCompletedEventArgs>? TestCompleted; 
+        public event Action<BuildCompletedEventArgs>? TestCompleted;
 
         /// <summary>
         /// An event raised when the Prepare phase is complete.
@@ -990,11 +993,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Read the main version number.
-            var mainVersionFileInfo = this.ReadMainVersionFile(
-                Path.Combine(
-                    context.RepoDirectory,
-                    this.EngineeringDirectory,
-                    "MainVersion.props" ) );
+            var mainVersionFileInfo = this.ReadMainVersionFile( this.MainVersionFilePath );
 
             if ( !this.TryComputeVersion( context, settings, configuration, mainVersionFileInfo, dependenciesOverrideFile, out var version ) )
             {
@@ -1463,14 +1462,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var configurationInfo = this.Configurations.GetValue( configuration );
 
             // Get the location of MainVersion.props file.
-            var mainVersionFile = Path.Combine(
-                context.RepoDirectory,
-                this.MainVersionFilePath );
+            var mainVersionFileInfo = this.ReadMainVersionFile( this.MainVersionFilePath );
 
             // Get the current version from MainVersion.props.
             if ( !this.TryGetPreparedVersionInfo(
                     context,
-                    mainVersionFile,
+                    mainVersionFileInfo,
                     out var preparedVersionInfo ) )
             {
                 return false;
@@ -1480,7 +1477,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( this.DependencyDefinition.IsVersioned )
             {
                 // Analyze the repository state since the last deployment.
-                if ( !TryAnalyzeGitHistory( context, out var hasBumpSinceLastDeployment, out var hasChangesSinceLastDeployment, out var lastVersionTag ) )
+                if ( !TryAnalyzeGitHistory(
+                        context,
+                        mainVersionFileInfo,
+                        out var hasBumpSinceLastDeployment,
+                        out var hasChangesSinceLastDeployment,
+                        out var lastVersionTag ) )
                 {
                     return false;
                 }
@@ -1655,8 +1657,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
 
+            var mainVersionFile = Path.Combine(
+                context.RepoDirectory,
+                this.MainVersionFilePath );
+
+            if ( !File.Exists( mainVersionFile ) )
+            {
+                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
+
+                return false;
+            }
+
+            var currentMainVersionFile = this.ReadMainVersionFile( mainVersionFile );
+
             // If the version has already been dumped since the last deployment, there is nothing to do. 
-            if ( !TryAnalyzeGitHistory( context, out var hasBumpSinceLastDeployment, out var hasChangesSinceLastDeployment, out _ ) )
+            if ( !TryAnalyzeGitHistory( context, currentMainVersionFile, out var hasBumpSinceLastDeployment, out var hasChangesSinceLastDeployment, out _ ) )
             {
                 return false;
             }
@@ -1951,7 +1966,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             buildAgentType: this.BuildAgentType ) { IsDeployment = true } );
                 }
             }
-            
+
             // Add from extensions.
             foreach ( var extension in this.Extensions )
             {
@@ -2000,6 +2015,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private static bool TryAnalyzeGitHistory(
             BuildContext context,
+            MainVersionFileInfo mainVersionFileInfo,
             out bool hasBumpSinceLastDeployment,
             out bool hasChangesSinceLastDeployment,
             [NotNullWhen( true )] out string? lastTagVersion )
@@ -2020,7 +2036,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Get string of the last published release tag matched by glob pattern and trim newline.
-            var globMatch = "release/*";
+            var globMatch = $"release/{mainVersionFileInfo.Release}.*";
 
             ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -2261,10 +2277,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// </summary>
         private bool TryGetPreparedVersionInfo(
             BuildContext context,
-            string mainVersionFile,
+            MainVersionFileInfo mainVersionFileInfo,
             [NotNullWhen( true )] out PreparedVersionInfo? preparedVersionInfo )
         {
-            var mainVersionFileInfo = this.ReadMainVersionFile( mainVersionFile );
             var overriddenPatchVersion = mainVersionFileInfo.OverriddenPatchVersion;
 
             string? mainVersion;
@@ -2304,7 +2319,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     if ( mainVersion == null )
                     {
                         context.Console.WriteError(
-                            $"Cannot load '{mainVersionFile}': the property '{propertyName}' in '{artifactVersionFile}' is not defined." );
+                            $"Cannot load '{this.MainVersionFilePath}': the property '{propertyName}' in '{artifactVersionFile}' is not defined." );
 
                         preparedVersionInfo = null;
 
