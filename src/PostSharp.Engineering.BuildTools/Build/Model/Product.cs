@@ -1669,7 +1669,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            if ( hasBumpSinceLastDeployment )
+            if ( hasBumpSinceLastDeployment && !settings.OverridePreviousDump )
             {
                 context.Console.WriteWarning( "Version has already been bumped since the last deployment." );
 
