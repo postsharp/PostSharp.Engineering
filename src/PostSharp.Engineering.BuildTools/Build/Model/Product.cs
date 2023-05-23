@@ -1728,10 +1728,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
             else
             {
-                if ( hasChangesSinceLastDeployment && !hasChangesInDependencies )
+                if ( hasChangesSinceLastDeployment && !hasChangesInDependencies && !settings.Force )
                 {
                     context.Console.WriteError(
-                        "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning. Do a fake change in a parent repo." );
+                        "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning. Do a fake change in a parent repo or use --force." );
 
                     return false;
                 }
