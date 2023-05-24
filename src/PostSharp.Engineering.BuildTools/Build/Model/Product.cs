@@ -2048,7 +2048,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteError( gitTagOutput );
 
                 context.Console.WriteError(
-                    $"The repository may not have any tags matching pattern: '{globMatch}'. If so add 'release/{MainVersion.Value}.0' tag to initial commit." );
+                    $"The repository may not have any tags matching pattern: '{globMatch}'. If so add 'release/{mainVersionFileInfo.Release}.0{mainVersionFileInfo.PackageVersionSuffix}' tag to initial commit." );
 
                 return false;
             }
