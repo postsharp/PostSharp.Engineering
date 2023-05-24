@@ -1560,6 +1560,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 context.Console.WriteError(
                     $"Could not tag the latest commit with version '{preparedVersionInfo.Version}{preparedVersionInfo.PackageVersionSuffix}'." );
+
+                return false;
             }
 
             return true;
