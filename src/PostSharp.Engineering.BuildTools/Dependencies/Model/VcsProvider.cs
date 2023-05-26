@@ -20,6 +20,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static readonly VcsProvider AzureRepos = new AzureRepoProvider();
 
         public abstract string DefaultBranch { get; }
+        
+        public abstract string DownstreamBranch { get; }
 
         private class GitHubProvider : VcsProvider
         {
@@ -35,6 +37,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             }
 
             public override string DefaultBranch => "dev";
+            
+            public override string DownstreamBranch => "develop/2023.1";
         }
 
         private class AzureRepoProvider : VcsProvider
@@ -58,6 +62,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             }
 
             public override string DefaultBranch => "master";
+            
+            public override string DownstreamBranch => "develop/2023.1";
         }
     }
 }

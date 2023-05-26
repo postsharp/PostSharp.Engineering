@@ -4,7 +4,6 @@ using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
-using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -14,6 +13,7 @@ using System.Xml.XPath;
 
 namespace PostSharp.Engineering.BuildTools.Build.Publishers;
 
+// TODO: Set the correct source and target branch version in PostSharp.Engineering 2023.1
 public class MergePublisher : IndependentPublisher
 {
     public override SuccessCode Execute(
@@ -47,151 +47,29 @@ public class MergePublisher : IndependentPublisher
             }
         }
 
-        // Returns the reference name of the current branch.
-        ToolInvocationHelper.InvokeTool(
-            context.Console,
-            "git",
-            $"branch --show-current",
-            context.RepoDirectory,
-            out var gitExitCode,
-            out var gitOutput );
-
-        if ( gitExitCode != 0 )
-        {
-            context.Console.WriteError( gitOutput );
-
-            return SuccessCode.Error;
-        }
-
-        var currentBranch = gitOutput.Trim();
-
-        context.Console.WriteHeading( $"Merging branch '{currentBranch}' to 'master' after publishing artifacts." );
+        context.Console.WriteHeading( $"Merging branch '{context.Branch}' to 'master' after publishing artifacts." );
 
         // Checkout to master branch and pull to update the local repository.
-        if ( !TryCheckoutAndPullMaster( context ) )
+        if ( !VcsHelper.TryCheckoutAndPull( context, "master" ) )
         {
             return SuccessCode.Error;
         }
 
         // Merge current branch to master.
-        if ( !MergeBranchToMaster( context, settings, currentBranch ) )
+        if ( !VcsHelper.TryMerge( context, context.Branch, "master", "--strategy-option theirs" ) )
         {
             return SuccessCode.Error;
         }
 
-        context.Console.WriteSuccess( "MergePublisher has finished successfully." );
+        // Push master.
+        if ( !VcsHelper.TryPush( context, settings ) )
+        {
+            return SuccessCode.Error;
+        }
+
+        context.Console.WriteSuccess( $"Merging '{context.Branch}' into 'master' branch was successful." );
 
         return SuccessCode.Success;
-    }
-
-    private static bool TryCheckoutAndPullMaster( BuildContext context )
-    {
-        // Add origin/master branch to the list of currently tracked branches because local repository may be initialized with only the default branch.
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"remote set-branches --add origin master",
-                context.RepoDirectory ) )
-        {
-            return false;
-        }
-
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"fetch",
-                context.RepoDirectory ) )
-        {
-            return false;
-        }
-
-        // Switch to the master branch before we do merge.
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"checkout master",
-                context.RepoDirectory ) )
-        {
-            return false;
-        }
-
-        // Pull remote master changes because local master may not contain all changes or upstream may not be set for local master.
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"pull origin master",
-                context.RepoDirectory ) )
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    private static bool MergeBranchToMaster( BuildContext context, BaseBuildSettings settings, string branchToMerge )
-    {
-        // Attempts merging branch to master, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"merge {branchToMerge} --strategy-option theirs",
-                context.RepoDirectory ) )
-        {
-            return false;
-        }
-
-        // Returns the remote origin.
-        ToolInvocationHelper.InvokeTool(
-            context.Console,
-            "git",
-            $"remote get-url origin",
-            context.RepoDirectory,
-            out var gitExitCode,
-            out var gitOutput );
-
-        if ( gitExitCode != 0 )
-        {
-            context.Console.WriteError( gitOutput );
-
-            return false;
-        }
-
-        var gitOrigin = gitOutput.Trim();
-
-        var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
-
-        // When on TeamCity, origin will be updated to form including Git authentication credentials.
-        if ( TeamCityHelper.IsTeamCityBuild( settings ) )
-        {
-            if ( isHttps )
-            {
-                if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
-                        out var teamcitySourceWriteTokenEnvironmentVariableName,
-                        out var teamcitySourceCodeWritingToken ) )
-                {
-                    context.Console.WriteImportantMessage(
-                        $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
-                }
-                else
-                {
-                    gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
-                }
-            }
-        }
-
-        // Push completed merge operation to remote.
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"push {gitOrigin}",
-                context.RepoDirectory ) )
-        {
-            return false;
-        }
-
-        context.Console.WriteSuccess( $"Merging '{branchToMerge}' into 'master' branch was successful." );
-
-        return true;
     }
 
     private static bool TryParseAndVerifyDependencies( BuildContext context, PublishSettings settings, out bool dependenciesUpdated )
