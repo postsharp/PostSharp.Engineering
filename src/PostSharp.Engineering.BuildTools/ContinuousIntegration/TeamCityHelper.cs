@@ -13,10 +13,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 public static class TeamCityHelper
 {
-    public static readonly string TeamCityUsername = "teamcity@postsharp.net";
-    public static readonly string TeamcityApiBuildQueueUri = "https://tc.postsharp.net/app/rest/buildQueue";
-    public static readonly string TeamCityApiRunningBuildsUri = "https://tc.postsharp.net/app/rest/builds?locator=state:running";
-    public static readonly string TeamCityApiFinishedBuildsUri = "https://tc.postsharp.net/app/rest/builds?locator=state:finished";
+    public const string TeamCityUsername = "teamcity@postsharp.net";
+    public const string TeamcityApiBuildQueueUri = "https://tc.postsharp.net/app/rest/buildQueue";
+    public const string TeamcityCloudApiBuildQueueUri = "https://postsharp.teamcity.com/app/rest/buildQueue"; // TODO: Consolidate in 2023.1
+    public const string TeamCityApiRunningBuildsUri = "https://tc.postsharp.net/app/rest/builds?locator=state:running";
+    public const string TeamCityApiFinishedBuildsUri = "https://tc.postsharp.net/app/rest/builds?locator=state:finished";
 
     public static bool IsTeamCityBuild( CommonCommandSettings? settings = null )
         => settings?.ContinuousIntegration == true || Environment.GetEnvironmentVariable( "IS_TEAMCITY_AGENT" )?.ToLowerInvariant() == "true";

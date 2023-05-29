@@ -5,6 +5,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -50,8 +51,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        // TODO: Set the upstream main version in PostSharp.Engineering 2023.1
-        var targetBranch = $"merge/2023.1/2023-0-{sourceCommitHash}";
+        var targetBranch = $"merge/{context.DownstreamBranchVersion}/{context.CurrentBranchVersion}-{sourceCommitHash}";
 
         // If the targetBranch exists already, use it. Otherwise, create it.
         if ( VcsHelper.TryCheckoutAndPull( context, targetBranch ) )
@@ -183,11 +183,11 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         }
 
         string? pullRequestUrl;
-        
+
         try
         {
             pullRequestUrl = newPullRequestTask.ConfigureAwait( false ).GetAwaiter().GetResult();
-            
+
             if ( pullRequestUrl == null )
             {
                 return false;
@@ -200,10 +200,13 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        var buildTypeId = context.Product.DependencyDefinition.CiBuildTypes[BuildConfiguration.Debug];
-        
+        var buildTypeId = string.Format(
+            CultureInfo.InvariantCulture,
+            context.Product.DependencyDefinition.DownstreamBuildTypeFormat,
+            context.DownstreamBranchVersionWithoutDot );
+
         context.Console.WriteMessage( $"Scheduling build {buildTypeId} on {targetBranch} branch." );
-        
+
         var teamCityToken = Environment.GetEnvironmentVariable( "TEAMCITY_CLOUD_TOKEN" );
 
         if ( string.IsNullOrEmpty( teamCityToken ) )
@@ -219,13 +222,14 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             context.Console,
             buildTypeId,
             $"Triggered by PostSharp.Engineering for downstream merge from '{sourceBranch}' branch to auto-complete pull request {pullRequestUrl}",
-            targetBranch );
+            targetBranch,
+            TeamCityHelper.TeamcityCloudApiBuildQueueUri );
 
         if ( buildId == null )
         {
             return false;
         }
-        
+
         context.Console.WriteSuccess( $"Scheduled build https://postsharp.teamcity.com/viewLog.html?buildId={buildId}" );
 
         return true;

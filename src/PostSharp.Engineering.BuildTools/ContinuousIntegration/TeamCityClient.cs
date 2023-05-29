@@ -130,11 +130,12 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             }
         }
 
-        public string? ScheduleBuild( ConsoleHelper console, string buildTypeId, string comment, string? branchName = null )
+        // TODO: Remove the requestUri parameter in 2023.1
+        public string? ScheduleBuild( ConsoleHelper console, string buildTypeId, string comment, string? branchName = null, string? requestUri = TeamCityHelper.TeamcityApiBuildQueueUri )
         {
-            var payload = $"<build><buildType id=\"{buildTypeId}\" />{(branchName == null ? "" : $"<branchName>\"{branchName}\"</branchName>")}<comment><text>{comment}</text></comment></build>";
+            var payload = $"<build buildTypeId=\"{buildTypeId}\"{(branchName == null ? "" : $" branchName=\"{branchName}\"")}><comment><text>{comment}</text></comment></build>";
             var content = new StringContent( payload, Encoding.UTF8, "application/xml" );
-            var httpResponseResult = this._httpClient.PostAsync( TeamCityHelper.TeamcityApiBuildQueueUri, content ).Result;
+            var httpResponseResult = this._httpClient.PostAsync( requestUri, content ).Result;
 
             if ( !httpResponseResult.IsSuccessStatusCode )
             {

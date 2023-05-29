@@ -2337,5 +2337,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             return true;
         }
+
+        public virtual string GetNextBranchVersion( string originalBranchVersion )
+        {
+            var originalVersionParts = originalBranchVersion.Split( '.', 2 );
+
+            return $"{originalVersionParts[0]}.{int.Parse( originalVersionParts[1], CultureInfo.InvariantCulture ) + 1}";
+        }
     }
 }

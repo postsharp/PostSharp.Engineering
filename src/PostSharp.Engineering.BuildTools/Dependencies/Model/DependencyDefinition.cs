@@ -21,6 +21,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public string? BumpBuildType { get; init; }
 
         public string DeploymentBuildType { get; init; }
+        
+        public string DownstreamBuildTypeFormat { get; init; }
 
         public bool GenerateSnapshotDependency { get; init; } = true;
 
@@ -46,6 +48,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_DebugBuild",
                 $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_ReleaseBuild",
                 $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_PublicBuild" );
+
+            this.DownstreamBuildTypeFormat = $"{vcsProjectNameWithUnderscore}_{vcsProjectNameWithUnderscore}{{0}}_{this.NameWithoutDot}_DebugBuild";
 
             if ( this.IsVersioned )
             {

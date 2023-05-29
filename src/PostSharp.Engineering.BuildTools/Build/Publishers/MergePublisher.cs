@@ -13,7 +13,6 @@ using System.Xml.XPath;
 
 namespace PostSharp.Engineering.BuildTools.Build.Publishers;
 
-// TODO: Set the correct source and target branch version in PostSharp.Engineering 2023.1
 public class MergePublisher : IndependentPublisher
 {
     public override SuccessCode Execute(

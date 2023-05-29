@@ -35,6 +35,15 @@ namespace PostSharp.Engineering.BuildTools.Build
         /// </summary>
         public string Branch { get; }
 
+        // TODO: Read the version from this.Branch in 2023.1.
+        public string CurrentBranchVersion { get; } = "2023.0";
+
+        public string CurrentBranchVersionWithoutDot { get; }
+
+        public string DownstreamBranchVersion { get; }
+        
+        public string DownstreamBranchVersionWithoutDot { get; }
+
         public CommandContext CommandContext { get; }
 
         /// <summary>
@@ -62,6 +71,9 @@ namespace PostSharp.Engineering.BuildTools.Build
             this.RepoDirectory = repoDirectory;
             this.Product = product;
             this.Branch = branch;
+            this.CurrentBranchVersionWithoutDot = this.CurrentBranchVersion.Replace( ".", "", StringComparison.Ordinal );
+            this.DownstreamBranchVersion = product.GetNextBranchVersion( this.CurrentBranchVersion );
+            this.DownstreamBranchVersionWithoutDot = this.DownstreamBranchVersion.Replace( ".", "", StringComparison.Ordinal );
             this.CommandContext = commandContext;
         }
 

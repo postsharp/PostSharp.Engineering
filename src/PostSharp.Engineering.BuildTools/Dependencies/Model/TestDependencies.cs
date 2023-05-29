@@ -16,7 +16,8 @@ public static class TestDependencies
             "Test_PostSharpEngineeringTestTestProduct_ReleaseBuild",
             "Test_PostSharpEngineeringTestTestProduct_PublicBuild" ),
         DeploymentBuildType = "Test_PostSharpEngineeringTestTestProduct_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestTestProduct_VersionBump"
+        BumpBuildType = "Test_PostSharpEngineeringTestTestProduct_VersionBump",
+        DownstreamBuildTypeFormat = "Test_Test{0}_TestProduct_DebugBuild"
     };
 
     public static DependencyDefinition Dependency { get; } = new(
@@ -29,7 +30,8 @@ public static class TestDependencies
             "Test_PostSharpEngineeringTestDependency_ReleaseBuild",
             "Test_PostSharpEngineeringTestDependency_PublicBuild" ),
         DeploymentBuildType = "Test_PostSharpEngineeringTestDependency_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestDependency_VersionBump"
+        BumpBuildType = "Test_PostSharpEngineeringTestDependency_VersionBump",
+        DownstreamBuildTypeFormat = "Test_Test{0}_Dependency_DebugBuild"
     };
 
     public static DependencyDefinition TransitiveDependency { get; } = new(
@@ -42,7 +44,8 @@ public static class TestDependencies
             "Test_PostSharpEngineeringTestTransitiveDependency_ReleaseBuild",
             "Test_PostSharpEngineeringTestTransitiveDependency_PublicBuild" ),
         DeploymentBuildType = "Test_PostSharpEngineeringTestTransitiveDependency_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestTransitiveDependency_VersionBump"
+        BumpBuildType = "Test_PostSharpEngineeringTestTransitiveDependency_VersionBump",
+        DownstreamBuildTypeFormat = "Test_Test{0}_TransitiveDependency_DebugBuild"
     };
 
     public static DependencyDefinition GitHub { get; } = new(
@@ -55,7 +58,8 @@ public static class TestDependencies
             "Test_PostSharpEngineeringTestGitHub_ReleaseBuild",
             "Test_PostSharpEngineeringTestGitHub_PublicBuild" ),
         DeploymentBuildType = "Test_PostSharpEngineeringTestGitHub_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestGitHub_VersionBump"
+        BumpBuildType = "Test_PostSharpEngineeringTestGitHub_VersionBump",
+        DownstreamBuildTypeFormat = "Test_Test{0}_GitHub_DebugBuild"
     };
 
     public static DependencyDefinition MainVersionDependency { get; } = new(
@@ -68,7 +72,8 @@ public static class TestDependencies
             "Test_PostSharpEngineeringTestMainVersionDependency_ReleaseBuild",
             "Test_PostSharpEngineeringTestMainVersionDependency_PublicBuild" ),
         DeploymentBuildType = "Test_PostSharpEngineeringTestMainVersionDependency_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestMainVersionDependency_VersionBump"
+        BumpBuildType = "Test_PostSharpEngineeringTestMainVersionDependency_VersionBump",
+        DownstreamBuildTypeFormat = "Test_Test{0}_MainVersionDependency_DebugBuild"
     };
 
     public static DependencyDefinition PatchVersion { get; } = new(
@@ -81,7 +86,8 @@ public static class TestDependencies
             "Test_PostSharpEngineeringTestPatchVersion_ReleaseBuild",
             "Test_PostSharpEngineeringTestPatchVersion_PublicBuild" ),
         DeploymentBuildType = "Test_PostSharpEngineeringPatchVersion_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestPatchVersion_VersionBump"
+        BumpBuildType = "Test_PostSharpEngineeringTestPatchVersion_VersionBump",
+        DownstreamBuildTypeFormat = "Test_Test{0}_PatchVersion_DebugBuild"
     };
 
     public static DependencyDefinition NopCommerce { get; } = new(
@@ -95,7 +101,8 @@ public static class TestDependencies
             "Metalama_MetalamaTests_MetalamaTestsNopCommerce_ReleaseBuild",
             "Metalama_MetalamaTests_MetalamaTestsNopCommerce_PublicBuild" ),
         DeploymentBuildType = "Metalama_MetalamaTests_MetalamaTestsNopCommerce_PublicDeployment",
-        BumpBuildType = "Metalama_MetalamaTests_MetalamaTestsNopCommerce_VersionBump"
+        BumpBuildType = "Metalama_MetalamaTests_MetalamaTestsNopCommerce_VersionBump",
+        DownstreamBuildTypeFormat = "Metalama_MetalamaTests_MetalamaTestsNopCommerce_DebugBuild"
     };
 
     public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
