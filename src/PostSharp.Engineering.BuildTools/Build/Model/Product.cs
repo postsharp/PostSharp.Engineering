@@ -117,7 +117,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
-                debug: new BuildConfigurationInfo( MSBuildName: "Debug", BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
+                debug: new BuildConfigurationInfo( MSBuildName: "Debug" ), // The SourceBuildTrigger is not set here, because this configuration gets triggered as a dependency of DownstreamMerge configuration.
                 release: new BuildConfigurationInfo( MSBuildName: "Release", RequiresSigning: true, ExportsToTeamCityBuild: false ),
                 @public: new BuildConfigurationInfo(
                     MSBuildName: "Release",
@@ -1931,9 +1931,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
 
                 // Create a TeamCity configuration for Swap.
-                if (
-                    buildTeamCityConfiguration != null
-                    && configurationInfo is { Swappers: { }, SwapAfterPublishing: false } )
+                if ( configurationInfo is { Swappers: { }, SwapAfterPublishing: false } )
                 {
                     var swapDependencies = new List<TeamCitySnapshotDependency>();
 
@@ -1969,6 +1967,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             buildAgentType: this.BuildAgentType ) { IsDeployment = true } );
                 }
             }
+
+            teamCityBuildConfigurations.Add(
+                new TeamCityBuildConfiguration(
+                    this,
+                    "DownstreamMerge",
+                    "Downstream Merge",
+                    "merge-downstream",
+                    this.BuildAgentType )
+                {
+                    IsDeployment = true,
+                    Dependencies = new[] { new TeamCitySnapshotDependency( $"{BuildConfiguration.Debug}Build", true ) },
+                    BuildTriggers = new IBuildTrigger[] { new SourceBuildTrigger() }
+                } );
 
             // Add from extensions.
             foreach ( var extension in this.Extensions )
