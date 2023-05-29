@@ -1848,7 +1848,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var dependencies =
                     dependenciesOverrideFile.Dependencies.Select(
                             x => (Name: x.Key,
-                                  Definition: BuildTools.Dependencies.Model.Dependencies.All.Single( d => d.Name == x.Key ),
+                                  Definition: BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == x.Key )
+                                              ?? TestDependencies.All.Single( d => d.Name == x.Key ),
                                   Source: x.Value) )
                         .Where( d => d.Definition.GenerateSnapshotDependency )
                         .Select( x => (x.Name, x.Definition, Configuration: GetDependencyConfiguration( x.Definition, x.Source )) )

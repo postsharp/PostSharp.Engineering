@@ -78,6 +78,7 @@ public static class GitHubHelper
             return null;
         }
 
+        console.WriteMessage( "Creating pull request." );
         var newPullRequest = new NewPullRequest( title, sourceBranch, targetBranch );
         var pullRequest = await gitHub.PullRequest.Create( repoOwner, repoName, newPullRequest );
 
@@ -85,10 +86,11 @@ public static class GitHubHelper
             .RepositoryOwner( repoOwner )
             .Repository( repoName )
             .Select( repo => repo.PullRequest( pullRequest.Number ) )
+            .Select( pr => pr.Id )
             .Compile();
 
-        console.WriteMessage( "Creating pull request." );
-        var pullRequestResult = await graphQl.Run( pullRequestQuery );
+        console.WriteMessage( "Enabling pull request auto-merge." );
+        var pullRequestId = await graphQl.Run( pullRequestQuery );
 
         var enableAutoMergeMutation = new Mutation()
             .EnablePullRequestAutoMerge(
@@ -98,8 +100,10 @@ public static class GitHubHelper
                         AuthorEmail = "teamcity@postsharp.net",
                         CommitHeadline = title,
                         MergeMethod = PullRequestMergeMethod.Merge,
-                        PullRequestId = pullRequestResult.Id
-                    } ) );
+                        PullRequestId = pullRequestId
+                    } ) )
+            .Select( am => am.ClientMutationId ) // We need to select something to avoid ResponseDeserializerException
+            .Compile();
 
         console.WriteMessage( "Setting the new pull request to get completed automatically." );
         _ = await graphQl.Run( enableAutoMergeMutation );

@@ -5,8 +5,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 public static class GitHubRepoUrlParser
 {
-    // E.g. git@github.com:postsharp/Metalama.Documentation.git
-    private static readonly Regex _urlRegex = new Regex( "^git@github.com:(?<owner>[^/]+)/(?<repo>[^/]+)\\.git$" );
+    // E.g.
+    // git@github.com:postsharp/Metalama.Documentation.git // Used on TeamCity
+    // https://github.com/postsharp/Metalama.Documentation.git // Used locally
+    private static readonly Regex _urlRegex = new Regex( "^(?:git@github.com:|https://github.com/)(?<owner>[^/]+)/(?<repo>[^/]+)\\.git$" );
 
     public static bool TryParse( string repoUrl, [NotNullWhen( true )] out string? repoOwner, [NotNullWhen( true )] out string? repoName )
     {
