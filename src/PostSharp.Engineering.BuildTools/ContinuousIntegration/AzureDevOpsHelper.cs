@@ -90,8 +90,6 @@ public static class AzureDevOpsHelper
 
                 var url = $"{baseUrl}/{projectName}/_git/{repoName}/pullrequest/{createdPullRequest.PullRequestId}";
                 
-                console.WriteSuccess( $"Created pull request: {url}" );
-                
                 return url;
             }
         }

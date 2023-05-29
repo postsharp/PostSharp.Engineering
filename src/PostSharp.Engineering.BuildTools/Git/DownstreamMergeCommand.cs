@@ -117,14 +117,14 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         {
             if ( !VcsHelper.TryGetCurrentCommitHash( context, out var downstreamHeadCommitHashAfterMerge ) )
             {
-                return true;
+                return false;
             }
 
             if ( downstreamHeadCommitHashAfterMerge == downstreamHeadCommitHashBeforeMerge )
             {
                 context.Console.WriteSuccess( $"There is nothing to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
 
-                return true;
+                return false;
             }
         }
         else
@@ -133,7 +133,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
             if ( !VcsHelper.TryGetStatus( context, settings, context.RepoDirectory, out var statuses ) )
             {
-                return true;
+                return false;
             }
 
             // Try to resolve conflicts
@@ -162,7 +162,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
                     {
                         if ( !VcsHelper.TryResolveUsingOurs( context, fileToResolve ) )
                         {
-                            return true;
+                            return false;
                         }
                     }
                 }
@@ -174,18 +174,18 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
                 context.Console.WriteError(
                     $"Merge conflicts need to be resolved manually. Merge '{sourceBranch}' branch to '{targetBranch}' branch. Then create a pull request to '{downstreamBranch}' branch or execute this command again." );
 
-                return true;
+                return false;
             }
         }
 
         if ( !VcsHelper.TryPush( context, settings ) )
         {
-            return true;
+            return false;
         }
 
         context.Console.WriteSuccess( $"'{sourceBranch}' branch merged to '{targetBranch}' branch." );
 
-        return false;
+        return true;
     }
 
     private static bool TryCreatePullRequest(
