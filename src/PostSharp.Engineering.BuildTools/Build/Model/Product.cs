@@ -992,8 +992,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
+            var mainVersionFile = Path.Combine(
+                context.RepoDirectory,
+                this.MainVersionFilePath );
+
+            if ( !File.Exists( mainVersionFile ) )
+            {
+                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
+
+                return false;
+            }
+
             // Read the main version number.
-            var mainVersionFileInfo = this.ReadMainVersionFile( this.MainVersionFilePath );
+            var mainVersionFileInfo = this.ReadMainVersionFile( mainVersionFile );
 
             if ( !this.TryComputeVersion( context, settings, configuration, mainVersionFileInfo, dependenciesOverrideFile, out var version ) )
             {
