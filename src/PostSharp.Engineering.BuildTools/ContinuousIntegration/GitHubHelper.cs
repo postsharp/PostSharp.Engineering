@@ -60,7 +60,7 @@ public static class GitHubHelper
         return true;
     }
 
-    public static async Task<bool> TryCreatePullRequest(
+    public static async Task<string?> TryCreatePullRequest(
         ConsoleHelper console,
         string repoOwner,
         string repoName,
@@ -70,12 +70,12 @@ public static class GitHubHelper
     {
         if ( !TryConnectRestApi( console, out var gitHub ) )
         {
-            return false;
+            return null;
         }
 
         if ( !TryConnectGraphQl( console, out var graphQl ) )
         {
-            return false;
+            return null;
         }
 
         var newPullRequest = new NewPullRequest( title, sourceBranch, targetBranch );
@@ -87,6 +87,7 @@ public static class GitHubHelper
             .Select( repo => repo.PullRequest( pullRequest.Number ) )
             .Compile();
 
+        console.WriteMessage( "Creating pull request." );
         var pullRequestResult = await graphQl.Run( pullRequestQuery );
 
         var enableAutoMergeMutation = new Mutation()
@@ -100,8 +101,13 @@ public static class GitHubHelper
                         PullRequestId = pullRequestResult.Id
                     } ) );
 
+        console.WriteMessage( "Setting the new pull request to get completed automatically." );
         _ = await graphQl.Run( enableAutoMergeMutation );
 
-        return true;
+        var url = $"https://github.com/{repoOwner}/{repoName}/pull/{pullRequest.Number}";
+
+        console.WriteSuccess( $"Created pull request: {url}" );
+
+        return url;
     }
 }

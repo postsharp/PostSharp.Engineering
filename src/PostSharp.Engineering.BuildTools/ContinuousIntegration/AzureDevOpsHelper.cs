@@ -35,7 +35,8 @@ public static class AzureDevOpsHelper
     }
 
     // https://github.com/microsoft/azure-devops-dotnet-samples/blob/main/ClientLibrary/Samples/Git/PullRequestsSample.cs
-    public static async Task<bool> TryCreatePullRequest(
+    // https://stackoverflow.com/a/52025418/4100001
+    public static async Task<string?> TryCreatePullRequest(
         ConsoleHelper console,
         string baseUrl,
         string projectName,
@@ -48,7 +49,7 @@ public static class AzureDevOpsHelper
         {
             if ( !TryConnect( console, baseUrl, out var azureDevOps ) )
             {
-                return false;
+                return null;
             }
 
             using ( azureDevOps )
@@ -60,20 +61,44 @@ public static class AzureDevOpsHelper
                     SourceRefName = $"refs/heads/{sourceBranch}", TargetRefName = $"refs/heads/{targetBranch}", Title = title
                 };
 
-                pullRequest = await azureDevOpsGit.CreatePullRequestAsync( pullRequest, projectName, repoName );
+                console.WriteMessage( "Creating a pull request." );
+                var createdPullRequest = await azureDevOpsGit.CreatePullRequestAsync( pullRequest, projectName, repoName );
 
-                pullRequest.AutoCompleteSetBy = new IdentityRef();
+                console.WriteMessage( "Approving the pull request." );
 
-                await azureDevOpsGit.UpdatePullRequestAsync( pullRequest, projectName, repoName, pullRequest.PullRequestId );
+                _ = await azureDevOpsGit.CreatePullRequestReviewerAsync(
+                    new IdentityRefWithVote( new IdentityRef { Id = createdPullRequest.CreatedBy.Id } ) { Vote = 10 },
+                    projectName,
+                    repoName,
+                    createdPullRequest.PullRequestId,
+                    createdPullRequest.CreatedBy.Id );
+
+                var pullRequestWithAutoCompleteEnabled = new GitPullRequest
+                {
+                    AutoCompleteSetBy = new IdentityRef { Id = createdPullRequest.CreatedBy.Id },
+                    CompletionOptions = new GitPullRequestCompletionOptions { DeleteSourceBranch = true, MergeCommitMessage = title },
+                };
+
+                console.WriteMessage( "Setting the new pull request to get completed automatically." );
+
+                var updatedPullRequest = await azureDevOpsGit.UpdatePullRequestAsync(
+                    pullRequestWithAutoCompleteEnabled,
+                    projectName,
+                    repoName,
+                    createdPullRequest.PullRequestId );
+
+                var url = $"{baseUrl}/{projectName}/_git/{repoName}/pullrequest/{createdPullRequest.PullRequestId}";
+                
+                console.WriteSuccess( $"Created pull request: {url}" );
+                
+                return url;
             }
-
-            return true;
         }
         catch ( Exception e )
         {
             console.WriteError( e.ToString() );
 
-            return false;
+            return null;
         }
     }
 }

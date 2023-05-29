@@ -6,6 +6,7 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.BuildTools.Git;
@@ -50,16 +51,16 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         }
 
         // TODO: Set the upstream main version in PostSharp.Engineering 2023.1
-        var targetBranch = $"merge/2023-0-{sourceCommitHash}";
+        var targetBranch = $"merge/2023.1/2023-0-{sourceCommitHash}";
 
         // If the targetBranch exists already, use it. Otherwise, create it.
         if ( VcsHelper.TryCheckoutAndPull( context, targetBranch ) )
         {
-            context.Console.WriteMessage( $"The '{targetBranch}' target branch already exists." );
+            context.Console.WriteMessage( $"The '{targetBranch}' target branch already exists. Let's use it." );
         }
         else
         {
-            context.Console.WriteMessage( $"Creating the '{targetBranch}' target branch already exists." );
+            context.Console.WriteMessage( $"The '{targetBranch}' target branch doesn't exits. Let's create it." );
 
             if ( !VcsHelper.TryCreateBranch( context, targetBranch ) )
             {
@@ -91,38 +92,50 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         }
         else
         {
-            if ( !VcsHelper.TryGetStatus( context, settings, context.RepoDirectory, out var status ) )
+            context.Console.WriteMessage( "The git merge failed. Trying to resolve conflicts." );
+
+            if ( !VcsHelper.TryGetStatus( context, settings, context.RepoDirectory, out var statuses ) )
             {
                 return false;
             }
 
-            var solvableConflicts = new Dictionary<string, string>();
-
-            void AddSolvableConflict( string path )
+            // Try to resolve conflicts
+            if ( statuses.Length > 0 )
             {
-                var unixStylePath = path.Replace( Path.DirectorySeparatorChar, '/' );
-                solvableConflicts.Add( $"UU {unixStylePath}", unixStylePath );
-            }
+                var solvableConflicts = new HashSet<string>();
 
-            AddSolvableConflict( context.Product.MainVersionFilePath );
-            AddSolvableConflict( context.Product.BumpInfoFilePath );
-
-            foreach ( var s in status )
-            {
-                if ( solvableConflicts.TryGetValue( s, out var fileToResolve ) )
+                void AddSolvableConflict( string path )
                 {
-                    if ( !VcsHelper.TryResolveUsingOurs( context, fileToResolve ) )
+                    var unixStylePath = path.Replace( Path.DirectorySeparatorChar, '/' );
+                    solvableConflicts.Add( unixStylePath );
+                }
+
+                AddSolvableConflict( context.Product.MainVersionFilePath );
+                AddSolvableConflict( context.Product.VersionsFilePath );
+                AddSolvableConflict( context.Product.BumpInfoFilePath );
+
+                foreach ( var status in statuses.Select( s => s.Split( ' ', 2, StringSplitOptions.TrimEntries ) ) )
+                {
+                    var fileToResolve = status[1];
+
+                    // The global.json can be found in various folders. Eg. in Metalama.Try.
+                    if ( solvableConflicts.Contains( fileToResolve )
+                         || fileToResolve == "global.json"
+                         || fileToResolve.EndsWith( "/global.json", StringComparison.InvariantCulture ) )
                     {
-                        return false;
+                        if ( !VcsHelper.TryResolveUsingOurs( context, fileToResolve ) )
+                        {
+                            return false;
+                        }
                     }
                 }
             }
 
             // If not all conflicts were expected, git commit fails here.
-            if ( !VcsHelper.TryCommit( context ) )
+            if ( !VcsHelper.TryCommitMerge( context ) )
             {
                 context.Console.WriteError(
-                    $"Merge conflicts need to be resolved manually. Merge '{sourceBranch}' branch to '{targetBranch}' branch, Then create a pull request to '{downstreamBranch}' branch or execute this command again." );
+                    $"Merge conflicts need to be resolved manually. Merge '{sourceBranch}' branch to '{targetBranch}' branch. Then create a pull request to '{downstreamBranch}' branch or execute this command again." );
 
                 return false;
             }
@@ -139,8 +152,8 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         }
 
         var pullRequestTitle = $"Downstream merge from '{sourceBranch}' branch";
-        Task<bool> newPullRequestTask;
-        
+        Task<string?> newPullRequestTask;
+
         if ( AzureDevOpsRepoUrlParser.TryParse( remoteUrl, out var baseUrl, out var projectName, out var repoName ) )
         {
             newPullRequestTask = AzureDevOpsHelper.TryCreatePullRequest(
@@ -169,9 +182,13 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
+        string? pullRequestUrl;
+        
         try
         {
-            if ( !newPullRequestTask.ConfigureAwait( false ).GetAwaiter().GetResult() )
+            pullRequestUrl = newPullRequestTask.ConfigureAwait( false ).GetAwaiter().GetResult();
+            
+            if ( pullRequestUrl == null )
             {
                 return false;
             }
@@ -182,6 +199,34 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
             return false;
         }
+
+        var buildTypeId = context.Product.DependencyDefinition.CiBuildTypes[BuildConfiguration.Debug];
+        
+        context.Console.WriteMessage( $"Scheduling build {buildTypeId} on {targetBranch} branch." );
+        
+        var teamCityToken = Environment.GetEnvironmentVariable( "TEAMCITY_CLOUD_TOKEN" );
+
+        if ( string.IsNullOrEmpty( teamCityToken ) )
+        {
+            context.Console.WriteError( "The TEAMCITY_CLOUD_TOKEN environment variable is not defined." );
+
+            return false;
+        }
+
+        var tc = new TeamCityClient( teamCityToken );
+
+        var buildId = tc.ScheduleBuild(
+            context.Console,
+            buildTypeId,
+            $"Triggered by PostSharp.Engineering for downstream merge from '{sourceBranch}' branch to auto-complete pull request {pullRequestUrl}",
+            targetBranch );
+
+        if ( buildId == null )
+        {
+            return false;
+        }
+        
+        context.Console.WriteSuccess( $"Scheduled build https://postsharp.teamcity.com/viewLog.html?buildId={buildId}" );
 
         return true;
     }

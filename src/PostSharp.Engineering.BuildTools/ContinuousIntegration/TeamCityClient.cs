@@ -27,7 +27,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             this._httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Bearer", token );
         }
 
-        public bool TryGetBranchFromBuildNumber( BuildContext context, CiBuildId buildId, [NotNullWhen( true )] out string? branch )
+        public bool TryGetBranchFromBuildNumber( ConsoleHelper console, CiBuildId buildId, [NotNullWhen( true )] out string? branch )
         {
             var cancellationToken = ConsoleHelper.CancellationToken;
 
@@ -38,7 +38,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             if ( !result.IsSuccessStatusCode )
             {
-                context.Console.WriteError( $"Cannot determine the branch of '{buildId}': '{url}' returned {result.StatusCode} {result.ReasonPhrase}." );
+                console.WriteError( $"Cannot determine the branch of '{buildId}': '{url}' returned {result.StatusCode} {result.ReasonPhrase}." );
                 branch = null;
 
                 return false;
@@ -50,7 +50,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             if ( build == null )
             {
-                context.Console.WriteError( $"Cannot determine the branch of '{buildId}': cannot find any build in '{url}'." );
+                console.WriteError( $"Cannot determine the branch of '{buildId}': cannot find any build in '{url}'." );
 
                 branch = null;
 
@@ -63,7 +63,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             if ( !branchWithPrefix.StartsWith( prefix, StringComparison.OrdinalIgnoreCase ) )
             {
-                context.Console.WriteError(
+                console.WriteError(
                     $"Cannot determine the branch of '{buildId}': found a branch '{prefix}', but it does not start with the prefix '{prefix}'." );
 
                 branch = null;
@@ -130,14 +130,18 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             }
         }
 
-        public string? ScheduleBuild( string buildTypeId )
+        public string? ScheduleBuild( ConsoleHelper console, string buildTypeId, string comment, string? branchName = null )
         {
-            var payload = $"<build><buildType id=\"{buildTypeId}\" /><comment><text>This build was triggered by command.</text></comment></build>";
+            var payload = $"<build><buildType id=\"{buildTypeId}\" />{(branchName == null ? "" : $"<branchName>\"{branchName}\"</branchName>")}<comment><text>{comment}</text></comment></build>";
             var content = new StringContent( payload, Encoding.UTF8, "application/xml" );
             var httpResponseResult = this._httpClient.PostAsync( TeamCityHelper.TeamcityApiBuildQueueUri, content ).Result;
 
             if ( !httpResponseResult.IsSuccessStatusCode )
             {
+                console.WriteError( "Failed to schedule build." );
+                console.WriteError( $"{httpResponseResult.StatusCode} {httpResponseResult.ReasonPhrase}" );
+                console.WriteError( httpResponseResult.Content.ReadAsStringAsync().ConfigureAwait( false ).GetAwaiter().GetResult() );
+                
                 return null;
             }
 

@@ -317,7 +317,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                         ciBuildType = buildId.BuildTypeId ?? dependency.Definition.CiBuildTypes[configuration];
 
-                        if ( !teamCity.TryGetBranchFromBuildNumber( context, buildId, out var previousBranchName ) )
+                        if ( !teamCity.TryGetBranchFromBuildNumber( context.Console, buildId, out var previousBranchName ) )
                         {
                             return false;
                         }

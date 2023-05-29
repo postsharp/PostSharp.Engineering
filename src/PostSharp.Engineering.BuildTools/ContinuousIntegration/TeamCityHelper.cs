@@ -95,7 +95,7 @@ public static class TeamCityHelper
 
         TeamCityClient tc = new( token );
 
-        var scheduledBuildId = tc.ScheduleBuild( buildTypeId );
+        var scheduledBuildId = tc.ScheduleBuild( context.Console, buildTypeId, "This build was triggered by command." );
 
         if ( string.IsNullOrEmpty( scheduledBuildId ) )
         {

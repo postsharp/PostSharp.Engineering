@@ -131,12 +131,26 @@ internal static class VcsHelper
         return true;
     }
 
-    public static bool TryCommit( BuildContext context, string? message = null )
+    public static bool TryCommitAll( BuildContext context, string message )
     {
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                message == null ? "commit -a" : $"commit -am \"{message}\"",
+                $"commit -am \"{message}\"",
+                context.RepoDirectory ) )
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    public static bool TryCommitMerge( BuildContext context )
+    {
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                "commit --no-edit",
                 context.RepoDirectory ) )
         {
             return false;
@@ -256,7 +270,8 @@ internal static class VcsHelper
             return false;
         }
 
-        status = statusOutput.Split( Environment.NewLine, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries );
+        // Environment.NewLine is not correct here.
+        status = statusOutput.Split( '\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries );
 
         return true;
     }
@@ -301,7 +316,7 @@ internal static class VcsHelper
             return false;
         }
 
-        url = output;
+        url = output.Trim();
 
         return true;
     }
