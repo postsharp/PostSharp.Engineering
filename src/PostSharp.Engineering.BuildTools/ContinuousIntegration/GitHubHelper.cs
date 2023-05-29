@@ -106,8 +106,6 @@ public static class GitHubHelper
 
         var url = $"https://github.com/{repoOwner}/{repoName}/pull/{pullRequest.Number}";
 
-        console.WriteSuccess( $"Created pull request: {url}" );
-
         return url;
     }
 }
