@@ -13,15 +13,33 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 public static class TeamCityHelper
 {
-    public const string TeamCityUsername = "teamcity@postsharp.net";
-    public const string TeamcityApiBuildQueueUri = "https://tc.postsharp.net/app/rest/buildQueue";
-    public const string TeamcityCloudApiBuildQueueUri = "https://postsharp.teamcity.com/app/rest/buildQueue"; // TODO: Consolidate in 2023.1
-    public const string TeamCityApiRunningBuildsUri = "https://tc.postsharp.net/app/rest/builds?locator=state:running";
-    public const string TeamCityApiFinishedBuildsUri = "https://tc.postsharp.net/app/rest/builds?locator=state:finished";
+    public static readonly string TeamCityUrl = "https://postsharp.teamcity.com";
+    public static readonly string TeamCityUsername = "teamcity@postsharp.net";
+    public static readonly string TeamcityApiBuildQueueUri = $"{TeamCityUrl}/app/rest/buildQueue";
+    public static readonly string TeamCityApiRunningBuildsUri = $"{TeamCityUrl}/app/rest/builds?locator=state:running";
+    public static readonly string TeamCityApiFinishedBuildsUri = $"{TeamCityUrl}/app/rest/builds?locator=state:finished";
 
     public static bool IsTeamCityBuild( CommonCommandSettings? settings = null )
         => settings?.ContinuousIntegration == true || Environment.GetEnvironmentVariable( "IS_TEAMCITY_AGENT" )?.ToLowerInvariant() == "true";
 
+    public static bool TryGetTeamcityToken( BuildContext context, [NotNullWhen( true )] out string? token )
+    {
+        const string teamcityTokenVariable = "TEAMCITY_CLOUD_TOKEN";
+
+        token = Environment.GetEnvironmentVariable( teamcityTokenVariable );
+
+        if ( string.IsNullOrEmpty( token ) )
+        {
+            context.Console.WriteError( $"The {teamcityTokenVariable} environment variable is not defined." );
+
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+    
     public static bool TryGetTeamCitySourceWriteToken( out string environmentVariableName, [NotNullWhen( true )] out string? teamCitySourceWriteToken )
     {
         environmentVariableName = "SOURCE_CODE_WRITING_TOKEN";
@@ -85,12 +103,8 @@ public static class TeamCityHelper
             return false;
         }
 
-        var token = Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" );
-
-        if ( string.IsNullOrEmpty( token ) )
+        if ( !TryGetTeamcityToken( context, out var token ) )
         {
-            context.Console.WriteError( "The TEAMCITY_TOKEN environment variable is not defined." );
-
             return false;
         }
 

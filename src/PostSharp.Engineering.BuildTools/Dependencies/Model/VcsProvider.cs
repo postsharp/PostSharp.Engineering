@@ -49,7 +49,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Basic", authString );
 
                 return httpClient.GetStringAsync(
-                        $"https://dev.azure.com/postsharp/{repo.ProjectName}/_apis/git/repositories/{repo.RepoName}/items?path={path}" )
+                        $"https://dev.azure.com/postsharp/{repo.ProjectName}/_apis/git/repositories/{repo.RepoName}/items?path={path}&versionDescriptor.version={branch}" )
                     .Result;
             }
         }

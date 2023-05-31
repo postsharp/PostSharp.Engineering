@@ -79,7 +79,7 @@ namespace PostSharp.Engineering.BuildTools
                 {
                     buildContext.Console.Out.Write(
                         new FigletText( buildContext.Product.ProductName )
-                            .LeftAligned()
+                            .LeftJustified()
                             .Color( Color.Purple ) );
 
                     buildContext.Console.Out.WriteLine();

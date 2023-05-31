@@ -83,12 +83,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return true;
             }
 
-            var token = Environment.GetEnvironmentVariable( "TEAMCITY_TOKEN" );
-
-            if ( string.IsNullOrEmpty( token ) )
+            if ( !TeamCityHelper.TryGetTeamcityToken( context, out var token ) )
             {
-                context.Console.WriteError( "The TEAMCITY_TOKEN environment variable is not defined." );
-
                 return false;
             }
 
@@ -329,15 +325,23 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         branchName = dependency.Definition.Branch;
                     }
 
+                    if ( context.Product.VcsProvider == null )
+                    {
+                        throw new InvalidOperationException( "VCS provider is missing for the product." );
+                    }
+
+                    var isDefaultBranch = branchName == dependency.Definition.Branch;
+                    
                     var latestBuildNumber = teamCity.GetLatestBuildNumber(
                         ciBuildType,
                         branchName,
+                        isDefaultBranch,
                         ConsoleHelper.CancellationToken );
 
                     if ( latestBuildNumber == null )
                     {
                         context.Console.WriteError(
-                            $"No successful build for {dependency.Definition.Name} on branch {branchName} (BuildTypeId={ciBuildType}." );
+                            $"No successful build for {dependency.Definition.Name} on branch {branchName} (BuildTypeId={ciBuildType},IsDefaultBranch={isDefaultBranch}." );
 
                         return false;
                     }

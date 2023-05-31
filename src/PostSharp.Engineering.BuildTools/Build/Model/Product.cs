@@ -37,9 +37,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public Product( DependencyDefinition dependencyDefinition )
         {
             this.DependencyDefinition = dependencyDefinition;
-#pragma warning disable CS0618 // Obsolete init accessor should cause warning only outside constructor.
             this.ProductName = dependencyDefinition.Name;
-#pragma warning restore CS0618
             this.VcsProvider = dependencyDefinition.Repo.Provider;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
         }
@@ -73,12 +71,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// </summary>
         public DependencyDefinition? MainVersionDependency { get; init; }
 
-        public string ProductName
-        {
-            get;
-            [Obsolete( "Product name is set in constructor using DependencyDefinition." )]
-            init;
-        }
+        public string ProductName { get; }
 
         public string ProductNameWithoutDot => this.ProductName.Replace( ".", "", StringComparison.OrdinalIgnoreCase );
 
@@ -106,7 +99,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool KeepEditorConfig { get; init; }
 
-        public string BuildAgentType { get; init; } = "caravela04";
+        public string BuildAgentType { get; init; } = "caravela04cloud";
 
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
 
@@ -996,8 +989,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
+            var mainVersionFile = Path.Combine(
+                context.RepoDirectory,
+                this.MainVersionFilePath );
+
+            if ( !File.Exists( mainVersionFile ) )
+            {
+                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
+
+                return false;
+            }
+            
             // Read the main version number.
-            var mainVersionFileInfo = this.ReadMainVersionFile( this.MainVersionFilePath );
+            var mainVersionFileInfo = this.ReadMainVersionFile( mainVersionFile );
 
             if ( !this.TryComputeVersion( context, settings, configuration, mainVersionFileInfo, dependenciesOverrideFile, out var version ) )
             {
@@ -1465,8 +1469,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var hasTarget = false;
             var configurationInfo = this.Configurations.GetValue( configuration );
 
+            var mainVersionFile = Path.Combine(
+                context.RepoDirectory,
+                this.MainVersionFilePath );
+
+            if ( !File.Exists( mainVersionFile ) )
+            {
+                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
+
+                return false;
+            }
+            
             // Get the location of MainVersion.props file.
-            var mainVersionFileInfo = this.ReadMainVersionFile( this.MainVersionFilePath );
+            var mainVersionFileInfo = this.ReadMainVersionFile( mainVersionFile );
 
             // Get the current version from MainVersion.props.
             if ( !this.TryGetPreparedVersionInfo(
@@ -1682,7 +1697,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            if ( hasBumpSinceLastDeployment )
+            if ( hasBumpSinceLastDeployment && !settings.OverridePreviousDump )
             {
                 context.Console.WriteWarning( "Version has already been bumped since the last deployment." );
 
@@ -1741,10 +1756,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
             else
             {
-                if ( hasChangesSinceLastDeployment && !hasChangesInDependencies )
+                if ( hasChangesSinceLastDeployment && !hasChangesInDependencies && !settings.Force )
                 {
                     context.Console.WriteError(
-                        "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning. Do a fake change in a parent repo." );
+                        "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning. Do a fake change in a parent repo or use --force." );
 
                     return false;
                 }
@@ -2071,7 +2086,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteError( gitTagOutput );
 
                 context.Console.WriteError(
-                    $"The repository may not have any tags matching pattern: '{globMatch}'. If so add 'release/0.0.0' tag to initial commit." );
+                    $"The repository may not have any tags matching pattern: '{globMatch}'. If so add 'release/{mainVersionFileInfo.Release}.0{mainVersionFileInfo.PackageVersionSuffix}' tag to initial commit." );
 
                 return false;
             }
@@ -2102,9 +2117,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             // Check if we bumped since last deployment by looking in the Git log. 
             var gitLog = gitLogOutput.Split( new[] { '\n', '\r' }, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries );
-
+            // This is to consider only version bumps from the current release. (E.g. 2023.1)
+            // Downstream merge would otherwise break the logic and version bump would be skipped.
+            var versionBumpLogComment = $"<<VERSION_BUMP>> {MainVersion.Value}";
+            
             var lastVersionDump = gitLog.Select( ( s, i ) => (Log: s, LineNumber: i) )
-                .FirstOrDefault( s => s.Log.Contains( "<<VERSION_BUMP>>", StringComparison.OrdinalIgnoreCase ) );
+                .FirstOrDefault( s => s.Log.Contains( versionBumpLogComment, StringComparison.OrdinalIgnoreCase ) );
 
             hasBumpSinceLastDeployment = lastVersionDump.Log != null;
 
@@ -2112,7 +2130,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"rev-list --count \"{lastTag}..HEAD\" --invert-grep --grep=\"<<VERSION_BUMP>>\"",
+                $"rev-list --count \"{lastTag}..HEAD\" --invert-grep --grep=\"{versionBumpLogComment}\"",
                 context.RepoDirectory,
                 out exitCode,
                 out var commitsCount );

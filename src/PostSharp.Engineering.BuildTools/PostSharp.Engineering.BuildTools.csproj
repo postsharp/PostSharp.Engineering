@@ -27,8 +27,8 @@
         <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
         <PackageReference Include="HtmlAgilityPack" Version="1.11.46" />
         <PackageReference Include="NuGet.Versioning" Version="5.8.1" />
-        <PackageReference Include="Spectre.Console" Version="0.45.0" />
-        <PackageReference Include="Spectre.Console.Cli" Version="0.45.0" />
+        <PackageReference Include="Spectre.Console" Version="0.46.0" />
+        <PackageReference Include="Spectre.Console.Cli" Version="0.46.0" />
         <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0" />
         <PackageReference Include="System.Management" Version="6.0.0" />
         <PackageReference Include="Typesense" Version="6.3.0" />
@@ -38,6 +38,12 @@
 
     <ItemGroup>
         <EmbeddedResource Include="ToolsResources\*.*" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Include="..\..\eng\MainVersion.cs">
+        <Link>MainVersion.cs</Link>
+      </Compile>
     </ItemGroup>
 
 

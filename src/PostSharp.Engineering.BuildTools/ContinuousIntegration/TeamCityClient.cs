@@ -21,7 +21,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
     {
         private readonly HttpClient _httpClient;
 
-        public TeamCityClient( string token )
+        public TeamCityClient( string? token = null )
         {
             this._httpClient = new HttpClient();
             this._httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Bearer", token );
@@ -32,7 +32,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             var cancellationToken = ConsoleHelper.CancellationToken;
 
             var url =
-                $"https://tc.postsharp.net/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildId.BuildTypeId},number:{buildId.BuildNumber}";
+                $"{TeamCityHelper.TeamCityUrl}/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildId.BuildTypeId},number:{buildId.BuildNumber}";
 
             var result = this._httpClient.GetAsync( url, cancellationToken ).Result;
 
@@ -57,29 +57,34 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 return false;
             }
 
-            var branchWithPrefix = build.Attribute( "branchName" )!.Value;
+            branch = build.Attribute( "branchName" )!.Value;
 
             const string prefix = "refs/heads/";
 
-            if ( !branchWithPrefix.StartsWith( prefix, StringComparison.OrdinalIgnoreCase ) )
+            if ( branch.StartsWith( prefix, StringComparison.OrdinalIgnoreCase ) )
             {
-                console.WriteError(
-                    $"Cannot determine the branch of '{buildId}': found a branch '{prefix}', but it does not start with the prefix '{prefix}'." );
+                branch = branch.Substring( prefix.Length );
+            }
 
+            if ( string.IsNullOrEmpty( branch ) )
+            {
+                console.WriteError( $"Cannot determine the branch of '{buildId}': the branch name is empty." );
+                
                 branch = null;
 
                 return false;
             }
 
-            branch = branchWithPrefix.Substring( prefix.Length );
-
             return true;
         }
 
-        public CiBuildId? GetLatestBuildNumber( string buildTypeId, string branch, CancellationToken cancellationToken )
+        public CiBuildId? GetLatestBuildNumber( string buildTypeId, string branchName, bool isDefaultBranch, CancellationToken cancellationToken )
         {
+            // In some cases, the default branch is not set for the TeamCity build and we need to use the "default:true" locator.
+            var branchLocator = isDefaultBranch ? "default:true" : $"refs/heads/{branchName}";
+            
             var url =
-                $"https://tc.postsharp.net/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId},branch:refs/heads/{branch}";
+                $"{TeamCityHelper.TeamCityUrl}/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId},branch:{branchLocator}";
 
             var result = this._httpClient.GetAsync( url, cancellationToken ).Result;
 
@@ -104,7 +109,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public void DownloadArtifacts( string buildTypeId, int buildNumber, string directory, CancellationToken cancellationToken )
         {
-            var url = $"https://tc.postsharp.net/repository/downloadAll/{buildTypeId}/{buildNumber}";
+            var url = $"{TeamCityHelper.TeamCityUrl}/repository/downloadAll/{buildTypeId}/{buildNumber}";
             var httpStream = this._httpClient.GetStreamAsync( url, cancellationToken ).Result;
             var memoryStream = new MemoryStream();
             httpStream.CopyToAsync( memoryStream, cancellationToken ).Wait( cancellationToken );
@@ -116,7 +121,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public void DownloadSingleArtifact( string buildTypeId, int buildNumber, string artifactPath, string saveLocation, CancellationToken cancellationToken )
         {
-            var url = $"https://tc.postsharp.net/repository/download/{buildTypeId}/{buildNumber}/{artifactPath}";
+            var url = $"{TeamCityHelper.TeamCityUrl}/repository/download/{buildTypeId}/{buildNumber}/{artifactPath}";
             var httpResponse = this._httpClient.GetAsync( url, cancellationToken ).Result;
 
             using ( var stream = httpResponse.Content.ReadAsStreamAsync( cancellationToken ).Result )
@@ -131,8 +136,9 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
         }
 
         // TODO: Remove the requestUri parameter in 2023.1
-        public string? ScheduleBuild( ConsoleHelper console, string buildTypeId, string comment, string? branchName = null, string? requestUri = TeamCityHelper.TeamcityApiBuildQueueUri )
+        public string? ScheduleBuild( ConsoleHelper console, string buildTypeId, string comment, string? branchName = null, string? requestUri = null )
         {
+            requestUri = requestUri ?? TeamCityHelper.TeamcityApiBuildQueueUri;
             var payload = $"<build buildTypeId=\"{buildTypeId}\"{(branchName == null ? "" : $" branchName=\"{branchName}\"")}><comment><text>{comment}</text></comment></build>";
             var content = new StringContent( payload, Encoding.UTF8, "application/xml" );
             var httpResponseResult = this._httpClient.PostAsync( requestUri, content ).Result;

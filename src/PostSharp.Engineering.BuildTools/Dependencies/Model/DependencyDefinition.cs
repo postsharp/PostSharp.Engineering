@@ -58,7 +58,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             string? releaseBranch,
             VcsProvider vcsProvider,
             string vcsProjectName,
-            bool isVersioned = true )
+            bool isVersioned = true,
+            bool includeVersionInCiProjectName = true )
         {
             this.ProductFamily = productFamily;
 
@@ -66,20 +67,25 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             this.Repo = new VcsRepo( dependencyName, vcsProjectName, vcsProvider );
             this.Branch = branch;
             this.IsVersioned = isVersioned;
-            var vcsProjectNameWithUnderscore = vcsProjectName.Replace( ".", "_", StringComparison.Ordinal );
+            var ciProjectName = vcsProjectName.Replace( ".", "_", StringComparison.Ordinal );
+
+            if ( includeVersionInCiProjectName )
+            {
+                ciProjectName = $"{ciProjectName}_{ciProjectName}{MainVersion.ValueWithoutDots}";
+            }
 
             this.CiBuildTypes = new ConfigurationSpecific<string>(
-                $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_DebugBuild",
-                $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_ReleaseBuild",
-                $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_PublicBuild" );
+                $"{ciProjectName}_{this.NameWithoutDot}_DebugBuild",
+                $"{ciProjectName}_{this.NameWithoutDot}_ReleaseBuild",
+                $"{ciProjectName}_{this.NameWithoutDot}_PublicBuild" );
 
             if ( this.IsVersioned )
             {
-                this.BumpBuildType = $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_VersionBump";
+                this.BumpBuildType = $"{ciProjectName}_{this.NameWithoutDot}_VersionBump";
             }
 
-            this.DeploymentBuildType = $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_PublicDeployment";
-            this.VcsConfigName = $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}";
+            this.DeploymentBuildType = $"{ciProjectName}_{this.NameWithoutDot}_PublicDeployment";
+            this.VcsConfigName = $"{ciProjectName}_{this.NameWithoutDot}";
 
             productFamily.Register( this );
         }
