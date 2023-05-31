@@ -162,8 +162,7 @@ public static class TeamCityHelper
 
         // DependencyDefinition is found by its product name.
         var dependencyDefinition =
-            Dependencies.Model.Dependencies.All.FirstOrDefault( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) )
-            ?? TestDependencies.All.FirstOrDefault( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) );
+            context.Product.ProductFamily.GetDependencyDefinitionOrNull( settings.ProductName );
 
         if ( dependencyDefinition == null )
         {

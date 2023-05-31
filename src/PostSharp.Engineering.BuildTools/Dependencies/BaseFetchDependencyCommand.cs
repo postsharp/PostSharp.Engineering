@@ -180,8 +180,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     }
 
                     // Get the DependencyDefinition.
-                    var dependencyDefinition = Model.Dependencies.All.SingleOrDefault( d => d.Name == name )
-                                               ?? TestDependencies.All.SingleOrDefault( d => d.Name == name );
+                    var dependencyDefinition = context.Product.ProductFamily.GetDependencyDefinitionOrNull( name );
 
                     if ( dependencyDefinition == null )
                     {
@@ -327,7 +326,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     else
                     {
                         ciBuildType = dependency.Definition.CiBuildTypes[configuration];
-                        branchName = dependency.Definition.DefaultBranch;
+                        branchName = dependency.Definition.Branch;
                     }
 
                     var latestBuildNumber = teamCity.GetLatestBuildNumber(

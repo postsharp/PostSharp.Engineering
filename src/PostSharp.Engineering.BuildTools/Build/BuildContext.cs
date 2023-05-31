@@ -31,18 +31,9 @@ namespace PostSharp.Engineering.BuildTools.Build
         public Product Product { get; }
 
         /// <summary>
-        /// Gets the name of the current git branch.
+        /// Gets the name of the current git branch. Can be for instance a topic branch.
         /// </summary>
         public string Branch { get; }
-
-        // TODO: Read the version from this.Branch in 2023.1.
-        public string CurrentBranchVersion { get; } = "2023.0";
-
-        public string CurrentBranchVersionWithoutDot { get; }
-
-        public string DownstreamBranchVersion { get; }
-        
-        public string DownstreamBranchVersionWithoutDot { get; }
 
         public CommandContext CommandContext { get; }
 
@@ -71,9 +62,6 @@ namespace PostSharp.Engineering.BuildTools.Build
             this.RepoDirectory = repoDirectory;
             this.Product = product;
             this.Branch = branch;
-            this.CurrentBranchVersionWithoutDot = this.CurrentBranchVersion.Replace( ".", "", StringComparison.Ordinal );
-            this.DownstreamBranchVersion = product.GetNextBranchVersion( this.CurrentBranchVersion );
-            this.DownstreamBranchVersionWithoutDot = this.DownstreamBranchVersion.Replace( ".", "", StringComparison.Ordinal );
             this.CommandContext = commandContext;
         }
 
@@ -98,7 +86,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             if ( !VcsHelper.TryGetCurrentBranch( console, repoDirectory, out var currentBranch ) )
             {
                 buildContext = null;
-                
+
                 return false;
             }
 

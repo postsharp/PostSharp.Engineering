@@ -43,6 +43,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
         }
 
+        public ProductFamily ProductFamily => this.DependencyDefinition.ProductFamily;
+
         public string BuildExePath { get; }
 
         public string EngineeringDirectory => this.DependencyDefinition.EngineeringDirectory;
@@ -117,7 +119,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
-                debug: new BuildConfigurationInfo( MSBuildName: "Debug" ), // The SourceBuildTrigger is not set here, because this configuration gets triggered as a dependency of DownstreamMerge configuration.
+                debug:
+                new BuildConfigurationInfo(
+                    MSBuildName: "Debug" ), // The SourceBuildTrigger is not set here, because this configuration gets triggered as a dependency of DownstreamMerge configuration.
                 release: new BuildConfigurationInfo( MSBuildName: "Release", RequiresSigning: true, ExportsToTeamCityBuild: false ),
                 @public: new BuildConfigurationInfo(
                     MSBuildName: "Release",
@@ -156,8 +160,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public DependencyDefinition? GetDependency( string name )
         {
             return this.Dependencies.SingleOrDefault( d => d.Name == name )
-                   ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name )
-                   ?? TestDependencies.All.SingleOrDefault( d => d.Name == name );
+                   ?? this.ProductFamily.GetDependencyDefinitionOrNull( name );
         }
 
         public Dictionary<string, string> SupportedProperties { get; init; } = new();
@@ -926,7 +929,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         if ( !ToolInvocationHelper.InvokeTool(
                                 context.Console,
                                 "git",
-                                $"clone {dependency.Repo.RepoUrl} --branch {dependency.DefaultBranch} --depth 1",
+                                $"clone {dependency.Repo.RepoUrl} --branch {dependency.Branch} --depth 1",
                                 sourceDependenciesDirectory ) )
                         {
                             return false;
@@ -1775,7 +1778,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var mainVersionFile = Path.Combine( dependency.EngineeringDirectory, "MainVersion.props" );
                 context.Console.WriteMessage( $"Downloading '{mainVersionFile}' from '{dependency.Repo.RepoUrl}'." );
-                var mainVersionContent = dependency.Repo.DownloadTextFile( dependency.DefaultBranch, mainVersionFile );
+                var mainVersionContent = dependency.Repo.DownloadTextFile( dependency.Branch, mainVersionFile );
 
                 var document = XDocument.Parse( mainVersionContent );
                 var project = Project.FromXmlReader( document.CreateReader(), new ProjectOptions() );
@@ -1848,8 +1851,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var dependencies =
                     dependenciesOverrideFile.Dependencies.Select(
                             x => (Name: x.Key,
-                                  Definition: BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == x.Key )
-                                              ?? TestDependencies.All.Single( d => d.Name == x.Key ),
+                                  Definition: this.ProductFamily.GetDependencyDefinition( x.Key ),
                                   Source: x.Value) )
                         .Where( d => d.Definition.GenerateSnapshotDependency )
                         .Select( x => (x.Name, x.Definition, Configuration: GetDependencyConfiguration( x.Definition, x.Source )) )

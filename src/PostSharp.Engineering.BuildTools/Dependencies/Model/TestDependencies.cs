@@ -6,8 +6,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 
 public static class TestDependencies
 {
+    private const string _branch = "master";
+
+    public static ProductFamily ProductFamily { get; } = new( "Test" );
+
     public static DependencyDefinition TestProduct { get; } = new(
+        ProductFamily,
         "PostSharp.Engineering.Test.TestProduct",
+        _branch,
         VcsProvider.AzureRepos,
         "Engineering" )
     {
@@ -16,12 +22,13 @@ public static class TestDependencies
             "Test_PostSharpEngineeringTestTestProduct_ReleaseBuild",
             "Test_PostSharpEngineeringTestTestProduct_PublicBuild" ),
         DeploymentBuildType = "Test_PostSharpEngineeringTestTestProduct_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestTestProduct_VersionBump",
-        DownstreamBuildTypeFormat = "Test_Test{0}_TestProduct_DebugBuild"
+        BumpBuildType = "Test_PostSharpEngineeringTestTestProduct_VersionBump"
     };
 
     public static DependencyDefinition Dependency { get; } = new(
+        ProductFamily,
         "PostSharp.Engineering.Test.Dependency",
+        _branch,
         VcsProvider.AzureRepos,
         "Engineering" )
     {
@@ -30,12 +37,13 @@ public static class TestDependencies
             "Test_PostSharpEngineeringTestDependency_ReleaseBuild",
             "Test_PostSharpEngineeringTestDependency_PublicBuild" ),
         DeploymentBuildType = "Test_PostSharpEngineeringTestDependency_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestDependency_VersionBump",
-        DownstreamBuildTypeFormat = "Test_Test{0}_Dependency_DebugBuild"
+        BumpBuildType = "Test_PostSharpEngineeringTestDependency_VersionBump"
     };
 
     public static DependencyDefinition TransitiveDependency { get; } = new(
+        ProductFamily,
         "PostSharp.Engineering.Test.TransitiveDependency",
+        _branch,
         VcsProvider.AzureRepos,
         "Engineering" )
     {
@@ -44,12 +52,13 @@ public static class TestDependencies
             "Test_PostSharpEngineeringTestTransitiveDependency_ReleaseBuild",
             "Test_PostSharpEngineeringTestTransitiveDependency_PublicBuild" ),
         DeploymentBuildType = "Test_PostSharpEngineeringTestTransitiveDependency_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestTransitiveDependency_VersionBump",
-        DownstreamBuildTypeFormat = "Test_Test{0}_TransitiveDependency_DebugBuild"
+        BumpBuildType = "Test_PostSharpEngineeringTestTransitiveDependency_VersionBump"
     };
 
     public static DependencyDefinition GitHub { get; } = new(
+        ProductFamily,
         "PostSharp.Engineering.Test.GitHub",
+        _branch,
         VcsProvider.GitHub,
         "postsharp" )
     {
@@ -58,12 +67,13 @@ public static class TestDependencies
             "Test_PostSharpEngineeringTestGitHub_ReleaseBuild",
             "Test_PostSharpEngineeringTestGitHub_PublicBuild" ),
         DeploymentBuildType = "Test_PostSharpEngineeringTestGitHub_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestGitHub_VersionBump",
-        DownstreamBuildTypeFormat = "Test_Test{0}_GitHub_DebugBuild"
+        BumpBuildType = "Test_PostSharpEngineeringTestGitHub_VersionBump"
     };
 
     public static DependencyDefinition MainVersionDependency { get; } = new(
+        ProductFamily,
         "PostSharp.Engineering.Test.MainVersionDependency",
+        _branch,
         VcsProvider.AzureRepos,
         "Engineering" )
     {
@@ -72,12 +82,13 @@ public static class TestDependencies
             "Test_PostSharpEngineeringTestMainVersionDependency_ReleaseBuild",
             "Test_PostSharpEngineeringTestMainVersionDependency_PublicBuild" ),
         DeploymentBuildType = "Test_PostSharpEngineeringTestMainVersionDependency_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestMainVersionDependency_VersionBump",
-        DownstreamBuildTypeFormat = "Test_Test{0}_MainVersionDependency_DebugBuild"
+        BumpBuildType = "Test_PostSharpEngineeringTestMainVersionDependency_VersionBump"
     };
 
     public static DependencyDefinition PatchVersion { get; } = new(
+        ProductFamily,
         "PostSharp.Engineering.Test.PatchVersion",
+        _branch,
         VcsProvider.AzureRepos,
         "Engineering" )
     {
@@ -86,23 +97,7 @@ public static class TestDependencies
             "Test_PostSharpEngineeringTestPatchVersion_ReleaseBuild",
             "Test_PostSharpEngineeringTestPatchVersion_PublicBuild" ),
         DeploymentBuildType = "Test_PostSharpEngineeringPatchVersion_PublicDeployment",
-        BumpBuildType = "Test_PostSharpEngineeringTestPatchVersion_VersionBump",
-        DownstreamBuildTypeFormat = "Test_Test{0}_PatchVersion_DebugBuild"
-    };
-
-    public static DependencyDefinition NopCommerce { get; } = new(
-        "Metalama.Tests.NopCommerce",
-        VcsProvider.GitHub,
-        "postsharp",
-        false )
-    {
-        CiBuildTypes = new ConfigurationSpecific<string>(
-            "Metalama_MetalamaTests_MetalamaTestsNopCommerce_DebugBuild",
-            "Metalama_MetalamaTests_MetalamaTestsNopCommerce_ReleaseBuild",
-            "Metalama_MetalamaTests_MetalamaTestsNopCommerce_PublicBuild" ),
-        DeploymentBuildType = "Metalama_MetalamaTests_MetalamaTestsNopCommerce_PublicDeployment",
-        BumpBuildType = "Metalama_MetalamaTests_MetalamaTestsNopCommerce_VersionBump",
-        DownstreamBuildTypeFormat = "Metalama_MetalamaTests_MetalamaTestsNopCommerce_DebugBuild"
+        BumpBuildType = "Test_PostSharpEngineeringTestPatchVersion_VersionBump"
     };
 
     public static ImmutableArray<DependencyDefinition> All { get; } = ImmutableArray.Create(
@@ -111,6 +106,5 @@ public static class TestDependencies
         TransitiveDependency,
         GitHub,
         MainVersionDependency,
-        PatchVersion,
-        NopCommerce );
+        PatchVersion );
 }

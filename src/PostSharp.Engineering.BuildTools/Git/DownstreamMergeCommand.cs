@@ -24,8 +24,29 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        var sourceBranch = context.Product.VcsProvider.DefaultBranch;
-        var downstreamBranch = context.Product.VcsProvider.DownstreamBranch;
+        var downstreamProductFamily = context.Product.ProductFamily.DownstreamProductFamily;
+
+        if ( downstreamProductFamily == null )
+        {
+            context.Console.WriteWarning(
+                $"The downstream version product family for '{context.Product.ProductFamily.Version}' is not configured. Skipping downstream merge." );
+
+            return true;
+        }
+
+        var sourceBranch = context.Product.DependencyDefinition.Branch;
+
+        var downstreamDependencyDefinition = downstreamProductFamily.GetDependencyDefinitionOrNull( context.Product.ProductName );
+
+        if ( downstreamDependencyDefinition == null )
+        {
+            context.Console.WriteWarning(
+                $"The downstream version product '{context.Product.ProductName}'  version '{context.Product.ProductFamily.Version}' is not configured. Skipping downstream merge." );
+
+            return true;
+        }
+
+        var downstreamBranch = downstreamDependencyDefinition.Branch;
 
         context.Console.WriteHeading( $"Executing downstream merge from '{sourceBranch}' branch to '{downstreamBranch}' branch" );
 
@@ -56,7 +77,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         context.Console.WriteSuccess( $"Downstream changes from '{downstreamBranch}' downstream branch were pulled." );
 
-        var targetBranch = $"merge/{context.DownstreamBranchVersion}/{context.CurrentBranchVersion}-{sourceCommitHash}";
+        var targetBranch = $"merge/{downstreamProductFamily.Version}/{context.Product.ProductFamily.Version}-{sourceCommitHash}";
 
         context.Console.WriteHeading( $"Creating '{targetBranch}' target branch" );
 
@@ -94,7 +115,9 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        if ( !TryScheduleBuild( context, targetBranch, sourceBranch, pullRequestUrl ) )
+        var buildTypeId = downstreamDependencyDefinition.CiBuildTypes.Debug;
+
+        if ( !TryScheduleBuild( context, targetBranch, sourceBranch, pullRequestUrl, buildTypeId ) )
         {
             return false;
         }
@@ -258,13 +281,13 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         return true;
     }
 
-    private static bool TryScheduleBuild( BuildContext context, string targetBranch, string sourceBranch, [NotNullWhen( true )] string? pullRequestUrl )
+    private static bool TryScheduleBuild(
+        BuildContext context,
+        string targetBranch,
+        string sourceBranch,
+        [NotNullWhen( true )] string? pullRequestUrl,
+        string buildTypeId )
     {
-        var buildTypeId = string.Format(
-            CultureInfo.InvariantCulture,
-            context.Product.DependencyDefinition.DownstreamBuildTypeFormat,
-            context.DownstreamBranchVersionWithoutDot );
-
         context.Console.WriteHeading( $"Scheduling build '{buildTypeId}' of '{targetBranch}' branch" );
 
         var teamCityToken = Environment.GetEnvironmentVariable( "TEAMCITY_CLOUD_TOKEN" );

@@ -8,11 +8,16 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
     public class DependencyDefinition
     {
+        public ProductFamily ProductFamily { get; }
+
         public string Name { get; }
 
         public string NameWithoutDot => this.Name.Replace( ".", "", StringComparison.Ordinal );
 
-        public string DefaultBranch { get; init; }
+        /// <summary>
+        /// Gets the development branch for this product.
+        /// </summary>
+        public string Branch { get; init; }
 
         public ConfigurationSpecific<string> CiBuildTypes { get; init; }
 
@@ -21,8 +26,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public string? BumpBuildType { get; init; }
 
         public string DeploymentBuildType { get; init; }
-        
-        public string DownstreamBuildTypeFormat { get; init; }
 
         public bool GenerateSnapshotDependency { get; init; } = true;
 
@@ -36,11 +39,19 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public string VcsConfigName { get; init; }
 
-        public DependencyDefinition( string dependencyName, VcsProvider vcsProvider, string vcsProjectName, bool isVersioned = true )
+        public DependencyDefinition(
+            ProductFamily productFamily,
+            string dependencyName,
+            string branch,
+            VcsProvider vcsProvider,
+            string vcsProjectName,
+            bool isVersioned = true )
         {
+            this.ProductFamily = productFamily;
+
             this.Name = dependencyName;
             this.Repo = new VcsRepo( dependencyName, vcsProjectName, vcsProvider );
-            this.DefaultBranch = vcsProvider.DefaultBranch;
+            this.Branch = branch;
             this.IsVersioned = isVersioned;
             var vcsProjectNameWithUnderscore = vcsProjectName.Replace( ".", "_", StringComparison.Ordinal );
 
@@ -49,8 +60,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_ReleaseBuild",
                 $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_PublicBuild" );
 
-            this.DownstreamBuildTypeFormat = $"{vcsProjectNameWithUnderscore}_{vcsProjectNameWithUnderscore}{{0}}_{this.NameWithoutDot}_DebugBuild";
-
             if ( this.IsVersioned )
             {
                 this.BumpBuildType = $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_VersionBump";
@@ -58,6 +67,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             this.DeploymentBuildType = $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}_PublicDeployment";
             this.VcsConfigName = $"{vcsProjectNameWithUnderscore}_{this.NameWithoutDot}";
+
+            productFamily.Register( this );
         }
 
         public override string ToString() => this.Name;

@@ -101,8 +101,7 @@ public class MergePublisher : IndependentPublisher
         {
             var dependencySource = dependencyOverride.Value;
 
-            var dependency = Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == dependencyOverride.Key )
-                             ?? TestDependencies.All.Single( d => d.Name == dependencyOverride.Key );
+            var dependency = context.Product.ProductFamily.GetDependencyDefinition( dependencyOverride.Key );
 
             // We don't automatically change version of Feed or Local dependencies.
             if ( dependencySource.SourceKind is DependencySourceKind.Feed )
@@ -135,7 +134,7 @@ public class MergePublisher : IndependentPublisher
             if ( versionElement == null )
             {
                 context.Console.WriteWarning( $"No property '{dependency.NameWithoutDot}Version'." );
-                
+
                 continue;
             }
 
