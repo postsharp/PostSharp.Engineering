@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using System;
 using System.Collections.Generic;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -10,9 +11,12 @@ public class ProductFamily
 
     public string Version { get; }
 
+    public string VersionWithoutDot { get; }
+
     public ProductFamily( string version )
     {
         this.Version = version;
+        this.VersionWithoutDot = this.Version.Replace( ".", "", StringComparison.Ordinal );
     }
 
     public ProductFamily? DownstreamProductFamily { get; set; }

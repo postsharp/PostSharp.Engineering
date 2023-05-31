@@ -30,6 +30,25 @@ public class MergePublisher : IndependentPublisher
             }
         }
 
+        var sourceBranch = context.Product.DependencyDefinition.Branch;
+        
+        if ( context.Branch != sourceBranch )
+        {
+            context.Console.WriteError(
+                $"{nameof(MergePublisher)} can only be executed on the default branch ('{sourceBranch}'). The current branch is '{context.Branch}'." );
+
+            return SuccessCode.Error;
+        }
+        
+        var targetBranch = context.Product.DependencyDefinition.ReleaseBranch;
+
+        if ( targetBranch == null )
+        {
+            context.Console.WriteError( $"The release branch is not set for '{context.Product.ProductName}' product." );
+
+            return SuccessCode.Error;
+        }
+
         // Go through all dependencies and update their fixed version in Versions.props file.
         if ( !TryParseAndVerifyDependencies( context, settings, out var dependenciesUpdated ) )
         {
@@ -46,27 +65,27 @@ public class MergePublisher : IndependentPublisher
             }
         }
 
-        context.Console.WriteHeading( $"Merging branch '{context.Branch}' to 'master' after publishing artifacts." );
+        context.Console.WriteHeading( $"Merging branch '{sourceBranch}' to '{targetBranch}' after publishing artifacts." );
 
-        // Checkout to master branch and pull to update the local repository.
-        if ( !VcsHelper.TryCheckoutAndPull( context, "master" ) )
+        // Checkout to target branch branch and pull to update the local repository.
+        if ( !VcsHelper.TryCheckoutAndPull( context, targetBranch ) )
         {
             return SuccessCode.Error;
         }
 
-        // Merge current branch to master.
-        if ( !VcsHelper.TryMerge( context, context.Branch, "master", "--strategy-option theirs" ) )
+        // Merge the source branch to the target branch.
+        if ( !VcsHelper.TryMerge( context, sourceBranch, targetBranch, "--strategy-option theirs" ) )
         {
             return SuccessCode.Error;
         }
 
-        // Push master.
+        // Push the target branch.
         if ( !VcsHelper.TryPush( context, settings ) )
         {
             return SuccessCode.Error;
         }
 
-        context.Console.WriteSuccess( $"Merging '{context.Branch}' into 'master' branch was successful." );
+        context.Console.WriteSuccess( $"Merging '{sourceBranch}' branch into '{targetBranch}' branch was successful." );
 
         return SuccessCode.Success;
     }

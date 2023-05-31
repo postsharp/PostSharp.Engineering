@@ -17,7 +17,19 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// <summary>
         /// Gets the development branch for this product.
         /// </summary>
+        /// <remarks>
+        /// The development branch is the target branch for all topic and feature branches. 
+        /// </remarks>
         public string Branch { get; init; }
+
+        /// <summary>
+        /// Gets the release branch for this product.
+        /// </summary>
+        /// <remarks>
+        /// The release branch is the branch containing public code of the latest published version of the product.
+        /// The release branch is not set for products not having their source code published.
+        /// </remarks>
+        public string? ReleaseBranch { get; init; }
 
         public ConfigurationSpecific<string> CiBuildTypes { get; init; }
 
@@ -43,6 +55,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             ProductFamily productFamily,
             string dependencyName,
             string branch,
+            string? releaseBranch,
             VcsProvider vcsProvider,
             string vcsProjectName,
             bool isVersioned = true )

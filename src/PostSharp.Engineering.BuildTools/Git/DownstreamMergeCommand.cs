@@ -16,13 +16,15 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 {
     protected override bool ExecuteCore( BuildContext context, DownstreamMergeSettings settings )
     {
-        if ( context.Product.VcsProvider == null )
+        // When on TeamCity, Git user credentials are set to TeamCity.
+        if ( TeamCityHelper.IsTeamCityBuild( settings ) )
         {
-            context.Console.WriteError( "The VcsProvider is not initialized." );
-
-            return false;
+            if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
+            {
+                return false;
+            }
         }
-
+        
         var downstreamProductFamily = context.Product.ProductFamily.DownstreamProductFamily;
 
         if ( downstreamProductFamily == null )
@@ -47,8 +49,6 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         var downstreamBranch = downstreamDependencyDefinition.Branch;
 
-        context.Console.WriteHeading( $"Executing downstream merge from '{sourceBranch}' branch to '{downstreamBranch}' branch" );
-
         if ( context.Branch != sourceBranch )
         {
             context.Console.WriteError(
@@ -56,6 +56,8 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
             return false;
         }
+        
+        context.Console.WriteHeading( $"Executing downstream merge from '{sourceBranch}' branch to '{downstreamBranch}' branch" );
 
         if ( !VcsHelper.TryGetCurrentCommitHash( context, out var sourceCommitHash ) )
         {
