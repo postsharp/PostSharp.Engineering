@@ -21,9 +21,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
     {
         private readonly HttpClient _httpClient;
 
-        public TeamCityClient( string? token = null )
+        public TeamCityClient( string baseAddress, string token )
         {
-            this._httpClient = new HttpClient();
+            this._httpClient = new();
+            this._httpClient.BaseAddress = new Uri( baseAddress );
             this._httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Bearer", token );
         }
 
@@ -31,14 +32,14 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
         {
             var cancellationToken = ConsoleHelper.CancellationToken;
 
-            var url =
-                $"{TeamCityHelper.TeamCityUrl}/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildId.BuildTypeId},number:{buildId.BuildNumber}";
+            var path =
+                $"/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildId.BuildTypeId},number:{buildId.BuildNumber}";
 
-            var result = this._httpClient.GetAsync( url, cancellationToken ).Result;
+            var result = this._httpClient.GetAsync( path, cancellationToken ).Result;
 
             if ( !result.IsSuccessStatusCode )
             {
-                console.WriteError( $"Cannot determine the branch of '{buildId}': '{url}' returned {result.StatusCode} {result.ReasonPhrase}." );
+                console.WriteError( $"Cannot determine the branch of '{buildId}': '{path}' returned {result.StatusCode} {result.ReasonPhrase}." );
                 branch = null;
 
                 return false;
@@ -50,7 +51,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             if ( build == null )
             {
-                console.WriteError( $"Cannot determine the branch of '{buildId}': cannot find any build in '{url}'." );
+                console.WriteError( $"Cannot determine the branch of '{buildId}': cannot find any build in '{path}'." );
 
                 branch = null;
 
@@ -82,11 +83,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
         {
             // In some cases, the default branch is not set for the TeamCity build and we need to use the "default:true" locator.
             var branchLocator = isDefaultBranch ? "default:true" : $"refs/heads/{branchName}";
-            
-            var url =
-                $"{TeamCityHelper.TeamCityUrl}/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId},branch:{branchLocator}";
 
-            var result = this._httpClient.GetAsync( url, cancellationToken ).Result;
+            var path = $"/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId},branch:{branchLocator}";
+
+            var result = this._httpClient.GetAsync( path, cancellationToken ).Result;
 
             if ( !result.IsSuccessStatusCode )
             {
@@ -109,8 +109,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public void DownloadArtifacts( string buildTypeId, int buildNumber, string directory, CancellationToken cancellationToken )
         {
-            var url = $"{TeamCityHelper.TeamCityUrl}/repository/downloadAll/{buildTypeId}/{buildNumber}";
-            var httpStream = this._httpClient.GetStreamAsync( url, cancellationToken ).Result;
+            var path = $"/repository/downloadAll/{buildTypeId}/{buildNumber}";
+            var httpStream = this._httpClient.GetStreamAsync( path, cancellationToken ).Result;
             var memoryStream = new MemoryStream();
             httpStream.CopyToAsync( memoryStream, cancellationToken ).Wait( cancellationToken );
             memoryStream.Seek( 0, SeekOrigin.Begin );
@@ -121,8 +121,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public void DownloadSingleArtifact( string buildTypeId, int buildNumber, string artifactPath, string saveLocation, CancellationToken cancellationToken )
         {
-            var url = $"{TeamCityHelper.TeamCityUrl}/repository/download/{buildTypeId}/{buildNumber}/{artifactPath}";
-            var httpResponse = this._httpClient.GetAsync( url, cancellationToken ).Result;
+            var path = $"/repository/download/{buildTypeId}/{buildNumber}/{artifactPath}";
+            var httpResponse = this._httpClient.GetAsync( path, cancellationToken ).Result;
 
             using ( var stream = httpResponse.Content.ReadAsStreamAsync( cancellationToken ).Result )
             {
@@ -135,13 +135,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             }
         }
 
-        // TODO: Remove the requestUri parameter in 2023.1
-        public string? ScheduleBuild( ConsoleHelper console, string buildTypeId, string comment, string? branchName = null, string? requestUri = null )
+        public string? ScheduleBuild( ConsoleHelper console, string buildTypeId, string comment, string? branchName = null )
         {
-            requestUri = requestUri ?? TeamCityHelper.TeamcityApiBuildQueueUri;
             var payload = $"<build buildTypeId=\"{buildTypeId}\"{(branchName == null ? "" : $" branchName=\"{branchName}\"")}><comment><text>{comment}</text></comment></build>";
             var content = new StringContent( payload, Encoding.UTF8, "application/xml" );
-            var httpResponseResult = this._httpClient.PostAsync( requestUri, content ).Result;
+            var httpResponseResult = this._httpClient.PostAsync( "/app/rest/buildQueue", content ).Result;
 
             if ( !httpResponseResult.IsSuccessStatusCode )
             {
@@ -164,7 +162,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             var status = $"Build starting...";
             buildNumber = string.Empty;
 
-            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiRunningBuildsUri ).Result;
+            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiRunningBuildsPath ).Result;
 
             var httpResponseMessageContentString = httpResponseResult.Content.ReadAsStringAsync( ConsoleHelper.CancellationToken ).Result;
 
@@ -193,12 +191,12 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool IsBuildQueued( BuildContext context, string buildId )
         {
-            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamcityApiBuildQueueUri ).Result;
+            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamcityApiBuildQueuePath ).Result;
 
             if ( !httpResponseResult.IsSuccessStatusCode )
             {
                 context.Console.WriteError(
-                    $"Failed to retrieve TeamCity builds queue from API URI '{TeamCityHelper.TeamcityApiBuildQueueUri}': HTTP status code: {httpResponseResult.StatusCode}." );
+                    $"Failed to retrieve TeamCity builds queue from API URI '{TeamCityHelper.TeamcityApiBuildQueuePath}': HTTP status code: {httpResponseResult.StatusCode}." );
 
                 return false;
             }
@@ -225,12 +223,12 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool IsBuildRunning( BuildContext context, string buildId )
         {
-            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiRunningBuildsUri ).Result;
+            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiRunningBuildsPath ).Result;
 
             if ( !httpResponseResult.IsSuccessStatusCode )
             {
                 context.Console.WriteError(
-                    $"Failed to retrieve TeamCity running builds from API URI '{TeamCityHelper.TeamCityApiRunningBuildsUri}': HTTP status code: {httpResponseResult.StatusCode}." );
+                    $"Failed to retrieve TeamCity running builds from API URI '{TeamCityHelper.TeamCityApiRunningBuildsPath}': HTTP status code: {httpResponseResult.StatusCode}." );
 
                 return false;
             }
@@ -259,12 +257,12 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool HasBuildFinishedSuccessfully( BuildContext context, string buildId )
         {
-            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiFinishedBuildsUri ).Result;
+            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiFinishedBuildsPath ).Result;
 
             if ( !httpResponseResult.IsSuccessStatusCode )
             {
                 context.Console.WriteError(
-                    $"Failed to retrieve TeamCity finished builds from API URI '{TeamCityHelper.TeamCityApiFinishedBuildsUri}': HTTP status code: {httpResponseResult.StatusCode}." );
+                    $"Failed to retrieve TeamCity finished builds from API URI '{TeamCityHelper.TeamCityApiFinishedBuildsPath}': HTTP status code: {httpResponseResult.StatusCode}." );
 
                 return false;
             }
@@ -300,12 +298,12 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool HasBuildFinished( BuildContext context, string buildId )
         {
-            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiFinishedBuildsUri ).Result;
+            var httpResponseResult = this._httpClient.GetAsync( TeamCityHelper.TeamCityApiFinishedBuildsPath ).Result;
 
             if ( !httpResponseResult.IsSuccessStatusCode )
             {
                 context.Console.WriteError(
-                    $"Failed to retrieve TeamCity finished builds from API URI '{TeamCityHelper.TeamCityApiFinishedBuildsUri}': HTTP status code: {httpResponseResult.StatusCode}." );
+                    $"Failed to retrieve TeamCity finished builds from API URI '{TeamCityHelper.TeamCityApiFinishedBuildsPath}': HTTP status code: {httpResponseResult.StatusCode}." );
 
                 return false;
             }

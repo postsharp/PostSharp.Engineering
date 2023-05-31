@@ -25,12 +25,12 @@ public static partial class TestDependencies
             VcsProvider.AzureRepos,
             "Engineering" )
         {
-            CiBuildTypes = new ConfigurationSpecific<string>(
-                $"Test_Test{ProductFamily.VersionWithoutDot}_TestProduct_DebugBuild",
-                $"Test_Test{ProductFamily.VersionWithoutDot}_TestProduct_ReleaseBuild",
-                $"Test_Test{ProductFamily.VersionWithoutDot}_TestProduct_PublicBuild" ),
-            DeploymentBuildType = $"Test_Test{ProductFamily.VersionWithoutDot}_TestProduct_PublicDeployment",
-            BumpBuildType = $"Test_Test{ProductFamily.VersionWithoutDot}_TestProduct_VersionBump"
+            CiConfiguration = new ConfigurationSpecific<string>(
+                $"Test_Test{ProductFamily.VersionWithoutDots}_TestProduct_DebugBuild",
+                $"Test_Test{ProductFamily.VersionWithoutDots}_TestProduct_ReleaseBuild",
+                $"Test_Test{ProductFamily.VersionWithoutDots}_TestProduct_PublicBuild" ),
+            DeploymentBuildType = $"Test_Test{ProductFamily.VersionWithoutDots}_TestProduct_PublicDeployment",
+            BumpBuildType = $"Test_Test{ProductFamily.VersionWithoutDots}_TestProduct_VersionBump"
         };
 
         public static DependencyDefinition Dependency { get; } = new(
@@ -41,12 +41,12 @@ public static partial class TestDependencies
             VcsProvider.AzureRepos,
             "Engineering" )
         {
-            CiBuildTypes = new ConfigurationSpecific<string>(
-                $"Test_Test{ProductFamily.VersionWithoutDot}_Dependency_DebugBuild",
-                $"Test_Test{ProductFamily.VersionWithoutDot}_Dependency_ReleaseBuild",
-                $"Test_Test{ProductFamily.VersionWithoutDot}_Dependency_PublicBuild" ),
-            DeploymentBuildType = $"Test_Test{ProductFamily.VersionWithoutDot}_Dependency_PublicDeployment",
-            BumpBuildType = $"Test_Test{ProductFamily.VersionWithoutDot}_Dependency_VersionBump"
+            CiConfiguration = new ConfigurationSpecific<string>(
+                $"Test_Test{ProductFamily.VersionWithoutDots}_Dependency_DebugBuild",
+                $"Test_Test{ProductFamily.VersionWithoutDots}_Dependency_ReleaseBuild",
+                $"Test_Test{ProductFamily.VersionWithoutDots}_Dependency_PublicBuild" ),
+            DeploymentBuildType = $"Test_Test{ProductFamily.VersionWithoutDots}_Dependency_PublicDeployment",
+            BumpBuildType = $"Test_Test{ProductFamily.VersionWithoutDots}_Dependency_VersionBump"
         };
 
         public static DependencyDefinition TransitiveDependency { get; } = new(
@@ -57,12 +57,12 @@ public static partial class TestDependencies
             VcsProvider.AzureRepos,
             "Engineering" )
         {
-            CiBuildTypes = new ConfigurationSpecific<string>(
-                $"Test_Test{ProductFamily.VersionWithoutDot}_TransitiveDependency_DebugBuild",
-                $"Test_Test{ProductFamily.VersionWithoutDot}_TransitiveDependency_ReleaseBuild",
-                $"Test_Test{ProductFamily.VersionWithoutDot}_TransitiveDependency_PublicBuild" ),
-            DeploymentBuildType = $"Test_Test{ProductFamily.VersionWithoutDot}_TransitiveDependency_PublicDeployment",
-            BumpBuildType = $"Test_Test{ProductFamily.VersionWithoutDot}_TransitiveDependency_VersionBump"
+            CiConfiguration = new ConfigurationSpecific<string>(
+                $"Test_Test{ProductFamily.VersionWithoutDots}_TransitiveDependency_DebugBuild",
+                $"Test_Test{ProductFamily.VersionWithoutDots}_TransitiveDependency_ReleaseBuild",
+                $"Test_Test{ProductFamily.VersionWithoutDots}_TransitiveDependency_PublicBuild" ),
+            DeploymentBuildType = $"Test_Test{ProductFamily.VersionWithoutDots}_TransitiveDependency_PublicDeployment",
+            BumpBuildType = $"Test_Test{ProductFamily.VersionWithoutDots}_TransitiveDependency_VersionBump"
         };
 
         public static DependencyDefinition GitHub { get; } = new(
@@ -73,12 +73,12 @@ public static partial class TestDependencies
             VcsProvider.GitHub,
             "postsharp" )
         {
-            CiBuildTypes = new ConfigurationSpecific<string>(
-                $"Test_Test{ProductFamily.VersionWithoutDot}_GitHub_DebugBuild",
-                $"Test_Test{ProductFamily.VersionWithoutDot}_GitHub_ReleaseBuild",
-                $"Test_Test{ProductFamily.VersionWithoutDot}_GitHub_PublicBuild" ),
-            DeploymentBuildType = $"Test_Test{ProductFamily.VersionWithoutDot}_GitHub_PublicDeployment",
-            BumpBuildType = $"Test_Test{ProductFamily.VersionWithoutDot}_GitHub_VersionBump"
+            CiConfiguration = new ConfigurationSpecific<string>(
+                $"Test_Test{ProductFamily.VersionWithoutDots}_GitHub_DebugBuild",
+                $"Test_Test{ProductFamily.VersionWithoutDots}_GitHub_ReleaseBuild",
+                $"Test_Test{ProductFamily.VersionWithoutDots}_GitHub_PublicBuild" ),
+            DeploymentBuildType = $"Test_Test{ProductFamily.VersionWithoutDots}_GitHub_PublicDeployment",
+            BumpBuildType = $"Test_Test{ProductFamily.VersionWithoutDots}_GitHub_VersionBump"
         };
 
         public static DependencyDefinition MainVersionDependency { get; } = new(
@@ -89,12 +89,12 @@ public static partial class TestDependencies
             VcsProvider.AzureRepos,
             "Engineering" )
         {
-            CiBuildTypes = new ConfigurationSpecific<string>(
-                $"Test_Test{ProductFamily.VersionWithoutDot}_MainVersionDependency_DebugBuild",
-                $"Test_Test{ProductFamily.VersionWithoutDot}_MainVersionDependency_ReleaseBuild",
-                $"Test_Test{ProductFamily.VersionWithoutDot}_MainVersionDependency_PublicBuild" ),
-            DeploymentBuildType = $"Test_Test{ProductFamily.VersionWithoutDot}_MainVersionDependency_PublicDeployment",
-            BumpBuildType = $"Test_Test{ProductFamily.VersionWithoutDot}_MainVersionDependency_VersionBump"
+            CiConfiguration = new ConfigurationSpecific<string>(
+                $"Test_Test{ProductFamily.VersionWithoutDots}_MainVersionDependency_DebugBuild",
+                $"Test_Test{ProductFamily.VersionWithoutDots}_MainVersionDependency_ReleaseBuild",
+                $"Test_Test{ProductFamily.VersionWithoutDots}_MainVersionDependency_PublicBuild" ),
+            DeploymentBuildType = $"Test_Test{ProductFamily.VersionWithoutDots}_MainVersionDependency_PublicDeployment",
+            BumpBuildType = $"Test_Test{ProductFamily.VersionWithoutDots}_MainVersionDependency_VersionBump"
         };
 
         public static DependencyDefinition PatchVersion { get; } = new(
@@ -105,12 +105,12 @@ public static partial class TestDependencies
             VcsProvider.AzureRepos,
             "Engineering" )
         {
-            CiBuildTypes = new ConfigurationSpecific<string>(
-                $"Test_Test{ProductFamily.VersionWithoutDot}_PatchVersion_DebugBuild",
-                $"Test_Test{ProductFamily.VersionWithoutDot}_PatchVersion_ReleaseBuild",
-                $"Test_Test{ProductFamily.VersionWithoutDot}_PatchVersion_PublicBuild" ),
-            DeploymentBuildType = $"Test_Test{ProductFamily.VersionWithoutDot}_PatchVersion_PublicDeployment",
-            BumpBuildType = $"Test_Test{ProductFamily.VersionWithoutDot}_PatchVersion_VersionBump"
+            CiConfiguration = new ConfigurationSpecific<string>(
+                $"Test_Test{ProductFamily.VersionWithoutDots}_PatchVersion_DebugBuild",
+                $"Test_Test{ProductFamily.VersionWithoutDots}_PatchVersion_ReleaseBuild",
+                $"Test_Test{ProductFamily.VersionWithoutDots}_PatchVersion_PublicBuild" ),
+            DeploymentBuildType = $"Test_Test{ProductFamily.VersionWithoutDots}_PatchVersion_PublicDeployment",
+            BumpBuildType = $"Test_Test{ProductFamily.VersionWithoutDots}_PatchVersion_VersionBump"
         };
     }
 }

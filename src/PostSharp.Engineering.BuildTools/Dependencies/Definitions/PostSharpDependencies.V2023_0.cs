@@ -12,16 +12,13 @@ public static partial class PostSharpDependencies
 
     public static class V2023_0
     {
-        public static ProductFamily ProductFamily { get; } = new( "2023.0" );
-
-        private static readonly string _devBranch = $"release/{ProductFamily.Version}";
-        private const string? _releaseBranch = null;
+        public static ProductFamily Family { get; } = new( "2023.0" );
 
         public static DependencyDefinition PostSharpDocumentation { get; } = new(
-            ProductFamily,
+            Family,
             "PostSharp.Documentation",
-            _devBranch,
-            _releaseBranch,
+            $"release/{Family.Version}",
+            null,
             VcsProvider.GitHub,
             "PostSharp",
             false );

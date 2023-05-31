@@ -8,12 +8,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 [PublicAPI]
 public static class TemplateDependencies
 {
-    public static ProductFamily ProductFamily { get; } = new( "2023.0" );
-    
-    private static readonly string _devBranch = $"develop/{ProductFamily.Version}";
-    private static readonly string _releaseBranch = $"release/{ProductFamily.Version}";
+    public static ProductFamily Family { get; } = new( "2023.0" );
     
     // This is only used from the project template.
     public static DependencyDefinition MyProduct { get; } =
-        new( ProductFamily, "PostSharp.Engineering.ProjectTemplate", _devBranch, _releaseBranch, VcsProvider.GitHub, "NONE" );
+        new( Family, "PostSharp.Engineering.ProjectTemplate", $"develop/{Family.Version}", $"release/{Family.Version}", VcsProvider.GitHub, "NONE" );
 }

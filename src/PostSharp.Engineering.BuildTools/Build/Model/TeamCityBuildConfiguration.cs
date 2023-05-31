@@ -76,19 +76,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 writer.WriteLine(
                     $@"
-  root(AbsoluteId(""{sourceDependency.VcsConfigName}""), ""+:. => {this.Product.SourceDependenciesDirectory}/{sourceDependency.Name}"")" );
+  root(AbsoluteId(""{sourceDependency.CiConfiguration.VcsConfigName}""), ""+:. => {this.Product.SourceDependenciesDirectory}/{sourceDependency.Name}"")" );
             }
 
             writer.WriteLine(
-                    $@"
+                $@"
         }}
 
     steps {{" );
 
-                if ( this.RequiresClearCache )
-                {
-                    writer.WriteLine(
-                        $@"        // Step to kill all dotnet or VBCSCompiler processes that might be locking files we delete in during cleanup.
+            if ( this.RequiresClearCache )
+            {
+                writer.WriteLine(
+                    $@"        // Step to kill all dotnet or VBCSCompiler processes that might be locking files we delete in during cleanup.
         powerShell {{
             name = ""Kill background processes before cleanup""
             scriptMode = file {{
@@ -97,10 +97,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             noProfile = false
             param(""jetbrains_powershell_scriptArguments"", ""tools kill"")
         }}" );
-                }
+            }
 
-                writer.WriteLine(
-                    $@"        powerShell {{
+            writer.WriteLine(
+                $@"        powerShell {{
             name = ""{this.Name}""
             scriptMode = file {{
                 path = ""Build.ps1""
@@ -120,81 +120,81 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             verbose = true
         }}" );
 
-                var productVcsProvider = this.Product.VcsProvider;
+            var productVcsProvider = this.Product.VcsProvider;
 
-                // The SSH agent is added only for the Deployment and only if TeamCity uses SSH for Git operations over the product VCS repository.
-                if ( productVcsProvider != null && this.IsDeployment && productVcsProvider.SshAgentRequired )
-                {
-                    writer.WriteLine(
-                        $@"        sshAgent {{
+            // The SSH agent is added only for the Deployment and only if TeamCity uses SSH for Git operations over the product VCS repository.
+            if ( productVcsProvider != null && this.IsDeployment && productVcsProvider.SshAgentRequired )
+            {
+                writer.WriteLine(
+                    $@"        sshAgent {{
             // By convention, the SSH key name is always PostSharp.Engineering for all repositories using SSH to connect.
             teamcitySshKey = ""PostSharp.Engineering""
         }}" );
-                }
+            }
 
-                writer.WriteLine( $@"    }}" );
+            writer.WriteLine( $@"    }}" );
 
-                // Triggers.
-                if ( this.BuildTriggers is { Length: > 0 } )
-                {
-                    writer.WriteLine(
-                        @"
+            // Triggers.
+            if ( this.BuildTriggers is { Length: > 0 } )
+            {
+                writer.WriteLine(
+                    @"
     triggers {" );
 
-                    foreach ( var trigger in this.BuildTriggers )
-                    {
-                        trigger.GenerateTeamcityCode( writer );
-                    }
-
-                    writer.WriteLine(
-                        @"
-    }" );
+                foreach ( var trigger in this.BuildTriggers )
+                {
+                    trigger.GenerateTeamcityCode( writer );
                 }
 
-                // Dependencies
-                var hasSnapshotDependencies = this.Dependencies is { Length: > 0 };
+                writer.WriteLine(
+                    @"
+    }" );
+            }
 
-                if ( hasSnapshotDependencies )
-                {
-                    writer.WriteLine(
-                        $@"
+            // Dependencies
+            var hasSnapshotDependencies = this.Dependencies is { Length: > 0 };
+
+            if ( hasSnapshotDependencies )
+            {
+                writer.WriteLine(
+                    $@"
     dependencies {{" );
 
-                    foreach ( var dependency in this.Dependencies!.OrderBy( d => d.ObjectId ) )
-                    {
-                        var objectName = dependency.IsAbsoluteId ? @$"AbsoluteId(""{dependency.ObjectId}"")" : dependency.ObjectId;
+                foreach ( var dependency in this.Dependencies!.OrderBy( d => d.ObjectId ) )
+                {
+                    var objectName = dependency.IsAbsoluteId ? @$"AbsoluteId(""{dependency.ObjectId}"")" : dependency.ObjectId;
 
-                        writer.WriteLine(
-                            $@"
+                    writer.WriteLine(
+                        $@"
         dependency({objectName}) {{
             snapshot {{
                      onDependencyFailure = FailureAction.FAIL_TO_START
             }}
 " );
 
-                        if ( dependency.ArtifactsRules != null )
-                        {
-                            writer.WriteLine(
-                                $@"
+                    if ( dependency.ArtifactsRules != null )
+                    {
+                        writer.WriteLine(
+                            $@"
             artifacts {{
                 cleanDestination = true
                 artifactRules = ""{dependency.ArtifactsRules}""
             }}" );
-                        }
-
-                        writer.WriteLine(
-                            $@"
-        }}" );
                     }
 
                     writer.WriteLine(
                         $@"
-     }}" );
+        }}" );
                 }
 
                 writer.WriteLine(
                     $@"
-}})" );
+     }}" );
             }
+
+            writer.WriteLine(
+                $@"
+}})" );
         }
     }
+}

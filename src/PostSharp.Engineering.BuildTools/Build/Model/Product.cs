@@ -140,7 +140,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string[] ExportedProperties { get; init; } = Array.Empty<string>();
 
         /// <summary>
-        /// Gets the set of artifact dependencies of this product. Some commands expect the dependency to exist in <see cref="BuildTools.Dependencies.Definitions.Dependencies.All"/>.
+        /// Gets the set of artifact dependencies of this product. Some commands expect the dependency to exist in <see cref="MetalamaDependencies.All"/>.
         /// </summary>
         public DependencyDefinition[] Dependencies { get; init; } = Array.Empty<DependencyDefinition>();
 
@@ -1876,13 +1876,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var snapshotDependencies = dependencies
                     .Select(
                         d => new TeamCitySnapshotDependency(
-                            d.Definition.CiBuildTypes[d.Configuration],
+                            d.Definition.CiConfiguration.BuildTypes[d.Configuration],
                             true,
                             $"+:{d.Definition.PrivateArtifactsDirectory.ToString( new BuildInfo( packageVersion, d.Configuration, this ) ).Replace( '\\', '/' )}/**/*=>dependencies/{d.Name}" ) )
                     .ToList();
 
                 var sourceDependencies = this.SourceDependencies.Where( d => d.GenerateSnapshotDependency )
-                    .Select( d => new TeamCitySnapshotDependency( d.CiBuildTypes[configuration], true ) );
+                    .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.BuildTypes[configuration], true ) );
 
                 var buildDependencies = snapshotDependencies.Concat( sourceDependencies ).ToArray();
 
@@ -1922,7 +1922,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                 .Concat(
                                     this.Dependencies.Union( this.SourceDependencies )
                                         .Where( d => d.GenerateSnapshotDependency )
-                                        .Select( d => new TeamCitySnapshotDependency( d.DeploymentBuildType, true ) ) )
+                                        .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DeploymentBuildType, true ) ) )
                                 .ToArray()
                         };
 
@@ -2119,7 +2119,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var gitLog = gitLogOutput.Split( new[] { '\n', '\r' }, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries );
             // This is to consider only version bumps from the current release. (E.g. 2023.1)
             // Downstream merge would otherwise break the logic and version bump would be skipped.
-            var versionBumpLogComment = $"<<VERSION_BUMP>> {MainVersion.Value}";
+            var versionBumpLogComment = $"<<VERSION_BUMP>> {context.Product.DependencyDefinition.ProductFamily.Version}";
             
             var lastVersionDump = gitLog.Select( ( s, i ) => (Log: s, LineNumber: i) )
                 .FirstOrDefault( s => s.Log.Contains( versionBumpLogComment, StringComparison.OrdinalIgnoreCase ) );

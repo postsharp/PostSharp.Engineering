@@ -10,6 +10,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
     public abstract class VcsProvider
     {
+        public abstract VcsProviderName Name { get; }
+        
         public abstract bool SshAgentRequired { get; }
 
         public abstract string GetRepoUrl( VcsRepo repo );
@@ -21,6 +23,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         private class GitHubProvider : VcsProvider
         {
+            public override VcsProviderName Name => VcsProviderName.GitHub;
+
             public override bool SshAgentRequired => true;
 
             public override string GetRepoUrl( VcsRepo repo ) => $"https://github.com/postsharp/{repo.RepoName}.git";
@@ -35,6 +39,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         private class AzureRepoProvider : VcsProvider
         {
+            public override VcsProviderName Name => VcsProviderName.AzureDevOps;
+            
             public override bool SshAgentRequired => false;
 
             public override string GetRepoUrl( VcsRepo repo ) => $"https://postsharp@dev.azure.com/postsharp/{repo.ProjectName}/_git/{repo.RepoName}";

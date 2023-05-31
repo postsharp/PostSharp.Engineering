@@ -11,10 +11,10 @@ public static class InternalDependencies
     private const string _devBranch = "master";
     private const string? _releaseBranch = null;
 
-    public static ProductFamily ProductFamily { get; } = new( "1.0" );
+    public static ProductFamily Family { get; } = new( "1.0" );
 
     public static DependencyDefinition BusinessSystems { get; } = new(
-        ProductFamily,
+        Family,
         "BusinessSystems",
         _devBranch,
         _releaseBranch,
@@ -23,7 +23,7 @@ public static class InternalDependencies
         false );
 
     public static DependencyDefinition HelpBrowser { get; } = new(
-        ProductFamily,
+        Family,
         "HelpBrowser",
         _devBranch,
         _releaseBranch,
@@ -32,7 +32,7 @@ public static class InternalDependencies
         false );
 
     public static DependencyDefinition PostSharpWeb { get; } = new(
-        ProductFamily,
+        Family,
         "PostSharpWeb",
         _devBranch,
         _releaseBranch,

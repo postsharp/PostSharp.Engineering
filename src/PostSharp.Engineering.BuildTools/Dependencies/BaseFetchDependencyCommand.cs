@@ -83,12 +83,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return true;
             }
 
-            if ( !TeamCityHelper.TryGetTeamcityToken( context, out var token ) )
+            if ( !TeamCityHelper.TryConnectTeamCity( context, out var tc ) )
             {
                 return false;
             }
-
-            var teamcity = new TeamCityClient( token );
 
             var iterationDependencies = dependencies.ToImmutableDictionary( d => d.Definition.Name, d => d );
             var dependencyDictionary = dependencies.ToImmutableDictionary( d => d.Definition.Name, d => d );
@@ -96,13 +94,13 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
             while ( iterationDependencies.Count > 0 )
             {
                 // Download artefacts that are not transitive dependencies.
-                if ( !ResolveBuildNumbersFromBranches( context, configuration, teamcity, iterationDependencies, update ) ||
+                if ( !ResolveBuildNumbersFromBranches( context, configuration, tc, iterationDependencies, update ) ||
                      !ResolveLocalDependencies( context, iterationDependencies ) )
                 {
                     return false;
                 }
 
-                if ( !DownloadArtifacts( context, teamcity, iterationDependencies ) )
+                if ( !DownloadArtifacts( context, tc, iterationDependencies ) )
                 {
                     return false;
                 }
@@ -302,7 +300,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                     if ( buildSpec is CiLatestBuildOfBranch branch )
                     {
-                        ciBuildType = dependency.Definition.CiBuildTypes[configuration];
+                        ciBuildType = dependency.Definition.CiConfiguration.BuildTypes[configuration];
                         branchName = branch.Name;
                     }
                     else if ( buildId != null )
@@ -310,7 +308,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         // We already have an resolved reference, but we need to update.
                         // In this case, we do not change the BuildIdType.
 
-                        ciBuildType = buildId.BuildTypeId ?? dependency.Definition.CiBuildTypes[configuration];
+                        ciBuildType = buildId.BuildTypeId ?? dependency.Definition.CiConfiguration.BuildTypes[configuration];
 
                         if ( !teamCity.TryGetBranchFromBuildNumber( context.Console, buildId, out var previousBranchName ) )
                         {
@@ -321,7 +319,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     }
                     else
                     {
-                        ciBuildType = dependency.Definition.CiBuildTypes[configuration];
+                        ciBuildType = dependency.Definition.CiConfiguration.BuildTypes[configuration];
                         branchName = dependency.Definition.Branch;
                     }
 

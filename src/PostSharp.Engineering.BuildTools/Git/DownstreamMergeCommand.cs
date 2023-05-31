@@ -123,7 +123,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        var buildTypeId = downstreamDependencyDefinition.CiBuildTypes.Debug;
+        var buildTypeId = downstreamDependencyDefinition.CiConfiguration.Debug;
 
         if ( !TryScheduleBuild( context, targetBranch, sourceBranch, pullRequestUrl, buildTypeId, out var buildUrl ) )
         {
@@ -315,9 +315,9 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
     {
         context.Console.WriteImportantMessage( $"Scheduling build '{buildTypeId}' of '{targetBranch}' branch" );
 
-        var teamCityToken = Environment.GetEnvironmentVariable( "TEAMCITY_CLOUD_TOKEN" );
+        var token = Environment.GetEnvironmentVariable( "TEAMCITY_CLOUD_TOKEN" );
 
-        if ( string.IsNullOrEmpty( teamCityToken ) )
+        if ( string.IsNullOrEmpty( token ) )
         {
             context.Console.WriteError( "The TEAMCITY_CLOUD_TOKEN environment variable is not defined." );
             buildUrl = null;
@@ -325,14 +325,13 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        var tc = new TeamCityClient( teamCityToken );
+        var tc = new TeamCityClient( context.Product.DependencyDefinition.CiBaseUrl, token );
 
         var buildId = tc.ScheduleBuild(
             context.Console,
             buildTypeId,
             $"Triggered by PostSharp.Engineering for downstream merge from '{sourceBranch}' branch to auto-complete pull request {pullRequestUrl}",
-            targetBranch,
-            TeamCityHelper.TeamcityCloudApiBuildQueueUri );
+            targetBranch );
 
         if ( buildId == null )
         {

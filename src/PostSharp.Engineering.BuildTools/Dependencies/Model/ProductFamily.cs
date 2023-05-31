@@ -11,12 +11,12 @@ public class ProductFamily
 
     public string Version { get; }
 
-    public string VersionWithoutDot { get; }
+    public string VersionWithoutDots { get; }
 
     public ProductFamily( string version )
     {
         this.Version = version;
-        this.VersionWithoutDot = this.Version.Replace( ".", "", StringComparison.Ordinal );
+        this.VersionWithoutDots = this.Version.Replace( ".", "", StringComparison.Ordinal );
     }
 
     public ProductFamily? DownstreamProductFamily { get; set; }
