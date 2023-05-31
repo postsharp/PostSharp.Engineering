@@ -92,12 +92,14 @@ public static class GitHubHelper
         console.WriteMessage( "Enabling pull request auto-merge." );
         var pullRequestId = await graphQl.Run( pullRequestQuery );
 
+        var authorEmail = Environment.GetEnvironmentVariable( "GITHUB_AUTHOR_EMAIL" ) ?? "teamcity@postsharp.net";
+        
         var enableAutoMergeMutation = new Mutation()
             .EnablePullRequestAutoMerge(
                 new(
                     new()
                     {
-                        AuthorEmail = "teamcity@postsharp.net",
+                        AuthorEmail = authorEmail,
                         CommitHeadline = title,
                         MergeMethod = PullRequestMergeMethod.Merge,
                         PullRequestId = pullRequestId

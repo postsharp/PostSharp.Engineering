@@ -82,7 +82,7 @@ public static class AzureDevOpsHelper
 
                 console.WriteMessage( "Setting the new pull request to get completed automatically." );
 
-                var updatedPullRequest = await azureDevOpsGit.UpdatePullRequestAsync(
+                _ = await azureDevOpsGit.UpdatePullRequestAsync(
                     pullRequestWithAutoCompleteEnabled,
                     projectName,
                     repoName,

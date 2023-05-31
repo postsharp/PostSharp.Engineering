@@ -6,7 +6,6 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -41,7 +40,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         if ( downstreamDependencyDefinition == null )
         {
             context.Console.WriteWarning(
-                $"The downstream version product '{context.Product.ProductName}'  version '{context.Product.ProductFamily.Version}' is not configured. Skipping downstream merge." );
+                $"The downstream version product '{context.Product.ProductName}' version '{context.Product.ProductFamily.Version}' is not configured. Skipping downstream merge." );
 
             return true;
         }
@@ -63,7 +62,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        context.Console.WriteHeading( $"Pulling changes from '{downstreamBranch}' downstream branch" );
+        context.Console.WriteImportantMessage( $"Pulling changes from '{downstreamBranch}' downstream branch" );
 
         if ( !VcsHelper.TryCheckoutAndPull( context, downstreamBranch ) )
         {
@@ -75,16 +74,16 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        context.Console.WriteSuccess( $"Downstream changes from '{downstreamBranch}' downstream branch were pulled." );
+        context.Console.WriteImportantMessage( $"Downstream changes from '{downstreamBranch}' downstream branch were pulled." );
 
         var targetBranch = $"merge/{downstreamProductFamily.Version}/{context.Product.ProductFamily.Version}-{sourceCommitHash}";
 
-        context.Console.WriteHeading( $"Creating '{targetBranch}' target branch" );
+        context.Console.WriteImportantMessage( $"Creating '{targetBranch}' target branch" );
 
         // If the targetBranch exists already, use it. Otherwise, create it.
         if ( VcsHelper.TryCheckoutAndPull( context, targetBranch ) )
         {
-            context.Console.WriteSuccess( $"The '{targetBranch}' target branch already exists. Let's use it." );
+            context.Console.WriteImportantMessage( $"The '{targetBranch}' target branch already exists. Let's use it." );
         }
         else
         {
@@ -102,12 +101,19 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
                 return false;
             }
 
-            context.Console.WriteSuccess( $"The '{targetBranch}' target was created." );
+            context.Console.WriteImportantMessage( $"The '{targetBranch}' target was created." );
         }
 
-        if ( !TryMerge( context, settings, sourceBranch, targetBranch, downstreamHeadCommitHashBeforeMerge, downstreamBranch ) )
+        if ( !TryMerge( context, settings, sourceBranch, targetBranch, downstreamHeadCommitHashBeforeMerge, downstreamBranch, out var areChangesPending ) )
         {
             return false;
+        }
+
+        if ( !areChangesPending )
+        {
+            context.Console.WriteSuccess( $"There is nothing to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
+
+            return true;
         }
 
         if ( !TryCreatePullRequest( context, targetBranch, downstreamBranch, sourceBranch, out var pullRequestUrl ) )
@@ -117,10 +123,14 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         var buildTypeId = downstreamDependencyDefinition.CiBuildTypes.Debug;
 
-        if ( !TryScheduleBuild( context, targetBranch, sourceBranch, pullRequestUrl, buildTypeId ) )
+        if ( !TryScheduleBuild( context, targetBranch, sourceBranch, pullRequestUrl, buildTypeId, out var buildUrl ) )
         {
             return false;
         }
+
+        context.Console.WriteSuccess( $"Changes from '{sourceBranch}' missing in '{downstreamBranch}' branch have been merged in branch '{targetBranch}'." );
+        context.Console.WriteSuccess( $"Create pull request: {pullRequestUrl}" );
+        context.Console.WriteSuccess( $"Scheduled build: {buildUrl}" );
 
         return true;
     }
@@ -131,23 +141,26 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         string sourceBranch,
         string targetBranch,
         string downstreamHeadCommitHashBeforeMerge,
-        string downstreamBranch )
+        string downstreamBranch,
+        out bool areChangesPending )
     {
-        context.Console.WriteHeading( $"Merging '{sourceBranch}' branch to '{targetBranch}' branch" );
+        context.Console.WriteImportantMessage( $"Merging '{sourceBranch}' branch to '{targetBranch}' branch" );
 
         // If the automated merge fails, try to resolve expected conflicts.
         if ( VcsHelper.TryMerge( context, sourceBranch, targetBranch ) )
         {
             if ( !VcsHelper.TryGetCurrentCommitHash( context, out var downstreamHeadCommitHashAfterMerge ) )
             {
+                areChangesPending = false;
+
                 return false;
             }
 
             if ( downstreamHeadCommitHashAfterMerge == downstreamHeadCommitHashBeforeMerge )
             {
-                context.Console.WriteSuccess( $"There is nothing to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
+                areChangesPending = false;
 
-                return false;
+                return true;
             }
         }
         else
@@ -156,6 +169,8 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
             if ( !VcsHelper.TryGetStatus( context, settings, context.RepoDirectory, out var statuses ) )
             {
+                areChangesPending = false;
+
                 return false;
             }
 
@@ -185,6 +200,8 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
                     {
                         if ( !VcsHelper.TryResolveUsingOurs( context, fileToResolve ) )
                         {
+                            areChangesPending = false;
+
                             return false;
                         }
                     }
@@ -197,16 +214,21 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
                 context.Console.WriteError(
                     $"Merge conflicts need to be resolved manually. Merge '{sourceBranch}' branch to '{targetBranch}' branch. Then create a pull request to '{downstreamBranch}' branch or execute this command again." );
 
+                areChangesPending = false;
+
                 return false;
             }
         }
 
         if ( !VcsHelper.TryPush( context, settings ) )
         {
+            areChangesPending = false;
+
             return false;
         }
 
-        context.Console.WriteSuccess( $"'{sourceBranch}' branch merged to '{targetBranch}' branch." );
+        context.Console.WriteImportantMessage( $"'{sourceBranch}' branch merged to '{targetBranch}' branch." );
+        areChangesPending = true;
 
         return true;
     }
@@ -218,7 +240,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         string sourceBranch,
         [NotNullWhen( true )] out string? pullRequestUrl )
     {
-        context.Console.WriteHeading( $"Creating pull request from '{targetBranch}' branch to '{downstreamBranch}' downstream branch" );
+        context.Console.WriteImportantMessage( $"Creating pull request from '{targetBranch}' branch to '{downstreamBranch}' downstream branch" );
 
         if ( !VcsHelper.TryGetRemoteUrl( context, out var remoteUrl ) )
         {
@@ -276,7 +298,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        context.Console.WriteSuccess( $"Pull request created. {pullRequestUrl}" );
+        context.Console.WriteImportantMessage( $"Pull request created. {pullRequestUrl}" );
 
         return true;
     }
@@ -285,16 +307,18 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         BuildContext context,
         string targetBranch,
         string sourceBranch,
-        [NotNullWhen( true )] string? pullRequestUrl,
-        string buildTypeId )
+        string pullRequestUrl,
+        string buildTypeId,
+        [NotNullWhen( true )] out string? buildUrl )
     {
-        context.Console.WriteHeading( $"Scheduling build '{buildTypeId}' of '{targetBranch}' branch" );
+        context.Console.WriteImportantMessage( $"Scheduling build '{buildTypeId}' of '{targetBranch}' branch" );
 
         var teamCityToken = Environment.GetEnvironmentVariable( "TEAMCITY_CLOUD_TOKEN" );
 
         if ( string.IsNullOrEmpty( teamCityToken ) )
         {
             context.Console.WriteError( "The TEAMCITY_CLOUD_TOKEN environment variable is not defined." );
+            buildUrl = null;
 
             return false;
         }
@@ -310,10 +334,13 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         if ( buildId == null )
         {
+            buildUrl = null;
+
             return false;
         }
 
-        context.Console.WriteSuccess( $"Build scheduled. https://postsharp.teamcity.com/viewLog.html?buildId={buildId}" );
+        buildUrl = $"https://postsharp.teamcity.com/viewLog.html?buildId={buildId}";
+        context.Console.WriteImportantMessage( $"Build scheduled. {buildUrl}" );
 
         return true;
     }
