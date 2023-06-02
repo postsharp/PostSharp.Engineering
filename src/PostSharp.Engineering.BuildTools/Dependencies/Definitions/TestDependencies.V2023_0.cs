@@ -1,12 +1,13 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
+using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 
-[PublicAPI]
 public static partial class TestDependencies
 {
     // ReSharper disable once InconsistentNaming
@@ -20,20 +21,32 @@ public static partial class TestDependencies
                 string dependencyName,
                 VcsProvider vcsProvider,
                 bool isVersioned = true,
-                ICiConfigurationFactory? ciConfigurationFactory = null )
+                string? vcsProjectName = null,
+                string? parentCiProjectName = null,
+                BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
+                BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
+                BuildConfiguration publicBuildDependency = BuildConfiguration.Public,
+                string? customCiProjectName = null )
                 : base(
                     Family,
                     dependencyName,
                     GetDevBranch( vcsProvider ),
                     GetReleaseBranch( vcsProvider ),
                     vcsProvider,
-                    "Test",
-                    isVersioned,
-                    ciConfigurationFactory ) { }
+                    vcsProjectName ?? GetDefaultVcsProjectName( vcsProvider ),
+                    TeamCityHelper.CreateConfiguration(
+                        TeamCityHelper.GetProjectId(
+                            dependencyName,
+                            "Test" ),
+                        isVersioned,
+                        debugBuildDependency,
+                        releaseBuildDependency,
+                        publicBuildDependency,
+                        false ) ) { }
         }
-        
-        public static ProductFamily Family { get; } = new( "2023.0" ) { DownstreamProductFamily = TestDependencies.V2023_1.ProductFamily };
-        
+
+        public static ProductFamily Family { get; } = new( "2023.0" ) { DownstreamProductFamily = V2023_1.Family };
+
         private static string GetDevBranch( VcsProvider vcsProvider )
             => vcsProvider.Name switch
             {
@@ -62,52 +75,16 @@ public static partial class TestDependencies
             "PostSharp.Engineering.Test.TransitiveDependency",
             VcsProvider.AzureRepos );
 
-        public static DependencyDefinition GitHub { get; } = new(
-            Family,
+        public static DependencyDefinition GitHub { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.GitHub",
-            _gitHubDevBranch,
-            _gitHubReleaseBranch,
-            VcsProvider.GitHub,
-            "postsharp" )
-        {
-            CiConfiguration = new ConfigurationSpecific<string>(
-                "Test_PostSharpEngineeringTestGitHub_DebugBuild",
-                "Test_PostSharpEngineeringTestGitHub_ReleaseBuild",
-                "Test_PostSharpEngineeringTestGitHub_PublicBuild" ),
-            DeploymentBuildType = "Test_PostSharpEngineeringTestGitHub_PublicDeployment",
-            BumpBuildType = "Test_PostSharpEngineeringTestGitHub_VersionBump"
-        };
+            VcsProvider.GitHub );
 
-        public static DependencyDefinition MainVersionDependency { get; } = new(
-            Family,
+        public static DependencyDefinition MainVersionDependency { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.MainVersionDependency",
-            _azureDevBranch,
-            _azureReleaseBranch,
-            VcsProvider.AzureRepos,
-            "Engineering" )
-        {
-            CiConfiguration = new ConfigurationSpecific<string>(
-                "Test_PostSharpEngineeringTestMainVersionDependency_DebugBuild",
-                "Test_PostSharpEngineeringTestMainVersionDependency_ReleaseBuild",
-                "Test_PostSharpEngineeringTestMainVersionDependency_PublicBuild" ),
-            DeploymentBuildType = "Test_PostSharpEngineeringTestMainVersionDependency_PublicDeployment",
-            BumpBuildType = "Test_PostSharpEngineeringTestMainVersionDependency_VersionBump"
-        };
+            VcsProvider.AzureRepos );
 
-        public static DependencyDefinition PatchVersion { get; } = new(
-            Family,
+        public static DependencyDefinition PatchVersion { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.PatchVersion",
-            _azureDevBranch,
-            _azureReleaseBranch,
-            VcsProvider.AzureRepos,
-            "Engineering" )
-        {
-            CiConfiguration = new ConfigurationSpecific<string>(
-                "Test_PostSharpEngineeringTestPatchVersion_DebugBuild",
-                "Test_PostSharpEngineeringTestPatchVersion_ReleaseBuild",
-                "Test_PostSharpEngineeringTestPatchVersion_PublicBuild" ),
-            DeploymentBuildType = "Test_PostSharpEngineeringPatchVersion_PublicDeployment",
-            BumpBuildType = "Test_PostSharpEngineeringTestPatchVersion_VersionBump"
-        };
+            VcsProvider.AzureRepos );
     }
 }

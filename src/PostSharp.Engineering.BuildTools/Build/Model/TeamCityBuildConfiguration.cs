@@ -76,7 +76,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 writer.WriteLine(
                     $@"
-  root(AbsoluteId(""{sourceDependency.CiConfiguration.VcsConfigName}""), ""+:. => {this.Product.SourceDependenciesDirectory}/{sourceDependency.Name}"")" );
+  root(AbsoluteId(""{sourceDependency.CiConfiguration.ProjectId}""), ""+:. => {this.Product.SourceDependenciesDirectory}/{sourceDependency.Name}"")" );
             }
 
             writer.WriteLine(

@@ -2,26 +2,26 @@
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 
-public class CiConfiguration
+public class CiProjectConfiguration
 {
+    public string ProjectId { get; }
+    
     public ConfigurationSpecific<string> BuildTypes { get; }
 
     public string DeploymentBuildType { get; }
 
     public string? VersionBumpBuildType { get; }
-    
-    public string VcsConfigName { get; }
-    
+
     public string TokenEnvironmentVariableName { get; }
         
     public string BaseUrl { get; }
 
-    public CiConfiguration( ConfigurationSpecific<string> buildTypes, string deploymentBuildType, string? versionBumpBuildType, string vcsConfigName, string tokenEnvironmentVariableName, string baseUrl )
+    public CiProjectConfiguration( string projectId, ConfigurationSpecific<string> buildTypes, string deploymentBuildType, string? versionBumpBuildType, string tokenEnvironmentVariableName, string baseUrl )
     {
+        this.ProjectId = projectId;
         this.BuildTypes = buildTypes;
         this.DeploymentBuildType = deploymentBuildType;
         this.VersionBumpBuildType = versionBumpBuildType;
-        this.VcsConfigName = vcsConfigName;
         this.TokenEnvironmentVariableName = tokenEnvironmentVariableName;
         this.BaseUrl = baseUrl;
     }

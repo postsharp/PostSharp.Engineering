@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using System;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
@@ -15,13 +16,13 @@ public static partial class MetalamaDependencies
     [PublicAPI]
     public static class V2023_1
     {
-        public class MetalamaDependencyDefinition : DependencyDefinition
+        private class MetalamaDependencyDefinition : DependencyDefinition
         {
             public MetalamaDependencyDefinition(
                 string dependencyName,
                 VcsProvider vcsProvider,
                 bool isVersioned = true,
-                string vcsProjectName = "Metalama",
+                string? vcsProjectName = null,
                 string? parentCiProjectName = null,
                 BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
                 BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
@@ -33,18 +34,20 @@ public static partial class MetalamaDependencies
                     $"develop/{Family.Version}",
                     $"release/{Family.Version}",
                     vcsProvider,
-                    vcsProjectName,
-                    new TeamCityConfigurationFactory(
+                    vcsProjectName ?? GetDefaultVcsProjectName( vcsProvider ),
+                    TeamCityHelper.CreateConfiguration(
+                        TeamCityHelper.GetProjectId(
+                            dependencyName,
+                            parentCiProjectName ?? vcsProjectName ?? GetDefaultVcsProjectName( vcsProvider ),
+                            Family.Version ),
+                        isVersioned,
                         debugBuildDependency,
                         releaseBuildDependency,
-                        publicBuildDependency,
-                        parentCiProjectName: parentCiProjectName ?? vcsProjectName,
-                        customCiProjectId: customCiProjectName ),
-                    isVersioned ) { }
+                        publicBuildDependency ) ) { }
         }
 
-        public static ProductFamily Family { get; } = new( "2023.1" );
-
+        public static ProductFamily Family { get; } = new( "2023.1" ) { DownstreamProductFamily = V2023_2.Family };
+        
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.AzureRepos );
 
         // The release build is intentionally used for the debug configuration because we want dependencies to consume the release
@@ -73,7 +76,8 @@ public static partial class MetalamaDependencies
 
         public static DependencyDefinition MetalamaLinqPad { get; } = new MetalamaDependencyDefinition(
             "Metalama.LinqPad",
-            VcsProvider.GitHub );
+            VcsProvider.GitHub,
+            vcsProjectName: "Metalama" );
 
         public static DependencyDefinition MetalamaCommunity { get; } = new MetalamaDependencyDefinition(
             "Metalama.Community",
@@ -95,12 +99,12 @@ public static partial class MetalamaDependencies
             "Metalama.Tests.NopCommerce",
             VcsProvider.GitHub,
             false,
-            customCiProjectName: "Metalama_MetalamaTests_MetalamaTestsNopCommerce" );
+            parentCiProjectName: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests" );
 
         public static DependencyDefinition CargoSupport { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.CargoSupport",
-            VcsProvider.AzureRepos,
+            VcsProvider.GitHub,
             false,
-            customCiProjectName: "Metalama_MetalamaTests_MetalamaTestsCargoSupport" );
+            parentCiProjectName: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests" );
     }
 }

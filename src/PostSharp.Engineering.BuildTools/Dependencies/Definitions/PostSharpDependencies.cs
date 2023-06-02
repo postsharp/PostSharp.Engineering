@@ -7,11 +7,11 @@ using PostSharp.Engineering.BuildTools.Dependencies.Model;
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 
 [PublicAPI]
-public static class TemplateDependencies
+public static partial class PostSharpDependencies
 {
-    private class TemplateDependencyDefinition : DependencyDefinition
+    private class PostSharpDependencyDefinition : DependencyDefinition
     {
-        public TemplateDependencyDefinition(
+        public PostSharpDependencyDefinition(
             string dependencyName,
             VcsProvider vcsProvider,
             string? vcsProjectName,
@@ -19,17 +19,19 @@ public static class TemplateDependencies
             : base(
                 Family,
                 dependencyName,
-                $"develop/{Family.Version}",
                 $"release/{Family.Version}",
+                null,
                 vcsProvider,
                 vcsProjectName,
-                TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "NONE" ), isVersioned ),
+                TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "PostSharp" ), isVersioned, isCloudInstance: false ),
                 isVersioned ) { }
     }
     
-    public static ProductFamily Family { get; } = new( "2023.0" );
-    
-    // This is only used from the project template.
-    public static DependencyDefinition MyProduct { get; } =
-        new TemplateDependencyDefinition( "PostSharp.Engineering.ProjectTemplate", VcsProvider.GitHub, "NONE" );
+    public static ProductFamily Family { get; } = new( "1.0" );
+
+    public static DependencyDefinition PostSharpDocumentation { get; } = new PostSharpDependencyDefinition(
+        "PostSharp.Documentation",
+        VcsProvider.GitHub,
+        null,
+        false );
 }

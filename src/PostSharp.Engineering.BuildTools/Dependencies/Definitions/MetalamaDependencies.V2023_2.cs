@@ -4,7 +4,6 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using System;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
@@ -14,7 +13,7 @@ public static partial class MetalamaDependencies
     // ReSharper disable once InconsistentNaming
 
     [PublicAPI]
-    public static class V2023_0
+    public static class V2023_2
     {
         private class MetalamaDependencyDefinition : DependencyDefinition
         {
@@ -31,39 +30,23 @@ public static partial class MetalamaDependencies
                 : base(
                     Family,
                     dependencyName,
-                    GetDevBranch( vcsProvider ),
-                    GetReleaseBranch( vcsProvider ),
+                    $"develop/{Family.Version}",
+                    $"release/{Family.Version}",
                     vcsProvider,
                     vcsProjectName ?? GetDefaultVcsProjectName( vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
                         TeamCityHelper.GetProjectId(
                             dependencyName,
-                            parentCiProjectName ?? vcsProjectName ?? GetDefaultVcsProjectName( vcsProvider ) ),
+                            parentCiProjectName ?? vcsProjectName ?? GetDefaultVcsProjectName( vcsProvider ),
+                            Family.Version ),
                         isVersioned,
                         debugBuildDependency,
                         releaseBuildDependency,
-                        publicBuildDependency,
-                        false ) ) { }
+                        publicBuildDependency ) ) { }
         }
 
-        public static ProductFamily Family { get; } = new( "2023.0" ) { DownstreamProductFamily = V2023_1.Family };
+        public static ProductFamily Family { get; } = new( "2023.2" ); // { DownstreamProductFamily = V2023_3.Family };
 
-        private static string GetDevBranch( VcsProvider vcsProvider )
-            => vcsProvider.Name switch
-            {
-                VcsProviderName.GitHub => "dev",
-                VcsProviderName.AzureDevOps => "master",
-                _ => throw new InvalidOperationException( $"Unknown VCS provider name: '{vcsProvider.Name}'" )
-            };
-
-        private static string? GetReleaseBranch( VcsProvider vcsProvider )
-            => vcsProvider.Name switch
-            {
-                VcsProviderName.GitHub => "master",
-                VcsProviderName.AzureDevOps => null,
-                _ => throw new InvalidOperationException( $"Unknown VCS provider name: '{vcsProvider.Name}'" )
-            };
-        
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.AzureRepos );
 
         // The release build is intentionally used for the debug configuration because we want dependencies to consume the release
@@ -115,12 +98,12 @@ public static partial class MetalamaDependencies
             "Metalama.Tests.NopCommerce",
             VcsProvider.GitHub,
             false,
-            parentCiProjectName: "Metalama_MetalamaTests" );
+            parentCiProjectName: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests" );
 
         public static DependencyDefinition CargoSupport { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.CargoSupport",
             VcsProvider.GitHub,
             false,
-            parentCiProjectName: "Metalama_MetalamaTests" );
+            parentCiProjectName: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests" );
     }
 }

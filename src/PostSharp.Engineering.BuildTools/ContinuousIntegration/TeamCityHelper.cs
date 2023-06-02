@@ -221,4 +221,76 @@ public static class TeamCityHelper
 
         return true;
     }
+    
+    public static CiProjectConfiguration CreateConfiguration(
+        string teamCityProjectId,
+        bool hasVersionBump = true,
+        BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
+        BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
+        BuildConfiguration publicBuildDependency = BuildConfiguration.Public,
+        bool isCloudInstance = true )
+    {
+        var buildTypes = new ConfigurationSpecific<string>(
+            $"{teamCityProjectId}_{debugBuildDependency}Build",
+            $"{teamCityProjectId}_{releaseBuildDependency}Build",
+            $"{teamCityProjectId}_{publicBuildDependency}Build" );
+
+        string? versionBumpBuildType = null;
+
+        if ( hasVersionBump )
+        {
+            versionBumpBuildType = $"{teamCityProjectId}_VersionBump";
+        }
+
+        var deploymentBuildType = $"{teamCityProjectId}_PublicDeployment";
+        string tokenEnvironmentVariableName;
+        string baseUrl;
+
+        if ( isCloudInstance )
+        {
+            tokenEnvironmentVariableName = TeamCityHelper.TeamCityCloudTokenEnvironmentVariableName;
+            baseUrl = TeamCityHelper.TeamCityCloudUrl;
+        }
+        else
+        {
+            tokenEnvironmentVariableName = TeamCityHelper.TeamCityOnPremTokenEnvironmentVariableName;
+            baseUrl = TeamCityHelper.TeamCityOnPremUrl;
+        }
+
+        return new CiProjectConfiguration( teamCityProjectId, buildTypes, deploymentBuildType, versionBumpBuildType, tokenEnvironmentVariableName, baseUrl );
+    }
+
+    private static string ReplaceDots( string input, string substitute ) => input.Replace( ".", substitute, StringComparison.Ordinal );
+
+    public static string GetProjectIdWithParentProjectId( string projectName, string parentProjectId )
+    {
+        var subProjectId = ReplaceDots( projectName, "_" ).Replace( " ", "", StringComparison.Ordinal ); 
+        
+        var projectId = $"{parentProjectId}_{subProjectId}";
+
+        return projectId;
+    }
+    
+    public static string GetProjectId( string projectName, string? parentProjectName = null, string? productFamilyVersion = null )
+    {
+        string parentProjectId;
+        
+        if ( parentProjectName == null )
+        {
+            parentProjectId = "";
+        }
+        else
+        {
+            parentProjectId = ReplaceDots( parentProjectName, "_" );
+
+            if ( productFamilyVersion != null )
+            {
+                parentProjectId = $"{parentProjectId}_{parentProjectId}{ReplaceDots( productFamilyVersion, "" )}";
+            }
+        }
+
+        var projectId = GetProjectIdWithParentProjectId( projectName, parentProjectId );
+
+        return projectId;
+    }
 }

@@ -32,7 +32,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// </remarks>
         public string? ReleaseBranch { get; }
 
-        public CiConfiguration CiConfiguration { get; }
+        public CiProjectConfiguration CiConfiguration { get; }
 
         public bool IsVersioned { get; }
 
@@ -52,8 +52,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             string branch,
             string? releaseBranch,
             VcsProvider vcsProvider,
-            string vcsProjectName,
-            ICiConfigurationFactory? ciConfigurationFactory,
+            string? vcsProjectName,
+            CiProjectConfiguration ciProjectConfiguration,
             bool isVersioned = true )
         {
             this.ProductFamily = productFamily;
@@ -63,8 +63,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             this.Branch = branch;
             this.ReleaseBranch = releaseBranch;
             this.IsVersioned = isVersioned;
-            
-            this.CiConfiguration = ciConfigurationFactory.Create( this.ProductFamily, this.NameWithoutDot, this.IsVersioned );
+            this.CiConfiguration = ciProjectConfiguration;
 
             productFamily.Register( this );
         }

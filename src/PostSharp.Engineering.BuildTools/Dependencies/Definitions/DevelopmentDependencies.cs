@@ -19,9 +19,10 @@ public static class DevelopmentDependencies
         $"release/{Family.Version}",
         VcsProvider.GitHub,
         "Engineering",
-        ciConfigurationFactory: new TeamCityConfigurationFactory(
+        TeamCityHelper.CreateConfiguration(
+            TeamCityHelper.GetProjectId( "PostSharp.Engineering", "Engineering" ),
+            true,
             BuildConfiguration.Debug,
             BuildConfiguration.Debug,
-            BuildConfiguration.Debug,
-            isVersionedTeamCityProject: false ) ) { GenerateSnapshotDependency = false };
+            BuildConfiguration.Debug ) ) { GenerateSnapshotDependency = false };
 }

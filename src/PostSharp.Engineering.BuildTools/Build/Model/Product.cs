@@ -115,7 +115,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             = new(
                 debug:
                 new BuildConfigurationInfo(
-                    MSBuildName: "Debug" ), // The SourceBuildTrigger is not set here, because this configuration gets triggered as a dependency of DownstreamMerge configuration.
+                    MSBuildName: "Debug",
+                    BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
                 release: new BuildConfigurationInfo( MSBuildName: "Release", RequiresSigning: true, ExportsToTeamCityBuild: false ),
                 @public: new BuildConfigurationInfo(
                     MSBuildName: "Release",
@@ -1986,18 +1987,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            teamCityBuildConfigurations.Add(
-                new TeamCityBuildConfiguration(
-                    this,
-                    "DownstreamMerge",
-                    "Downstream Merge",
-                    "merge-downstream",
-                    this.BuildAgentType )
-                {
-                    IsDeployment = true,
-                    Dependencies = new[] { new TeamCitySnapshotDependency( $"{BuildConfiguration.Debug}Build", true ) },
-                    BuildTriggers = new IBuildTrigger[] { new SourceBuildTrigger() }
-                } );
+            // Create a TeamCity configuration for downstream merge.
+            if ( this.ProductFamily.DownstreamProductFamily != null )
+            {
+                teamCityBuildConfigurations.Add(
+                    new TeamCityBuildConfiguration(
+                        this,
+                        "DownstreamMerge",
+                        "Downstream Merge",
+                        "merge-downstream",
+                        this.BuildAgentType )
+                    {
+                        IsDeployment = true,
+                        Dependencies = new[] { new TeamCitySnapshotDependency( $"{BuildConfiguration.Debug}Build", true ) },
+                        BuildTriggers = new IBuildTrigger[] { new SourceBuildTrigger() }
+                    } );
+            }
 
             // Add from extensions.
             foreach ( var extension in this.Extensions )
@@ -2117,6 +2122,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             // Check if we bumped since last deployment by looking in the Git log. 
             var gitLog = gitLogOutput.Split( new[] { '\n', '\r' }, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries );
+            
             // This is to consider only version bumps from the current release. (E.g. 2023.1)
             // Downstream merge would otherwise break the logic and version bump would be skipped.
             var versionBumpLogComment = $"<<VERSION_BUMP>> {context.Product.DependencyDefinition.ProductFamily.Version}";

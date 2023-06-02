@@ -41,10 +41,10 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         if ( downstreamDependencyDefinition == null )
         {
-            context.Console.WriteWarning(
-                $"The downstream version product '{context.Product.ProductName}' version '{context.Product.ProductFamily.Version}' is not configured. Skipping downstream merge." );
+            context.Console.WriteError(
+                $"The downstream version product '{context.Product.ProductName}' version '{context.Product.ProductFamily.Version}' is not configured." );
 
-            return true;
+            return false;
         }
 
         var downstreamBranch = downstreamDependencyDefinition.Branch;
@@ -123,7 +123,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        var buildTypeId = downstreamDependencyDefinition.CiConfiguration.Debug;
+        var buildTypeId = downstreamDependencyDefinition.CiConfiguration.BuildTypes.Debug;
 
         if ( !TryScheduleBuild( context, targetBranch, sourceBranch, pullRequestUrl, buildTypeId, out var buildUrl ) )
         {
@@ -315,17 +315,12 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
     {
         context.Console.WriteImportantMessage( $"Scheduling build '{buildTypeId}' of '{targetBranch}' branch" );
 
-        var token = Environment.GetEnvironmentVariable( "TEAMCITY_CLOUD_TOKEN" );
-
-        if ( string.IsNullOrEmpty( token ) )
+        if ( !TeamCityHelper.TryConnectTeamCity( context, out var tc ) )
         {
-            context.Console.WriteError( "The TEAMCITY_CLOUD_TOKEN environment variable is not defined." );
             buildUrl = null;
-
+            
             return false;
         }
-
-        var tc = new TeamCityClient( context.Product.DependencyDefinition.CiBaseUrl, token );
 
         var buildId = tc.ScheduleBuild(
             context.Console,
