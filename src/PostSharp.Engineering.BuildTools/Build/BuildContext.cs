@@ -83,7 +83,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                 return false;
             }
 
-            if ( !VcsHelper.TryGetCurrentBranch( console, repoDirectory, out var currentBranch ) )
+            if ( !GitHelper.TryGetCurrentBranch( console, repoDirectory, out var currentBranch ) )
             {
                 buildContext = null;
 

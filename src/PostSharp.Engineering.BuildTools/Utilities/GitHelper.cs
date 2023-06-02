@@ -7,7 +7,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace PostSharp.Engineering.BuildTools.Utilities;
 
-internal static class VcsHelper
+internal static class GitHelper
 {
     private static bool TryAddOrigin( BuildContext context, string branch )
     {

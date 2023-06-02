@@ -60,19 +60,19 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         context.Console.WriteHeading( $"Executing downstream merge from '{sourceBranch}' branch to '{downstreamBranch}' branch" );
 
-        if ( !VcsHelper.TryGetCurrentCommitHash( context, out var sourceCommitHash ) )
+        if ( !GitHelper.TryGetCurrentCommitHash( context, out var sourceCommitHash ) )
         {
             return false;
         }
 
         context.Console.WriteImportantMessage( $"Pulling changes from '{downstreamBranch}' downstream branch" );
 
-        if ( !VcsHelper.TryCheckoutAndPull( context, downstreamBranch ) )
+        if ( !GitHelper.TryCheckoutAndPull( context, downstreamBranch ) )
         {
             return false;
         }
 
-        if ( !VcsHelper.TryGetCurrentCommitHash( context, out var downstreamHeadCommitHashBeforeMerge ) )
+        if ( !GitHelper.TryGetCurrentCommitHash( context, out var downstreamHeadCommitHashBeforeMerge ) )
         {
             return false;
         }
@@ -84,7 +84,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         context.Console.WriteImportantMessage( $"Creating '{targetBranch}' target branch" );
 
         // If the targetBranch exists already, use it. Otherwise, create it.
-        if ( VcsHelper.TryCheckoutAndPull( context, targetBranch ) )
+        if ( GitHelper.TryCheckoutAndPull( context, targetBranch ) )
         {
             context.Console.WriteImportantMessage( $"The '{targetBranch}' target branch already exists. Let's use it." );
         }
@@ -92,14 +92,14 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         {
             context.Console.WriteMessage( $"The '{targetBranch}' target branch doesn't exits. Let's create it." );
 
-            if ( !VcsHelper.TryCreateBranch( context, targetBranch ) )
+            if ( !GitHelper.TryCreateBranch( context, targetBranch ) )
             {
                 return false;
             }
 
             // Push the new branch now to avoid issues when the DownstreamMergeCommand
             // is executed again with the same upstream changes.
-            if ( !VcsHelper.TryPush( context, settings ) )
+            if ( !GitHelper.TryPush( context, settings ) )
             {
                 return false;
             }
@@ -158,14 +158,14 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         context.Console.WriteImportantMessage( $"Merging '{sourceBranch}' branch to '{targetBranch}' branch" );
 
-        if ( !VcsHelper.TryMerge( context, sourceBranch, targetBranch, "--no-commit" ) )
+        if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--no-commit" ) )
         {
             return false;
         }
 
         context.Console.WriteMessage( "The git merge failed. Trying to resolve conflicts." );
 
-        if ( !VcsHelper.TryGetStatus( context, settings, context.RepoDirectory, out var statuses ) )
+        if ( !GitHelper.TryGetStatus( context, settings, context.RepoDirectory, out var statuses ) )
         {
             return false;
         }
@@ -196,7 +196,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
                 if ( filesToKeepOwn.Contains( fileToResolve ) )
                 {
-                    if ( !VcsHelper.TryResolveUsingOurs( context, fileToResolve ) )
+                    if ( !GitHelper.TryResolveUsingOurs( context, fileToResolve ) )
                     {
                         return false;
                     }
@@ -205,7 +205,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         }
 
         // If not all conflicts were expected, git commit fails here.
-        if ( !VcsHelper.TryCommitMerge( context ) )
+        if ( !GitHelper.TryCommitMerge( context ) )
         {
             context.Console.WriteError(
                 $"Merge conflicts need to be resolved manually. Merge '{sourceBranch}' branch to '{targetBranch}' branch. Then create a pull request to '{downstreamBranch}' branch or execute this command again." );
@@ -213,7 +213,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        if ( !VcsHelper.TryGetCurrentCommitHash( context, out var downstreamHeadCommitHashAfterMerge ) )
+        if ( !GitHelper.TryGetCurrentCommitHash( context, out var downstreamHeadCommitHashAfterMerge ) )
         {
             return false;
         }
@@ -223,7 +223,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return true;
         }
 
-        if ( !VcsHelper.TryPush( context, settings ) )
+        if ( !GitHelper.TryPush( context, settings ) )
         {
             areChangesPending = false;
 
@@ -245,7 +245,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
     {
         context.Console.WriteImportantMessage( $"Creating pull request from '{targetBranch}' branch to '{downstreamBranch}' downstream branch" );
 
-        if ( !VcsHelper.TryGetRemoteUrl( context, out var remoteUrl ) )
+        if ( !GitHelper.TryGetRemoteUrl( context, out var remoteUrl ) )
         {
             pullRequestUrl = null;
 
