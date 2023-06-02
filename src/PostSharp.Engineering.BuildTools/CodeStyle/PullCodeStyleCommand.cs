@@ -35,7 +35,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
                 return false;
             }
 
-            if ( !VcsHelper.CheckNoChange( context, settings, context.RepoDirectory ) )
+            if ( !GitHelper.CheckNoChange( context, settings, context.RepoDirectory ) )
             {
                 return false;
             }

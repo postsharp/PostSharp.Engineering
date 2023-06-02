@@ -61,7 +61,8 @@ public class VersionFile
             {
                 // A property is required because we update it during the release process.
 
-                context.Console.WriteError( $"{versionsPath}: a property named '{dependencyDefinition.NameWithoutDot}Version' must exist, even with empty value." );
+                context.Console.WriteError(
+                    $"{versionsPath}: a property named '{dependencyDefinition.NameWithoutDot}Version' must exist, even with empty value." );
 
                 continue;
             }
@@ -107,7 +108,7 @@ public class VersionFile
             else
             {
                 dependencySource = DependencySource.CreateBuildServerSource(
-                    new CiLatestBuildOfBranch( dependencyDefinition.DefaultBranch ),
+                    new CiLatestBuildOfBranch( dependencyDefinition.Branch ),
                     DependencyConfigurationOrigin.Default );
             }
 
@@ -127,8 +128,7 @@ public class VersionFile
 
         foreach ( var dependency in dependenciesOverrideFile.Dependencies.Keys )
         {
-            var dependencyDefinition = Model.Dependencies.All.SingleOrDefault( d => d.Name == dependency )
-                                       ?? TestDependencies.All.Single( d => d.Name == dependency );
+            var dependencyDefinition = context.Product.ProductFamily.GetDependencyDefinition( dependency );
 
             var propertyName = $"{dependencyDefinition.NameWithoutDot}Version";
 

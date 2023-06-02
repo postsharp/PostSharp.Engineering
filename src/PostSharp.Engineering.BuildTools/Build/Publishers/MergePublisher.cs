@@ -4,7 +4,6 @@ using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
-using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -31,6 +30,25 @@ public class MergePublisher : IndependentPublisher
             }
         }
 
+        var sourceBranch = context.Product.DependencyDefinition.Branch;
+        
+        if ( context.Branch != sourceBranch )
+        {
+            context.Console.WriteError(
+                $"{nameof(MergePublisher)} can only be executed on the default branch ('{sourceBranch}'). The current branch is '{context.Branch}'." );
+
+            return SuccessCode.Error;
+        }
+        
+        var targetBranch = context.Product.DependencyDefinition.ReleaseBranch;
+
+        if ( targetBranch == null )
+        {
+            context.Console.WriteError( $"The release branch is not set for '{context.Product.ProductName}' product." );
+
+            return SuccessCode.Error;
+        }
+
         // Go through all dependencies and update their fixed version in Versions.props file.
         if ( !TryParseAndVerifyDependencies( context, settings, out var dependenciesUpdated ) )
         {
@@ -47,159 +65,29 @@ public class MergePublisher : IndependentPublisher
             }
         }
 
-        // Returns the reference name of the current branch.
-        ToolInvocationHelper.InvokeTool(
-            context.Console,
-            "git",
-            $"branch --show-current",
-            context.RepoDirectory,
-            out var gitExitCode,
-            out var gitOutput );
+        context.Console.WriteHeading( $"Merging branch '{sourceBranch}' to '{targetBranch}' after publishing artifacts." );
 
-        if ( gitExitCode != 0 )
-        {
-            context.Console.WriteError( gitOutput );
-
-            return SuccessCode.Error;
-        }
-
-        var currentBranch = gitOutput.Trim();
-        var targetBranch = context.Product.VcsProvider?.DefaultPublishingBranch;
-
-        if ( targetBranch == null )
-        {
-            context.Console.WriteError( "Unknown target branch." );
-
-            return SuccessCode.Error;
-        }
-
-        context.Console.WriteHeading( $"Merging branch '{currentBranch}' to '{targetBranch}' after publishing artifacts." );
-
-        // Checkout target branch and pull to update the local repository.
-        if ( !TryCheckoutAndPull( context, targetBranch ) )
+        // Checkout to target branch branch and pull to update the local repository.
+        if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
         {
             return SuccessCode.Error;
         }
 
-        // Merge current branch to target branch.
-        if ( !MergeBranch( context, settings, currentBranch ) )
+        // Merge the source branch to the target branch.
+        if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--strategy-option theirs" ) )
         {
             return SuccessCode.Error;
         }
 
-        context.Console.WriteSuccess( "MergePublisher has finished successfully." );
+        // Push the target branch.
+        if ( !GitHelper.TryPush( context, settings ) )
+        {
+            return SuccessCode.Error;
+        }
+
+        context.Console.WriteSuccess( $"Merging '{sourceBranch}' branch into '{targetBranch}' branch was successful." );
 
         return SuccessCode.Success;
-    }
-
-    private static bool TryCheckoutAndPull( BuildContext context, string branch )
-    {
-        // Add remote target branch to the list of currently tracked branches because local repository may be initialized with only the default branch.
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"remote set-branches --add origin {branch}",
-                context.RepoDirectory ) )
-        {
-            return false;
-        }
-
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                "fetch",
-                context.RepoDirectory ) )
-        {
-            return false;
-        }
-
-        // Switch to the target branch before we do merge.
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"checkout {branch}",
-                context.RepoDirectory ) )
-        {
-            return false;
-        }
-
-        // Pull remote target branch changes because local target branch may not contain all changes or upstream may not be set for local target branch.
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"pull origin {branch}",
-                context.RepoDirectory ) )
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    private static bool MergeBranch( BuildContext context, BaseBuildSettings settings, string branchToMerge )
-    {
-        // Attempts merging branch to branch, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"merge {branchToMerge} --strategy-option theirs",
-                context.RepoDirectory ) )
-        {
-            return false;
-        }
-
-        // Returns the remote origin.
-        ToolInvocationHelper.InvokeTool(
-            context.Console,
-            "git",
-            $"remote get-url origin",
-            context.RepoDirectory,
-            out var gitExitCode,
-            out var gitOutput );
-
-        if ( gitExitCode != 0 )
-        {
-            context.Console.WriteError( gitOutput );
-
-            return false;
-        }
-
-        var gitOrigin = gitOutput.Trim();
-
-        var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
-
-        // When on TeamCity, origin will be updated to form including Git authentication credentials.
-        if ( TeamCityHelper.IsTeamCityBuild( settings ) )
-        {
-            if ( isHttps )
-            {
-                if ( !TeamCityHelper.TryGetTeamCitySourceWriteToken(
-                        out var teamcitySourceWriteTokenEnvironmentVariableName,
-                        out var teamcitySourceCodeWritingToken ) )
-                {
-                    context.Console.WriteImportantMessage(
-                        $"{teamcitySourceWriteTokenEnvironmentVariableName} environment variable is not set. Using default credentials." );
-                }
-                else
-                {
-                    gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
-                }
-            }
-        }
-
-        // Push completed merge operation to remote.
-        if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"push {gitOrigin}",
-                context.RepoDirectory ) )
-        {
-            return false;
-        }
-
-        context.Console.WriteSuccess( $"Merging '{branchToMerge}' branch was successful." );
-
-        return true;
     }
 
     private static bool TryParseAndVerifyDependencies( BuildContext context, PublishSettings settings, out bool dependenciesUpdated )
@@ -232,8 +120,7 @@ public class MergePublisher : IndependentPublisher
         {
             var dependencySource = dependencyOverride.Value;
 
-            var dependency = Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == dependencyOverride.Key )
-                             ?? TestDependencies.All.Single( d => d.Name == dependencyOverride.Key );
+            var dependency = context.Product.ProductFamily.GetDependencyDefinition( dependencyOverride.Key );
 
             // We don't automatically change version of Feed or Local dependencies.
             if ( dependencySource.SourceKind is DependencySourceKind.Feed )
@@ -266,7 +153,7 @@ public class MergePublisher : IndependentPublisher
             if ( versionElement == null )
             {
                 context.Console.WriteWarning( $"No property '{dependency.NameWithoutDot}Version'." );
-                
+
                 continue;
             }
 

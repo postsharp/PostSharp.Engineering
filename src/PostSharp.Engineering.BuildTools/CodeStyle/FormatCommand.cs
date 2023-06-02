@@ -26,7 +26,7 @@ namespace PostSharp.Engineering.BuildTools.CodeStyle
 
         protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
         {
-            if ( !VcsHelper.CheckNoChange( context, settings, context.RepoDirectory ) )
+            if ( !GitHelper.CheckNoChange( context, settings, context.RepoDirectory ) )
             {
                 return false;
             }

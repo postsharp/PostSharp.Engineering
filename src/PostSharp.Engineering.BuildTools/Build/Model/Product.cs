@@ -2,11 +2,13 @@
 
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Coverage;
+using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.NuGet;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -40,6 +42,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.VcsProvider = dependencyDefinition.Repo.Provider;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
         }
+
+        public ProductFamily ProductFamily => this.DependencyDefinition.ProductFamily;
 
         public string BuildExePath { get; }
 
@@ -96,8 +100,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool KeepEditorConfig { get; init; }
 
-        public string BuildAgentType { get; init; } = "caravela04cloud";
-
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
 
         public static ImmutableArray<Publisher> DefaultPublicPublishers { get; }
@@ -110,7 +112,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
-                debug: new BuildConfigurationInfo( MSBuildName: "Debug", BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
+                debug:
+                new BuildConfigurationInfo(
+                    MSBuildName: "Debug",
+                    BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
                 release: new BuildConfigurationInfo( MSBuildName: "Release", RequiresSigning: true, ExportsToTeamCityBuild: false ),
                 @public: new BuildConfigurationInfo(
                     MSBuildName: "Release",
@@ -135,7 +140,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string[] ExportedProperties { get; init; } = Array.Empty<string>();
 
         /// <summary>
-        /// Gets the set of artifact dependencies of this product. Some commands expect the dependency to exist in <see cref="PostSharp.Engineering.BuildTools.Dependencies.Model.Dependencies.All"/>.
+        /// Gets the set of artifact dependencies of this product. Some commands expect the dependency to exist in <see cref="MetalamaDependencies.All"/>.
         /// </summary>
         public DependencyDefinition[] Dependencies { get; init; } = Array.Empty<DependencyDefinition>();
 
@@ -149,8 +154,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public DependencyDefinition? GetDependency( string name )
         {
             return this.Dependencies.SingleOrDefault( d => d.Name == name )
-                   ?? BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == name )
-                   ?? TestDependencies.All.SingleOrDefault( d => d.Name == name );
+                   ?? this.ProductFamily.GetDependencyDefinitionOrNull( name );
         }
 
         public Dictionary<string, string> SupportedProperties { get; init; } = new();
@@ -919,7 +923,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         if ( !ToolInvocationHelper.InvokeTool(
                                 context.Console,
                                 "git",
-                                $"clone {dependency.Repo.RepoUrl} --branch {dependency.DefaultBranch} --depth 1",
+                                $"clone {dependency.Repo.RepoUrl} --branch {dependency.Branch} --depth 1",
                                 sourceDependenciesDirectory ) )
                         {
                             return false;
@@ -1790,7 +1794,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var mainVersionFile = Path.Combine( dependency.EngineeringDirectory, "MainVersion.props" );
                 context.Console.WriteMessage( $"Downloading '{mainVersionFile}' from '{dependency.Repo.RepoUrl}'." );
-                var mainVersionContent = dependency.Repo.DownloadTextFile( dependency.DefaultBranch, mainVersionFile );
+                var mainVersionContent = dependency.Repo.DownloadTextFile( dependency.Branch, mainVersionFile );
 
                 var document = XDocument.Parse( mainVersionContent );
                 var project = Project.FromXmlReader( document.CreateReader(), new ProjectOptions() );
@@ -1863,8 +1867,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var dependencies =
                     dependenciesOverrideFile.Dependencies.Select(
                             x => (Name: x.Key,
-                                  Definition: BuildTools.Dependencies.Model.Dependencies.All.SingleOrDefault( d => d.Name == x.Key )
-                                              ?? TestDependencies.All.Single( d => d.Name == x.Key ),
+                                  Definition: this.ProductFamily.GetDependencyDefinition( x.Key ),
                                   Source: x.Value) )
                         .Where( d => d.Definition.GenerateSnapshotDependency )
                         .Select( x => (x.Name, x.Definition, Configuration: GetDependencyConfiguration( x.Definition, x.Source )) )
@@ -1873,13 +1876,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var snapshotDependencies = dependencies
                     .Select(
                         d => new TeamCitySnapshotDependency(
-                            d.Definition.CiBuildTypes[d.Configuration],
+                            d.Definition.CiConfiguration.BuildTypes[d.Configuration],
                             true,
                             $"+:{d.Definition.PrivateArtifactsDirectory.ToString( new BuildInfo( packageVersion, d.Configuration, this ) ).Replace( '\\', '/' )}/**/*=>dependencies/{d.Name}" ) )
                     .ToList();
 
                 var sourceDependencies = this.SourceDependencies.Where( d => d.GenerateSnapshotDependency )
-                    .Select( d => new TeamCitySnapshotDependency( d.CiBuildTypes[configuration], true ) );
+                    .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.BuildTypes[configuration], true ) );
 
                 var buildDependencies = snapshotDependencies.Concat( sourceDependencies ).ToArray();
 
@@ -1888,7 +1891,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     objectName: $"{configuration}Build",
                     name: configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
                     buildArguments: $"test --configuration {configuration} --buildNumber %build.number% --buildType %system.teamcity.buildType.id%",
-                    buildAgentType: this.BuildAgentType )
+                    buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
                 {
                     RequiresClearCache = true,
                     ArtifactRules = artifactRules,
@@ -1911,7 +1914,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: $"{configuration}Deployment",
                             name: configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
                             buildArguments: $"publish --configuration {configuration}",
-                            buildAgentType: this.BuildAgentType )
+                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
                         {
                             IsDeployment = true,
                             Dependencies = buildDependencies.Where( d => d.ArtifactsRules != null )
@@ -1919,7 +1922,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                 .Concat(
                                     this.Dependencies.Union( this.SourceDependencies )
                                         .Where( d => d.GenerateSnapshotDependency )
-                                        .Select( d => new TeamCitySnapshotDependency( d.DeploymentBuildType, true ) ) )
+                                        .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DeploymentBuildType, true ) ) )
                                 .ToArray()
                         };
 
@@ -1933,7 +1936,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: $"{configuration}DeploymentNoDependency",
                             name: "Standalone " + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
                             buildArguments: $"publish --configuration {configuration}",
-                            buildAgentType: this.BuildAgentType )
+                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
                         {
                             IsDeployment = true,
                             Dependencies = buildDependencies.Where( d => d.ArtifactsRules != null )
@@ -1946,9 +1949,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
 
                 // Create a TeamCity configuration for Swap.
-                if (
-                    buildTeamCityConfiguration != null
-                    && configurationInfo is { Swappers: { }, SwapAfterPublishing: false } )
+                if ( configurationInfo is { Swappers: { }, SwapAfterPublishing: false } )
                 {
                     var swapDependencies = new List<TeamCitySnapshotDependency>();
 
@@ -1964,7 +1965,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: $"{configuration}Swap",
                             name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
                             buildArguments: $"swap --configuration {configuration}",
-                            buildAgentType: this.BuildAgentType ) { IsDeployment = true, Dependencies = swapDependencies.ToArray() } );
+                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType ) { IsDeployment = true, Dependencies = swapDependencies.ToArray() } );
                 }
             }
 
@@ -1981,8 +1982,25 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: "VersionBump",
                             name: $"Version Bump",
                             buildArguments: $"bump",
-                            buildAgentType: this.BuildAgentType ) { IsDeployment = true } );
+                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType ) { IsDeployment = true } );
                 }
+            }
+
+            // Create a TeamCity configuration for downstream merge.
+            if ( this.ProductFamily.DownstreamProductFamily != null )
+            {
+                teamCityBuildConfigurations.Add(
+                    new TeamCityBuildConfiguration(
+                        this,
+                        "DownstreamMerge",
+                        "Downstream Merge",
+                        "merge-downstream",
+                        this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                    {
+                        IsDeployment = true,
+                        Dependencies = new[] { new TeamCitySnapshotDependency( $"{BuildConfiguration.Debug}Build", true ) },
+                        BuildTriggers = new IBuildTrigger[] { new SourceBuildTrigger() }
+                    } );
             }
 
             // Add from extensions.
@@ -2103,9 +2121,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             // Check if we bumped since last deployment by looking in the Git log. 
             var gitLog = gitLogOutput.Split( new[] { '\n', '\r' }, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries );
+            
             // This is to consider only version bumps from the current release. (E.g. 2023.1)
             // Downstream merge would otherwise break the logic and version bump would be skipped.
-            var versionBumpLogComment = $"<<VERSION_BUMP>> {MainVersion.Value}";
+            var versionBumpLogComment = $"<<VERSION_BUMP>> {context.Product.DependencyDefinition.ProductFamily.Version}";
             
             var lastVersionDump = gitLog.Select( ( s, i ) => (Log: s, LineNumber: i) )
                 .FirstOrDefault( s => s.Log.Contains( versionBumpLogComment, StringComparison.OrdinalIgnoreCase ) );
@@ -2355,6 +2374,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             preparedVersionInfo = new PreparedVersionInfo( currentVersion, mainVersionFileInfo.PackageVersionSuffix );
 
             return true;
+        }
+
+        public virtual string GetNextBranchVersion( string originalBranchVersion )
+        {
+            var originalVersionParts = originalBranchVersion.Split( '.', 2 );
+
+            return $"{originalVersionParts[0]}.{int.Parse( originalVersionParts[1], CultureInfo.InvariantCulture ) + 1}";
         }
     }
 }

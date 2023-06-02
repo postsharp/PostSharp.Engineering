@@ -13,33 +13,40 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 public static class TeamCityHelper
 {
-    public static readonly string TeamCityUrl = "https://postsharp.teamcity.com";
-    public static readonly string TeamCityUsername = "teamcity@postsharp.net";
-    public static readonly string TeamcityApiBuildQueueUri = $"{TeamCityUrl}/app/rest/buildQueue";
-    public static readonly string TeamCityApiRunningBuildsUri = $"{TeamCityUrl}/app/rest/builds?locator=state:running";
-    public static readonly string TeamCityApiFinishedBuildsUri = $"{TeamCityUrl}/app/rest/builds?locator=state:finished";
+    public const string TeamCityOnPremUrl = "https://tc.teamcity.com";
+    public const string TeamCityOnPremTokenEnvironmentVariableName = "TEAMCITY_TOKEN";
+    public const string TeamCityCloudUrl = "https://postsharp.teamcity.com";
+    public const string TeamCityCloudTokenEnvironmentVariableName = "TEAMCITY_CLOUD_TOKEN";
+    public const string TeamCityUsername = "teamcity@postsharp.net";
+    public const string TeamcityApiBuildQueuePath = $"/app/rest/buildQueue";
+    public const string TeamCityApiRunningBuildsPath = "/app/rest/builds?locator=state:running";
+    public const string TeamCityApiFinishedBuildsPath = "/app/rest/builds?locator=state:finished";
 
     public static bool IsTeamCityBuild( CommonCommandSettings? settings = null )
         => settings?.ContinuousIntegration == true || Environment.GetEnvironmentVariable( "IS_TEAMCITY_AGENT" )?.ToLowerInvariant() == "true";
 
-    public static bool TryGetTeamcityToken( BuildContext context, [NotNullWhen( true )] out string? token )
+    public static bool TryConnectTeamCity( CiProjectConfiguration configuration, ConsoleHelper console, [NotNullWhen( true )] out TeamCityClient? client )
     {
-        const string teamcityTokenVariable = "TEAMCITY_CLOUD_TOKEN";
+        var teamcityTokenVariable = configuration.TokenEnvironmentVariableName;
 
-        token = Environment.GetEnvironmentVariable( teamcityTokenVariable );
+        var token = Environment.GetEnvironmentVariable( teamcityTokenVariable );
 
         if ( string.IsNullOrEmpty( token ) )
         {
-            context.Console.WriteError( $"The {teamcityTokenVariable} environment variable is not defined." );
+            console.WriteError( $"The {teamcityTokenVariable} environment variable is not defined." );
+            client = null;
 
             return false;
         }
-        else
-        {
-            return true;
-        }
+
+        client = new TeamCityClient( configuration.BaseUrl, token );
+
+        return true;
     }
-    
+
+    public static bool TryConnectTeamCity( BuildContext context, [NotNullWhen( true )] out TeamCityClient? client )
+        => TryConnectTeamCity( context.Product.DependencyDefinition.CiConfiguration, context.Console, out client );
+
     public static bool TryGetTeamCitySourceWriteToken( out string environmentVariableName, [NotNullWhen( true )] out string? teamCitySourceWriteToken )
     {
         environmentVariableName = "SOURCE_CODE_WRITING_TOKEN";
@@ -103,14 +110,12 @@ public static class TeamCityHelper
             return false;
         }
 
-        if ( !TryGetTeamcityToken( context, out var token ) )
+        if ( !TryConnectTeamCity( context, out var tc ) )
         {
             return false;
         }
 
-        TeamCityClient tc = new( token );
-
-        var scheduledBuildId = tc.ScheduleBuild( buildTypeId );
+        var scheduledBuildId = tc.ScheduleBuild( context.Console, buildTypeId, "This build was triggered by command." );
 
         if ( string.IsNullOrEmpty( scheduledBuildId ) )
         {
@@ -176,8 +181,7 @@ public static class TeamCityHelper
 
         // DependencyDefinition is found by its product name.
         var dependencyDefinition =
-            Dependencies.Model.Dependencies.All.FirstOrDefault( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) )
-            ?? TestDependencies.All.FirstOrDefault( d => d.Name.Equals( settings.ProductName, StringComparison.OrdinalIgnoreCase ) );
+            context.Product.ProductFamily.GetDependencyDefinitionOrNull( settings.ProductName );
 
         if ( dependencyDefinition == null )
         {
@@ -191,17 +195,17 @@ public static class TeamCityHelper
         switch ( teamCityBuildType )
         {
             case TeamCityBuildType.Build:
-                buildTypeId = dependencyDefinition.CiBuildTypes[settings.BuildConfiguration];
+                buildTypeId = dependencyDefinition.CiConfiguration.BuildTypes[settings.BuildConfiguration];
 
                 break;
 
             case TeamCityBuildType.Deploy:
-                buildTypeId = dependencyDefinition.DeploymentBuildType;
+                buildTypeId = dependencyDefinition.CiConfiguration.DeploymentBuildType;
 
                 break;
 
             case TeamCityBuildType.Bump:
-                buildTypeId = dependencyDefinition.BumpBuildType;
+                buildTypeId = dependencyDefinition.CiConfiguration.VersionBumpBuildType;
 
                 break;
 
@@ -219,5 +223,78 @@ public static class TeamCityHelper
         }
 
         return true;
+    }
+    
+    public static CiProjectConfiguration CreateConfiguration(
+        string teamCityProjectId,
+        string buildAgentType,
+        bool hasVersionBump = true,
+        BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
+        BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
+        BuildConfiguration publicBuildDependency = BuildConfiguration.Public,
+        bool isCloudInstance = true )
+    {
+        var buildTypes = new ConfigurationSpecific<string>(
+            $"{teamCityProjectId}_{debugBuildDependency}Build",
+            $"{teamCityProjectId}_{releaseBuildDependency}Build",
+            $"{teamCityProjectId}_{publicBuildDependency}Build" );
+
+        string? versionBumpBuildType = null;
+
+        if ( hasVersionBump )
+        {
+            versionBumpBuildType = $"{teamCityProjectId}_VersionBump";
+        }
+
+        var deploymentBuildType = $"{teamCityProjectId}_PublicDeployment";
+        string tokenEnvironmentVariableName;
+        string baseUrl;
+
+        if ( isCloudInstance )
+        {
+            tokenEnvironmentVariableName = TeamCityCloudTokenEnvironmentVariableName;
+            baseUrl = TeamCityCloudUrl;
+        }
+        else
+        {
+            tokenEnvironmentVariableName = TeamCityOnPremTokenEnvironmentVariableName;
+            baseUrl = TeamCityOnPremUrl;
+        }
+
+        return new CiProjectConfiguration( teamCityProjectId, buildTypes, deploymentBuildType, versionBumpBuildType, tokenEnvironmentVariableName, baseUrl, buildAgentType );
+    }
+
+    private static string ReplaceDots( string input, string substitute ) => input.Replace( ".", substitute, StringComparison.Ordinal );
+
+    public static string GetProjectIdWithParentProjectId( string projectName, string parentProjectId )
+    {
+        var subProjectId = ReplaceDots( projectName, "_" ).Replace( " ", "", StringComparison.Ordinal ); 
+        
+        var projectId = $"{parentProjectId}_{subProjectId}";
+
+        return projectId;
+    }
+    
+    public static string GetProjectId( string projectName, string? parentProjectName = null, string? productFamilyVersion = null )
+    {
+        string parentProjectId;
+        
+        if ( parentProjectName == null )
+        {
+            parentProjectId = "";
+        }
+        else
+        {
+            parentProjectId = ReplaceDots( parentProjectName, "_" );
+
+            if ( productFamilyVersion != null )
+            {
+                parentProjectId = $"{parentProjectId}_{parentProjectId}{ReplaceDots( productFamilyVersion, "" )}";
+            }
+        }
+
+        var projectId = GetProjectIdWithParentProjectId( projectName, parentProjectId );
+
+        return projectId;
     }
 }

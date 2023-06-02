@@ -68,6 +68,10 @@ namespace PostSharp.Engineering.BuildTools
                                 .WithDescription( "Bumps the version of this product" );
                         }
 
+                        root.AddCommand<DownstreamMergeCommand>( "merge-downstream" )
+                            .WithData( product )
+                            .WithDescription( "Merges the code to the subsequent development branch." );
+
                         root.AddBranch(
                             "dependencies",
                             dependencies =>

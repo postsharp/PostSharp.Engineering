@@ -10,6 +10,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
     public abstract class VcsProvider
     {
+        public abstract VcsProviderName Name { get; }
+        
         public abstract bool SshAgentRequired { get; }
 
         public abstract string GetRepoUrl( VcsRepo repo );
@@ -19,12 +21,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static readonly VcsProvider GitHub = new GitHubProvider();
         public static readonly VcsProvider AzureRepos = new AzureRepoProvider();
 
-        public abstract string DefaultBranch { get; }
-        
-        public abstract string? DefaultPublishingBranch { get; }
-
         private class GitHubProvider : VcsProvider
         {
+            public override VcsProviderName Name => VcsProviderName.GitHub;
+
             public override bool SshAgentRequired => true;
 
             public override string GetRepoUrl( VcsRepo repo ) => $"https://github.com/postsharp/{repo.RepoName}.git";
@@ -35,15 +35,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                 return httpClient.GetStringAsync( $"https://raw.githubusercontent.com/postsharp/{repo.RepoName}/{branch}/{path}" ).Result;
             }
-
-            public override string DefaultBranch => $"release/{MainVersion.Value}";
-
-            // Source code publishing disabled for 2023.1.
-            public override string? DefaultPublishingBranch => null;
         }
 
         private class AzureRepoProvider : VcsProvider
         {
+            public override VcsProviderName Name => VcsProviderName.AzureDevOps;
+            
             public override bool SshAgentRequired => false;
 
             public override string GetRepoUrl( VcsRepo repo ) => $"https://postsharp@dev.azure.com/postsharp/{repo.ProjectName}/_git/{repo.RepoName}";
@@ -61,10 +58,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         $"https://dev.azure.com/postsharp/{repo.ProjectName}/_apis/git/repositories/{repo.RepoName}/items?path={path}&versionDescriptor.version={branch}" )
                     .Result;
             }
-
-            public override string DefaultBranch => $"release/{MainVersion.Value}";
-            
-            public override string? DefaultPublishingBranch => null;
         }
     }
 }

@@ -31,7 +31,7 @@ namespace PostSharp.Engineering.BuildTools.Build
         public Product Product { get; }
 
         /// <summary>
-        /// Gets the name of the current git branch.
+        /// Gets the name of the current git branch. Can be for instance a topic branch.
         /// </summary>
         public string Branch { get; }
 
@@ -83,15 +83,14 @@ namespace PostSharp.Engineering.BuildTools.Build
                 return false;
             }
 
-            if ( !ToolInvocationHelper.InvokeTool( console, "git", "rev-parse --abbrev-ref HEAD", repoDirectory, out var gitExitCode, out var gitOutput )
-                 || gitExitCode != 0 )
+            if ( !GitHelper.TryGetCurrentBranch( console, repoDirectory, out var currentBranch ) )
             {
                 buildContext = null;
 
                 return false;
             }
 
-            buildContext = new BuildContext( console, repoDirectory, (Product) commandContext.Data!, gitOutput.Trim(), commandContext );
+            buildContext = new BuildContext( console, repoDirectory, (Product) commandContext.Data!, currentBranch, commandContext );
 
             return true;
         }

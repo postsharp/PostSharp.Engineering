@@ -6,7 +6,7 @@ public class VcsRepo
 {
     public string RepoName { get; }
 
-    public string ProjectName { get; }
+    public string? ProjectName { get; }
 
     public VcsProvider Provider { get; }
 
@@ -14,7 +14,7 @@ public class VcsRepo
 
     public string DownloadTextFile( string branch, string path ) => this.Provider.DownloadTextFile( this, branch, path );
 
-    public VcsRepo( string repoName, string projectName, VcsProvider provider )
+    public VcsRepo( string repoName, string? projectName, VcsProvider provider )
     {
         this.RepoName = repoName;
         this.ProjectName = projectName;
