@@ -268,7 +268,7 @@ public static class TeamCityHelper
 
     public static string GetProjectIdWithParentProjectId( string projectName, string parentProjectId )
     {
-        var subProjectId = ReplaceDots( projectName, "_" ).Replace( " ", "", StringComparison.Ordinal ); 
+        var subProjectId = ReplaceDots( projectName, "" ).Replace( " ", "", StringComparison.Ordinal ); 
         
         var projectId = $"{parentProjectId}_{subProjectId}";
 
@@ -285,7 +285,7 @@ public static class TeamCityHelper
         }
         else
         {
-            parentProjectId = ReplaceDots( parentProjectName, "_" );
+            parentProjectId = ReplaceDots( parentProjectName, "" );
 
             if ( productFamilyVersion != null )
             {
