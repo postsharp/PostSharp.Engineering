@@ -79,7 +79,7 @@ public class UpdateSearchProductExtension : ProductExtension
                 $"{configuration}UpdateSearch",
                 name,
                 this.GetArguments(),
-                context.Product.BuildAgentType )
+                context.Product.DependencyDefinition.CiConfiguration.BuildAgentType )
             {
                 IsDeployment = true, Dependencies = new[] { new TeamCitySnapshotDependency( $"{configuration}Deployment", false ) }
             };
@@ -93,9 +93,9 @@ public class UpdateSearchProductExtension : ProductExtension
                     $"{configuration}UpdateSearchNoDependency",
                     $"Standalone {name}",
                     this.GetArguments(),
-                    context.Product.BuildAgentType )
+                    context.Product.DependencyDefinition.CiConfiguration.BuildAgentType )
                 {
-                    IsDeployment = true, Dependencies = new[] { new TeamCitySnapshotDependency( $"{configuration}DeploymentNoDependency", false ) }
+                    IsDeployment = true
                 };
 
                 teamCityBuildConfigurations.Add( teamCityUpdateSearchWithoutDependenciesConfiguration );

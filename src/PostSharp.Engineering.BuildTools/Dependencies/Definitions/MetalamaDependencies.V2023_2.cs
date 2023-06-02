@@ -39,13 +39,14 @@ public static partial class MetalamaDependencies
                             dependencyName,
                             parentCiProjectName ?? vcsProjectName ?? GetDefaultVcsProjectName( vcsProvider ),
                             Family.Version ),
+                        "caravela04cloud",
                         isVersioned,
                         debugBuildDependency,
                         releaseBuildDependency,
                         publicBuildDependency ) ) { }
         }
 
-        public static ProductFamily Family { get; } = new( "2023.2" ); // { DownstreamProductFamily = V2023_3.Family };
+        public static ProductFamily Family { get; } = new( "2023.2", DevelopmentDependencies.Family ); // { DownstreamProductFamily = V2023_3.Family };
 
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.AzureRepos );
 

@@ -19,11 +19,11 @@ public static class BusinessSystemsDependencies
                 null,
                 VcsProvider.AzureRepos,
                 "Business%20Systems",
-                TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "Websites And Business Systems" ) ),
+                TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "Websites And Business Systems" ), "webdeploy" ),
                 false ) { }
     }
 
-    public static ProductFamily Family { get; } = new( "1.0" );
+    public static ProductFamily Family { get; } = new( "1.0", DevelopmentDependencies.Family );
 
     public static DependencyDefinition BusinessSystems { get; } = new BusinessSystemsDependencyDefinition( "BusinessSystems" );
 

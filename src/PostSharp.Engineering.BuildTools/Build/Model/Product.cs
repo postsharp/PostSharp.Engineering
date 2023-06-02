@@ -2,6 +2,7 @@
 
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
@@ -98,8 +99,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public VcsProvider? VcsProvider { get; }
 
         public bool KeepEditorConfig { get; init; }
-
-        public string BuildAgentType { get; init; } = "caravela04cloud";
 
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
 
@@ -1892,7 +1891,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     objectName: $"{configuration}Build",
                     name: configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
                     buildArguments: $"test --configuration {configuration} --buildNumber %build.number% --buildType %system.teamcity.buildType.id%",
-                    buildAgentType: this.BuildAgentType )
+                    buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
                 {
                     RequiresClearCache = true,
                     ArtifactRules = artifactRules,
@@ -1915,7 +1914,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: $"{configuration}Deployment",
                             name: configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
                             buildArguments: $"publish --configuration {configuration}",
-                            buildAgentType: this.BuildAgentType )
+                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
                         {
                             IsDeployment = true,
                             Dependencies = buildDependencies.Where( d => d.ArtifactsRules != null )
@@ -1937,7 +1936,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: $"{configuration}DeploymentNoDependency",
                             name: "Standalone " + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
                             buildArguments: $"publish --configuration {configuration}",
-                            buildAgentType: this.BuildAgentType )
+                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
                         {
                             IsDeployment = true,
                             Dependencies = buildDependencies.Where( d => d.ArtifactsRules != null )
@@ -1966,7 +1965,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: $"{configuration}Swap",
                             name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
                             buildArguments: $"swap --configuration {configuration}",
-                            buildAgentType: this.BuildAgentType ) { IsDeployment = true, Dependencies = swapDependencies.ToArray() } );
+                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType ) { IsDeployment = true, Dependencies = swapDependencies.ToArray() } );
                 }
             }
 
@@ -1983,7 +1982,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: "VersionBump",
                             name: $"Version Bump",
                             buildArguments: $"bump",
-                            buildAgentType: this.BuildAgentType ) { IsDeployment = true } );
+                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType ) { IsDeployment = true } );
                 }
             }
 
@@ -1996,7 +1995,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         "DownstreamMerge",
                         "Downstream Merge",
                         "merge-downstream",
-                        this.BuildAgentType )
+                        this.DependencyDefinition.CiConfiguration.BuildAgentType )
                     {
                         IsDeployment = true,
                         Dependencies = new[] { new TeamCitySnapshotDependency( $"{BuildConfiguration.Debug}Build", true ) },

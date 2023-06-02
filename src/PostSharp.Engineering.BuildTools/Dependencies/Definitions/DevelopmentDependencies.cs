@@ -21,6 +21,7 @@ public static class DevelopmentDependencies
         "Engineering",
         TeamCityHelper.CreateConfiguration(
             TeamCityHelper.GetProjectId( "PostSharp.Engineering", "Engineering" ),
+            "caravela04cloud",
             true,
             BuildConfiguration.Debug,
             BuildConfiguration.Debug,

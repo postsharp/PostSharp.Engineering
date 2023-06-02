@@ -16,7 +16,9 @@ public class CiProjectConfiguration
         
     public string BaseUrl { get; }
 
-    public CiProjectConfiguration( string projectId, ConfigurationSpecific<string> buildTypes, string deploymentBuildType, string? versionBumpBuildType, string tokenEnvironmentVariableName, string baseUrl )
+    public string BuildAgentType { get; }
+
+    public CiProjectConfiguration( string projectId, ConfigurationSpecific<string> buildTypes, string deploymentBuildType, string? versionBumpBuildType, string tokenEnvironmentVariableName, string baseUrl, string buildAgentType )
     {
         this.ProjectId = projectId;
         this.BuildTypes = buildTypes;
@@ -24,5 +26,6 @@ public class CiProjectConfiguration
         this.VersionBumpBuildType = versionBumpBuildType;
         this.TokenEnvironmentVariableName = tokenEnvironmentVariableName;
         this.BaseUrl = baseUrl;
+        this.BuildAgentType = buildAgentType;
     }
 }

@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
@@ -24,7 +25,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
                 return false;
             }
         }
-        
+
         var downstreamProductFamily = context.Product.ProductFamily.DownstreamProductFamily;
 
         if ( downstreamProductFamily == null )
@@ -56,7 +57,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
             return false;
         }
-        
+
         context.Console.WriteHeading( $"Executing downstream merge from '{sourceBranch}' branch to '{downstreamBranch}' branch" );
 
         if ( !VcsHelper.TryGetCurrentCommitHash( context, out var sourceCommitHash ) )
@@ -125,7 +126,14 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         var buildTypeId = downstreamDependencyDefinition.CiConfiguration.BuildTypes.Debug;
 
-        if ( !TryScheduleBuild( context, targetBranch, sourceBranch, pullRequestUrl, buildTypeId, out var buildUrl ) )
+        if ( !TryScheduleBuild(
+                downstreamDependencyDefinition.CiConfiguration,
+                context.Console,
+                targetBranch,
+                sourceBranch,
+                pullRequestUrl,
+                buildTypeId,
+                out var buildUrl ) )
         {
             return false;
         }
@@ -146,80 +154,73 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         string downstreamBranch,
         out bool areChangesPending )
     {
+        areChangesPending = false;
+
         context.Console.WriteImportantMessage( $"Merging '{sourceBranch}' branch to '{targetBranch}' branch" );
 
-        // If the automated merge fails, try to resolve expected conflicts.
-        if ( VcsHelper.TryMerge( context, sourceBranch, targetBranch ) )
+        if ( !VcsHelper.TryMerge( context, sourceBranch, targetBranch, "--no-commit" ) )
         {
-            if ( !VcsHelper.TryGetCurrentCommitHash( context, out var downstreamHeadCommitHashAfterMerge ) )
-            {
-                areChangesPending = false;
-
-                return false;
-            }
-
-            if ( downstreamHeadCommitHashAfterMerge == downstreamHeadCommitHashBeforeMerge )
-            {
-                areChangesPending = false;
-
-                return true;
-            }
+            return false;
         }
-        else
+
+        context.Console.WriteMessage( "The git merge failed. Trying to resolve conflicts." );
+
+        if ( !VcsHelper.TryGetStatus( context, settings, context.RepoDirectory, out var statuses ) )
         {
-            context.Console.WriteMessage( "The git merge failed. Trying to resolve conflicts." );
+            return false;
+        }
 
-            if ( !VcsHelper.TryGetStatus( context, settings, context.RepoDirectory, out var statuses ) )
+        // Try to resolve conflicts and avoid merging files that shouldn't be merged
+        if ( statuses.Length > 0 )
+        {
+            // We don't merge these files downstream as they are specific to the product family version.
+            var filesToKeepOwn = new HashSet<string>();
+
+            void AddFileToKeepOwn( string path )
             {
-                areChangesPending = false;
-
-                return false;
+                var unixStylePath = path.Replace( Path.DirectorySeparatorChar, '/' );
+                filesToKeepOwn.Add( unixStylePath );
             }
 
-            // Try to resolve conflicts
-            if ( statuses.Length > 0 )
+            AddFileToKeepOwn( context.Product.MainVersionFilePath );
+            AddFileToKeepOwn( context.Product.BumpInfoFilePath );
+
+            Directory.EnumerateFiles( Path.Combine( context.RepoDirectory, ".teamcity" ), "*", SearchOption.AllDirectories )
+                .Select( p => Path.GetRelativePath( context.RepoDirectory, p ) )
+                .ToList()
+                .ForEach( AddFileToKeepOwn );
+
+            foreach ( var status in statuses.Select( s => s.Split( ' ', 2, StringSplitOptions.TrimEntries ) ) )
             {
-                var solvableConflicts = new HashSet<string>();
+                var fileToResolve = status[1];
 
-                void AddSolvableConflict( string path )
+                if ( filesToKeepOwn.Contains( fileToResolve ) )
                 {
-                    var unixStylePath = path.Replace( Path.DirectorySeparatorChar, '/' );
-                    solvableConflicts.Add( unixStylePath );
-                }
-
-                AddSolvableConflict( context.Product.MainVersionFilePath );
-                AddSolvableConflict( context.Product.VersionsFilePath );
-                AddSolvableConflict( context.Product.BumpInfoFilePath );
-
-                foreach ( var status in statuses.Select( s => s.Split( ' ', 2, StringSplitOptions.TrimEntries ) ) )
-                {
-                    var fileToResolve = status[1];
-
-                    // The global.json can be found in various folders. Eg. in Metalama.Try.
-                    if ( solvableConflicts.Contains( fileToResolve )
-                         || fileToResolve == "global.json"
-                         || fileToResolve.EndsWith( "/global.json", StringComparison.InvariantCulture ) )
+                    if ( !VcsHelper.TryResolveUsingOurs( context, fileToResolve ) )
                     {
-                        if ( !VcsHelper.TryResolveUsingOurs( context, fileToResolve ) )
-                        {
-                            areChangesPending = false;
-
-                            return false;
-                        }
+                        return false;
                     }
                 }
             }
+        }
 
-            // If not all conflicts were expected, git commit fails here.
-            if ( !VcsHelper.TryCommitMerge( context ) )
-            {
-                context.Console.WriteError(
-                    $"Merge conflicts need to be resolved manually. Merge '{sourceBranch}' branch to '{targetBranch}' branch. Then create a pull request to '{downstreamBranch}' branch or execute this command again." );
+        // If not all conflicts were expected, git commit fails here.
+        if ( !VcsHelper.TryCommitMerge( context ) )
+        {
+            context.Console.WriteError(
+                $"Merge conflicts need to be resolved manually. Merge '{sourceBranch}' branch to '{targetBranch}' branch. Then create a pull request to '{downstreamBranch}' branch or execute this command again." );
 
-                areChangesPending = false;
+            return false;
+        }
 
-                return false;
-            }
+        if ( !VcsHelper.TryGetCurrentCommitHash( context, out var downstreamHeadCommitHashAfterMerge ) )
+        {
+            return false;
+        }
+
+        if ( downstreamHeadCommitHashAfterMerge == downstreamHeadCommitHashBeforeMerge )
+        {
+            return true;
         }
 
         if ( !VcsHelper.TryPush( context, settings ) )
@@ -306,24 +307,25 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
     }
 
     private static bool TryScheduleBuild(
-        BuildContext context,
+        CiProjectConfiguration ciConfiguration,
+        ConsoleHelper console,
         string targetBranch,
         string sourceBranch,
         string pullRequestUrl,
         string buildTypeId,
         [NotNullWhen( true )] out string? buildUrl )
     {
-        context.Console.WriteImportantMessage( $"Scheduling build '{buildTypeId}' of '{targetBranch}' branch" );
+        console.WriteImportantMessage( $"Scheduling build '{buildTypeId}' of '{targetBranch}' branch" );
 
-        if ( !TeamCityHelper.TryConnectTeamCity( context, out var tc ) )
+        if ( !TeamCityHelper.TryConnectTeamCity( ciConfiguration, console, out var tc ) )
         {
             buildUrl = null;
-            
+
             return false;
         }
 
         var buildId = tc.ScheduleBuild(
-            context.Console,
+            console,
             buildTypeId,
             $"Triggered by PostSharp.Engineering for downstream merge from '{sourceBranch}' branch to auto-complete pull request {pullRequestUrl}",
             targetBranch );
@@ -336,7 +338,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         }
 
         buildUrl = $"https://postsharp.teamcity.com/viewLog.html?buildId={buildId}";
-        context.Console.WriteImportantMessage( $"Build scheduled. {buildUrl}" );
+        console.WriteImportantMessage( $"Build scheduled. {buildUrl}" );
 
         return true;
     }

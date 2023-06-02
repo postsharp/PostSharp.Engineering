@@ -23,11 +23,11 @@ public static class TemplateDependencies
                 $"release/{Family.Version}",
                 vcsProvider,
                 vcsProjectName,
-                TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "NONE" ), isVersioned ),
+                TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "NONE" ), "none", isVersioned ),
                 isVersioned ) { }
     }
     
-    public static ProductFamily Family { get; } = new( "2023.0" );
+    public static ProductFamily Family { get; } = new( "2023.0", DevelopmentDependencies.Family );
     
     // This is only used from the project template.
     public static DependencyDefinition MyProduct { get; } =

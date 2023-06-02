@@ -23,11 +23,15 @@ public static partial class PostSharpDependencies
                 null,
                 vcsProvider,
                 vcsProjectName,
-                TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "PostSharp" ), isVersioned, isCloudInstance: false ),
+                TeamCityHelper.CreateConfiguration(
+                    TeamCityHelper.GetProjectId( dependencyName, "PostSharp" ),
+                    "caravela04",
+                    isVersioned,
+                    isCloudInstance: false ),
                 isVersioned ) { }
     }
     
-    public static ProductFamily Family { get; } = new( "1.0" );
+    public static ProductFamily Family { get; } = new( "1.0", DevelopmentDependencies.Family );
 
     public static DependencyDefinition PostSharpDocumentation { get; } = new PostSharpDependencyDefinition(
         "PostSharp.Documentation",

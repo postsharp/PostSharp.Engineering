@@ -25,25 +25,28 @@ public static class TeamCityHelper
     public static bool IsTeamCityBuild( CommonCommandSettings? settings = null )
         => settings?.ContinuousIntegration == true || Environment.GetEnvironmentVariable( "IS_TEAMCITY_AGENT" )?.ToLowerInvariant() == "true";
 
-    public static bool TryConnectTeamCity( BuildContext context, [NotNullWhen( true )] out TeamCityClient? client )
+    public static bool TryConnectTeamCity( CiProjectConfiguration configuration, ConsoleHelper console, [NotNullWhen( true )] out TeamCityClient? client )
     {
-        var teamcityTokenVariable = context.Product.DependencyDefinition.CiConfiguration.TokenEnvironmentVariableName;
+        var teamcityTokenVariable = configuration.TokenEnvironmentVariableName;
 
         var token = Environment.GetEnvironmentVariable( teamcityTokenVariable );
 
         if ( string.IsNullOrEmpty( token ) )
         {
-            context.Console.WriteError( $"The {teamcityTokenVariable} environment variable is not defined." );
+            console.WriteError( $"The {teamcityTokenVariable} environment variable is not defined." );
             client = null;
 
             return false;
         }
 
-        client = new TeamCityClient( context.Product.DependencyDefinition.CiConfiguration.BaseUrl, token );
+        client = new TeamCityClient( configuration.BaseUrl, token );
 
         return true;
     }
-    
+
+    public static bool TryConnectTeamCity( BuildContext context, [NotNullWhen( true )] out TeamCityClient? client )
+        => TryConnectTeamCity( context.Product.DependencyDefinition.CiConfiguration, context.Console, out client );
+
     public static bool TryGetTeamCitySourceWriteToken( out string environmentVariableName, [NotNullWhen( true )] out string? teamCitySourceWriteToken )
     {
         environmentVariableName = "SOURCE_CODE_WRITING_TOKEN";
@@ -224,6 +227,7 @@ public static class TeamCityHelper
     
     public static CiProjectConfiguration CreateConfiguration(
         string teamCityProjectId,
+        string buildAgentType,
         bool hasVersionBump = true,
         BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
         BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
@@ -248,16 +252,16 @@ public static class TeamCityHelper
 
         if ( isCloudInstance )
         {
-            tokenEnvironmentVariableName = TeamCityHelper.TeamCityCloudTokenEnvironmentVariableName;
-            baseUrl = TeamCityHelper.TeamCityCloudUrl;
+            tokenEnvironmentVariableName = TeamCityCloudTokenEnvironmentVariableName;
+            baseUrl = TeamCityCloudUrl;
         }
         else
         {
-            tokenEnvironmentVariableName = TeamCityHelper.TeamCityOnPremTokenEnvironmentVariableName;
-            baseUrl = TeamCityHelper.TeamCityOnPremUrl;
+            tokenEnvironmentVariableName = TeamCityOnPremTokenEnvironmentVariableName;
+            baseUrl = TeamCityOnPremUrl;
         }
 
-        return new CiProjectConfiguration( teamCityProjectId, buildTypes, deploymentBuildType, versionBumpBuildType, tokenEnvironmentVariableName, baseUrl );
+        return new CiProjectConfiguration( teamCityProjectId, buildTypes, deploymentBuildType, versionBumpBuildType, tokenEnvironmentVariableName, baseUrl, buildAgentType );
     }
 
     private static string ReplaceDots( string input, string substitute ) => input.Replace( ".", substitute, StringComparison.Ordinal );

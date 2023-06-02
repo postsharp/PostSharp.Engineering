@@ -35,13 +35,14 @@ public static partial class TestDependencies
                         TeamCityHelper.GetProjectIdWithParentProjectId(
                             dependencyName,
                             $"Test_Test{Family.VersionWithoutDots}_{dependencyName.Split( "." )[^1]}" ),
+                        "caravela04cloud",
                         isVersioned,
                         debugBuildDependency,
                         releaseBuildDependency,
                         publicBuildDependency ) ) { }
         }
 
-        public static ProductFamily Family { get; } = new( "2023.1" ); // { DownstreamProductFamily = V2023_1.Family };
+        public static ProductFamily Family { get; } = new( "2023.1", DevelopmentDependencies.Family ); // { DownstreamProductFamily = V2023_1.Family };
 
         private static string GetDevBranch( VcsProvider vcsProvider )
             => vcsProvider.Name switch
