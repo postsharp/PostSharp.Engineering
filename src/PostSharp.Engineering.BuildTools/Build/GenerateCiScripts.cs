@@ -6,6 +6,6 @@ public class GenerateCiScripts : BaseCommand<CommonCommandSettings>
 {
     protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
     {
-        return context.Product.GenerateTeamcityConfiguration( context );
+        return context.Product.GenerateTeamcityConfiguration( context, settings );
     }
 }

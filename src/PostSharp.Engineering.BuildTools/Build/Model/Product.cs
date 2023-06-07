@@ -2,7 +2,6 @@
 
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
@@ -205,7 +204,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             else
             {
                 // Read the resolved dependencies.
-                if ( !DependenciesOverrideFile.TryLoad( context, configuration, out dependenciesOverrideFile ) )
+                if ( !DependenciesOverrideFile.TryLoad( context, settings, configuration, out dependenciesOverrideFile ) )
                 {
                     return false;
                 }
@@ -967,7 +966,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             Directory.CreateDirectory( Path.GetDirectoryName( propsFilePath )! );
 
             // Load Versions.g.props.
-            if ( !DependenciesOverrideFile.TryLoad( context, configuration, out dependenciesOverrideFile ) )
+            if ( !DependenciesOverrideFile.TryLoad( context, settings, configuration, out dependenciesOverrideFile ) )
             {
                 return false;
             }
@@ -984,7 +983,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // We always save the Versions.g.props because it may not exist and it may have been changed by the previous step.
             dependenciesOverrideFile.LocalBuildFile = propsFilePath;
 
-            if ( !dependenciesOverrideFile.TrySave( context ) )
+            if ( !dependenciesOverrideFile.TrySave( context, settings ) )
             {
                 return false;
             }
@@ -1814,7 +1813,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        public bool GenerateTeamcityConfiguration( BuildContext context )
+        public bool GenerateTeamcityConfiguration( BuildContext context, CommonCommandSettings settings )
         {
             context.Console.WriteHeading( "Generating build integration scripts" );
 
@@ -1857,7 +1856,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     additionalArtifactRules = this.DefaultArtifactRules.AddRange( configurationInfo.AdditionalArtifactRules );
                 }
 
-                if ( !DependenciesOverrideFile.TryLoad( context, configuration, out var dependenciesOverrideFile ) )
+                if ( !DependenciesOverrideFile.TryLoad( context, settings, configuration, out var dependenciesOverrideFile ) )
                 {
                     return false;
                 }

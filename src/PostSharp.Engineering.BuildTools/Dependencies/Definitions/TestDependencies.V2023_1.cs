@@ -32,9 +32,7 @@ public static partial class TestDependencies
                     vcsProvider,
                     GetDefaultVcsProjectName( vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
-                        TeamCityHelper.GetProjectIdWithParentProjectId(
-                            dependencyName,
-                            $"Test_Test{Family.VersionWithoutDots}_{dependencyName.Split( "." )[^1]}" ),
+                        $"Test_Test{Family.VersionWithoutDots}_{dependencyName.Split( "." )[^1]}",
                         "caravela04cloud",
                         isVersioned,
                         debugBuildDependency,

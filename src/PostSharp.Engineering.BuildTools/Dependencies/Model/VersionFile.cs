@@ -27,7 +27,7 @@ public class VersionFile
 
     public ImmutableDictionary<string, DependencySource> Dependencies { get; }
 
-    public static bool TryRead( BuildContext context, [NotNullWhen( true )] out VersionFile? versionFile )
+    public static bool TryRead( BuildContext context, CommonCommandSettings settings, [NotNullWhen( true )] out VersionFile? versionFile )
     {
         var dependenciesBuilder = ImmutableDictionary.CreateBuilder<string, DependencySource>();
 
@@ -101,7 +101,7 @@ public class VersionFile
 
                 dependencySource = DependencySource.CreateFeed( dependencyVersion, DependencyConfigurationOrigin.Default );
             }
-            else if ( TeamCityHelper.IsTeamCityBuild() )
+            else if ( TeamCityHelper.IsTeamCityBuild( settings ) )
             {
                 dependencySource = DependencySource.CreateRestoredDependency( context, dependencyDefinition, DependencyConfigurationOrigin.Default );
             }

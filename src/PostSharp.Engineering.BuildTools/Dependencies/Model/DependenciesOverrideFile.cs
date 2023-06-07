@@ -38,9 +38,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// </summary>
         /// <param name="context"></param>
         /// <returns></returns>
-        private bool TryLoadDefaultDependencies( BuildContext context )
+        private bool TryLoadDefaultDependencies( BuildContext context, CommonCommandSettings settings )
         {
-            if ( !VersionFile.TryRead( context, out var versionFile ) )
+            if ( !VersionFile.TryRead( context, settings, out var versionFile ) )
             {
                 return false;
             }
@@ -55,6 +55,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public static bool TryLoadDefaultsOnly(
             BuildContext context,
+            CommonCommandSettings settings,
             BuildConfiguration configuration,
             [NotNullWhen( true )] out DependenciesOverrideFile? file )
         {
@@ -65,7 +66,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             file = new DependenciesOverrideFile( configurationSpecificVersionFilePath, configuration );
 
-            if ( !file.TryLoadDefaultDependencies( context ) )
+            if ( !file.TryLoadDefaultDependencies( context, settings ) )
             {
                 file = null;
 
@@ -75,9 +76,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             return true;
         }
 
-        public static bool TryLoad( BuildContext context, BuildConfiguration configuration, [NotNullWhen( true )] out DependenciesOverrideFile? file )
+        public static bool TryLoad( BuildContext context, CommonCommandSettings settings, BuildConfiguration configuration, [NotNullWhen( true )] out DependenciesOverrideFile? file )
         {
-            if ( !TryLoadDefaultsOnly( context, configuration, out file ) )
+            if ( !TryLoadDefaultsOnly( context, settings, configuration, out file ) )
             {
                 return false;
             }
@@ -199,7 +200,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                     return false;
                                 }
 
-                                if ( TeamCityHelper.IsTeamCityBuild() )
+                                if ( TeamCityHelper.IsTeamCityBuild( settings ) )
                                 {
                                     var dependencySource = DependencySource.CreateRestoredDependency( (CiBuildId) buildSpec, origin );
 
@@ -257,7 +258,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             return true;
         }
 
-        public bool TrySave( BuildContext context )
+        public bool TrySave( BuildContext context, CommonCommandSettings settings )
         {
             context.Console.WriteMessage( $"Writing '{this.FilePath}'." );
 
@@ -340,7 +341,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 switch ( dependencySource.SourceKind )
                 {
                     case DependencySourceKind.BuildServer:
-                    case DependencySourceKind.RestoredDependency when !TeamCityHelper.IsTeamCityBuild():
+                    case DependencySourceKind.RestoredDependency when !TeamCityHelper.IsTeamCityBuild( settings ):
                         {
                             var dependencyDefinition = context.Product.Dependencies.SingleOrDefault( p => p.Name == dependency.Key ) ??
                                                        context.Product.ProductFamily.GetDependencyDefinitionOrNull( dependency.Key );

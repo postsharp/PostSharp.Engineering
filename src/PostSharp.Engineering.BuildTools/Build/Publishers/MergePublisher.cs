@@ -99,7 +99,7 @@ public class MergePublisher : IndependentPublisher
         // For following Prepare step we need to BuildSettings
         var buildSettings = new BuildSettings()
         {
-            BuildConfiguration = settings.BuildConfiguration, ContinuousIntegration = settings.ContinuousIntegration, Force = settings.Force
+            BuildConfiguration = settings.BuildConfiguration, SimulateContinuousIntegration = settings.SimulateContinuousIntegration, Force = settings.Force
         };
 
         // Do prepare step to get Version.Public.g.props to load up-to-date versions from.
@@ -109,7 +109,7 @@ public class MergePublisher : IndependentPublisher
         }
 
         // Get dependenciesOverrideFile from Versions.Public.g.props.
-        if ( !DependenciesOverrideFile.TryLoad( context, settings.BuildConfiguration, out var dependenciesOverrideFile ) )
+        if ( !DependenciesOverrideFile.TryLoad( context, settings, settings.BuildConfiguration, out var dependenciesOverrideFile ) )
         {
             return false;
         }

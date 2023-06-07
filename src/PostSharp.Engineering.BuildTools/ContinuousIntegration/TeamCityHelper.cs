@@ -6,7 +6,6 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Threading;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
@@ -22,8 +21,8 @@ public static class TeamCityHelper
     public const string TeamCityApiRunningBuildsPath = "/app/rest/builds?locator=state:running";
     public const string TeamCityApiFinishedBuildsPath = "/app/rest/builds?locator=state:finished";
 
-    public static bool IsTeamCityBuild( CommonCommandSettings? settings = null )
-        => settings?.ContinuousIntegration == true || Environment.GetEnvironmentVariable( "IS_TEAMCITY_AGENT" )?.ToLowerInvariant() == "true";
+    public static bool IsTeamCityBuild( CommonCommandSettings settings )
+        => settings.SimulateContinuousIntegration || Environment.GetEnvironmentVariable( "IS_TEAMCITY_AGENT" )?.ToLowerInvariant() == "true";
 
     public static bool TryConnectTeamCity( CiProjectConfiguration configuration, ConsoleHelper console, [NotNullWhen( true )] out TeamCityClient? client )
     {
@@ -224,7 +223,7 @@ public static class TeamCityHelper
 
         return true;
     }
-    
+
     public static CiProjectConfiguration CreateConfiguration(
         string teamCityProjectId,
         string buildAgentType,
@@ -261,24 +260,31 @@ public static class TeamCityHelper
             baseUrl = TeamCityOnPremUrl;
         }
 
-        return new CiProjectConfiguration( teamCityProjectId, buildTypes, deploymentBuildType, versionBumpBuildType, tokenEnvironmentVariableName, baseUrl, buildAgentType );
+        return new CiProjectConfiguration(
+            teamCityProjectId,
+            buildTypes,
+            deploymentBuildType,
+            versionBumpBuildType,
+            tokenEnvironmentVariableName,
+            baseUrl,
+            buildAgentType );
     }
 
     private static string ReplaceDots( string input, string substitute ) => input.Replace( ".", substitute, StringComparison.Ordinal );
 
     public static string GetProjectIdWithParentProjectId( string projectName, string parentProjectId )
     {
-        var subProjectId = ReplaceDots( projectName, "" ).Replace( " ", "", StringComparison.Ordinal ); 
-        
+        var subProjectId = ReplaceDots( projectName, "" ).Replace( " ", "", StringComparison.Ordinal );
+
         var projectId = $"{parentProjectId}_{subProjectId}";
 
         return projectId;
     }
-    
+
     public static string GetProjectId( string projectName, string? parentProjectName = null, string? productFamilyVersion = null )
     {
         string parentProjectId;
-        
+
         if ( parentProjectName == null )
         {
             parentProjectId = "";
@@ -296,5 +302,19 @@ public static class TeamCityHelper
         var projectId = GetProjectIdWithParentProjectId( projectName, parentProjectId );
 
         return projectId;
+    }
+
+    public static void SendImportDataMessage( string type, string path, string flowId, bool failOnNoData )
+    {
+        var date = DateTimeOffset.Now;
+        var timestamp = $"{date:yyyy-MM-dd'T'HH:mm:ss.fff}{date.Offset.Ticks:+;-;}{date.Offset:hhmm}";
+
+        Console.WriteLine(
+            "##teamcity[importData type='{0}' path='{1}' flowId='{2}' timestamp='{3}' whenNoDataPublished='{4}']",
+            type,
+            path,
+            flowId,
+            timestamp,
+            failOnNoData ? "error" : "warning" );
     }
 }

@@ -39,7 +39,7 @@ namespace PostSharp.Engineering.BuildTools
 
         [Description( "Simulate a continuous integration build by setting the build ContinuousIntegrationBuild property to TRUE." )]
         [CommandOption( "--ci" )]
-        public bool ContinuousIntegration { get; set; }
+        public bool SimulateContinuousIntegration { get; set; }
 
         [Description( "Properties in form Name=Value" )]
         [CommandOption( "-p|--property" )]

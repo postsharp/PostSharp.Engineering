@@ -3,8 +3,10 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using System;
 using System.Globalization;
+using System.IO;
 using System.Text;
 
 namespace PostSharp.Engineering.BuildTools.Utilities
@@ -89,6 +91,18 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             {
                 argsBuilder.Append( " " + arguments.Trim() );
             }
+
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                argsBuilder.Append( " -p:ContinuousIntegrationBuild=True" );
+            }
+
+            var binaryLogFilePath = Path.Combine(
+                context.RepoDirectory,
+                context.Product.LogsDirectory.ToString(),
+                $"{Path.GetFileName( solution )}.{command}.binlog" );
+
+            argsBuilder.Append( CultureInfo.InvariantCulture, $" -bl:{binaryLogFilePath}" );
 
             return argsBuilder.ToString();
         }

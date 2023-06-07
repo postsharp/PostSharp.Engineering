@@ -4,7 +4,6 @@ using Newtonsoft.Json;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Utilities;
-using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 
@@ -23,43 +22,26 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
         public override bool Test( BuildContext context, BuildSettings settings )
         {
-            var resultsDirectory = Path.Combine(
-                context.RepoDirectory,
-                context.Product.TestResultsDirectory.ToString( new BuildInfo( null!, settings.BuildConfiguration, context.Product ) ) );
+            var resultsRelativeDirectory =
+                context.Product.TestResultsDirectory.ToString( new BuildInfo( null!, settings.BuildConfiguration, context.Product ) );
 
-            return this.RunDotNet(
-                context,
-                settings,
-                "test",
-                $"--logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory {resultsDirectory}",
-                true );
-        }
+            var resultsDirectory = Path.Combine( context.RepoDirectory, resultsRelativeDirectory );
 
-        public override bool Restore( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "restore", "--no-cache", false );
+            var solutionPath = this.GetFinalSolutionPath( context );
+            var solutionDirectory = Path.GetDirectoryName( Path.GetFullPath( solutionPath ) );
 
-        private bool RunDotNet( BuildContext context, BuildSettings settings, string command, string arguments, bool addConfigurationFlag )
-        {
-            var allArguments = new List<string>() { arguments };
-
-            var binaryLogFilePath = Path.Combine(
-                context.RepoDirectory,
-                context.Product.LogsDirectory.ToString(),
-                $"{this.Name}.{command}.binlog" );
-
-            if ( settings.ContinuousIntegration )
+            if ( solutionDirectory == null )
             {
-                allArguments.Add( "-p:ContinuousIntegrationBuild=True" );
+                context.Console.WriteError( $"Unexpected format of solution file path '{solutionPath}'." );
+
+                return false;
             }
 
-            allArguments.Add( $"-bl:{binaryLogFilePath}" );
-
             // Get the test.json file location relative to solution file based on full solution location path.
-            var solutionPath = FileSystemHelper.GetFinalPath( Path.Combine( context.RepoDirectory, this.SolutionPath ) );
+            var testJsonFile = Path.Combine( solutionDirectory, "test.json" );
 
-            var testJsonFile = Path.Combine(
-                Path.GetDirectoryName( Path.GetFullPath( solutionPath ) )
-                ?? Path.Combine( context.RepoDirectory, solutionPath ),
-                "test.json" );
+            const string command = "test";
+            var args = $"--logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory {resultsDirectory}";
 
             if ( File.Exists( testJsonFile ) )
             {
@@ -76,10 +58,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 if ( !DotNetHelper.Run(
                         context,
                         settings,
-                        Path.Combine( context.RepoDirectory, solutionPath ),
+                        solutionPath,
                         command,
-                        string.Join( " ", allArguments ),
-                        addConfigurationFlag,
+                        args,
+                        true,
                         out var exitCode,
                         out var output,
                         new ToolInvocationOptions( this.EnvironmentVariables ) ) )
@@ -107,33 +89,45 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                         }
                     }
                 }
-
-                // Export .trx test files to TeamCity.
-                if ( TeamCityHelper.IsTeamCityBuild( settings ) )
-                {
-                    TeamCityServiceMessageProvider.SendImportDataMessage( "vstest", "artifacts/testResults/*.trx", this.Name );
-                }
-
-                return true;
             }
             else
             {
-                var success = DotNetHelper.Run(
-                    context,
-                    settings,
-                    Path.Combine( context.RepoDirectory, solutionPath ),
-                    command,
-                    string.Join( " ", allArguments ),
-                    addConfigurationFlag );
-
-                // Export .trx test files to TeamCity.
-                if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+                if ( !this.RunDotNet( context, settings, command, args, true ) )
                 {
-                    TeamCityServiceMessageProvider.SendImportDataMessage( "vstest", "artifacts/testResults/*.trx", this.Name );
+                    return false;
                 }
-
-                return success;
             }
+
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                // Export test result files to TeamCity.
+                TeamCityHelper.SendImportDataMessage(
+                    "vstest",
+                    Path.Combine( resultsRelativeDirectory, "*.trx" ).Replace( Path.DirectorySeparatorChar, '/' ),
+                    this.Name,
+                    false );
+            }
+
+            return true;
         }
+
+        public override bool Restore( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "restore", "--no-cache", false );
+
+        private string GetFinalSolutionPath( BuildContext context )
+            => FileSystemHelper.GetFinalPath( Path.Combine( context.RepoDirectory, this.SolutionPath ) );
+
+        private bool RunDotNet(
+            BuildContext context,
+            BuildSettings settings,
+            string command,
+            string arguments,
+            bool addConfigurationFlag )
+            => DotNetHelper.Run(
+                context,
+                settings,
+                this.GetFinalSolutionPath( context ),
+                command,
+                arguments,
+                addConfigurationFlag );
     }
 }

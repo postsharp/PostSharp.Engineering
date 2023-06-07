@@ -39,13 +39,13 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         }
 
         // Loads the default dependencies.
-        if ( !DependenciesOverrideFile.TryLoadDefaultsOnly( context, configuration, out var defaultDependenciesOverrideFile ) )
+        if ( !DependenciesOverrideFile.TryLoadDefaultsOnly( context, settings, configuration, out var defaultDependenciesOverrideFile ) )
         {
             return false;
         }
 
         // Loads the current version file.
-        if ( !DependenciesOverrideFile.TryLoad( context, configuration, out var dependenciesOverrideFile ) )
+        if ( !DependenciesOverrideFile.TryLoad( context, settings, configuration, out var dependenciesOverrideFile ) )
         {
             return false;
         }
@@ -109,7 +109,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         }
 
         // Writing the version file.
-        if ( !dependenciesOverrideFile.TrySave( context ) )
+        if ( !dependenciesOverrideFile.TrySave( context, settings ) )
         {
             return false;
         }

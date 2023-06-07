@@ -32,7 +32,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return false;
             }
 
-            if ( !DependenciesOverrideFile.TryLoad( context, configuration, out var dependenciesOverrideFile ) )
+            if ( !DependenciesOverrideFile.TryLoad( context, settings, configuration, out var dependenciesOverrideFile ) )
             {
                 return false;
             }
@@ -42,7 +42,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                 return false;
             }
 
-            if ( !dependenciesOverrideFile.TrySave( context ) )
+            if ( !dependenciesOverrideFile.TrySave( context, settings ) )
             {
                 return false;
             }
@@ -70,7 +70,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
             var dependencies = dependenciesOverrideFile
                 .Dependencies
-                .Where( d => d.Value.Origin != DependencyConfigurationOrigin.Transitive )
+                .Where( d => d.Value.SourceKind == DependencySourceKind.BuildServer && d.Value.Origin != DependencyConfigurationOrigin.Transitive )
                 .Select( d => (d.Value, GetDependencyDefinition( d )) )
                 .Where( d => d.Item2 != null )
                 .Select( d => new Dependency( d.Value, d.Item2! ) )
