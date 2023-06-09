@@ -6,6 +6,7 @@ using Microsoft.Extensions.FileSystemGlobbing;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Coverage;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -100,7 +101,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool KeepEditorConfig { get; init; }
 
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
-
+        
+        public TimeSpan? MaxBuildDuration { get; init; }
+        
+        public TimeSpan? MaxDeploymentDuration { get; init; }
+        
+        public TimeSpan? MaxSwapDuration { get; init; }
+        
+        public TimeSpan? MaxVersionBumpDuration { get; init; }
+        
+        public TimeSpan? MaxDownstreamMergeDuration { get; init; }
+        
         public static ImmutableArray<Publisher> DefaultPublicPublishers { get; }
             = ImmutableArray.Create(
                 new Publisher[]
@@ -1864,7 +1875,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     return false;
                 }
 
-                if ( dependenciesOverrideFile.Fetch( context ) )
+                if ( !dependenciesOverrideFile.Fetch( context ) )
                 {
                     return false;
                 }
@@ -1902,7 +1913,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     ArtifactRules = artifactRules,
                     AdditionalArtifactRules = additionalArtifactRules.ToArray(),
                     BuildTriggers = configurationInfo.BuildTriggers,
-                    Dependencies = buildDependencies
+                    Dependencies = buildDependencies,
+                    MaxBuildDuration = configurationInfo.MaxBuildDuration ?? this.MaxBuildDuration
                 };
 
                 teamCityBuildConfigurations.Add( buildTeamCityConfiguration );
@@ -1928,7 +1940,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                     this.Dependencies.Union( this.SourceDependencies )
                                         .Where( d => d.GenerateSnapshotDependency )
                                         .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DeploymentBuildType, true ) ) )
-                                .ToArray()
+                                .ToArray(),
+                            MaxBuildDuration = configurationInfo.MaxDeploymentDuration ?? this.MaxDeploymentDuration
                         };
 
                         teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -1946,7 +1959,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             IsDeployment = true,
                             Dependencies = buildDependencies.Where( d => d.ArtifactsRules != null )
                                 .Concat( new[] { new TeamCitySnapshotDependency( buildTeamCityConfiguration.ObjectName, false, artifactRules ) } )
-                                .ToArray()
+                                .ToArray(),
+                            MaxBuildDuration = configurationInfo.MaxDeploymentDuration ?? this.MaxDeploymentDuration
                         };
 
                         teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -1970,7 +1984,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: $"{configuration}Swap",
                             name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
                             buildArguments: $"swap --configuration {configuration}",
-                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType ) { IsDeployment = true, Dependencies = swapDependencies.ToArray() } );
+                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                        {
+                            IsDeployment = true,
+                            Dependencies = swapDependencies.ToArray(),
+                            MaxBuildDuration = configurationInfo.MaxSwapDuration ?? this.MaxSwapDuration
+                        } );
                 }
             }
 
@@ -1987,7 +2006,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: "VersionBump",
                             name: $"Version Bump",
                             buildArguments: $"bump",
-                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType ) { IsDeployment = true } );
+                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                        {
+                            IsDeployment = true, MaxBuildDuration = this.MaxVersionBumpDuration
+                        } );
                 }
             }
 
@@ -2004,7 +2026,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     {
                         IsDeployment = true,
                         Dependencies = new[] { new TeamCitySnapshotDependency( $"{BuildConfiguration.Debug}Build", true ) },
-                        BuildTriggers = new IBuildTrigger[] { new SourceBuildTrigger() }
+                        BuildTriggers = new IBuildTrigger[] { new SourceBuildTrigger() },
+                        MaxBuildDuration = this.MaxDownstreamMergeDuration
                     } );
             }
 

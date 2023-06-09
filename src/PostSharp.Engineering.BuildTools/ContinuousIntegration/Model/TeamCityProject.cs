@@ -3,7 +3,7 @@
 using System.IO;
 using System.Linq;
 
-namespace PostSharp.Engineering.BuildTools.Build.Model
+namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 {
     internal class TeamCityProject
     {
@@ -25,6 +25,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.sshAgent
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.Swabra
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.swabra
+import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.powerShell
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
 

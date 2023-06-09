@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build.Model;
+using System;
 
 namespace PostSharp.Engineering.BuildTools.Build;
 
@@ -36,4 +37,7 @@ public record BuildConfigurationInfo(
     string[]? AdditionalArtifactRules = null,
     bool ExportsToTeamCityBuild = true,
     bool ExportsToTeamCityDeploy = true,
-    bool ExportsToTeamCityDeployWithoutDependencies = false );
+    bool ExportsToTeamCityDeployWithoutDependencies = false,
+    TimeSpan? MaxBuildDuration = null,
+    TimeSpan? MaxDeploymentDuration = null,
+    TimeSpan? MaxSwapDuration = null );

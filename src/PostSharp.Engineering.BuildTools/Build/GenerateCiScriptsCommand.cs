@@ -2,7 +2,7 @@
 
 namespace PostSharp.Engineering.BuildTools.Build;
 
-public class GenerateCiScripts : BaseCommand<CommonCommandSettings>
+public class GenerateCiScriptsCommand : BaseCommand<CommonCommandSettings>
 {
     protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
     {

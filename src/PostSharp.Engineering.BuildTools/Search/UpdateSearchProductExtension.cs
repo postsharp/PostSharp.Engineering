@@ -2,6 +2,8 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
+using System;
 using System.Collections.Generic;
 
 namespace PostSharp.Engineering.BuildTools.Search;
@@ -18,18 +20,22 @@ public class UpdateSearchProductExtension : ProductExtension
 
     public BuildConfiguration[] BuildConfigurations { get; }
 
+    public TimeSpan? MaxDuration { get; }
+
     public UpdateSearchProductExtension(
         string typesenseUri,
         string source,
         string sourceUrl,
         bool ignoreTls = false,
-        BuildConfiguration[]? buildConfigurations = null )
+        BuildConfiguration[]? buildConfigurations = null,
+        TimeSpan? maxDuration = null )
     {
         this.TypesenseUri = typesenseUri;
         this.Source = source;
         this.SourceUrl = sourceUrl;
         this.IgnoreTls = ignoreTls;
         this.BuildConfigurations = buildConfigurations ?? new[] { BuildConfiguration.Public };
+        this.MaxDuration = maxDuration;
     }
 
     private string GetArguments()
@@ -81,7 +87,9 @@ public class UpdateSearchProductExtension : ProductExtension
                 this.GetArguments(),
                 context.Product.DependencyDefinition.CiConfiguration.BuildAgentType )
             {
-                IsDeployment = true, Dependencies = new[] { new TeamCitySnapshotDependency( $"{configuration}Deployment", false ) }
+                IsDeployment = true,
+                Dependencies = new[] { new TeamCitySnapshotDependency( $"{configuration}Deployment", false ) },
+                MaxBuildDuration = this.MaxDuration
             };
 
             teamCityBuildConfigurations.Add( teamCityUpdateSearchConfiguration );
@@ -93,10 +101,7 @@ public class UpdateSearchProductExtension : ProductExtension
                     $"{configuration}UpdateSearchNoDependency",
                     $"Standalone {name}",
                     this.GetArguments(),
-                    context.Product.DependencyDefinition.CiConfiguration.BuildAgentType )
-                {
-                    IsDeployment = true
-                };
+                    context.Product.DependencyDefinition.CiConfiguration.BuildAgentType ) { IsDeployment = true, MaxBuildDuration = this.MaxDuration };
 
                 teamCityBuildConfigurations.Add( teamCityUpdateSearchWithoutDependenciesConfiguration );
             }

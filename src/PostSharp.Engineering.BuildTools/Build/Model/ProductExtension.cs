@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
+using System.Collections.Generic;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model;
 

@@ -1,9 +1,11 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build.Model;
+using System;
 using System.IO;
 using System.Linq;
 
-namespace PostSharp.Engineering.BuildTools.Build.Model
+namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 {
     internal record TeamCitySnapshotDependency( string ObjectId, bool IsAbsoluteId, string? ArtifactsRules = null );
 
@@ -30,6 +32,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public IBuildTrigger[]? BuildTriggers { get; init; }
 
         public TeamCitySnapshotDependency[]? Dependencies { get; init; }
+        
+        public TimeSpan? MaxBuildDuration { get; init; }
 
         public TeamCityBuildConfiguration( Product product, string objectName, string name, string buildArguments, string buildAgentType )
         {
@@ -42,6 +46,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public void GenerateTeamcityCode( TextWriter writer )
         {
+            var buildTimeOutThreshold = this.MaxBuildDuration ?? TimeSpan.FromMinutes( 5 );
+
+            var buildTimeOutBase = this.MaxBuildDuration != null
+                ? "value()"
+                : @"build {
+                buildRule = lastSuccessful()
+            }";
+            
             writer.WriteLine(
                 $@"object {this.ObjectName} : BuildType({{
 
@@ -75,13 +87,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             foreach ( var sourceDependency in this.Product.SourceDependencies )
             {
                 writer.WriteLine(
-                    $@"
-  root(AbsoluteId(""{sourceDependency.CiConfiguration.ProjectId}""), ""+:. => {this.Product.SourceDependenciesDirectory}/{sourceDependency.Name}"")" );
+                    $@"        root(AbsoluteId(""{sourceDependency.CiConfiguration.ProjectId}""), ""+:. => {this.Product.SourceDependenciesDirectory}/{sourceDependency.Name}"")" );
             }
 
             writer.WriteLine(
-                $@"
-        }}
+                $@"    }}
 
     steps {{" );
 
@@ -118,6 +128,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             noProfile = false
             param(""jetbrains_powershell_scriptArguments"", ""tools kill"")
             executionMode = BuildStep.ExecutionMode.ALWAYS
+        }}
+    }}
+
+    failureConditions {{
+        failOnMetricChange {{
+            metric = BuildFailureOnMetric.MetricType.BUILD_DURATION
+            threshold = {buildTimeOutThreshold.TotalSeconds}
+            units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
+            comparison = BuildFailureOnMetric.MetricComparison.MORE
+            compareTo = {buildTimeOutBase}
+            stopBuildOnFailure = true
         }}
     }}
 
