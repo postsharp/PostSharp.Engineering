@@ -108,6 +108,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             noProfile = false
             param(""jetbrains_powershell_scriptArguments"", ""{this.BuildArguments}"")
         }}
+
+        // Step to kill all dotnet or VBCSCompiler processes that might be locking files that Swabra deletes in the beginning of another build.
+        powerShell {{
+            name = ""Kill background processes after build""
+            scriptMode = file {{
+                path = ""Build.ps1""
+            }}
+            noProfile = false
+            param(""jetbrains_powershell_scriptArguments"", ""tools kill"")
+            executionMode = BuildStep.ExecutionMode.ALWAYS
+        }}
     }}
 
     requirements {{

@@ -13,7 +13,7 @@ public static partial class TestDependencies
     // ReSharper disable once InconsistentNaming
 
     [PublicAPI]
-    public static class V2023_1
+    public static class V2023_2
     {
         private class TestDependencyDefinition : DependencyDefinition
         {
@@ -40,7 +40,7 @@ public static partial class TestDependencies
                         publicBuildDependency ) ) { }
         }
 
-        public static ProductFamily Family { get; } = new( "2023.1", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_2.Family };
+        public static ProductFamily Family { get; } = new( "2023.2", DevelopmentDependencies.Family ); // { DownstreamProductFamily = V2023_3.Family };
 
         private static string GetDevBranch( VcsProvider vcsProvider )
             => vcsProvider.Name switch
