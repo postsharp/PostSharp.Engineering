@@ -423,6 +423,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 return false;
             }
 
+            AddProperty( "url", url );
             AddProperty( "agentCleanFilesPolicy", "ALL_UNTRACKED" );
             AddProperty( "agentCleanPolicy", "ALWAYS" );
             AddProperty( "ignoreKnownHosts", "true" );
