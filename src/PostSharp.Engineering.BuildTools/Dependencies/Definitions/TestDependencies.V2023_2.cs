@@ -27,8 +27,8 @@ public static partial class TestDependencies
                 : base(
                     Family,
                     dependencyName,
-                    GetDevBranch( vcsProvider ),
-                    GetReleaseBranch( vcsProvider ),
+                    $"develop/{Family.Version}",
+                    $"release/{Family.Version}",
                     vcsProvider,
                     GetDefaultVcsProjectName( vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
@@ -42,28 +42,16 @@ public static partial class TestDependencies
 
         public static ProductFamily Family { get; } = new( "2023.2", DevelopmentDependencies.Family ); // { DownstreamProductFamily = V2023_3.Family };
 
-        private static string GetDevBranch( VcsProvider vcsProvider )
-            => vcsProvider.Name switch
-            {
-                VcsProviderName.GitHub => "dev",
-                VcsProviderName.AzureDevOps => "master",
-                _ => throw new InvalidOperationException( $"Unknown VCS provider name: '{vcsProvider.Name}'" )
-            };
-
-        private static string? GetReleaseBranch( VcsProvider vcsProvider )
-            => vcsProvider.Name switch
-            {
-                VcsProviderName.GitHub => "master",
-                VcsProviderName.AzureDevOps => null,
-                _ => throw new InvalidOperationException( $"Unknown VCS provider name: '{vcsProvider.Name}'" )
-            };
-
         public static DependencyDefinition TestProduct { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.TestProduct",
             VcsProvider.AzureRepos );
 
         public static DependencyDefinition Dependency { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.Dependency",
+            VcsProvider.AzureRepos );
+        
+        public static DependencyDefinition DependencyOfDependency { get; } = new TestDependencyDefinition(
+            "PostSharp.Engineering.Test.DependencyOfDependency",
             VcsProvider.AzureRepos );
 
         public static DependencyDefinition TransitiveDependency { get; } = new TestDependencyDefinition(

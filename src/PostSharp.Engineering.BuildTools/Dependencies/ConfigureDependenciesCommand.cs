@@ -103,7 +103,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         // Updating dependencies.
         context.Console.WriteImportantMessage( "Updating dependencies" );
 
-        if ( !BaseFetchDependencyCommand.UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, true ) )
+        if ( !DependenciesHelper.UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, true ) )
         {
             return false;
         }

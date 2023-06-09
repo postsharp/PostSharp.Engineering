@@ -972,7 +972,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 
-            dependenciesOverrideFile.Fetch( context );
+            if ( !dependenciesOverrideFile.Fetch( context ) )
+            {
+                return false;
+            }
 
             // Validate Versions.props. We should not have conditional properties.
             if ( !VersionFile.Validate( context, dependenciesOverrideFile ) )
@@ -1861,7 +1864,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     return false;
                 }
 
-                dependenciesOverrideFile.Fetch( context );
+                if ( dependenciesOverrideFile.Fetch( context ) )
+                {
+                    return false;
+                }
 
                 var dependencies =
                     dependenciesOverrideFile.Dependencies.Select(

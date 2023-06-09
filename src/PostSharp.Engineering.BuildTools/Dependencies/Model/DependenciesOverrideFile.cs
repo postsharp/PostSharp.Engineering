@@ -479,14 +479,20 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             context.Console.Out.Write( table );
         }
 
-        public void Fetch( BuildContext context )
+        public bool Fetch( BuildContext context )
         {
             // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 
             if ( this.Dependencies.Any( d => d.Value.SourceKind != DependencySourceKind.Feed && d.Value.VersionFile == null ) )
             {
                 context.Console.WriteMessage( $"Fetching dependencies for configuration {this.Configuration}." );
-                BaseFetchDependencyCommand.UpdateOrFetchDependencies( context, this.Configuration, this, false );
+
+                if ( !DependenciesHelper.UpdateOrFetchDependencies( context, this.Configuration, this, false ) )
+                {
+                    return false;
+                }
             }
+
+            return true;
         }
     }
 }
