@@ -3,6 +3,7 @@
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.CodeStyle;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Csproj;
 using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Git;
@@ -204,6 +205,32 @@ namespace PostSharp.Engineering.BuildTools
                                 teamcity.AddCommand<TeamCityBuildCommand>( "run" )
                                     .WithData( product )
                                     .WithDescription( "Triggers specified build type of specified product on TeamCity." );
+
+                                teamcity.AddBranch(
+                                    "project",
+                                    project =>
+                                    {
+                                        project.AddCommand<TeamCityGetProjectDetailsCommand>( "get" )
+                                            .WithData( product )
+                                            .WithDescription( "Get details of a TeamCity project." );
+                                        
+                                        project.AddCommand<TeamCityCreateProjectCommand>( "create" )
+                                            .WithData( product )
+                                            .WithDescription( "Creates a new TeamCity project." );
+                                    } );
+                                
+                                teamcity.AddBranch( 
+                                    "vcs-root",
+                                    vcsRoot =>
+                                    {
+                                        vcsRoot.AddCommand<TeamCityGetVcsRootDetailsCommand>( "get" )
+                                            .WithData( product )
+                                            .WithDescription( "Get details of a TeamCity VCS root." );
+
+                                        vcsRoot.AddCommand<TeamCityCreateVcsRootCommand>( "create" )
+                                            .WithData( product )
+                                            .WithDescription( "Create a new TeamCity VCS root." );
+                                    });
                             } );
                     } );
             }

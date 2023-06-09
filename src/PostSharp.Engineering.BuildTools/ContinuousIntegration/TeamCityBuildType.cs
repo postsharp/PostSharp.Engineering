@@ -3,7 +3,7 @@
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 /// <summary>
-/// Enumerates the method that determines what <see cref="BuildTools.Build.TeamCityBuildCommand"/> should do.
+/// Enumerates the method that determines what <see cref="TeamCityBuildCommand"/> should do.
 /// </summary>
 public enum TeamCityBuildType
 {

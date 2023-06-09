@@ -333,8 +333,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     var latestBuildNumber = teamCity.GetLatestBuildNumber(
                         ciBuildType,
                         branchName,
-                        isDefaultBranch,
-                        ConsoleHelper.CancellationToken );
+                        isDefaultBranch );
 
                     if ( latestBuildNumber == null )
                     {
@@ -445,7 +444,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                 Directory.CreateDirectory( restoreDirectory );
                 context.Console.WriteMessage( $"Downloading {dependencyName} build #{buildNumber} of {ciBuildTypeId}" );
-                teamCity.DownloadArtifacts( ciBuildTypeId, buildNumber, restoreDirectory, ConsoleHelper.CancellationToken );
+                teamCity.DownloadArtifacts( ciBuildTypeId, buildNumber, restoreDirectory );
 
                 File.WriteAllText( completedFile, "Completed" );
             }
