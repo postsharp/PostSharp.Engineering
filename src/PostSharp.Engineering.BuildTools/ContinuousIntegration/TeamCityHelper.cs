@@ -384,12 +384,21 @@ public static class TeamCityHelper
             return false;
         }
 
-        if ( !vcsRootsIdsByName.TryGetValue( remoteVcsName, out var vcsRootId ) )
+        if ( vcsRootsIdsByName.TryGetValue( remoteVcsName, out var vcsRootId ) )
         {
-            if ( !tc.TryCreateVcsRoot( context.Console, remoteUrl, parentProjectId, context.Product.ProductFamily.Version, out _, out vcsRootId ) )
+            context.Console.WriteMessage( $"Using existing \"{vcsRootId}\" VCS root" );
+        }
+        else
+        {
+            var familyVersion = context.Product.ProductFamily.Version;
+            context.Console.WriteMessage( $"Creating \"{remoteUrl}\" VCS root in \"{parentProjectId}\" project for \"{familyVersion}\" family version." );
+            
+            if ( !tc.TryCreateVcsRoot( context.Console, remoteUrl, parentProjectId, familyVersion, out var vcsRootName, out vcsRootId ) )
             {
                 return false;
             }
+
+            context.Console.WriteMessage( $"Created \"{vcsRootName}\" VCS root ID \"{vcsRootId}\"." );
         }
 
         return TryCreateProject( tc, context, projectName, projectId, parentProjectId, vcsRootId );
