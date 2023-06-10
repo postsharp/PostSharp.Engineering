@@ -17,5 +17,5 @@ public class TeamCityCreateVcsRootCommandSettings : CommonCommandSettings
     
     [Description( "The id of the parent project. Skip for the root project." )]
     [CommandArgument( 3, "[projectId]" )]
-    public string ProjectId { get; init; } = "_Root";
+    public string? ProjectId { get; init; } = null;
 }

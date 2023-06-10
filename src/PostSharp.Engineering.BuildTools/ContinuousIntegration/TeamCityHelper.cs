@@ -1,11 +1,13 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Threading;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
@@ -225,7 +227,7 @@ public static class TeamCityHelper
     }
 
     public static CiProjectConfiguration CreateConfiguration(
-        string teamCityProjectId,
+        TeamCityProjectId teamCityProjectId,
         string buildAgentType,
         bool hasVersionBump = true,
         BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
@@ -272,16 +274,16 @@ public static class TeamCityHelper
 
     private static string ReplaceDots( string input, string substitute ) => input.Replace( ".", substitute, StringComparison.Ordinal );
 
-    public static string GetProjectIdWithParentProjectId( string projectName, string parentProjectId )
+    public static TeamCityProjectId GetProjectIdWithParentProjectId( string projectName, string? parentProjectId )
     {
         var subProjectId = ReplaceDots( projectName, "" ).Replace( " ", "", StringComparison.Ordinal );
 
-        var projectId = $"{parentProjectId}_{subProjectId}";
+        var projectId = parentProjectId == null ? subProjectId : $"{parentProjectId}_{subProjectId}";
 
-        return projectId;
+        return new TeamCityProjectId( projectId, parentProjectId ?? "_Root" );
     }
 
-    public static string GetProjectId( string projectName, string? parentProjectName = null, string? productFamilyVersion = null )
+    public static TeamCityProjectId GetProjectId( string projectName, string? parentProjectName = null, string? productFamilyVersion = null )
     {
         string parentProjectId;
 
@@ -316,5 +318,80 @@ public static class TeamCityHelper
             flowId,
             timestamp,
             failOnNoData ? "error" : "warning" );
+    }
+
+    private static bool TryCreateProject( TeamCityClient tc, BuildContext context, string name, string id, string? parentId = null, string? vcsRootId = null )
+    {
+        context.Console.WriteMessage( $"Creating project \"{name}\", ID \"{id}\", parent project ID \"{parentId}\"." );
+
+        if ( !tc.TryCreateProject( context.Console, name, id, parentId ) )
+        {
+            return false;
+        }
+
+        if ( vcsRootId != null )
+        {
+            context.Console.WriteMessage( $"Setting versioned settings for project \"{name}\" (\"{id}\") using VCS root ID \"{vcsRootId}\"." );
+
+            if ( !tc.TrySetProjectVersionedSettings( context.Console, id, vcsRootId ) )
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public static bool TryCreateProject( BuildContext context, string name, string id, string? parentId = null, string? vcsRootId = null )
+    {
+        if ( !TryConnectTeamCity( context, out var tc ) )
+        {
+            return false;
+        }
+
+        return TryCreateProject( tc, context, name, id, parentId, vcsRootId );
+    }
+
+    public static bool TryCreateProject( BuildContext context )
+    {
+        if ( !TryConnectTeamCity( context, out var tc ) )
+        {
+            return false;
+        }
+
+        var projectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId.Id;
+        var parentProjectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId.ParentId;
+        var projectName = context.Product.DependencyDefinition.Name;
+
+        if ( !tc.TryGetVcsRoots( context.Console, parentProjectId, out var vcsRoots ) )
+        {
+            return false;
+        }
+
+        // The URLs and IDs can differ, so we search by name.
+        // Eg. https://postsharp@dev.azure.com/postsharp/Engineering/_git/PostSharp.Engineering.Test.TestProduct
+        // and "https://dev.azure.com/postsharp/Engineering/_git/PostSharp.Engineering.Test.TestProduct
+        // are both valid and refer to the same project.
+        var vcsRootsIdsByName = vcsRoots.Value.ToDictionary(
+            r => VcsUrlParser.TryGetName( r.Url, out var name )
+                ? name
+                : throw new InvalidOperationException( $"Unknown VCS provider of \"{r.Url}\" repository." ),
+            r => r.Id );
+
+        if ( !GitHelper.TryGetRemoteUrl( context, out var remoteUrl )
+             || !VcsUrlParser.TryGetName( remoteUrl, out var remoteVcsName ) )
+        {
+            return false;
+        }
+
+        if ( !vcsRootsIdsByName.TryGetValue( remoteVcsName, out var vcsRootId ) )
+        {
+            if ( !tc.TryCreateVcsRoot( context.Console, remoteUrl, parentProjectId, context.Product.ProductFamily.Version, out _, out vcsRootId ) )
+            {
+                return false;
+            }
+        }
+
+        return TryCreateProject( tc, context, projectName, projectId, parentProjectId, vcsRootId );
     }
 }

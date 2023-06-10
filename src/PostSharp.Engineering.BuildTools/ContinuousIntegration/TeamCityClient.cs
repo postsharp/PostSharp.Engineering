@@ -4,6 +4,7 @@ using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
@@ -333,8 +334,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
         public bool TryGetProjectDetails( ConsoleHelper console, string id )
             => this.TryGetDetails( console, $"/app/rest/projects/id:{id}", "retrieve project details" );
         
-        public bool TryCreateProject( ConsoleHelper console, string name, string id, string parentId = "_Root" )
+        public bool TryCreateProject( ConsoleHelper console, string name, string id, string? parentId = null )
         {
+            parentId ??= "_Root";
+            
             var payload = $@"<newProjectDescription id=""{id}"" name=""{name}"">
   <parentProject locator=""id:{parentId}"" />
 </newProjectDescription>";
@@ -389,14 +392,84 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
         public bool TryGetVcsRootDetails( ConsoleHelper console, string id )
             => this.TryGetDetails( console, $"/app/rest/vcs-roots/id:{id}", "retrieve VCS root details" );
 
+        public bool TryGetVcsRoots( ConsoleHelper console, string projectId, [NotNullWhen( true )] out ImmutableArray<(string Id, string Url)>? vcsRoots )
+        {
+            int? expectedCount = null;
+            vcsRoots = null;
+            var vcsRootsList = new List<(string Id, string Url)>();
+
+            var nextVcsRootsPath = $"/app/rest/vcs-roots?locator=project:(id:{projectId})";
+
+            do
+            {
+                if ( !this.TryGet( nextVcsRootsPath, console, "retrieve VCS roots", out var vcsRootsResponse ) )
+                {
+                    return false;
+                }
+
+                var vcsRootsElement = vcsRootsResponse.Content.ReadAsXDocument().Root!;
+
+                var newExpectedCount = int.Parse( vcsRootsElement.Attribute( "count" )!.Value, NumberStyles.Integer, CultureInfo.InvariantCulture );
+
+                if ( expectedCount == null )
+                {
+                    expectedCount = newExpectedCount;
+                }
+                else if ( expectedCount != newExpectedCount )
+                {
+                    throw new InvalidOperationException( "Inconsistent VCS roots count" );
+                }
+
+                foreach ( var partialVcsRootElement in vcsRootsElement.Elements( "vcs-root" ) )
+                {
+                    var vcsRootPath = partialVcsRootElement.Attribute( "href" )!.Value;
+
+                    if ( !this.TryGet( vcsRootPath, console, "retrieve VCS root", out var vcsRootResponse ) )
+                    {
+                        return false;
+                    }
+
+                    var vcsRootElement = vcsRootResponse.Content.ReadAsXDocument().Root!;
+                    var vcsRootId = vcsRootElement.Attribute( "id" )!.Value;
+
+                    var vcsRootUrl = vcsRootElement
+                        .Element( "properties" )
+                        !.Elements( "property" )
+                        !.Single( p => p.Attribute( "name" )!.Value == "url" )!
+                        .Attribute( "value" )!
+                        .Value;
+
+                    vcsRootsList.Add( (vcsRootId, vcsRootUrl) );
+                }
+
+                nextVcsRootsPath = vcsRootsElement.Attribute( "nextHref" )?.Value;
+            }
+            while ( nextVcsRootsPath != null );
+
+            vcsRoots = vcsRootsList.ToImmutableArray();
+
+            if ( expectedCount == null )
+            {
+                throw new InvalidOperationException( "Unknown expected count." );
+            }
+            else if ( vcsRoots.Value.Length != expectedCount )
+            {
+                throw new InvalidOperationException( "Not all VCS roots have been retrieved." );
+            }
+
+            return true;
+        }
+
         public bool TryCreateVcsRoot(
             ConsoleHelper console,
             string url,
-            string projectId,
+            string? projectId,
             string version,
             [NotNullWhen( true )] out string? name,
             [NotNullWhen( true )] out string? id )
         {
+            projectId ??= "_Root";
+            
             var properties = new List<(string Name, string Value)>();
 
             void AddProperty( string name, string value ) => properties!.Add( (name, value) );

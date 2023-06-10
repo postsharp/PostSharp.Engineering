@@ -1,13 +1,13 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using System;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 
 public class CiProjectConfiguration
 {
-    public string ProjectId { get; }
-    
+    public TeamCityProjectId ProjectId { get; }
+
     public ConfigurationSpecific<string> BuildTypes { get; }
 
     public string DeploymentBuildType { get; }
@@ -20,9 +20,9 @@ public class CiProjectConfiguration
 
     public string BuildAgentType { get; }
 
-    public CiProjectConfiguration( string projectId, ConfigurationSpecific<string> buildTypes, string deploymentBuildType, string? versionBumpBuildType, string tokenEnvironmentVariableName, string baseUrl, string buildAgentType )
+    public CiProjectConfiguration( TeamCityProjectId projectProjectId, ConfigurationSpecific<string> buildTypes, string deploymentBuildType, string? versionBumpBuildType, string tokenEnvironmentVariableName, string baseUrl, string buildAgentType )
     {
-        this.ProjectId = projectId;
+        this.ProjectId = projectProjectId;
         this.BuildTypes = buildTypes;
         this.DeploymentBuildType = deploymentBuildType;
         this.VersionBumpBuildType = versionBumpBuildType;

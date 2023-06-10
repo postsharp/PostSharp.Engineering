@@ -91,7 +91,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 argsBuilder.Append( " -m:1" );
             }
 
-            argsBuilder.Append( CultureInfo.InvariantCulture, $" -bl:{binaryLogFilePath}" );
+            argsBuilder.Append( CultureInfo.InvariantCulture, $" -bl:\"{binaryLogFilePath}\"" );
 
             foreach ( var property in settings.Properties )
             {

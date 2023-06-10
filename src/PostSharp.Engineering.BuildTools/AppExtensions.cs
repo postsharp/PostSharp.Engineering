@@ -217,6 +217,10 @@ namespace PostSharp.Engineering.BuildTools
                                         project.AddCommand<TeamCityCreateProjectCommand>( "create" )
                                             .WithData( product )
                                             .WithDescription( "Creates a new TeamCity project." );
+                                        
+                                        project.AddCommand<TeamCityCreateThisProjectCommand>( "create-this" )
+                                            .WithData( product )
+                                            .WithDescription( "Creates a new TeamCity project based on the product in the current repository." );
                                     } );
                                 
                                 teamcity.AddBranch( 
@@ -230,7 +234,7 @@ namespace PostSharp.Engineering.BuildTools
                                         vcsRoot.AddCommand<TeamCityCreateVcsRootCommand>( "create" )
                                             .WithData( product )
                                             .WithDescription( "Create a new TeamCity VCS root." );
-                                    });
+                                    } );
                             } );
                     } );
             }
