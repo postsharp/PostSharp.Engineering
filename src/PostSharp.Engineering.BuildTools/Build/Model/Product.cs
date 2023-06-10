@@ -117,7 +117,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 new Publisher[]
                 {
                     new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
-                    new VsixPublisher( Pattern.Create( "*.vsix" ) )
+                    new VsixPublisher( Pattern.Create( "*.vsix" ) ),
+                    new MergePublisher()
                 } );
 
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
