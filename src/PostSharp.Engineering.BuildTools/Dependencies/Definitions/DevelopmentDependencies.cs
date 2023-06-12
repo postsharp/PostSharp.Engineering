@@ -17,8 +17,7 @@ public static class DevelopmentDependencies
         "PostSharp.Engineering",
         $"develop/{Family.Version}",
         $"release/{Family.Version}",
-        VcsProvider.GitHub,
-        "Engineering",
+        new GitHubRepository( "Engineering" ),
         TeamCityHelper.CreateConfiguration(
             TeamCityHelper.GetProjectId( "PostSharp.Engineering", "Engineering" ),
             "caravela04cloud",

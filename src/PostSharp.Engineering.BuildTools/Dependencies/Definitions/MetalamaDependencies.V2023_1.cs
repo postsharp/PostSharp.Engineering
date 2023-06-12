@@ -3,8 +3,8 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using System;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
@@ -33,12 +33,11 @@ public static partial class MetalamaDependencies
                     dependencyName,
                     $"develop/{Family.Version}",
                     $"release/{Family.Version}",
-                    vcsProvider,
-                    vcsProjectName ?? GetDefaultVcsProjectName( vcsProvider ),
+                    CreateMetalamaVcsRepository( dependencyName, vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
                         TeamCityHelper.GetProjectId(
                             dependencyName,
-                            parentCiProjectName ?? vcsProjectName ?? GetDefaultVcsProjectName( vcsProvider ),
+                            parentCiProjectName ?? $"Metalama_Metalama{Family.VersionWithoutDots}",
                             Family.Version ),
                         "caravela04cloud",
                         isVersioned,
@@ -49,21 +48,21 @@ public static partial class MetalamaDependencies
 
         public static ProductFamily Family { get; } = new( "2023.1", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_2.Family };
         
-        public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.AzureRepos );
+        public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.AzureDevOps );
 
         // The release build is intentionally used for the debug configuration because we want dependencies to consume the release
         // build, for performance reasons. The debug build will be used only locally, and for this we don't need a configuration here.
         public static DependencyDefinition MetalamaCompiler { get; } = new MetalamaDependencyDefinition(
             "Metalama.Compiler",
-            VcsProvider.AzureRepos,
+            VcsProvider.AzureDevOps,
             debugBuildDependency: BuildConfiguration.Release )
         {
             EngineeringDirectory = "eng-Metalama", PrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSSBuildConfiguration)", "Shipping" )
         };
 
-        public static DependencyDefinition Metalama { get; } = new MetalamaDependencyDefinition( "Metalama", VcsProvider.AzureRepos );
+        public static DependencyDefinition Metalama { get; } = new MetalamaDependencyDefinition( "Metalama", VcsProvider.AzureDevOps );
 
-        public static DependencyDefinition MetalamaVsx { get; } = new MetalamaDependencyDefinition( "Metalama.Vsx", VcsProvider.AzureRepos );
+        public static DependencyDefinition MetalamaVsx { get; } = new MetalamaDependencyDefinition( "Metalama.Vsx", VcsProvider.AzureDevOps );
 
         public static DependencyDefinition MetalamaExtensions { get; } = new MetalamaDependencyDefinition( "Metalama.Extensions", VcsProvider.GitHub );
 
@@ -90,11 +89,11 @@ public static partial class MetalamaDependencies
             false );
 
         public static DependencyDefinition MetalamaTry { get; } =
-            new MetalamaDependencyDefinition( "Metalama.Try", VcsProvider.AzureRepos, false ) { EngineeringDirectory = "eng-Metalama" };
+            new MetalamaDependencyDefinition( "Metalama.Try", VcsProvider.AzureDevOps, false ) { EngineeringDirectory = "eng-Metalama" };
 
         public static DependencyDefinition MetalamaPatterns { get; } = new MetalamaDependencyDefinition(
             "Metalama.Patterns",
-            VcsProvider.AzureRepos );
+            VcsProvider.AzureDevOps );
 
         public static DependencyDefinition NopCommerce { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.NopCommerce",

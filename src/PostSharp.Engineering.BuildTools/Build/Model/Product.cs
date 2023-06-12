@@ -8,7 +8,6 @@ using PostSharp.Engineering.BuildTools.Build.Triggers;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Coverage;
-using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.NuGet;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -39,7 +38,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             this.DependencyDefinition = dependencyDefinition;
             this.ProductName = dependencyDefinition.Name;
-            this.VcsProvider = dependencyDefinition.Repo.Provider;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
         }
 
@@ -96,8 +94,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public Pattern PublicArtifacts { get; init; } = Pattern.Empty;
 
-        public VcsProvider? VcsProvider { get; }
-
         public bool KeepEditorConfig { get; init; }
 
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
@@ -151,7 +147,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string[] ExportedProperties { get; init; } = Array.Empty<string>();
 
         /// <summary>
-        /// Gets the set of artifact dependencies of this product. Some commands expect the dependency to exist in <see cref="MetalamaDependencies.All"/>.
+        /// Gets the set of artifact dependencies of this product.
         /// </summary>
         public DependencyDefinition[] Dependencies { get; init; } = Array.Empty<DependencyDefinition>();
 
@@ -934,7 +930,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         if ( !ToolInvocationHelper.InvokeTool(
                                 context.Console,
                                 "git",
-                                $"clone {dependency.Repo.RepoUrl} --branch {dependency.Branch} --depth 1",
+                                $"clone {dependency.VcsRepository.DeveloperMachineRemoteUrl} --branch {dependency.Branch} --depth 1",
                                 sourceDependenciesDirectory ) )
                         {
                             return false;
@@ -1807,8 +1803,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
 
                 var mainVersionFile = Path.Combine( dependency.EngineeringDirectory, "MainVersion.props" );
-                context.Console.WriteMessage( $"Downloading '{mainVersionFile}' from '{dependency.Repo.RepoUrl}'." );
-                var mainVersionContent = dependency.Repo.DownloadTextFile( dependency.Branch, mainVersionFile );
+                context.Console.WriteMessage( $"Downloading '{mainVersionFile}' from '{dependency.VcsRepository}'." );
+                var mainVersionContent = dependency.VcsRepository.DownloadTextFile( dependency.Branch, mainVersionFile );
 
                 var document = XDocument.Parse( mainVersionContent );
                 var project = Project.FromXmlReader( document.CreateReader(), new ProjectOptions() );

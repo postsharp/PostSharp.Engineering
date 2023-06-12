@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -255,23 +256,20 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         var pullRequestTitle = $"Downstream merge from '{sourceBranch}' branch";
         Task<string?> newPullRequestTask;
 
-        if ( AzureDevOpsRepoUrlParser.TryParse( remoteUrl, out var baseUrl, out var projectName, out var repoName ) )
+        if ( AzureDevOpsRepository.TryParse( remoteUrl, out var azureDevOpsRepository ) )
         {
             newPullRequestTask = AzureDevOpsHelper.TryCreatePullRequest(
                 context.Console,
-                baseUrl,
-                projectName,
-                repoName,
+                azureDevOpsRepository,
                 targetBranch,
                 downstreamBranch,
                 pullRequestTitle );
         }
-        else if ( GitHubRepoUrlParser.TryParse( remoteUrl, out var repoOwner, out repoName ) )
+        else if ( GitHubRepository.TryParse( remoteUrl, out var gitHubRepository ) )
         {
             newPullRequestTask = GitHubHelper.TryCreatePullRequest(
                 context.Console,
-                repoOwner,
-                repoName,
+                gitHubRepository,
                 targetBranch,
                 downstreamBranch,
                 pullRequestTitle );

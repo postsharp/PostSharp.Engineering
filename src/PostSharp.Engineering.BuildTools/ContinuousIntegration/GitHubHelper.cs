@@ -2,6 +2,7 @@
 
 using Octokit;
 using Octokit.GraphQL;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Diagnostics.CodeAnalysis;
@@ -62,8 +63,7 @@ public static class GitHubHelper
 
     public static async Task<string?> TryCreatePullRequest(
         ConsoleHelper console,
-        string repoOwner,
-        string repoName,
+        GitHubRepository repository,
         string sourceBranch,
         string targetBranch,
         string title )
@@ -80,11 +80,11 @@ public static class GitHubHelper
 
         console.WriteMessage( "Creating pull request." );
         var newPullRequest = new NewPullRequest( title, sourceBranch, targetBranch );
-        var pullRequest = await gitHub.PullRequest.Create( repoOwner, repoName, newPullRequest );
+        var pullRequest = await gitHub.PullRequest.Create( repository.Owner, repository.Name, newPullRequest );
 
         var pullRequestQuery = new Query()
-            .RepositoryOwner( repoOwner )
-            .Repository( repoName )
+            .RepositoryOwner( repository.Owner )
+            .Repository( repository.Name )
             .Select( repo => repo.PullRequest( pullRequest.Number ) )
             .Select( pr => pr.Id )
             .Compile();
@@ -110,7 +110,7 @@ public static class GitHubHelper
         console.WriteMessage( "Setting the new pull request to get completed automatically." );
         _ = await graphQl.Run( enableAutoMergeMutation );
 
-        var url = $"https://github.com/{repoOwner}/{repoName}/pull/{pullRequest.Number}";
+        var url = $"https://github.com/{repository.Owner}/{repository.Name}/pull/{pullRequest.Number}";
 
         return url;
     }

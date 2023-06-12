@@ -17,8 +17,7 @@ public static class BusinessSystemsDependencies
                 dependencyName,
                 "master",
                 null,
-                VcsProvider.AzureRepos,
-                "Business%20Systems",
+                new AzureDevOpsRepository( "Business%20Systems", dependencyName ),
                 TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "Websites And Business Systems" ), "webdeploy" ),
                 false ) { }
     }

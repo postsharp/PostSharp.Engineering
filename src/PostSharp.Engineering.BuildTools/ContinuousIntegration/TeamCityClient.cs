@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -435,7 +436,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                     var vcsRootUrl = vcsRootElement
                         .Element( "properties" )
                         !.Elements( "property" )
-                        !.Single( p => p.Attribute( "name" )!.Value == "url" )!
+                        .Single( p => p.Attribute( "name" )!.Value == "url" )
                         .Attribute( "value" )!
                         .Value;
 
@@ -472,17 +473,19 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             
             var properties = new List<(string Name, string Value)>();
 
-            void AddProperty( string name, string value ) => properties!.Add( (name, value) );
+            void AddProperty( string name, string value ) => properties.Add( (name, value) );
 
-            if ( AzureDevOpsRepoUrlParser.TryParse( url, out _, out _, out name ) )
+            if ( AzureDevOpsRepository.TryParse( url, out var azureDevOpsRepository ) )
             {
+                name = azureDevOpsRepository.Name;
                 AddProperty( "authMethod", "PASSWORD" );
                 AddProperty( "username", "teamcity@postsharp.net" );
                 AddProperty( "secure:password", "%SourceCodeWritingToken%" );
                 AddProperty( "usernameStyle", "EMAIL" );
             }
-            else if ( GitHubRepoUrlParser.TryParse( url, out _, out name ) )
+            else if ( GitHubRepository.TryParse( url, out var gitHubRepository ) )
             {
+                name = gitHubRepository.Name;
                 AddProperty( "authMethod", "TEAMCITY_SSH_KEY" );
                 AddProperty( "teamcitySshKey", "PostSharp.Engineering" );
                 AddProperty( "usernameStyle", "USERID" );

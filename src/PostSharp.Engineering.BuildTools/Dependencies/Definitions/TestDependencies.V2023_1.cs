@@ -3,8 +3,8 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using System;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 
@@ -29,8 +29,7 @@ public static partial class TestDependencies
                     dependencyName,
                     $"develop/{Family.Version}",
                     $"release/{Family.Version}",
-                    vcsProvider,
-                    GetDefaultVcsProjectName( vcsProvider ),
+                    CreateEngineeringVcsRepository( dependencyName, vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
                         TeamCityHelper.GetProjectIdWithParentProjectId(
                             dependencyName,
@@ -46,15 +45,15 @@ public static partial class TestDependencies
 
         public static DependencyDefinition TestProduct { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.TestProduct",
-            VcsProvider.AzureRepos );
+            VcsProvider.AzureDevOps );
 
         public static DependencyDefinition Dependency { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.Dependency",
-            VcsProvider.AzureRepos );
+            VcsProvider.AzureDevOps );
 
         public static DependencyDefinition TransitiveDependency { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.TransitiveDependency",
-            VcsProvider.AzureRepos );
+            VcsProvider.AzureDevOps );
 
         public static DependencyDefinition GitHub { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.GitHub",
@@ -62,10 +61,10 @@ public static partial class TestDependencies
 
         public static DependencyDefinition MainVersionDependency { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.MainVersionDependency",
-            VcsProvider.AzureRepos );
+            VcsProvider.AzureDevOps );
 
         public static DependencyDefinition PatchVersion { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.PatchVersion",
-            VcsProvider.AzureRepos );
+            VcsProvider.AzureDevOps );
     }
 }

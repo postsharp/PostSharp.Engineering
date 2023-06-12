@@ -42,7 +42,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public string CodeStyle { get; init; } = "Standard";
 
-        public VcsRepo Repo { get; }
+        public VcsRepository VcsRepository { get; }
 
         public ParametricString PrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "private" );
 
@@ -51,15 +51,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             string dependencyName,
             string branch,
             string? releaseBranch,
-            VcsProvider vcsProvider,
-            string? vcsProjectName,
+            VcsRepository vcsRepository,
             CiProjectConfiguration ciProjectConfiguration,
             bool isVersioned = true )
         {
             this.ProductFamily = productFamily;
 
             this.Name = dependencyName;
-            this.Repo = new VcsRepo( dependencyName, vcsProjectName, vcsProvider );
+            this.VcsRepository = vcsRepository;
             this.Branch = branch;
             this.ReleaseBranch = releaseBranch;
             this.IsVersioned = isVersioned;

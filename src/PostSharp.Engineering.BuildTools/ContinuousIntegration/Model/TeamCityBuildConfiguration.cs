@@ -152,10 +152,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             verbose = true
         }}" );
 
-            var productVcsProvider = this.Product.VcsProvider;
-
             // The SSH agent is added only for the Deployment and only if TeamCity uses SSH for Git operations over the product VCS repository.
-            if ( productVcsProvider != null && this.IsDeployment && productVcsProvider.SshAgentRequired )
+            if ( this.IsDeployment && this.Product.DependencyDefinition.VcsRepository.SshAgentRequired )
             {
                 writer.WriteLine(
                     $@"        sshAgent {{

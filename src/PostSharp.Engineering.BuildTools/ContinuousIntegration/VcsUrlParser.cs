@@ -1,23 +1,30 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using System.Diagnostics.CodeAnalysis;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 public static class VcsUrlParser
 {
-    public static bool TryGetName( string url, [NotNullWhen( true )] out string? name )
+    public static bool TryGetRepository( string url, [NotNullWhen( true )] out VcsRepository? repository )
     {
-        if ( AzureDevOpsRepoUrlParser.TryParse( url, out _, out _, out name ) )
+        if ( AzureDevOpsRepository.TryParse( url, out var azureDevOpsRepository ) )
         {
+            repository = azureDevOpsRepository;
+            
             return true;
         }
-        else if ( GitHubRepoUrlParser.TryParse( url, out _, out name ) )
+        else if ( GitHubRepository.TryParse( url, out var gitHubRepository ) )
         {
+            repository = gitHubRepository;
+            
             return true;
         }
         else
         {
+            repository = null;
+            
             return false;
         }
     }

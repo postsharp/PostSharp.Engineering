@@ -1,7 +1,8 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
-using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using System;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
@@ -9,11 +10,18 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 [PublicAPI]
 public partial class MetalamaDependencies
 {
-    private static string? GetDefaultVcsProjectName( VcsProvider vcsProvider )
-        => vcsProvider.Name switch
+    private static VcsRepository CreateMetalamaVcsRepository( string name, VcsProvider provider )
+    {
+        switch ( provider )
         {
-            VcsProviderName.GitHub => null,
-            VcsProviderName.AzureDevOps => "Metalama",
-            _ => throw new InvalidOperationException( $"Unknown VCS provider name: '{vcsProvider.Name}'" )
-        };
+            case VcsProvider.AzureDevOps:
+                return new AzureDevOpsRepository( "Metalama", name );
+            
+            case VcsProvider.GitHub:
+                return new GitHubRepository( name );
+            
+            default:
+                throw new InvalidOperationException( $"Unknown VCS provider: \"{provider}\"" );
+        }
+    }
 }

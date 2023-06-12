@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
@@ -21,12 +22,11 @@ public static class TemplateDependencies
                 dependencyName,
                 $"develop/{Family.Version}",
                 $"release/{Family.Version}",
-                vcsProvider,
-                vcsProjectName,
+                new GitHubRepository( dependencyName ),
                 TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "NONE" ), "none", isVersioned ),
                 isVersioned ) { }
     }
-    
+
     public static ProductFamily Family { get; } = new( "2023.0", DevelopmentDependencies.Family );
     
     // This is only used from the project template.

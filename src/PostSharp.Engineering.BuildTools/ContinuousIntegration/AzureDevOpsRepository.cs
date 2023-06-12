@@ -1,0 +1,85 @@
+﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
+using PostSharp.Engineering.BuildTools.Utilities;
+using System;
+using System.Diagnostics.CodeAnalysis;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.RegularExpressions;
+
+namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
+
+public class AzureDevOpsRepository : VcsRepository
+{
+    // E.g.
+    // https://postsharp@dev.azure.com/postsharp/Caravela/_git/Caravela.Repo
+    // https://dev.azure.com/postsharp/Caravela/_git/Caravela.Repo
+    private static readonly Regex _urlRegex = new Regex(
+        @"^(?<protocol>https)://(?:(?<user>[^/@]+)@)?(?<domain>[^/]+)/(?<organization>[^/]+)?/(?<project>[^/]+)/_git/(?<repo>[^/]+)$" );
+
+    public override string Name { get; }
+
+    public override VcsProvider Provider => VcsProvider.AzureDevOps;
+
+    public string Domain { get; }
+
+    public string Organisation { get; }
+
+    public string Project { get; }
+
+    public string BaseUrl => $"https://{this.Domain}/{this.Organisation}";
+
+    public override string SshUrl => throw new NotImplementedException( "We don't use SSH for Azure DevOps at the moment." );
+
+    public override string HttpUrl => $"{this.BaseUrl}/{this.Project}/_git/{this.Name}";
+
+    public override string DeveloperMachineRemoteUrl => this.HttpUrl;
+
+    public override string TeamCityRemoteUrl => this.HttpUrl;
+
+    public override bool SshAgentRequired => false;
+
+    public AzureDevOpsRepository( string project, string name, string organisation = "postsharp", string domain = "dev.azure.com" )
+    {
+        this.Name = name;
+        this.Domain = domain;
+        this.Organisation = organisation;
+        this.Project = project;
+    }
+
+    public static bool TryParse( string repoUrl, [NotNullWhen( true )] out AzureDevOpsRepository? repository )
+    {
+        var match = _urlRegex.Match( repoUrl );
+
+        if ( !match.Success )
+        {
+            repository = null;
+
+            return false;
+        }
+
+        var name = match.Groups["repo"].Value;
+        var domain = match.Groups["domain"].Value;
+        var organisation = match.Groups["organization"].Value;
+        var project = match.Groups["project"].Value;
+        repository = new AzureDevOpsRepository( project, name, organisation, domain );
+
+        return true;
+    }
+
+    public override string DownloadTextFile( string branch, string path )
+    {
+        var httpClient = new HttpClient();
+
+        var teamCitySourceReadToken = TeamCityHelper.GetTeamCitySourceReadToken();
+
+        var authString = Convert.ToBase64String( Encoding.UTF8.GetBytes( $@"{TeamCityHelper.TeamCityUsername}:{teamCitySourceReadToken}" ) );
+        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Basic", authString );
+
+        return httpClient.GetString( $"{this.BaseUrl}/{this.Project}/_apis/git/repositories/{this.Name}/items?path={path}&versionDescriptor.version={branch}" );
+    }
+
+    public override string ToString() => this.HttpUrl;
+}

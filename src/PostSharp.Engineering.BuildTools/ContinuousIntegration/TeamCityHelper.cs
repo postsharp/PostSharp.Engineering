@@ -6,6 +6,7 @@ using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
@@ -363,6 +364,8 @@ public static class TeamCityHelper
         var parentProjectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId.ParentId;
         var projectName = context.Product.DependencyDefinition.Name;
 
+        context.Console.WriteMessage( $"Retrieving VCS roots of \"{parentProjectId}\" project." );
+        
         if ( !tc.TryGetVcsRoots( context.Console, parentProjectId, out var vcsRoots ) )
         {
             return false;
@@ -372,28 +375,29 @@ public static class TeamCityHelper
         // Eg. https://postsharp@dev.azure.com/postsharp/Engineering/_git/PostSharp.Engineering.Test.TestProduct
         // and "https://dev.azure.com/postsharp/Engineering/_git/PostSharp.Engineering.Test.TestProduct
         // are both valid and refer to the same project.
-        var vcsRootsIdsByName = vcsRoots.Value.ToDictionary(
-            r => VcsUrlParser.TryGetName( r.Url, out var name )
-                ? name
+        var vcsRootIdsByName = vcsRoots.Value.ToDictionary(
+            r => VcsUrlParser.TryGetRepository( r.Url, out var repository )
+                ? repository.Name
                 : throw new InvalidOperationException( $"Unknown VCS provider of \"{r.Url}\" repository." ),
             r => r.Id );
 
-        if ( !GitHelper.TryGetRemoteUrl( context, out var remoteUrl )
-             || !VcsUrlParser.TryGetName( remoteUrl, out var remoteVcsName ) )
+        if ( !GitHelper.TryGetRemoteUrl( context, out var developerMachineRemoteUrl )
+             || !VcsUrlParser.TryGetRepository( developerMachineRemoteUrl, out var repository ) )
         {
             return false;
         }
 
-        if ( vcsRootsIdsByName.TryGetValue( remoteVcsName, out var vcsRootId ) )
+        if ( vcsRootIdsByName.TryGetValue( repository.Name, out var vcsRootId ) )
         {
             context.Console.WriteMessage( $"Using existing \"{vcsRootId}\" VCS root" );
         }
         else
         {
             var familyVersion = context.Product.ProductFamily.Version;
-            context.Console.WriteMessage( $"Creating \"{remoteUrl}\" VCS root in \"{parentProjectId}\" project for \"{familyVersion}\" family version." );
+            var url = repository.TeamCityRemoteUrl;
+            context.Console.WriteMessage( $"Creating \"{url}\" VCS root in \"{parentProjectId}\" project for \"{familyVersion}\" family version." );
             
-            if ( !tc.TryCreateVcsRoot( context.Console, remoteUrl, parentProjectId, familyVersion, out var vcsRootName, out vcsRootId ) )
+            if ( !tc.TryCreateVcsRoot( context.Console, url, parentProjectId, familyVersion, out var vcsRootName, out vcsRootId ) )
             {
                 return false;
             }

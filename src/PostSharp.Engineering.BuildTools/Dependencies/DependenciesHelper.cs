@@ -298,11 +298,6 @@ public static class DependenciesHelper
                     branchName = dependency.Definition.Branch;
                 }
 
-                if ( context.Product.VcsProvider == null )
-                {
-                    throw new InvalidOperationException( "VCS provider is missing for the product." );
-                }
-
                 var isDefaultBranch = branchName == dependency.Definition.Branch;
 
                 var latestBuildNumber = teamCity.GetLatestBuildNumber(

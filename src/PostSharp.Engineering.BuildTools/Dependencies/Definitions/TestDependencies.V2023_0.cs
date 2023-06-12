@@ -3,6 +3,7 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System;
 
@@ -21,8 +22,6 @@ public static partial class TestDependencies
                 string dependencyName,
                 VcsProvider vcsProvider,
                 bool isVersioned = true,
-                string? vcsProjectName = null,
-                string? parentCiProjectName = null,
                 BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
                 BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
                 BuildConfiguration publicBuildDependency = BuildConfiguration.Public,
@@ -32,8 +31,7 @@ public static partial class TestDependencies
                     dependencyName,
                     GetDevBranch( vcsProvider ),
                     GetReleaseBranch( vcsProvider ),
-                    vcsProvider,
-                    vcsProjectName ?? GetDefaultVcsProjectName( vcsProvider ),
+                    CreateEngineeringVcsRepository( dependencyName, vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
                         TeamCityHelper.GetProjectIdWithParentProjectId(
                             dependencyName,
@@ -49,32 +47,32 @@ public static partial class TestDependencies
         public static ProductFamily Family { get; } = new( "2023.0", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_1.Family };
 
         private static string GetDevBranch( VcsProvider vcsProvider )
-            => vcsProvider.Name switch
+            => vcsProvider switch
             {
-                VcsProviderName.GitHub => "dev",
-                VcsProviderName.AzureDevOps => "master",
-                _ => throw new InvalidOperationException( $"Unknown VCS provider name: '{vcsProvider.Name}'" )
+                VcsProvider.GitHub => "dev",
+                VcsProvider.AzureDevOps => "master",
+                _ => throw new InvalidOperationException( $"Unknown VCS provider name: '{vcsProvider}'" )
             };
 
         private static string? GetReleaseBranch( VcsProvider vcsProvider )
-            => vcsProvider.Name switch
+            => vcsProvider switch
             {
-                VcsProviderName.GitHub => "master",
-                VcsProviderName.AzureDevOps => null,
-                _ => throw new InvalidOperationException( $"Unknown VCS provider name: '{vcsProvider.Name}'" )
+                VcsProvider.GitHub => "master",
+                VcsProvider.AzureDevOps => null,
+                _ => throw new InvalidOperationException( $"Unknown VCS provider name: '{vcsProvider}'" )
             };
 
         public static DependencyDefinition TestProduct { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.TestProduct",
-            VcsProvider.AzureRepos );
+            VcsProvider.AzureDevOps );
 
         public static DependencyDefinition Dependency { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.Dependency",
-            VcsProvider.AzureRepos );
+            VcsProvider.AzureDevOps );
 
         public static DependencyDefinition TransitiveDependency { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.TransitiveDependency",
-            VcsProvider.AzureRepos );
+            VcsProvider.AzureDevOps );
 
         public static DependencyDefinition GitHub { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.GitHub",
@@ -82,10 +80,10 @@ public static partial class TestDependencies
 
         public static DependencyDefinition MainVersionDependency { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.MainVersionDependency",
-            VcsProvider.AzureRepos );
+            VcsProvider.AzureDevOps );
 
         public static DependencyDefinition PatchVersion { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.PatchVersion",
-            VcsProvider.AzureRepos );
+            VcsProvider.AzureDevOps );
     }
 }

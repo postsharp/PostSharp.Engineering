@@ -8,6 +8,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities;
 
 public static class HttpExtensions
 {
+    public static string GetString( this HttpClient client, string uri ) => client.GetStringAsync( uri ).ConfigureAwait( false ).GetAwaiter().GetResult();
+    
     public static Stream GetStream( this HttpClient client, string uri )
         => client.GetStreamAsync( uri, ConsoleHelper.CancellationToken ).ConfigureAwait( false ).GetAwaiter().GetResult();
     

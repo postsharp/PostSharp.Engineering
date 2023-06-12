@@ -3,6 +3,7 @@
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Diagnostics.CodeAnalysis;
@@ -39,16 +40,14 @@ public static class AzureDevOpsHelper
     // Required personal access token scopes: Code: Read&Write
     public static async Task<string?> TryCreatePullRequest(
         ConsoleHelper console,
-        string baseUrl,
-        string projectName,
-        string repoName,
+        AzureDevOpsRepository repository,
         string sourceBranch,
         string targetBranch,
         string title )
     {
         try
         {
-            if ( !TryConnect( console, baseUrl, out var azureDevOps ) )
+            if ( !TryConnect( console, repository.BaseUrl, out var azureDevOps ) )
             {
                 return null;
             }
@@ -63,14 +62,14 @@ public static class AzureDevOpsHelper
                 };
 
                 console.WriteMessage( "Creating a pull request." );
-                var createdPullRequest = await azureDevOpsGit.CreatePullRequestAsync( pullRequest, projectName, repoName );
+                var createdPullRequest = await azureDevOpsGit.CreatePullRequestAsync( pullRequest, repository.Project, repository.Name );
 
                 console.WriteMessage( "Approving the pull request." );
 
                 _ = await azureDevOpsGit.CreatePullRequestReviewerAsync(
                     new IdentityRefWithVote( new IdentityRef { Id = createdPullRequest.CreatedBy.Id } ) { Vote = 10 },
-                    projectName,
-                    repoName,
+                    repository.Project,
+                    repository.Name,
                     createdPullRequest.PullRequestId,
                     createdPullRequest.CreatedBy.Id );
 
@@ -84,11 +83,11 @@ public static class AzureDevOpsHelper
 
                 _ = await azureDevOpsGit.UpdatePullRequestAsync(
                     pullRequestWithAutoCompleteEnabled,
-                    projectName,
-                    repoName,
+                    repository.Project,
+                    repository.Name,
                     createdPullRequest.PullRequestId );
 
-                var url = $"{baseUrl}/{projectName}/_git/{repoName}/pullrequest/{createdPullRequest.PullRequestId}";
+                var url = $"{repository.BaseUrl}/{repository.Project}/_git/{repository.Name}/pullrequest/{createdPullRequest.PullRequestId}";
                 
                 return url;
             }
