@@ -21,9 +21,9 @@ public class GitHubRepository : VcsRepository
 
     public string Owner { get; }
 
-    public override string SshUrl => $"git@github.com:{this.Owner}/{this.Name}";
+    public override string SshUrl => $"git@github.com:{this.Owner}/{this.Name}.git";
 
-    public override string HttpUrl => $"https://github.com/{this.Owner}/{this.Name}";
+    public override string HttpUrl => $"https://github.com/{this.Owner}/{this.Name}.git";
     
     public override string DeveloperMachineRemoteUrl => this.HttpUrl;
 
@@ -61,6 +61,4 @@ public class GitHubRepository : VcsRepository
 
         return httpClient.GetString( $"https://raw.githubusercontent.com/{this.Owner}/{this.Name}/{branch}/{path}" );
     }
-
-    public override string ToString() => this.SshUrl;
 }

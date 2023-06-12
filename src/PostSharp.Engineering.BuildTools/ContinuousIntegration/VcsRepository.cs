@@ -29,9 +29,9 @@ public abstract class VcsRepository
     public abstract string DownloadTextFile( string branch, string path );
 
     /// <summary>
-    /// Returns a string identifying the repository.
+    /// Returns the URL that identifies the repository and allows user to access the repository using a web browser.
     /// </summary>
     /// <remarks>No matter which data is contained in the resulting string, the use of the result should be for UI and debugging only.</remarks>
     /// <returns>A string identifying the repository.</returns>
-    public abstract override string ToString();
+    public override string ToString() => this.HttpUrl;
 }

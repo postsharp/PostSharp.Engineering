@@ -37,7 +37,7 @@ public static partial class MetalamaDependencies
                     TeamCityHelper.CreateConfiguration(
                         TeamCityHelper.GetProjectId(
                             dependencyName,
-                            parentCiProjectName ?? $"Metalama_Metalama{Family.VersionWithoutDots}",
+                            parentCiProjectName ?? $"Metalama",
                             Family.Version ),
                         "caravela04cloud",
                         isVersioned,

@@ -6,7 +6,6 @@ using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
@@ -376,17 +375,13 @@ public static class TeamCityHelper
         // and "https://dev.azure.com/postsharp/Engineering/_git/PostSharp.Engineering.Test.TestProduct
         // are both valid and refer to the same project.
         var vcsRootIdsByName = vcsRoots.Value.ToDictionary(
-            r => VcsUrlParser.TryGetRepository( r.Url, out var repository )
+            root => VcsUrlParser.TryGetRepository( root.Url, out var repository )
                 ? repository.Name
-                : throw new InvalidOperationException( $"Unknown VCS provider of \"{r.Url}\" repository." ),
+                : throw new InvalidOperationException( $"Unknown VCS provider of \"{root.Url}\" repository." ),
             r => r.Id );
 
-        if ( !GitHelper.TryGetRemoteUrl( context, out var developerMachineRemoteUrl )
-             || !VcsUrlParser.TryGetRepository( developerMachineRemoteUrl, out var repository ) )
-        {
-            return false;
-        }
-
+        var repository = context.Product.DependencyDefinition.VcsRepository;
+        
         if ( vcsRootIdsByName.TryGetValue( repository.Name, out var vcsRootId ) )
         {
             context.Console.WriteMessage( $"Using existing \"{vcsRootId}\" VCS root" );

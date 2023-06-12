@@ -80,6 +80,4 @@ public class AzureDevOpsRepository : VcsRepository
 
         return httpClient.GetString( $"{this.BaseUrl}/{this.Project}/_apis/git/repositories/{this.Name}/items?path={path}&versionDescriptor.version={branch}" );
     }
-
-    public override string ToString() => this.HttpUrl;
 }

@@ -492,7 +492,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             }
             else
             {
-                console.WriteError( "Unknown VCS provider." );
+                console.WriteError( $"Unknown VCS provider: {url}" );
                 name = null;
                 id = null;
 
