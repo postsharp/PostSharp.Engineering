@@ -1727,15 +1727,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var bumpInfoFilePath = Path.Combine(
                 context.RepoDirectory,
                 this.BumpInfoFilePath );
-
-            if ( !File.Exists( bumpInfoFilePath ) )
-            {
-                context.Console.WriteError( $"File '{bumpInfoFilePath}' was not found." );
-
-                return false;
-            }
-
-            var oldBumpFileContent = File.ReadAllText( bumpInfoFilePath );
+            
+            var oldBumpFileContent = File.Exists( bumpInfoFilePath ) ? File.ReadAllText( bumpInfoFilePath ) : "";
             var hasChangesInDependencies = newBumpInfoFile.ToString() != oldBumpFileContent;
 
             if ( !hasChangesInDependencies && !hasChangesSinceLastDeployment )

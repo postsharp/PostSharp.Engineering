@@ -22,7 +22,6 @@ public static partial class MetalamaDependencies
                 string dependencyName,
                 VcsProvider vcsProvider,
                 bool isVersioned = true,
-                string? vcsProjectName = null,
                 string? parentCiProjectName = null,
                 BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
                 BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
@@ -69,19 +68,11 @@ public static partial class MetalamaDependencies
         public static DependencyDefinition MetalamaSamples { get; } =
             new MetalamaDependencyDefinition( "Metalama.Samples", VcsProvider.GitHub, false ) { CodeStyle = "Metalama.Samples" };
 
-        public static DependencyDefinition MetalamaMigration { get; } = new MetalamaDependencyDefinition(
-            "Metalama.Migration",
-            VcsProvider.GitHub,
-            parentCiProjectName: "Metalama.Migration" );
+        public static DependencyDefinition MetalamaMigration { get; } = new MetalamaDependencyDefinition( "Metalama.Migration", VcsProvider.GitHub );
 
-        public static DependencyDefinition MetalamaLinqPad { get; } = new MetalamaDependencyDefinition(
-            "Metalama.LinqPad",
-            VcsProvider.GitHub,
-            vcsProjectName: "Metalama" );
+        public static DependencyDefinition MetalamaLinqPad { get; } = new MetalamaDependencyDefinition( "Metalama.LinqPad", VcsProvider.GitHub );
 
-        public static DependencyDefinition MetalamaCommunity { get; } = new MetalamaDependencyDefinition(
-            "Metalama.Community",
-            VcsProvider.GitHub );
+        public static DependencyDefinition MetalamaCommunity { get; } = new MetalamaDependencyDefinition( "Metalama.Community", VcsProvider.GitHub );
 
         public static DependencyDefinition MetalamaDocumentation { get; } = new MetalamaDependencyDefinition(
             "Metalama.Documentation",
