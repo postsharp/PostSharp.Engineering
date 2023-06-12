@@ -38,7 +38,8 @@ public static partial class TestDependencies
                         isVersioned,
                         debugBuildDependency,
                         releaseBuildDependency,
-                        publicBuildDependency ) ) { }
+                        publicBuildDependency ),
+                    isVersioned ) { }
         }
 
         public static ProductFamily Family { get; } = new( "2023.2", DevelopmentDependencies.Family ); // { DownstreamProductFamily = V2023_3.Family };

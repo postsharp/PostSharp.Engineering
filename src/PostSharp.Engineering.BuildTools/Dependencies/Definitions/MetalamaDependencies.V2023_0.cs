@@ -43,7 +43,8 @@ public static partial class MetalamaDependencies
                         debugBuildDependency,
                         releaseBuildDependency,
                         publicBuildDependency,
-                        false ) ) { }
+                        false ),
+                    isVersioned ) { }
         }
 
         public static ProductFamily Family { get; } = new( "2023.0", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_1.Family };
@@ -110,7 +111,7 @@ public static partial class MetalamaDependencies
 
         public static DependencyDefinition CargoSupport { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.CargoSupport",
-            VcsProvider.GitHub,
+            VcsProvider.AzureDevOps,
             false,
             parentCiProjectName: "Metalama_MetalamaTests" );
     }
