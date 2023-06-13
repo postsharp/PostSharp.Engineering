@@ -26,8 +26,8 @@ public static partial class MetalamaDependencies
                 BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
                 BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
                 BuildConfiguration publicBuildDependency = BuildConfiguration.Public,
-                string? customCiProjectName = null,
-                string? parentCiProjectName = null )
+                string? parentCiProjectId = null,
+                string? ciProjectId = null )
                 : base(
                     Family,
                     dependencyName,
@@ -35,9 +35,15 @@ public static partial class MetalamaDependencies
                     GetReleaseBranch( vcsProvider ),
                     CreateMetalamaVcsRepository( dependencyName, vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
-                        TeamCityHelper.GetProjectId(
-                            dependencyName,
-                            parentCiProjectName ?? "Metalama" ),
+                        ciProjectId != null
+                            ? new TeamCityProjectId(
+                                ciProjectId,
+                                parentCiProjectId ?? throw new InvalidOperationException( "Unknown parent project ID when project ID set explicitly." ) )
+                            : parentCiProjectId != null
+                                ? TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId )
+                                : TeamCityHelper.GetProjectId(
+                                    dependencyName,
+                                    "Metalama" ),
                         "caravela04",
                         isVersioned,
                         debugBuildDependency,
@@ -64,7 +70,7 @@ public static partial class MetalamaDependencies
                 VcsProvider.AzureDevOps => null,
                 _ => throw new InvalidOperationException( $"Unknown VCS provider: '{vcsProvider}'" )
             };
-        
+
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.AzureDevOps );
 
         // The release build is intentionally used for the debug configuration because we want dependencies to consume the release
@@ -89,7 +95,8 @@ public static partial class MetalamaDependencies
         public static DependencyDefinition MetalamaMigration { get; } = new MetalamaDependencyDefinition(
             "Metalama.Migration",
             VcsProvider.GitHub,
-            parentCiProjectName: "Metalama.Migration" );
+            ciProjectId: "Metalama_Migration_MetalamaMigration",
+            parentCiProjectId: "Metalama" );
 
         public static DependencyDefinition MetalamaLinqPad { get; } = new MetalamaDependencyDefinition( "Metalama.LinqPad", VcsProvider.GitHub );
 
@@ -101,18 +108,16 @@ public static partial class MetalamaDependencies
         public static DependencyDefinition MetalamaTry { get; } =
             new MetalamaDependencyDefinition( "Metalama.Try", VcsProvider.AzureDevOps, false ) { EngineeringDirectory = "eng-Metalama" };
 
-        public static DependencyDefinition MetalamaPatterns { get; } = new MetalamaDependencyDefinition( "Metalama.Patterns", VcsProvider.AzureDevOps );
-
         public static DependencyDefinition NopCommerce { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.NopCommerce",
             VcsProvider.GitHub,
             false,
-            parentCiProjectName: "Metalama_MetalamaTests" );
+            parentCiProjectId: "Metalama_MetalamaTests" );
 
         public static DependencyDefinition CargoSupport { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.CargoSupport",
             VcsProvider.AzureDevOps,
             false,
-            parentCiProjectName: "Metalama_MetalamaTests" );
+            parentCiProjectId: "Metalama_MetalamaTests" );
     }
 }

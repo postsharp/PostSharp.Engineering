@@ -22,22 +22,23 @@ public static partial class MetalamaDependencies
                 string dependencyName,
                 VcsProvider vcsProvider,
                 bool isVersioned = true,
-                string? parentCiProjectName = null,
+                string? parentCiProjectId = null,
                 BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
                 BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
                 BuildConfiguration publicBuildDependency = BuildConfiguration.Public,
-                string? customCiProjectName = null )
+                string? customCiProjectName = null,
+                string? customBranch = null,
+                string? customReleaseBranch = null )
                 : base(
                     Family,
                     dependencyName,
-                    $"develop/{Family.Version}",
-                    $"release/{Family.Version}",
+                    customBranch ?? $"develop/{Family.Version}",
+                    customReleaseBranch ?? $"release/{Family.Version}",
                     CreateMetalamaVcsRepository( dependencyName, vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
-                        TeamCityHelper.GetProjectId(
-                            dependencyName,
-                            parentCiProjectName ?? $"Metalama",
-                            Family.Version ),
+                        parentCiProjectId == null
+                            ? TeamCityHelper.GetProjectId( dependencyName, "Metalama", Family.Version )
+                            : TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId ),
                         "caravela04cloud",
                         isVersioned,
                         debugBuildDependency,
@@ -83,20 +84,26 @@ public static partial class MetalamaDependencies
         public static DependencyDefinition MetalamaTry { get; } =
             new MetalamaDependencyDefinition( "Metalama.Try", VcsProvider.AzureDevOps, false ) { EngineeringDirectory = "eng-Metalama" };
 
+        public static DependencyDefinition PostSharpPatterns { get; } = new MetalamaDependencyDefinition(
+            "PostSharp.Patterns",
+            VcsProvider.AzureDevOps,
+            false );
+
         public static DependencyDefinition MetalamaPatterns { get; } = new MetalamaDependencyDefinition(
             "Metalama.Patterns",
-            VcsProvider.AzureDevOps );
+            VcsProvider.GitHub );
 
         public static DependencyDefinition NopCommerce { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.NopCommerce",
             VcsProvider.GitHub,
             false,
-            parentCiProjectName: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests" );
+            parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
+            customBranch: $"develop/{Family.Version}" );
 
         public static DependencyDefinition CargoSupport { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.CargoSupport",
             VcsProvider.AzureDevOps,
             false,
-            parentCiProjectName: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests" );
+            parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests" );
     }
 }

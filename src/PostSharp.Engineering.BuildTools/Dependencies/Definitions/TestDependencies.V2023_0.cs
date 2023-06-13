@@ -24,8 +24,7 @@ public static partial class TestDependencies
                 bool isVersioned = true,
                 BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
                 BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
-                BuildConfiguration publicBuildDependency = BuildConfiguration.Public,
-                string? customCiProjectName = null )
+                BuildConfiguration publicBuildDependency = BuildConfiguration.Public )
                 : base(
                     Family,
                     dependencyName,

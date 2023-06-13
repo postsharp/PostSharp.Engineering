@@ -14,8 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
         {
             var path = Path.Combine(
                 context.RepoDirectory,
-                context.Product.EngineeringDirectory,
-                "Versions.g.props" );
+                context.Product.GetConfigurationNeutralVersionsFilePath( context ) );
 
             if ( File.Exists( path ) )
             {

@@ -113,6 +113,9 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         {
             return false;
         }
+        
+        // Writing the configurations neutral file.
+        context.Product.PrepareConfigurationNeutralVersionsFile( context, configuration );
 
         context.Console.Out.WriteLine();
 
