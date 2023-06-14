@@ -4,6 +4,8 @@ using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Utilities;
 
@@ -131,6 +133,27 @@ internal static class GitHelper
         return true;
     }
 
+    public static bool TryGetCommitsCount( BuildContext context, string from, string to, out int count, string options = "" )
+    {
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"rev-list --count \"{from}..{to}\" {options}",
+                context.RepoDirectory,
+                out _,
+                out var output ) )
+        {
+            context.Console.WriteError( output );
+            count = -1;
+            
+            return false;
+        }
+
+        count = int.Parse( output, CultureInfo.InvariantCulture );
+
+        return true;
+    }
+
     public static bool TryCommitAll( BuildContext context, string message )
     {
         if ( !ToolInvocationHelper.InvokeTool(
@@ -159,7 +182,7 @@ internal static class GitHelper
         return true;
     }
 
-    public static bool TryMerge( BuildContext context, string sourceBranch, string targetBranch, string options = "" )
+    public static bool TryMerge( BuildContext context, string sourceBranch, string targetBranch, string options = "", bool ignoreConflicts = false )
     {
         // Check that the current branch is the target branch.
         if ( !TryGetCurrentBranch( context, out var currentBranch ) )
@@ -174,12 +197,42 @@ internal static class GitHelper
             return false;
         }
 
-        // Attempts merging from <sourceBranch>, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
-        if ( !ToolInvocationHelper.InvokeTool(
+        var command = "git";
+        var arguments = $"merge {sourceBranch} {options}"; 
+        
+        if ( ignoreConflicts )
+        {
+            var success = ToolInvocationHelper.InvokeTool(
                 context.Console,
-                "git",
-                $"merge {sourceBranch} {options}",
-                context.RepoDirectory ) )
+                command,
+                arguments,
+                context.RepoDirectory,
+                out _,
+                out var output );
+
+            context.Console.WriteMessage( output );
+
+            if ( success )
+            {
+                return true;
+            }
+            else if ( output.Split( '\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries )
+                         .LastOrDefault()
+                         ?.Equals( "Automatic merge failed; fix conflicts and then commit the result.", StringComparison.Ordinal ) ?? false )
+            {
+                // Git merge always returns the same error code. 
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else if ( !ToolInvocationHelper.InvokeTool(
+                     context.Console,
+                     command,
+                     arguments,
+                     context.RepoDirectory ) )
         {
             return false;
         }

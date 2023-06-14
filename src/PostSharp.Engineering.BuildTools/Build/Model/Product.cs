@@ -2022,7 +2022,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         this.DependencyDefinition.CiConfiguration.BuildAgentType )
                     {
                         IsDeployment = true,
-                        Dependencies = new[] { new TeamCitySnapshotDependency( $"{BuildConfiguration.Debug}Build", true ) },
+                        Dependencies = new[] { new TeamCitySnapshotDependency( "DebugBuild", false ) },
                         BuildTriggers = new IBuildTrigger[] { new SourceBuildTrigger() },
                         MaxBuildDuration = this.MaxDownstreamMergeDuration
                     } );
@@ -2139,7 +2139,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 hasBumpSinceLastDeployment = false;
                 hasChangesSinceLastDeployment = false;
 
-                context.Console.WriteError( gitTagOutput );
+                context.Console.WriteError( gitLogOutput );
 
                 return false;
             }
@@ -2157,25 +2157,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             hasBumpSinceLastDeployment = lastVersionDump.Log != null;
 
             // Get count of commits since last deployment excluding version bumps and check if there are any changes.
-            ToolInvocationHelper.InvokeTool(
-                context.Console,
-                "git",
-                $"rev-list --count \"{lastTag}..HEAD\" --invert-grep --grep=\"{versionBumpLogComment}\"",
-                context.RepoDirectory,
-                out exitCode,
-                out var commitsCount );
-
-            if ( exitCode != 0 )
+            if ( !GitHelper.TryGetCommitsCount( context, lastTag, "HEAD", out var commitsSinceLastTag, $"--invert-grep --grep=\"{versionBumpLogComment}\"" ) )
             {
                 hasBumpSinceLastDeployment = false;
                 hasChangesSinceLastDeployment = false;
 
-                context.Console.WriteError( gitTagOutput );
-
                 return false;
             }
 
-            var commitsSinceLastTag = int.Parse( commitsCount, CultureInfo.InvariantCulture );
             hasChangesSinceLastDeployment = commitsSinceLastTag > 0;
 
             return true;

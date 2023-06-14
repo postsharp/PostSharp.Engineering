@@ -2,7 +2,6 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -73,10 +72,24 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        if ( !GitHelper.TryGetCurrentCommitHash( context, out var downstreamHeadCommitHashBeforeMerge ) )
+        if ( !GitHelper.TryGetCommitsCount( context, "HEAD", sourceBranch, out var commitsCount ) )
         {
             return false;
         }
+
+        if ( commitsCount < 0 )
+        {
+            throw new InvalidOperationException( $"Invalid commits count: {commitsCount}" );
+        }
+
+        if ( commitsCount == 0 )
+        {
+            context.Console.WriteSuccess( $"There are no commits to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
+
+            return true;
+        }
+
+        context.Console.WriteMessage( $"There are {commitsCount} commits to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
 
         context.Console.WriteImportantMessage( $"Downstream changes from '{downstreamBranch}' downstream branch were pulled." );
 
@@ -108,13 +121,16 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             context.Console.WriteImportantMessage( $"The '{targetBranch}' target was created." );
         }
 
-        if ( !TryMerge( context, settings, sourceBranch, targetBranch, downstreamHeadCommitHashBeforeMerge, downstreamBranch, out var areChangesPending ) )
+        if ( !TryMerge( context, settings, sourceBranch, targetBranch, downstreamBranch, out var areChangesPending ) )
         {
             return false;
         }
 
         if ( !areChangesPending )
         {
+            // This shouldn't happen often - just when the changes are only in the files that we don't want
+            // to be merged. See AddFileToKeepOwn local method in TryMerge method for the list of such files.
+            // There's another check above, that stops the downstream merge, when there are no commits to merge.
             context.Console.WriteSuccess( $"There is nothing to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
 
             return true;
@@ -125,7 +141,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        var buildTypeId = downstreamDependencyDefinition.CiConfiguration.BuildTypes.Debug;
+        var buildTypeId = $"{downstreamDependencyDefinition.CiConfiguration.ProjectId}_DebugBuild";
 
         if ( !TryScheduleBuild(
                 downstreamDependencyDefinition.CiConfiguration,
@@ -151,7 +167,6 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         DownstreamMergeSettings settings,
         string sourceBranch,
         string targetBranch,
-        string downstreamHeadCommitHashBeforeMerge,
         string downstreamBranch,
         out bool areChangesPending )
     {
@@ -159,20 +174,40 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         context.Console.WriteImportantMessage( $"Merging '{sourceBranch}' branch to '{targetBranch}' branch" );
 
-        if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--no-commit" ) )
+        if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--no-commit", true ) )
         {
             return false;
         }
 
-        context.Console.WriteMessage( "The git merge failed. Trying to resolve conflicts." );
-
+        context.Console.WriteImportantMessage( "Checking the merged files for those we want to keep own." );
+        
         if ( !GitHelper.TryGetStatus( context, settings, context.RepoDirectory, out var statuses ) )
         {
             return false;
         }
 
-        // Try to resolve conflicts and avoid merging files that shouldn't be merged
-        if ( statuses.Length > 0 )
+        if ( statuses.Length == 0 )
+        {
+            // If there is nothing to merge at this point, we check if the target branch contains some commits
+            // from previous run of the command or from another source.
+            // (Eg. developers handling downstream merge conflicts manually.)
+            
+            if ( !GitHelper.TryGetCommitsCount( context, downstreamBranch, "HEAD", out var commitsCount ) )
+            {
+                return false;
+            }
+
+            if ( commitsCount < 0 )
+            {
+                throw new InvalidOperationException( $"Invalid commits count: {commitsCount}" );
+            }
+
+            if ( commitsCount == 0 )
+            {
+                return true;
+            }
+        }
+        else if ( statuses.Length > 0 )
         {
             // We don't merge these files downstream as they are specific to the product family version.
             var filesToKeepOwn = new HashSet<string>();
@@ -203,25 +238,15 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
                     }
                 }
             }
-        }
+            
+            // If not all conflicts were expected, git commit fails here.
+            if ( !GitHelper.TryCommitMerge( context ) )
+            {
+                context.Console.WriteError(
+                    $"Merge conflicts need to be resolved manually. Merge '{sourceBranch}' branch to '{targetBranch}' branch. Then create a pull request to '{downstreamBranch}' branch or execute this command again." );
 
-        // If not all conflicts were expected, git commit fails here.
-        if ( !GitHelper.TryCommitMerge( context ) )
-        {
-            context.Console.WriteError(
-                $"Merge conflicts need to be resolved manually. Merge '{sourceBranch}' branch to '{targetBranch}' branch. Then create a pull request to '{downstreamBranch}' branch or execute this command again." );
-
-            return false;
-        }
-
-        if ( !GitHelper.TryGetCurrentCommitHash( context, out var downstreamHeadCommitHashAfterMerge ) )
-        {
-            return false;
-        }
-
-        if ( downstreamHeadCommitHashAfterMerge == downstreamHeadCommitHashBeforeMerge )
-        {
-            return true;
+                return false;
+            }
         }
 
         if ( !GitHelper.TryPush( context, settings ) )

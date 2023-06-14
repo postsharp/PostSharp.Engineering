@@ -73,7 +73,7 @@ public class MergePublisher : IndependentPublisher
             return SuccessCode.Error;
         }
 
-        // Merge the source branch to the target branch.
+        // Attempts merging from the source branch, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
         if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--strategy-option theirs" ) )
         {
             return SuccessCode.Error;
