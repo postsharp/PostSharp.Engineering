@@ -128,9 +128,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         if ( !areChangesPending )
         {
-            // This shouldn't happen often - just when the changes are only in the files that we don't want
-            // to be merged. See AddFileToKeepOwn local method in TryMerge method for the list of such files.
-            // There's another check above, that stops the downstream merge, when there are no commits to merge.
+            // This shouldn't happen often - just when the merge conflict is solved without using the merge branch prepared by the tool.
             context.Console.WriteSuccess( $"There is nothing to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
 
             return true;
@@ -174,7 +172,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         context.Console.WriteImportantMessage( $"Merging '{sourceBranch}' branch to '{targetBranch}' branch" );
 
-        if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--no-commit", true ) )
+        if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--no-commit --no-ff", true ) )
         {
             return false;
         }

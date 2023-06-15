@@ -464,7 +464,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             ConsoleHelper console,
             string url,
             string? projectId,
-            string version,
+            string defaultBranch,
+            IEnumerable<string> branchSpecification,
             [NotNullWhen( true )] out string? name,
             [NotNullWhen( true )] out string? id )
         {
@@ -504,11 +505,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             AddProperty( "ignoreKnownHosts", "true" );
             AddProperty( "submoduleCheckout", "CHECKOUT" );
             AddProperty( "useAlternates", "USE_MIRRORS" );
-            AddProperty( "branch", $"refs/heads/develop/{version}" );
-
-            AddProperty(
-                "teamcity:branchSpec",
-                $"+:refs/heads/(topic/{version}/*)&#xA;+:refs/heads/(feature/{version}/*)&#xA;+:refs/heads/(experimental/{version}/*)&#xA;+:refs/heads/(develop/{version})&#xA;+:refs/heads/(release/{version})" );
+            AddProperty( "branch", defaultBranch );
+            AddProperty( "teamcity:branchSpec", string.Join( "&#xA;", branchSpecification ) );
             
             id = $"{projectId}_{name.Replace( ".", "", StringComparison.Ordinal )}";
 

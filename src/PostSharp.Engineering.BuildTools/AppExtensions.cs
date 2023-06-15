@@ -230,10 +230,6 @@ namespace PostSharp.Engineering.BuildTools
                                         vcsRoot.AddCommand<TeamCityGetVcsRootDetailsCommand>( "get" )
                                             .WithData( product )
                                             .WithDescription( "Get details of a TeamCity VCS root." );
-
-                                        vcsRoot.AddCommand<TeamCityCreateVcsRootCommand>( "create" )
-                                            .WithData( product )
-                                            .WithDescription( "Create a new TeamCity VCS root." );
                                     } );
                             } );
                     } );

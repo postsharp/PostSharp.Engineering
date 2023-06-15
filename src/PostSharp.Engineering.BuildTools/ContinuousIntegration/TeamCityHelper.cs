@@ -6,6 +6,7 @@ using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
@@ -390,9 +391,25 @@ public static class TeamCityHelper
         {
             var familyVersion = context.Product.ProductFamily.Version;
             var url = repository.TeamCityRemoteUrl;
-            context.Console.WriteMessage( $"Creating \"{url}\" VCS root in \"{parentProjectId}\" project for \"{familyVersion}\" family version." );
+            var defaultBranch = $"refs/heads/{context.Product.DependencyDefinition.Branch}";
+
+            var branchSpecification = new List<string>
+            {
+                $"+:refs/heads/(topic/{familyVersion}/*)",
+                $"+:refs/heads/(feature/{familyVersion}/*)",
+                $"+:refs/heads/(experimental/{familyVersion}/*)",
+                $"+:refs/heads/(merge/{familyVersion}/*)",
+                $"+:refs/heads/({context.Product.DependencyDefinition.Branch})",
+            };
+
+            if ( context.Product.DependencyDefinition.ReleaseBranch != null )
+            {
+                branchSpecification.Add( $"+:refs/heads/({context.Product.DependencyDefinition.ReleaseBranch})" );
+            }
             
-            if ( !tc.TryCreateVcsRoot( context.Console, url, parentProjectId, familyVersion, out var vcsRootName, out vcsRootId ) )
+            context.Console.WriteMessage( $"Creating \"{url}\" VCS root in \"{parentProjectId}\" project for \"{familyVersion}\" family version." );
+
+            if ( !tc.TryCreateVcsRoot( context.Console, url, parentProjectId, defaultBranch, branchSpecification, out var vcsRootName, out vcsRootId ) )
             {
                 return false;
             }
