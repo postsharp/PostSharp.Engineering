@@ -27,7 +27,7 @@ public static class TemplateDependencies
                 isVersioned ) { }
     }
 
-    public static ProductFamily Family { get; } = new( "2023.0", DevelopmentDependencies.Family );
+    public static ProductFamily Family { get; } = new( "Template", "2023.0", DevelopmentDependencies.Family );
     
     // This is only used from the project template.
     public static DependencyDefinition MyProduct { get; } =

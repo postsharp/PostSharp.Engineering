@@ -17,12 +17,12 @@ public static class BusinessSystemsDependencies
                 dependencyName,
                 "master",
                 null,
-                new AzureDevOpsRepository( "Business%20Systems", dependencyName ),
+                new AzureDevOpsRepository( Family.Name, dependencyName ),
                 TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "Websites And Business Systems" ), "webdeploy" ),
                 false ) { }
     }
 
-    public static ProductFamily Family { get; } = new( "1.0", DevelopmentDependencies.Family );
+    public static ProductFamily Family { get; } = new( "Business%20Systems", "1.0", DevelopmentDependencies.Family );
 
     public static DependencyDefinition BusinessSystems { get; } = new BusinessSystemsDependencyDefinition( "BusinessSystems" );
 

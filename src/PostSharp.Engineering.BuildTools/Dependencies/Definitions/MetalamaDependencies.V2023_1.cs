@@ -37,7 +37,7 @@ public static partial class MetalamaDependencies
                     CreateMetalamaVcsRepository( dependencyName, vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
                         parentCiProjectId == null
-                            ? TeamCityHelper.GetProjectId( dependencyName, "Metalama", Family.Version )
+                            ? TeamCityHelper.GetProjectId( dependencyName, _projectName, Family.Version )
                             : TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId ),
                         "caravela04cloud",
                         isVersioned,
@@ -47,7 +47,7 @@ public static partial class MetalamaDependencies
                     isVersioned ) { }
         }
 
-        public static ProductFamily Family { get; } = new( "2023.1", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_2.Family };
+        public static ProductFamily Family { get; } = new( _projectName, "2023.1", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_2.Family };
         
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.AzureDevOps );
 

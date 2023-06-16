@@ -15,7 +15,7 @@ public class TeamCityCreateProjectCommand : BaseCommand<TeamCityCreateProjectCom
             return false;
         }
 
-        context.Console.WriteSuccess( $"Project \"{settings.Name}\" created successfully." );
+        context.Console.WriteSuccess( $"Project '{settings.Name}' created successfully." );
 
         return true;
     }

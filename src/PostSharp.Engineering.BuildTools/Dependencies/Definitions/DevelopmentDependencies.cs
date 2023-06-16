@@ -10,16 +10,16 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 [PublicAPI]
 public static class DevelopmentDependencies
 {
-    public static ProductFamily Family { get; } = new( "2023.2" );
+    public static ProductFamily Family { get; } = new( "Engineering", "2023.2" );
 
     public static DependencyDefinition PostSharpEngineering { get; } = new(
         Family,
         "PostSharp.Engineering",
         $"develop/{Family.Version}",
         $"release/{Family.Version}",
-        new GitHubRepository( "Engineering" ),
+        new GitHubRepository( "PostSharp.Engineering" ),
         TeamCityHelper.CreateConfiguration(
-            TeamCityHelper.GetProjectId( "PostSharp.Engineering", "Engineering" ),
+            TeamCityHelper.GetProjectId( "PostSharp.Engineering", Family.Name ),
             "caravela04cloud",
             true,
             BuildConfiguration.Debug,

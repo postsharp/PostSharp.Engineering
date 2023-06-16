@@ -213,23 +213,29 @@ namespace PostSharp.Engineering.BuildTools
                                         project.AddCommand<TeamCityGetProjectDetailsCommand>( "get" )
                                             .WithData( product )
                                             .WithDescription( "Get details of a TeamCity project." );
-                                        
+
                                         project.AddCommand<TeamCityCreateProjectCommand>( "create" )
                                             .WithData( product )
                                             .WithDescription( "Creates a new TeamCity project." );
-                                        
+
                                         project.AddCommand<TeamCityCreateThisProjectCommand>( "create-this" )
                                             .WithData( product )
-                                            .WithDescription( "Creates a new TeamCity project based on the product in the current repository." );
+                                            .WithDescription(
+                                                "Creates a new TeamCity project and VCS root, if it doesn't exist, based on the product in the current repository." );
                                     } );
-                                
-                                teamcity.AddBranch( 
+
+                                teamcity.AddBranch(
                                     "vcs-root",
                                     vcsRoot =>
                                     {
                                         vcsRoot.AddCommand<TeamCityGetVcsRootDetailsCommand>( "get" )
                                             .WithData( product )
                                             .WithDescription( "Get details of a TeamCity VCS root." );
+
+                                        vcsRoot.AddCommand<TeamCityCreateThisVcsRootCommand>( "create-this" )
+                                            .WithData( product )
+                                            .WithDescription(
+                                                "Creates a new TeamCity VCS root, if it doesn't exist, based on the product in the current repository, in a specified project." );
                                     } );
                             } );
                     } );

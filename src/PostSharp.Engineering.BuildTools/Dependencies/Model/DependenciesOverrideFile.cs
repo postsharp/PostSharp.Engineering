@@ -343,10 +343,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     case DependencySourceKind.BuildServer:
                     case DependencySourceKind.RestoredDependency when !TeamCityHelper.IsTeamCityBuild( settings ):
                         {
-                            var dependencyDefinition = context.Product.Dependencies.SingleOrDefault( p => p.Name == dependency.Key ) ??
-                                                       context.Product.ProductFamily.GetDependencyDefinitionOrNull( dependency.Key );
+                            var dependencyDefinition = context.Product.Dependencies.SingleOrDefault( p => p.Name == dependency.Key );
 
-                            if ( dependencyDefinition == null )
+                            if ( dependencyDefinition == null
+                                 && context.Product.ProductFamily.TryGetDependencyDefinition( dependency.Key, out dependencyDefinition ) )
                             {
                                 context.Console.WriteWarning( $"The dependency '{dependency.Key}' is not configured. Ignoring." );
                                 ignoreDependency = true;

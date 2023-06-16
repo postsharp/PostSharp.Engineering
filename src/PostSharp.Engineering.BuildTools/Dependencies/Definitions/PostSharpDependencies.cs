@@ -30,7 +30,7 @@ public static partial class PostSharpDependencies
                 isVersioned ) { }
     }
 
-    public static ProductFamily Family { get; } = new( "1.0", DevelopmentDependencies.Family );
+    public static ProductFamily Family { get; } = new( "PostSharp", "1.0", DevelopmentDependencies.Family );
 
     public static DependencyDefinition PostSharpDocumentation { get; } = new PostSharpDependencyDefinition(
         "PostSharp.Documentation",

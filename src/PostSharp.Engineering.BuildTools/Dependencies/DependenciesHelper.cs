@@ -141,10 +141,7 @@ public static class DependenciesHelper
                     continue;
                 }
 
-                // Get the DependencyDefinition.
-                var dependencyDefinition = context.Product.ProductFamily.GetDependencyDefinitionOrNull( name );
-
-                if ( dependencyDefinition == null )
+                if ( !context.Product.ProductFamily.TryGetDependencyDefinition( name, out var dependencyDefinition ) )
                 {
                     context.Console.WriteError(
                         $"Cannot find the dependency definition for '{name}' referenced by '{directDependency.Definition.Name}'. The dependency must be defined in PostSharp.Engineering." );

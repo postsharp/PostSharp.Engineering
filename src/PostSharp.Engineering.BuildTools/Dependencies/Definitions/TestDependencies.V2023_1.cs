@@ -42,7 +42,7 @@ public static partial class TestDependencies
                     isVersioned ) { }
         }
 
-        public static ProductFamily Family { get; } = new( "2023.1", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_2.Family };
+        public static ProductFamily Family { get; } = new( _projectName, "2023.1", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_2.Family };
 
         public static DependencyDefinition TestProduct { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.TestProduct",

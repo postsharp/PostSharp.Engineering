@@ -5,6 +5,4 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
-public class TeamCityCreateThisProjectCommandSettings : CommonCommandSettings
-{
-}
+public class TeamCityCreateThisProjectCommandSettings : CommonCommandSettings { }

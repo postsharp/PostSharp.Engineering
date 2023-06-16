@@ -197,7 +197,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                         buildNumber = build.Attribute( "number" )!.Value;
                     }
 
-                    status = $"Build #{buildNumber} in progress: {build.Attribute( "percentageComplete" )!.Value}%";
+                    status = $"Build #{buildNumber} {build.Attribute( "state" )!.Value} ({build.Attribute( "percentageComplete" )!.Value}%)";
                 }
 
                 return status;
@@ -507,8 +507,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             AddProperty( "useAlternates", "USE_MIRRORS" );
             AddProperty( "branch", defaultBranch );
             AddProperty( "teamcity:branchSpec", string.Join( "&#xA;", branchSpecification ) );
-            
-            id = $"{projectId}_{name.Replace( ".", "", StringComparison.Ordinal )}";
+
+            id = $"{(projectId == "_Root" ? "Root" : projectId)}_{name.Replace( ".", "", StringComparison.Ordinal )}";
 
             var payload = $@"<vcs-root id=""{id}"" name=""{name}"" vcsName=""jetbrains.git"">
    <project id=""{projectId}""/>

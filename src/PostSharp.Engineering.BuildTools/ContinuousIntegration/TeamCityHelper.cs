@@ -104,10 +104,10 @@ public static class TeamCityHelper
         return true;
     }
 
-    public static bool TriggerTeamCityBuild( BuildContext context, TeamCityBuildCommandSettings settings, TeamCityBuildType teamCityBuildType )
+    public static bool TriggerTeamCityBuild( BuildContext context, CommonCommandSettings settings, string productFamilyName, string productFamilyVersion, string productName, TeamCityBuildType buildType, BuildConfiguration? buildConfiguration )
     {
         // We get build type ID of the product from its DependencyDefinition by finding the definition by product name.
-        if ( !TryGetBuildTypeIdFromDependencyDefinition( context, settings, teamCityBuildType, out var buildTypeId ) )
+        if ( !TryGetBuildTypeId( context, productFamilyName, productFamilyVersion, productName, buildType, buildConfiguration, out var buildTypeId ) )
         {
             return false;
         }
@@ -130,27 +130,40 @@ public static class TeamCityHelper
 
         var scheduledBuildNumber = string.Empty;
 
+        void ClearLine( int length )
+        {
+            // TeamCity doesn't allow moving cursor up to rewrite the line as its build log is only a console output.
+            if ( !IsTeamCityBuild( settings ) )
+            {
+                context.Console.Out.Cursor.MoveUp();
+                context.Console.Out.WriteLine( new string( ' ', length ) );
+                context.Console.Out.Cursor.MoveUp();
+            }
+        }
+
         if ( tc.IsBuildQueued( context.Console, scheduledBuildId ) )
         {
-            context.Console.WriteMessage( "Waiting for build to start..." );
+            var message = "Waiting for build to start...";
+            context.Console.WriteMessage( message );
+
+            while ( tc.IsBuildQueued( context.Console, scheduledBuildId ) )
+            {
+                Thread.Sleep( 5000 );
+            }
+            
+            ClearLine( message.Length );
         }
 
         // Poll the running build status until it is finished.
         while ( !tc.HasBuildFinished( context.Console, scheduledBuildId ) )
         {
-            if ( tc.IsBuildRunning( context.Console, scheduledBuildId ) )
-            {
-                context.Console.WriteMessage( tc.PollRunningBuildStatus( scheduledBuildId, out var buildNumber ) );
-                scheduledBuildNumber = buildNumber;
-
-                // TeamCity doesn't allow moving cursor up to rewrite the line as its build log is only a console output.
-                if ( !IsTeamCityBuild( settings ) )
-                {
-                    context.Console.Out.Cursor.MoveUp();
-                }
-            }
-
+            var message = tc.PollRunningBuildStatus( scheduledBuildId, out var buildNumber );
+            context.Console.WriteMessage( message );
+            scheduledBuildNumber = buildNumber;
+            
             Thread.Sleep( 5000 );
+            
+            ClearLine( message.Length );
         }
 
         if ( !tc.HasBuildFinishedSuccessfully( context.Console, scheduledBuildId ) )
@@ -160,66 +173,73 @@ public static class TeamCityHelper
             return false;
         }
 
-        context.Console.WriteMessage( $"Build #{scheduledBuildNumber} in progress: 100%" );
         context.Console.WriteSuccess( $"Build #{scheduledBuildNumber} of '{buildTypeId}' has finished successfully." );
 
         return true;
     }
 
-    private static bool TryGetBuildTypeIdFromDependencyDefinition(
+    private static bool TryGetBuildTypeId(
         BuildContext context,
-        TeamCityBuildCommandSettings settings,
-        TeamCityBuildType teamCityBuildType,
-        [NotNullWhen( true )] out string? buildTypeId )
+        string productFamilyName,
+        string productFamilyVersion,
+        string productName,
+        TeamCityBuildType buildType,
+        BuildConfiguration? buildConfiguration,
+        [NotNullWhen( true )] out string? ciBuildTypeId )
     {
-        // Product name must be specified.
-        if ( string.IsNullOrEmpty( settings.ProductName ) )
+        ciBuildTypeId = null;
+
+        if ( !ProductFamily.TryGetFamily( productFamilyName, productFamilyVersion, out var productFamily ) )
         {
-            context.Console.WriteError( $"No product specified for {teamCityBuildType}." );
-            buildTypeId = null;
+            context.Console.WriteError( $"Unknown product family '{productFamilyName}' version '{productFamilyVersion}'." );
 
             return false;
         }
 
-        // DependencyDefinition is found by its product name.
-        var dependencyDefinition =
-            context.Product.ProductFamily.GetDependencyDefinitionOrNull( settings.ProductName );
-
-        if ( dependencyDefinition == null )
+        if ( !productFamily.TryGetDependencyDefinition( productName, out var dependencyDefinition ) )
         {
-            context.Console.WriteError( $"Dependency definition for '{settings.ProductName}' doesn't exist." );
-            buildTypeId = null;
+            context.Console.WriteError(
+                $"Dependency definition '{productName}' not found in '{productFamily.Name}' product family version '{productFamily.Version}'." );
+
+            ciBuildTypeId = null;
 
             return false;
         }
 
         // We get the required build type ID of the product from the DependencyDefinition.
-        switch ( teamCityBuildType )
+        switch ( buildType )
         {
             case TeamCityBuildType.Build:
-                buildTypeId = dependencyDefinition.CiConfiguration.BuildTypes[settings.BuildConfiguration];
+                if ( buildConfiguration == null )
+                {
+                    context.Console.WriteError( "It is required to specify the build configuration for building a project." );
+
+                    return false;
+                }
+
+                ciBuildTypeId = dependencyDefinition.CiConfiguration.BuildTypes[buildConfiguration.Value];
 
                 break;
 
             case TeamCityBuildType.Deploy:
-                buildTypeId = dependencyDefinition.CiConfiguration.DeploymentBuildType;
+                ciBuildTypeId = dependencyDefinition.CiConfiguration.DeploymentBuildType;
 
                 break;
 
             case TeamCityBuildType.Bump:
-                buildTypeId = dependencyDefinition.CiConfiguration.VersionBumpBuildType;
+                ciBuildTypeId = dependencyDefinition.CiConfiguration.VersionBumpBuildType;
 
                 break;
 
             default:
-                buildTypeId = null;
+                ciBuildTypeId = null;
 
                 return false;
         }
 
-        if ( buildTypeId == null )
+        if ( ciBuildTypeId == null )
         {
-            context.Console.WriteError( $"'{settings.ProductName}' has no known build type ID for build type '{teamCityBuildType}'." );
+            context.Console.WriteError( $"'{productName}' product has no known build type ID for build type '{buildType}'." );
 
             return false;
         }
@@ -323,7 +343,7 @@ public static class TeamCityHelper
 
     private static bool TryCreateProject( TeamCityClient tc, BuildContext context, string name, string id, string? parentId = null, string? vcsRootId = null )
     {
-        context.Console.WriteMessage( $"Creating project \"{name}\", ID \"{id}\", parent project ID \"{parentId}\"." );
+        context.Console.WriteMessage( $"Creating project '{name}', ID '{id}', parent project ID '{parentId}'." );
 
         if ( !tc.TryCreateProject( context.Console, name, id, parentId ) )
         {
@@ -332,7 +352,7 @@ public static class TeamCityHelper
 
         if ( vcsRootId != null )
         {
-            context.Console.WriteMessage( $"Setting versioned settings for project \"{name}\" (\"{id}\") using VCS root ID \"{vcsRootId}\"." );
+            context.Console.WriteMessage( $"Setting versioned settings for project '{name}' ('{id}') using VCS root ID '{vcsRootId}'." );
 
             if ( !tc.TrySetProjectVersionedSettings( context.Console, id, vcsRootId ) )
             {
@@ -353,21 +373,16 @@ public static class TeamCityHelper
         return TryCreateProject( tc, context, name, id, parentId, vcsRootId );
     }
 
-    public static bool TryCreateProject( BuildContext context )
+    private static bool TryCreateVcsRoot( TeamCityClient tc, BuildContext context, string? projectId, [NotNullWhen( true )] out string? vcsRootId )
     {
-        if ( !TryConnectTeamCity( context, out var tc ) )
-        {
-            return false;
-        }
+        projectId ??= "_Root";
 
-        var projectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId.Id;
-        var parentProjectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId.ParentId;
-        var projectName = context.Product.DependencyDefinition.Name;
+        context.Console.WriteMessage( $"Retrieving VCS roots of '{projectId}' project." );
 
-        context.Console.WriteMessage( $"Retrieving VCS roots of \"{parentProjectId}\" project." );
-        
-        if ( !tc.TryGetVcsRoots( context.Console, parentProjectId, out var vcsRoots ) )
+        if ( !tc.TryGetVcsRoots( context.Console, projectId, out var vcsRoots ) )
         {
+            vcsRootId = null;
+
             return false;
         }
 
@@ -378,14 +393,14 @@ public static class TeamCityHelper
         var vcsRootIdsByName = vcsRoots.Value.ToDictionary(
             root => VcsUrlParser.TryGetRepository( root.Url, out var repository )
                 ? repository.Name
-                : throw new InvalidOperationException( $"Unknown VCS provider of \"{root.Url}\" repository." ),
+                : throw new InvalidOperationException( $"Unknown VCS provider of '{root.Url}' repository." ),
             r => r.Id );
 
         var repository = context.Product.DependencyDefinition.VcsRepository;
-        
-        if ( vcsRootIdsByName.TryGetValue( repository.Name, out var vcsRootId ) )
+
+        if ( vcsRootIdsByName.TryGetValue( repository.Name, out vcsRootId ) )
         {
-            context.Console.WriteMessage( $"Using existing \"{vcsRootId}\" VCS root" );
+            context.Console.WriteMessage( $"Using existing '{vcsRootId}' VCS root" );
         }
         else
         {
@@ -406,17 +421,51 @@ public static class TeamCityHelper
             {
                 branchSpecification.Add( $"+:refs/heads/({context.Product.DependencyDefinition.ReleaseBranch})" );
             }
-            
-            context.Console.WriteMessage( $"Creating \"{url}\" VCS root in \"{parentProjectId}\" project for \"{familyVersion}\" family version." );
 
-            if ( !tc.TryCreateVcsRoot( context.Console, url, parentProjectId, defaultBranch, branchSpecification, out var vcsRootName, out vcsRootId ) )
+            context.Console.WriteMessage( $"Creating '{url}' VCS root in '{projectId}' project for '{familyVersion}' family version." );
+
+            if ( !tc.TryCreateVcsRoot( context.Console, url, projectId, defaultBranch, branchSpecification, out var vcsRootName, out vcsRootId ) )
             {
                 return false;
             }
 
-            context.Console.WriteMessage( $"Created \"{vcsRootName}\" VCS root ID \"{vcsRootId}\"." );
+            context.Console.WriteMessage( $"Created '{vcsRootName}' VCS root ID '{vcsRootId}'." );
         }
 
-        return TryCreateProject( tc, context, projectName, projectId, parentProjectId, vcsRootId );
+        return true;
+    }
+
+    public static bool TryCreateVcsRoot( BuildContext context, string? projectId )
+    {
+        if ( !TryConnectTeamCity( context, out var tc ) )
+        {
+            return false;
+        }
+
+        return TryCreateVcsRoot( tc, context, projectId, out _ );
+    }
+
+    public static bool TryCreateProject( BuildContext context )
+    {
+        if ( !TryConnectTeamCity( context, out var tc ) )
+        {
+            return false;
+        }
+
+        var projectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId.Id;
+        var parentProjectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId.ParentId;
+        var projectName = context.Product.DependencyDefinition.Name;
+
+        if ( !TryCreateVcsRoot( tc, context, parentProjectId, out var vcsRootId ) )
+        {
+            return false;
+        }
+
+        if ( !TryCreateProject( tc, context, projectName, projectId, parentProjectId, vcsRootId ) )
+        {
+            return false;
+        }
+
+        return true;
     }
 }

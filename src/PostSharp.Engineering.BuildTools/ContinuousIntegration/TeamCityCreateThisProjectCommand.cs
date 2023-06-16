@@ -8,14 +8,14 @@ public class TeamCityCreateThisProjectCommand : BaseCommand<TeamCityCreateThisPr
 {
     protected override bool ExecuteCore( BuildContext context, TeamCityCreateThisProjectCommandSettings settings )
     {
-        context.Console.WriteHeading( $"Creating project {context.Product.DependencyDefinition.Name}" );
+        context.Console.WriteHeading( $"Creating project '{context.Product.DependencyDefinition.Name}'" );
 
         if ( !TeamCityHelper.TryCreateProject( context ) )
         {
             return false;
         }
 
-        context.Console.WriteSuccess( $"Project \"{context.Product.DependencyDefinition.Name}\" created successfully." );
+        context.Console.WriteSuccess( $"Project '{context.Product.DependencyDefinition.Name}' created successfully." );
 
         return true;
     }

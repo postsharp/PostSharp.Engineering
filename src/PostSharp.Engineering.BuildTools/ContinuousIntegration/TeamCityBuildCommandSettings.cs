@@ -8,11 +8,19 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 public class TeamCityBuildCommandSettings : BaseBuildSettings
 {
-    [Description( $"Set specific type of TeamCity build to schedule (Build | Deploy | Bump)" )]
-    [CommandArgument( 0, "<BuildType>" )]
+    [Description( $"The TeamCity build to schedule. (Build | Deploy | Bump)" )]
+    [CommandArgument( 0, "<type>" )]
     public TeamCityBuildType TeamCityBuildType { get; set; }
-
-    [Description( "Set specific product to schedule build for." )]
-    [CommandArgument( 1, "<Product.Name>" )]
-    public string? ProductName { get; set; }
+    
+    [Description( "Product family to schedule the build for." )]
+    [CommandArgument( 1, "<family>" )]
+    public string ProductFamilyName { get; set; } = null!;
+    
+    [Description( "Product family version to schedule the build for." )]
+    [CommandArgument( 2, "<version>" )]
+    public string ProductFamilyVersion { get; set; } = null!;
+    
+    [Description( "Product name to schedule the build for." )]
+    [CommandArgument( 3, "<product>" )]
+    public string ProductName { get; set; } = null!;
 }

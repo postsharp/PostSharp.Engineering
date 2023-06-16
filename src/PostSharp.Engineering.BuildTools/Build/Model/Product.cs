@@ -161,7 +161,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public DependencyDefinition? GetDependency( string name )
         {
             return this.Dependencies.SingleOrDefault( d => d.Name == name )
-                   ?? this.ProductFamily.GetDependencyDefinitionOrNull( name );
+                   ?? (this.ProductFamily.TryGetDependencyDefinition( name, out var dependency )
+                       ? dependency
+                       : null);
         }
 
         public Dictionary<string, string> SupportedProperties { get; init; } = new();
@@ -376,7 +378,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                             signSuccess = signSuccess && DotNetTool.SignClient.Invoke(
                                 context,
-                                $"Sign --baseDirectory \"{publicArtifactsDirectory}\" --input {filter}" );
+                                $"Sign --baseDirectory '{publicArtifactsDirectory}' --input {filter}" );
                         }
                     }
 

@@ -43,7 +43,7 @@ public static partial class MetalamaDependencies
                                 ? TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId )
                                 : TeamCityHelper.GetProjectId(
                                     dependencyName,
-                                    "Metalama" ),
+                                    _projectName ),
                         "caravela04",
                         isVersioned,
                         debugBuildDependency,
@@ -53,7 +53,8 @@ public static partial class MetalamaDependencies
                     isVersioned ) { }
         }
 
-        public static ProductFamily Family { get; } = new( "2023.0", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_1.Family };
+        public static ProductFamily Family { get; } =
+            new( _projectName, "2023.0", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_1.Family };
 
         private static string GetDevBranch( VcsProvider vcsProvider )
             => vcsProvider switch

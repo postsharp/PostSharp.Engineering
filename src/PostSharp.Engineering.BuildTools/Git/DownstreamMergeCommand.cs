@@ -38,9 +38,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         var sourceBranch = context.Product.DependencyDefinition.Branch;
 
-        var downstreamDependencyDefinition = downstreamProductFamily.GetDependencyDefinitionOrNull( context.Product.ProductName );
-
-        if ( downstreamDependencyDefinition == null )
+        if ( !downstreamProductFamily.TryGetDependencyDefinition( context.Product.ProductName, out var downstreamDependencyDefinition ) )
         {
             context.Console.WriteError(
                 $"The downstream version product '{context.Product.ProductName}' version '{context.Product.ProductFamily.Version}' is not configured." );
@@ -154,7 +152,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         }
 
         context.Console.WriteSuccess( $"Changes from '{sourceBranch}' missing in '{downstreamBranch}' branch have been merged in branch '{targetBranch}'." );
-        context.Console.WriteSuccess( $"Create pull request: {pullRequestUrl}" );
+        context.Console.WriteSuccess( $"Created pull request: {pullRequestUrl}" );
         context.Console.WriteSuccess( $"Scheduled build: {buildUrl}" );
 
         return true;
