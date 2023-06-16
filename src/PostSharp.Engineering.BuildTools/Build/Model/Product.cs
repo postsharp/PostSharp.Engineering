@@ -20,6 +20,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
@@ -2151,15 +2152,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             
             // This is to consider only version bumps from the current release. (E.g. 2023.1)
             // Downstream merge would otherwise break the logic and version bump would be skipped.
-            var versionBumpLogComment = $"<<VERSION_BUMP>> {context.Product.DependencyDefinition.ProductFamily.Version}";
-            
+            var familyVersion = context.Product.DependencyDefinition.ProductFamily.Version;
+            var versionBumpLogCommentRegex = new Regex( $"^<<VERSION_BUMP>> (?<from>unknown|{familyVersion}.\\d+) to (?<to>{familyVersion}.\\d+)$" );
+
             var lastVersionDump = gitLog.Select( ( s, i ) => (Log: s, LineNumber: i) )
-                .FirstOrDefault( s => s.Log.Contains( versionBumpLogComment, StringComparison.OrdinalIgnoreCase ) );
+                .FirstOrDefault( s => versionBumpLogCommentRegex.IsMatch( s.Log.Split( ' ', 2, StringSplitOptions.TrimEntries )[1] ) );
 
             hasBumpSinceLastDeployment = lastVersionDump.Log != null;
 
             // Get count of commits since last deployment excluding version bumps and check if there are any changes.
-            if ( !GitHelper.TryGetCommitsCount( context, lastTag, "HEAD", out var commitsSinceLastTag, $"--invert-grep --grep=\"{versionBumpLogComment}\"" ) )
+            // The --perl-regexp makes the --grep work with C# regexes. There are some differences though, so always test all cases. 
+            if ( !GitHelper.TryGetCommitsCount( context, lastTag, "HEAD", out var commitsSinceLastTag, $"--invert-grep --perl-regexp --grep=\"{versionBumpLogCommentRegex}\"" ) )
             {
                 hasBumpSinceLastDeployment = false;
                 hasChangesSinceLastDeployment = false;
