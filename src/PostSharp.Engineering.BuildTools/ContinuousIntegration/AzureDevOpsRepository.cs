@@ -39,7 +39,7 @@ public class AzureDevOpsRepository : VcsRepository
 
     public override string TeamCityRemoteUrl => this.HttpUrl;
 
-    public override bool SshAgentRequired => false;
+    public override bool IsSshAgentRequired => false;
 
     public AzureDevOpsRepository( string project, string name, string organisation = "postsharp", string domain = "dev.azure.com" )
     {

@@ -29,7 +29,7 @@ public class GitHubRepository : VcsRepository
 
     public override string TeamCityRemoteUrl => this.SshUrl;
     
-    public override bool SshAgentRequired => true;
+    public override bool IsSshAgentRequired => true;
 
     public GitHubRepository( string name, string owner = "postsharp" )
     {

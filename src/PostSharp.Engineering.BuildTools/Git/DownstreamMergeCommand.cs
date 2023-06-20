@@ -41,7 +41,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         if ( !downstreamProductFamily.TryGetDependencyDefinition( context.Product.ProductName, out var downstreamDependencyDefinition ) )
         {
             context.Console.WriteError(
-                $"The downstream version product '{context.Product.ProductName}' version '{context.Product.ProductFamily.Version}' is not configured." );
+                $"The '{context.Product.ProductName}' downstream product version '{downstreamProductFamily.Version}' is not configured." );
 
             return false;
         }
@@ -164,7 +164,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
     private static bool TryMerge(
         BuildContext context,
-        DownstreamMergeSettings settings,
+        BaseBuildSettings settings,
         string sourceBranch,
         string targetBranch,
         string downstreamBranch,
@@ -181,33 +181,12 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         context.Console.WriteImportantMessage( "Checking the merged files for those we want to keep own." );
         
-        if ( !GitHelper.TryGetStatus( context, settings, context.RepoDirectory, out var statuses ) )
+        if ( !GitHelper.TryGetStatus( context, context.RepoDirectory, out var statuses ) )
         {
             return false;
         }
 
-        if ( statuses.Length == 0 )
-        {
-            // If there is nothing to merge at this point, we check if the target branch contains some commits
-            // from previous run of the command or from another source.
-            // (Eg. developers handling downstream merge conflicts manually.)
-            
-            if ( !GitHelper.TryGetCommitsCount( context, downstreamBranch, "HEAD", out var commitsCount ) )
-            {
-                return false;
-            }
-
-            if ( commitsCount < 0 )
-            {
-                throw new InvalidOperationException( $"Invalid commits count: {commitsCount}" );
-            }
-
-            if ( commitsCount == 0 )
-            {
-                return true;
-            }
-        }
-        else if ( statuses.Length > 0 )
+        if ( statuses.Length > 0 )
         {
             // We don't merge these files downstream as they are specific to the product family version.
             var filesToKeepOwn = new HashSet<string>();
@@ -246,6 +225,27 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
                     $"Merge conflicts need to be resolved manually. Merge '{sourceBranch}' branch to '{targetBranch}' branch. Then create a pull request to '{downstreamBranch}' branch or execute this command again." );
 
                 return false;
+            }
+        }
+        else
+        {
+            // If there is nothing to merge at this point, we check if the target branch contains some commits
+            // from previous run of the command or from another source.
+            // (Eg. developers handling downstream merge conflicts manually.)
+            
+            if ( !GitHelper.TryGetCommitsCount( context, downstreamBranch, "HEAD", out var commitsCount ) )
+            {
+                return false;
+            }
+
+            if ( commitsCount < 0 )
+            {
+                throw new InvalidOperationException( $"Invalid commits count: {commitsCount}" );
+            }
+
+            if ( commitsCount == 0 )
+            {
+                return true;
             }
         }
 

@@ -25,6 +25,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public bool IsDeployment { get; init; }
 
+        public bool IsSshAgentRequired { get; set; }
+
         public string? ArtifactRules { get; init; }
 
         public string[]? AdditionalArtifactRules { get; init; }
@@ -32,6 +34,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         public IBuildTrigger[]? BuildTriggers { get; init; }
 
         public TeamCitySnapshotDependency[]? Dependencies { get; init; }
+
+        public bool RequiresUpstreamCheck { get; init; }
         
         public TimeSpan? MaxBuildDuration { get; init; }
 
@@ -109,6 +113,19 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         }}" );
             }
 
+            if ( this.RequiresUpstreamCheck )
+            {
+                writer.WriteLine(
+                    $@"        powerShell {{
+            name = ""Check pending upstream changes""
+            scriptMode = file {{
+                path = ""Build.ps1""
+            }}
+            noProfile = false
+            param(""jetbrains_powershell_scriptArguments"", ""tools git check-upstream"")
+        }}" );
+            }
+            
             writer.WriteLine(
                 $@"        powerShell {{
             name = ""{this.Name}""
@@ -141,8 +158,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             verbose = true
         }}" );
 
-            // The SSH agent is added only for the Deployment and only if TeamCity uses SSH for Git operations over the product VCS repository.
-            if ( this.IsDeployment && this.Product.DependencyDefinition.VcsRepository.SshAgentRequired )
+            if ( (this.RequiresUpstreamCheck || this.IsSshAgentRequired)
+                 && this.Product.DependencyDefinition.VcsRepository.IsSshAgentRequired )
             {
                 writer.WriteLine(
                     $@"        sshAgent {{

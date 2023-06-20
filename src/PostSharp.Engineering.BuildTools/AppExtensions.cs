@@ -69,10 +69,6 @@ namespace PostSharp.Engineering.BuildTools
                                 .WithDescription( "Bumps the version of this product" );
                         }
 
-                        root.AddCommand<DownstreamMergeCommand>( "merge-downstream" )
-                            .WithData( product )
-                            .WithDescription( "Merges the code to the subsequent development branch." );
-
                         root.AddBranch(
                             "dependencies",
                             dependencies =>
@@ -167,9 +163,20 @@ namespace PostSharp.Engineering.BuildTools
 
                                 tools.AddBranch(
                                     "git",
-                                    git => git.AddCommand<GitBulkRenameCommand>( "rename" )
-                                        .WithDescription( "Renames all files and directories recursively preserving GIT history." )
-                                        .WithExample( new[] { @"""C:\src\Caravela.Compiler""", @"""Caravela""", @"""Metalama""" } ) );
+                                    git =>
+                                    {
+                                        git.AddCommand<GitBulkRenameCommand>( "rename" )
+                                            .WithDescription( "Renames all files and directories recursively preserving GIT history." )
+                                            .WithExample( new[] { @"""C:\src\Caravela.Compiler""", @"""Caravela""", @"""Metalama""" } );
+                                        
+                                        git.AddCommand<DownstreamMergeCommand>( "merge-downstream" )
+                                            .WithData( product )
+                                            .WithDescription( "Merges the code to the subsequent development branch." );
+
+                                        git.AddCommand<UpstreamCheckCommand>( "check-upstream" )
+                                            .WithData( product )
+                                            .WithDescription( "Checks the upstream product versions for unmerged changes." );
+                                    } );
 
                                 tools.AddBranch(
                                     "xmldoc",

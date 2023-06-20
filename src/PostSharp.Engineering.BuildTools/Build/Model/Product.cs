@@ -129,7 +129,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     MSBuildName: "Release",
                     RequiresSigning: true,
                     PublicPublishers: DefaultPublicPublishers.ToArray(),
-                    ExportsToTeamCityDeploy: true ) );
+                    ExportsToTeamCityDeploy: true,
+                    RequiresUpstreamCheck: true ) );
 
         public ImmutableArray<string> DefaultArtifactRules { get; } =
             ImmutableArray.Create(
@@ -1914,6 +1915,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     AdditionalArtifactRules = additionalArtifactRules.ToArray(),
                     BuildTriggers = configurationInfo.BuildTriggers,
                     Dependencies = buildDependencies,
+                    RequiresUpstreamCheck = configurationInfo.RequiresUpstreamCheck,
                     MaxBuildDuration = configurationInfo.MaxBuildDuration ?? this.MaxBuildDuration
                 };
 
@@ -1941,6 +1943,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                         .Where( d => d.GenerateSnapshotDependency )
                                         .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DeploymentBuildType, true ) ) )
                                 .ToArray(),
+                            IsSshAgentRequired = true,
                             MaxBuildDuration = configurationInfo.MaxDeploymentDuration ?? this.MaxDeploymentDuration
                         };
 
@@ -1960,6 +1963,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             Dependencies = buildDependencies.Where( d => d.ArtifactsRules != null )
                                 .Concat( new[] { new TeamCitySnapshotDependency( buildTeamCityConfiguration.ObjectName, false, artifactRules ) } )
                                 .ToArray(),
+                            IsSshAgentRequired = true,
                             MaxBuildDuration = configurationInfo.MaxDeploymentDuration ?? this.MaxDeploymentDuration
                         };
 
@@ -2008,6 +2012,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             buildArguments: $"bump",
                             buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
                         {
+                            IsSshAgentRequired = true,
                             MaxBuildDuration = this.MaxVersionBumpDuration
                         } );
                 }
@@ -2021,11 +2026,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         this,
                         "DownstreamMerge",
                         "Downstream Merge",
-                        "merge-downstream",
+                        "tools git merge-downstream",
                         this.DependencyDefinition.CiConfiguration.BuildAgentType )
                     {
                         Dependencies = new[] { new TeamCitySnapshotDependency( "DebugBuild", false ) },
                         BuildTriggers = new IBuildTrigger[] { new SourceBuildTrigger() },
+                        IsSshAgentRequired = true,
                         MaxBuildDuration = this.MaxDownstreamMergeDuration
                     } );
             }
@@ -2086,11 +2092,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             lastTagVersion = null;
 
             // Fetch remote for tags and commits to make sure we have the full history to compare tags against.
-            if ( !ToolInvocationHelper.InvokeTool(
-                    context.Console,
-                    "git",
-                    "fetch",
-                    context.RepoDirectory ) )
+            if ( !GitHelper.TryFetch( context, null, out _ ) )
             {
                 hasBumpSinceLastDeployment = false;
                 hasChangesSinceLastDeployment = false;

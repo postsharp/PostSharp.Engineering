@@ -38,6 +38,7 @@ public record BuildConfigurationInfo(
     bool ExportsToTeamCityBuild = true,
     bool ExportsToTeamCityDeploy = true,
     bool ExportsToTeamCityDeployWithoutDependencies = false,
+    bool RequiresUpstreamCheck = false,
     TimeSpan? MaxBuildDuration = null,
     TimeSpan? MaxDeploymentDuration = null,
     TimeSpan? MaxSwapDuration = null );

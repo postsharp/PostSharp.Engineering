@@ -26,11 +26,11 @@ internal static class GitHelper
         return true;
     }
 
-    public static bool TryCheckoutAndPull( BuildContext context, string branch, out bool remoteNotFound )
+    public static bool TryFetch( BuildContext context, string? branch, out bool remoteNotFound )
     {
         remoteNotFound = false;
         
-        if ( !TryAddOrigin( context, branch ) )
+        if ( branch != null && !TryAddOrigin( context, branch ) )
         {
             return false;
         }
@@ -43,7 +43,9 @@ internal static class GitHelper
                 out var fetchExitCode,
                 out var fetchOutput ) )
         {
-            remoteNotFound = fetchExitCode == 128 && fetchOutput.Trim().Equals( $"fatal: couldn't find remote ref refs/heads/{branch}", StringComparison.Ordinal );
+            remoteNotFound = branch != null
+                             && fetchExitCode == 128
+                             && fetchOutput.Trim().Equals( $"fatal: couldn't find remote ref refs/heads/{branch}", StringComparison.Ordinal );
 
             if ( remoteNotFound )
             {
@@ -54,6 +56,16 @@ internal static class GitHelper
                 context.Console.WriteError( fetchOutput );
             }
 
+            return false;
+        }
+
+        return true;
+    }
+
+    public static bool TryCheckoutAndPull( BuildContext context, string branch, out bool remoteNotFound )
+    {
+        if ( !TryFetch( context, branch, out remoteNotFound ) )
+        {
             return false;
         }
 
@@ -168,6 +180,33 @@ internal static class GitHelper
 
         return true;
     }
+    
+    public static bool TryGetRemoteBranchesCount( BuildContext context, BaseBuildSettings settings, string filter, out int count )
+    {
+        count = -1;
+        
+        if ( !TryGetOriginUrl( context, settings, out var originUrl ) )
+        {
+            return false;
+        }
+        
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                $"ls-remote {originUrl} {filter}",
+                context.RepoDirectory,
+                out _,
+                out var output ) )
+        {
+            context.Console.WriteError( output );
+
+            return false;
+        }
+
+        count = output.Split( "\n", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries ).Length;
+
+        return true;
+    }
 
     public static bool TryCommitAll( BuildContext context, string message )
     {
@@ -270,9 +309,10 @@ internal static class GitHelper
         return true;
     }
 
-    public static bool TryPush( BuildContext context, BaseBuildSettings settings )
+    private static bool TryGetOriginUrl( BuildContext context, BaseBuildSettings settings, [NotNullWhen( true )] out string? url )
     {
-        // Returns the remote origin.
+        url = null;
+
         ToolInvocationHelper.InvokeTool(
             context.Console,
             "git",
@@ -288,9 +328,9 @@ internal static class GitHelper
             return false;
         }
 
-        var gitOrigin = gitOutput.Trim();
+        url = gitOutput.Trim();
 
-        var isHttps = gitOrigin.StartsWith( "https", StringComparison.InvariantCulture );
+        var isHttps = url.StartsWith( "https", StringComparison.InvariantCulture );
 
         // When on TeamCity, origin will be updated to form including Git authentication credentials.
         if ( isHttps && TeamCityHelper.IsTeamCityBuild( settings ) )
@@ -304,15 +344,25 @@ internal static class GitHelper
             }
             else
             {
-                gitOrigin = gitOrigin.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
+                url = url.Insert( 8, $"teamcity%40postsharp.net:{teamcitySourceCodeWritingToken}@" );
             }
+        }
+
+        return true;
+    }
+
+    public static bool TryPush( BuildContext context, BaseBuildSettings settings )
+    {
+        if ( !TryGetOriginUrl( context, settings, out var originUrl ) )
+        {
+            return false;
         }
 
         // Push completed merge operation to remote.
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"push {gitOrigin}",
+                $"push {originUrl}",
                 context.RepoDirectory ) )
         {
             return false;
@@ -321,7 +371,7 @@ internal static class GitHelper
         return true;
     }
 
-    public static bool TryGetStatus( BuildContext context, CommonCommandSettings settings, string repo, [NotNullWhen( true )] out string[]? status )
+    public static bool TryGetStatus( BuildContext context, string repo, [NotNullWhen( true )] out string[]? status )
     {
         if ( !ToolInvocationHelper.InvokeTool(
                  context.Console,
@@ -348,7 +398,7 @@ internal static class GitHelper
     {
         if ( !settings.Force )
         {
-            if ( !TryGetStatus( context, settings, repo, out var status ) )
+            if ( !TryGetStatus( context, repo, out var status ) )
             {
                 return false;
             }

@@ -24,7 +24,7 @@ public abstract class VcsRepository
     /// </summary>
     public abstract string TeamCityRemoteUrl { get; }
     
-    public abstract bool SshAgentRequired { get; }
+    public abstract bool IsSshAgentRequired { get; }
     
     public abstract string DownloadTextFile( string branch, string path );
 

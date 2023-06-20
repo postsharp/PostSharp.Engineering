@@ -23,10 +23,24 @@ public class ProductFamily
 
     public string VersionWithoutDots { get; }
     
+    public ProductFamily? UpstreamProductFamily { get; init; }
+    
     public ProductFamily? DownstreamProductFamily { get; init; }
 
     public ProductFamily( string name, string version, params ProductFamily[] relativeFamilies )
     {
+        if ( this.DownstreamProductFamily != null && this.DownstreamProductFamily.UpstreamProductFamily != this )
+        {
+            throw new InvalidOperationException(
+                $"'{this}' product family has '{this.DownstreamProductFamily}' product family se as downstream, but is not set as its upstream." );
+        }
+        
+        if ( this.UpstreamProductFamily != null && this.UpstreamProductFamily.DownstreamProductFamily != this )
+        {
+            throw new InvalidOperationException(
+                $"'{this}' product family has '{this.UpstreamProductFamily}' product family se as upstream, but is not set as its downstream." );
+        }
+        
         this.Name = name;
         this.Version = version;
         this.VersionWithoutDots = this.Version.Replace( ".", "", StringComparison.Ordinal );
