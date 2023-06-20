@@ -39,6 +39,6 @@ public record BuildConfigurationInfo(
     bool ExportsToTeamCityDeploy = true,
     bool ExportsToTeamCityDeployWithoutDependencies = false,
     bool RequiresUpstreamCheck = false,
-    TimeSpan? MaxBuildDuration = null,
-    TimeSpan? MaxDeploymentDuration = null,
-    TimeSpan? MaxSwapDuration = null );
+    TimeSpan? BuildTimeOutThreshold = null,
+    TimeSpan? DeploymentTimeOutThreshold = null,
+    TimeSpan? SwapTimeOutThreshold = null );

@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build.Model;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -37,7 +38,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public bool RequiresUpstreamCheck { get; init; }
         
-        public TimeSpan? MaxBuildDuration { get; init; }
+        public TimeSpan BuildTimeOutThreshold { get; init; }
 
         public TeamCityBuildConfiguration( Product product, string objectName, string name, string buildArguments, string buildAgentType )
         {
@@ -50,14 +51,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public void GenerateTeamcityCode( TextWriter writer )
         {
-            var buildTimeOutThreshold = this.MaxBuildDuration ?? TimeSpan.FromMinutes( 5 );
-
-            var buildTimeOutBase = this.MaxBuildDuration != null
-                ? "value()"
-                : @"build {
-                buildRule = lastSuccessful()
-            }";
-            
             writer.WriteLine(
                 $@"object {this.ObjectName} : BuildType({{
 
@@ -84,6 +77,26 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 writer.WriteLine();
             }
 
+            var parameters = new List<string>
+            {
+                @"        text(""BuildArguments"", """", label = ""Build Arguments"", description = ""Arguments to append to the engineering command."", allowEmpty = true)"
+            };
+
+            if ( this.RequiresUpstreamCheck )
+            {
+                parameters.Add(
+                    @"        text(""UpstreamCheckArguments"", """", label = ""Upstream Check Arguments"", description = ""Arguments to append to the upstream check command."", allowEmpty = true)" );
+            }
+
+            parameters.Add(
+                @$"        text(""TimeOut"", ""{(int) this.BuildTimeOutThreshold.TotalSeconds}"", label = ""Time-Out Threshold"", description = ""Seconds after the duration of the last successful build."",
+              regex = """"""\d+"""""", validationMessage = ""The timeout has to be an integer number."")" );
+            
+            writer.WriteLine(
+                $@"    params {{
+{string.Join( Environment.NewLine, parameters )}
+    }}" );
+            
             writer.WriteLine(
                 $@"    vcs {{
         root(DslContext.settingsRoot)" );
@@ -122,7 +135,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 path = ""Build.ps1""
             }}
             noProfile = false
-            param(""jetbrains_powershell_scriptArguments"", ""tools git check-upstream"")
+            param(""jetbrains_powershell_scriptArguments"", ""tools git check-upstream %UpstreamCheckArguments%"")
         }}" );
             }
             
@@ -133,18 +146,20 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 path = ""Build.ps1""
             }}
             noProfile = false
-            param(""jetbrains_powershell_scriptArguments"", ""{this.BuildArguments}"")
+            param(""jetbrains_powershell_scriptArguments"", ""{this.BuildArguments} %BuildArguments%"")
         }}
     }}
 
     failureConditions {{
         failOnMetricChange {{
             metric = BuildFailureOnMetric.MetricType.BUILD_DURATION
-            threshold = {buildTimeOutThreshold.TotalSeconds}
             units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
             comparison = BuildFailureOnMetric.MetricComparison.MORE
-            compareTo = {buildTimeOutBase}
+            compareTo = build {{
+                buildRule = lastSuccessful()
+            }}
             stopBuildOnFailure = true
+            param(""metricThreshold"", ""%TimeOut%"")
         }}
     }}
 

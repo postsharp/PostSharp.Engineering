@@ -99,15 +99,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
         
-        public TimeSpan? MaxBuildDuration { get; init; }
+        public TimeSpan BuildTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
         
-        public TimeSpan? MaxDeploymentDuration { get; init; }
+        public TimeSpan DeploymentTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
         
-        public TimeSpan? MaxSwapDuration { get; init; }
-        
-        public TimeSpan? MaxVersionBumpDuration { get; init; }
-        
-        public TimeSpan? MaxDownstreamMergeDuration { get; init; }
+        public TimeSpan SwapTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
+
+        public TimeSpan VersionBumpTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
+
+        public TimeSpan DownstreamMergeTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
         
         public static ImmutableArray<Publisher> DefaultPublicPublishers { get; }
             = ImmutableArray.Create(
@@ -1916,7 +1916,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     BuildTriggers = configurationInfo.BuildTriggers,
                     Dependencies = buildDependencies,
                     RequiresUpstreamCheck = configurationInfo.RequiresUpstreamCheck,
-                    MaxBuildDuration = configurationInfo.MaxBuildDuration ?? this.MaxBuildDuration
+                    BuildTimeOutThreshold = configurationInfo.BuildTimeOutThreshold ?? this.BuildTimeOutThreshold
                 };
 
                 teamCityBuildConfigurations.Add( buildTeamCityConfiguration );
@@ -1944,7 +1944,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                         .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DeploymentBuildType, true ) ) )
                                 .ToArray(),
                             IsSshAgentRequired = true,
-                            MaxBuildDuration = configurationInfo.MaxDeploymentDuration ?? this.MaxDeploymentDuration
+                            BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? this.DeploymentTimeOutThreshold
                         };
 
                         teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -1964,7 +1964,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                 .Concat( new[] { new TeamCitySnapshotDependency( buildTeamCityConfiguration.ObjectName, false, artifactRules ) } )
                                 .ToArray(),
                             IsSshAgentRequired = true,
-                            MaxBuildDuration = configurationInfo.MaxDeploymentDuration ?? this.MaxDeploymentDuration
+                            BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? this.DeploymentTimeOutThreshold
                         };
 
                         teamCityBuildConfigurations.Add( teamCityDeploymentConfiguration );
@@ -1992,7 +1992,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         {
                             IsDeployment = true,
                             Dependencies = swapDependencies.ToArray(),
-                            MaxBuildDuration = configurationInfo.MaxSwapDuration ?? this.MaxSwapDuration
+                            BuildTimeOutThreshold = configurationInfo.SwapTimeOutThreshold ?? this.SwapTimeOutThreshold
                         } );
                 }
             }
@@ -2013,7 +2013,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
                         {
                             IsSshAgentRequired = true,
-                            MaxBuildDuration = this.MaxVersionBumpDuration
+                            BuildTimeOutThreshold = this.VersionBumpTimeOutThreshold
                         } );
                 }
             }
@@ -2032,7 +2032,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         Dependencies = new[] { new TeamCitySnapshotDependency( "DebugBuild", false ) },
                         BuildTriggers = new IBuildTrigger[] { new SourceBuildTrigger() },
                         IsSshAgentRequired = true,
-                        MaxBuildDuration = this.MaxDownstreamMergeDuration
+                        BuildTimeOutThreshold = this.DownstreamMergeTimeOutThreshold
                     } );
             }
 
