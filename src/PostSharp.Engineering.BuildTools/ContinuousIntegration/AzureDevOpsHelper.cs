@@ -3,10 +3,21 @@
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Net.Mime;
+using System.Reflection;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
@@ -88,7 +99,7 @@ public static class AzureDevOpsHelper
                     createdPullRequest.PullRequestId );
 
                 var url = $"{repository.BaseUrl}/{repository.Project}/_git/{repository.Name}/pullrequest/{createdPullRequest.PullRequestId}";
-                
+
                 return url;
             }
         }
@@ -98,5 +109,148 @@ public static class AzureDevOpsHelper
 
             return null;
         }
+    }
+
+    public static bool TrySetBranchPolicies( BuildContext context, AzureDevOpsRepository azureDevOpsRepository, bool dry )
+    {
+        // Error message "The update is rejected by policy." usually means that a policy already exists.
+
+        var buildId = context.Product.DependencyDefinition.CiConfiguration.BuildTypes.Debug;
+
+        var repository = azureDevOpsRepository.Name;
+        var org = azureDevOpsRepository.BaseUrl;
+        var project = azureDevOpsRepository.Project;
+        var projectIdArgs = $"--org {org} --project {project}";
+
+        if ( string.IsNullOrEmpty( buildId ) )
+        {
+            context.Console.WriteError( "Unknown TeamCity build ID." );
+
+            return false;
+        }
+
+        context.Console.WriteMessage( "Fetching repository ID." );
+
+        if ( !AzHelper.Query(
+                context.Console,
+                $"repos show --repository {repository} {projectIdArgs}",
+                dry,
+                out var repositoryJson ) )
+        {
+            return false;
+        }
+
+        var repositoryId = dry ? Guid.Empty : JsonDocument.Parse( repositoryJson ).RootElement.GetProperty( "id" ).GetGuid();
+        var repositoryIdArgs = $"{projectIdArgs} --repository-id {repositoryId}";
+
+        string GetCommonArgs( string branch )
+        {
+            var branchIdArgs = $"{repositoryIdArgs} --branch {branch} --branch-match-type exact";
+
+            return $"{branchIdArgs} --blocking true --enabled true";
+        }
+
+        var branch = context.Product.DependencyDefinition.Branch;
+        var commonArgs = GetCommonArgs( branch );
+
+        bool TryRequireApproversAndCommentResolution()
+        {
+            context.Console.WriteMessage( $"Requiring approvers for '{branch}' branch." );
+
+            if ( !AzHelper.Run(
+                    context.Console,
+                    $"repos policy approver-count create {commonArgs} --allow-downvotes false --creator-vote-counts true --minimum-approver-count 1 --reset-on-source-push false",
+                    dry ) )
+            {
+                return false;
+            }
+
+            context.Console.WriteMessage( $"Requiring comment resolution for '{branch}' branch." );
+
+            if ( !AzHelper.Run( context.Console, $"repos policy comment-required create {commonArgs}", dry ) )
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        if ( !TryRequireApproversAndCommentResolution() )
+        {
+            return false;
+        }
+
+        context.Console.WriteMessage( $"Requiring success status for '{branch}' branch." );
+
+        // This is not covered by "az repos policy" command. https://github.com/Azure/azure-devops-cli-extension/issues/1040
+        var statusCheckPayload = $@"{{
+  ""isBlocking"": true,
+  ""isEnabled"": true,
+  ""settings"": {{
+    ""authorId"": null,
+    ""defaultDisplayName"": ""Build [Debug]"",
+    ""invalidateOnSourceUpdate"": true,
+    ""policyApplicability"": null,
+    ""scope"": [
+      {{
+        ""matchKind"": ""Exact"",
+        ""refName"": ""refs/heads/{branch}"",
+        ""repositoryId"": ""{repositoryId}""
+      }}
+    ],
+    ""statusGenre"": ""TeamCity"",
+    ""statusName"": ""{buildId}""
+  }},
+  ""type"": {{
+    ""displayName"": ""Status"",
+    ""id"": ""cbdc66da-9728-4af8-aada-9a5a32e4a226""
+  }}
+}}";
+
+        var statusCheckPayloadFile = Path.GetTempFileName();
+
+        try
+        {
+            File.WriteAllText( statusCheckPayloadFile, statusCheckPayload );
+
+            if ( !AzHelper.Run( context.Console, $"repos policy create {projectIdArgs} --config {statusCheckPayloadFile}", dry ) )
+            {
+                return false;
+            }
+        }
+        finally
+        {
+            File.Delete( statusCheckPayloadFile );
+        }
+
+        if ( context.Product.DependencyDefinition.ReleaseBranch != null )
+        {
+            var developBranch = branch;
+            branch = context.Product.DependencyDefinition.ReleaseBranch;
+            commonArgs = GetCommonArgs( branch );
+
+            if ( !TryRequireApproversAndCommentResolution() )
+            {
+                return false;
+            }
+
+            context.Console.WriteMessage( $"Requiring reviewers for '{branch}' branch." );
+
+            var message =
+                $"\"TeamCity is a required reviewer because only automated merges during publishing are allowed to a release branch. For development, use '{developBranch}' branch as a target branch of your PR.\"";
+
+            var options = new ToolInvocationOptions( new Dictionary<string, string?> { { "ReviewerMessage", message } }.ToImmutableDictionary() );
+
+            if ( !AzHelper.Run(
+                    context.Console,
+                    $"repos policy required-reviewer create {commonArgs} --message %ReviewerMessage% --required-reviewer-ids teamcity@postsharp.net",
+                    dry,
+                    options ) )
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

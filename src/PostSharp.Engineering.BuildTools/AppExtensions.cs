@@ -176,6 +176,11 @@ namespace PostSharp.Engineering.BuildTools
                                         git.AddCommand<UpstreamCheckCommand>( "check-upstream" )
                                             .WithData( product )
                                             .WithDescription( "Checks the upstream product versions for unmerged changes." );
+
+                                        git.AddCommand<SetBranchPoliciesCommand>( "set-branch-policies" )
+                                            .WithData( product )
+                                            .WithDescription(
+                                                "Sets the branch policies of the development and release branch of the current product version." );
                                     } );
 
                                 tools.AddBranch(

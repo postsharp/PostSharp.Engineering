@@ -113,7 +113,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
         }
 
-        public static bool Run( ConsoleHelper console, string args, bool dry )
+        public static bool Run( ConsoleHelper console, string args, bool dry, ToolInvocationOptions? options = null )
         {
             if ( !Login( console, dry ) )
             {
@@ -133,7 +133,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
             else
             {
-                return ToolInvocationHelper.InvokeTool( console, _exe, cmdArgs, Environment.CurrentDirectory );
+                return ToolInvocationHelper.InvokeTool( console, _exe, cmdArgs, Environment.CurrentDirectory, options: options );
             }
         }
     }
