@@ -2008,7 +2008,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             buildArguments: $"bump",
                             buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
                         {
-                            IsDeployment = true, MaxBuildDuration = this.MaxVersionBumpDuration
+                            MaxBuildDuration = this.MaxVersionBumpDuration
                         } );
                 }
             }
@@ -2024,7 +2024,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         "merge-downstream",
                         this.DependencyDefinition.CiConfiguration.BuildAgentType )
                     {
-                        IsDeployment = true,
                         Dependencies = new[] { new TeamCitySnapshotDependency( "DebugBuild", false ) },
                         BuildTriggers = new IBuildTrigger[] { new SourceBuildTrigger() },
                         MaxBuildDuration = this.MaxDownstreamMergeDuration

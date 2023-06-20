@@ -26,8 +26,10 @@ internal static class GitHelper
         return true;
     }
 
-    public static bool TryCheckoutAndPull( BuildContext context, string branch )
+    public static bool TryCheckoutAndPull( BuildContext context, string branch, out bool remoteNotFound )
     {
+        remoteNotFound = false;
+        
         if ( !TryAddOrigin( context, branch ) )
         {
             return false;
@@ -37,8 +39,21 @@ internal static class GitHelper
                 context.Console,
                 "git",
                 $"fetch",
-                context.RepoDirectory ) )
+                context.RepoDirectory,
+                out var fetchExitCode,
+                out var fetchOutput ) )
         {
+            remoteNotFound = fetchExitCode == 128 && fetchOutput.Trim().Equals( $"fatal: couldn't find remote ref refs/heads/{branch}", StringComparison.Ordinal );
+
+            if ( remoteNotFound )
+            {
+                context.Console.WriteMessage( fetchOutput );
+            }
+            else
+            {
+                context.Console.WriteError( fetchOutput );
+            }
+
             return false;
         }
 

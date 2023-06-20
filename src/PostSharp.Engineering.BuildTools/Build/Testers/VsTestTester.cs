@@ -62,8 +62,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Testers
                 }
                 else
                 {
-                    context.Console.WriteMessage( $"{exe} {args}" );
-
                     return ToolInvocationHelper.InvokeTool(
                         context.Console,
                         exe,

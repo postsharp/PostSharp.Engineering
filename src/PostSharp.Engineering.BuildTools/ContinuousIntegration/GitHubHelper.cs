@@ -2,9 +2,9 @@
 
 using Octokit;
 using Octokit.GraphQL;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using PullRequestMergeMethod = Octokit.GraphQL.Model.PullRequestMergeMethod;
@@ -13,13 +13,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 public static class GitHubHelper
 {
+    private const string _tokenEnvironmentVariableName = "GITHUB_TOKEN";
+    private const string _reviewerTokenEnvironmentVariableName = "GITHUB_REVIEWER_TOKEN";
     private const string _productHeaderName = "PostSharp.Engineering";
-    private static readonly string _productHeaderVersion = typeof(GitHubHelper).Assembly.GetName().Version!.ToString(); 
-    
-    private static bool TryGetToken( ConsoleHelper console, [NotNullWhen( true )] out string? token )
-    {
-        const string tokenEnvironmentVariableName = "GITHUB_TOKEN";
+    private static readonly string _productHeaderVersion = typeof(GitHubHelper).Assembly.GetName().Version!.ToString();
 
+    private static bool TryGetToken( ConsoleHelper console, [NotNullWhen( true )] out string? token, string tokenEnvironmentVariableName = _tokenEnvironmentVariableName )
+    {
         token = Environment.GetEnvironmentVariable( tokenEnvironmentVariableName );
 
         if ( string.IsNullOrEmpty( token ) )
@@ -33,17 +33,20 @@ public static class GitHubHelper
         return true;
     }
 
-    private static bool TryConnectRestApi( ConsoleHelper console, [NotNullWhen( true )] out GitHubClient? client )
+    private static GitHubClient ConnectRestApi( string token )
+        => new( new Octokit.ProductHeaderValue( _productHeaderName, _productHeaderVersion ) ) { Credentials = new Credentials( token ) };
+
+    private static bool TryConnectRestApi( ConsoleHelper console, [NotNullWhen( true )] out GitHubClient? client, string tokenEnvironmentVariableName = _tokenEnvironmentVariableName )
     {
-        if ( !TryGetToken( console, out var token ) )
+        if ( !TryGetToken( console, out var token, tokenEnvironmentVariableName ) )
         {
             client = null;
 
             return false;
         }
 
-        client = new( new Octokit.ProductHeaderValue( _productHeaderName, _productHeaderVersion ) ) { Credentials = new Credentials( token ) };
-
+        client = ConnectRestApi( token );
+        
         return true;
     }
 
@@ -61,14 +64,35 @@ public static class GitHubHelper
         return true;
     }
 
-    public static async Task<string?> TryCreatePullRequest(
+    public static async Task<string?> TryCreatePullRequestAsync(
         ConsoleHelper console,
         GitHubRepository repository,
         string sourceBranch,
         string targetBranch,
         string title )
     {
-        if ( !TryConnectRestApi( console, out var gitHub ) )
+        bool TryConnectRestApis( [NotNullWhen( true )] out GitHubClient? c, [NotNullWhen( true )] out GitHubClient? r )
+        {
+            c = null;
+            r = null;
+            
+            if ( !TryGetToken( console, out var creatorToken ) )
+            {
+                return false;
+            }
+            
+            if ( !TryGetToken( console, out var reviewerToken, _reviewerTokenEnvironmentVariableName ) )
+            {
+                return false;
+            }
+
+            c = ConnectRestApi( creatorToken );
+            r = creatorToken == reviewerToken ? c : ConnectRestApi( reviewerToken );
+
+            return true;
+        }
+
+        if ( !TryConnectRestApis( out var creatorGitHub, out var reviewerGitHub ) )
         {
             return null;
         }
@@ -80,7 +104,21 @@ public static class GitHubHelper
 
         console.WriteMessage( "Creating pull request." );
         var newPullRequest = new NewPullRequest( title, sourceBranch, targetBranch );
-        var pullRequest = await gitHub.PullRequest.Create( repository.Owner, repository.Name, newPullRequest );
+        var pullRequest = await creatorGitHub.PullRequest.Create( repository.Owner, repository.Name, newPullRequest );
+        console.WriteMessage( $"Pull request created: {pullRequest.Url}" );
+
+        // A pull request cannot be self-reviewed on GitHub.
+        // https://github.com/orgs/community/discussions/6292
+        var reviewerLogin = reviewerGitHub.User.Current().Result.Login;
+        console.WriteMessage( $"Requesting a review of the pull request from '{reviewerLogin}' user." );
+        var reviewRequest = new PullRequestReviewRequest( new List<string> { reviewerLogin }, new List<string>() );
+        pullRequest = await reviewerGitHub.PullRequest.ReviewRequest.Create( repository.Owner, repository.Name, pullRequest.Number, reviewRequest );
+
+        console.WriteMessage( "Approving the pull request." );
+        var pullRequestApproval = new PullRequestReviewCreate { Event = PullRequestReviewEvent.Approve };
+        _ = await reviewerGitHub.PullRequest.Review.Create( repository.Owner, repository.Name, pullRequest.Number, pullRequestApproval );
+
+        console.WriteMessage( "Enabling pull request auto-merge." );
 
         var pullRequestQuery = new Query()
             .RepositoryOwner( repository.Owner )
@@ -88,8 +126,7 @@ public static class GitHubHelper
             .Select( repo => repo.PullRequest( pullRequest.Number ) )
             .Select( pr => pr.Id )
             .Compile();
-
-        console.WriteMessage( "Enabling pull request auto-merge." );
+        
         var pullRequestId = await graphQl.Run( pullRequestQuery );
 
         var authorEmail = Environment.GetEnvironmentVariable( "GITHUB_AUTHOR_EMAIL" ) ?? "teamcity@postsharp.net";

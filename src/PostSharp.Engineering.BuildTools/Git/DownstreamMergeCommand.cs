@@ -65,7 +65,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         context.Console.WriteImportantMessage( $"Pulling changes from '{downstreamBranch}' downstream branch" );
 
-        if ( !GitHelper.TryCheckoutAndPull( context, downstreamBranch ) )
+        if ( !GitHelper.TryCheckoutAndPull( context, downstreamBranch, out _ ) )
         {
             return false;
         }
@@ -96,7 +96,11 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         context.Console.WriteImportantMessage( $"Creating '{targetBranch}' target branch" );
 
         // If the targetBranch exists already, use it. Otherwise, create it.
-        if ( GitHelper.TryCheckoutAndPull( context, targetBranch ) )
+        if ( GitHelper.TryCheckoutAndPull( context, targetBranch, out var remoteNotFound ) && !remoteNotFound )
+        {
+            return false;
+        }
+        else if ( !remoteNotFound )
         {
             context.Console.WriteImportantMessage( $"The '{targetBranch}' target branch already exists. Let's use it." );
         }
@@ -288,7 +292,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         }
         else if ( GitHubRepository.TryParse( remoteUrl, out var gitHubRepository ) )
         {
-            newPullRequestTask = GitHubHelper.TryCreatePullRequest(
+            newPullRequestTask = GitHubHelper.TryCreatePullRequestAsync(
                 context.Console,
                 gitHubRepository,
                 targetBranch,
