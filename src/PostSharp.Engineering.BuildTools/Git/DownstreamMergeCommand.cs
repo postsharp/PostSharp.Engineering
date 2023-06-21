@@ -278,37 +278,37 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        var pullRequestTitle = $"Downstream merge from '{sourceBranch}' branch";
-        Task<string?> newPullRequestTask;
-
-        if ( AzureDevOpsRepository.TryParse( remoteUrl, out var azureDevOpsRepository ) )
-        {
-            newPullRequestTask = AzureDevOpsHelper.TryCreatePullRequest(
-                context.Console,
-                azureDevOpsRepository,
-                targetBranch,
-                downstreamBranch,
-                pullRequestTitle );
-        }
-        else if ( GitHubRepository.TryParse( remoteUrl, out var gitHubRepository ) )
-        {
-            newPullRequestTask = GitHubHelper.TryCreatePullRequestAsync(
-                context.Console,
-                gitHubRepository,
-                targetBranch,
-                downstreamBranch,
-                pullRequestTitle );
-        }
-        else
-        {
-            context.Console.WriteError( $"Unknown VCS or unexpected repo URL format. Repo URL: '{remoteUrl}'." );
-            pullRequestUrl = null;
-
-            return false;
-        }
-
         try
         {
+            var pullRequestTitle = $"Downstream merge from '{sourceBranch}' branch";
+            Task<string?> newPullRequestTask;
+
+            if ( AzureDevOpsRepository.TryParse( remoteUrl, out var azureDevOpsRepository ) )
+            {
+                newPullRequestTask = AzureDevOpsHelper.TryCreatePullRequest(
+                    context.Console,
+                    azureDevOpsRepository,
+                    targetBranch,
+                    downstreamBranch,
+                    pullRequestTitle );
+            }
+            else if ( GitHubRepository.TryParse( remoteUrl, out var gitHubRepository ) )
+            {
+                newPullRequestTask = GitHubHelper.TryCreatePullRequestAsync(
+                    context.Console,
+                    gitHubRepository,
+                    targetBranch,
+                    downstreamBranch,
+                    pullRequestTitle );
+            }
+            else
+            {
+                context.Console.WriteError( $"Unknown VCS or unexpected repo URL format. Repo URL: '{remoteUrl}'." );
+                pullRequestUrl = null;
+
+                return false;
+            }
+
             pullRequestUrl = newPullRequestTask.ConfigureAwait( false ).GetAwaiter().GetResult();
 
             if ( pullRequestUrl == null )

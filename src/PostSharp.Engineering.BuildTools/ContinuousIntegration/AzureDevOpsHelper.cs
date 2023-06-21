@@ -111,16 +111,11 @@ public static class AzureDevOpsHelper
         }
     }
 
-    public static bool TrySetBranchPolicies( BuildContext context, AzureDevOpsRepository azureDevOpsRepository, bool dry )
+    public static async Task<bool> TrySetBranchPoliciesAsync( BuildContext context, AzureDevOpsRepository azureDevOpsRepository, bool dry )
     {
         // Error message "The update is rejected by policy." usually means that a policy already exists.
 
         var buildId = context.Product.DependencyDefinition.CiConfiguration.BuildTypes.Debug;
-
-        var repository = azureDevOpsRepository.Name;
-        var org = azureDevOpsRepository.BaseUrl;
-        var project = azureDevOpsRepository.Project;
-        var projectIdArgs = $"--org {org} --project {project}";
 
         if ( string.IsNullOrEmpty( buildId ) )
         {
@@ -128,6 +123,11 @@ public static class AzureDevOpsHelper
 
             return false;
         }
+        
+        var repository = azureDevOpsRepository.Name;
+        var org = azureDevOpsRepository.BaseUrl;
+        var project = azureDevOpsRepository.Project;
+        var projectIdArgs = $"--org {org} --project {project}";
 
         context.Console.WriteMessage( "Fetching repository ID." );
 
@@ -251,6 +251,6 @@ public static class AzureDevOpsHelper
             }
         }
 
-        return true;
+        return await Task.FromResult( true );
     }
 }
