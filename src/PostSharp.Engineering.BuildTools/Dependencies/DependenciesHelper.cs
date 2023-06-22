@@ -55,9 +55,18 @@ public static class DependenciesHelper
             return true;
         }
 
-        if ( !TeamCityHelper.TryConnectTeamCity( context, out var tc ) )
+        TeamCityClient? tc;
+
+        if ( teamCityEmulation == null )
         {
-            return false;
+            if ( !TeamCityHelper.TryConnectTeamCity( context, out tc ) )
+            {
+                return false;
+            }
+        }
+        else
+        {
+            tc = teamCityEmulation.Value.TeamCity;
         }
 
         var iterationDependencies = dependencies.ToImmutableDictionary( d => d.Definition.Name, d => d );
