@@ -1915,7 +1915,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     AdditionalArtifactRules = additionalArtifactRules.ToArray(),
                     BuildTriggers = configurationInfo.BuildTriggers,
                     Dependencies = buildDependencies,
-                    RequiresUpstreamCheck = configurationInfo.RequiresUpstreamCheck,
+                    RequiresUpstreamCheck = configurationInfo.RequiresUpstreamCheck && this.ProductFamily.UpstreamProductFamily != null,
                     BuildTimeOutThreshold = configurationInfo.BuildTimeOutThreshold ?? this.BuildTimeOutThreshold
                 };
 
@@ -2092,7 +2092,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             lastTagVersion = null;
 
             // Fetch remote for tags and commits to make sure we have the full history to compare tags against.
-            if ( !GitHelper.TryFetch( context, null, out _ ) )
+            if ( !GitHelper.TryFetch( context, null ) )
             {
                 hasBumpSinceLastDeployment = false;
                 hasChangesSinceLastDeployment = false;

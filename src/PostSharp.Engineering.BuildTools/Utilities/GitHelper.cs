@@ -3,9 +3,11 @@
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace PostSharp.Engineering.BuildTools.Utilities;
 
@@ -26,10 +28,8 @@ internal static class GitHelper
         return true;
     }
 
-    public static bool TryFetch( BuildContext context, string? branch, out bool remoteNotFound )
+    public static bool TryFetch( BuildContext context, string? branch )
     {
-        remoteNotFound = false;
-        
         if ( branch != null && !TryAddOrigin( context, branch ) )
         {
             return false;
@@ -39,32 +39,17 @@ internal static class GitHelper
                 context.Console,
                 "git",
                 $"fetch",
-                context.RepoDirectory,
-                out var fetchExitCode,
-                out var fetchOutput ) )
+                context.RepoDirectory ) )
         {
-            remoteNotFound = branch != null
-                             && fetchExitCode == 128
-                             && fetchOutput.Trim().Equals( $"fatal: couldn't find remote ref refs/heads/{branch}", StringComparison.Ordinal );
-
-            if ( remoteNotFound )
-            {
-                context.Console.WriteMessage( fetchOutput );
-            }
-            else
-            {
-                context.Console.WriteError( fetchOutput );
-            }
-
             return false;
         }
 
         return true;
     }
 
-    public static bool TryCheckoutAndPull( BuildContext context, string branch, out bool remoteNotFound )
+    public static bool TryCheckoutAndPull( BuildContext context, string branch )
     {
-        if ( !TryFetch( context, branch, out remoteNotFound ) )
+        if ( !TryFetch( context, branch ) )
         {
             return false;
         }
@@ -139,23 +124,47 @@ internal static class GitHelper
 
     public static bool TryGetCurrentCommitHash( BuildContext context, [NotNullWhen( true )] out string? currentCommitHash )
     {
+        if ( !TryGetCurrentCommitHash( context, "HEAD", out currentCommitHash ) )
+        {
+            return false;
+        }
+
+        if ( currentCommitHash == null )
+        {
+            context.Console.WriteError( "Failed to get current commit hash." );
+
+            return false;
+        }
+
+        return true;
+    }
+    
+    public static bool TryGetCurrentCommitHash( BuildContext context, string reference, out string? currentCommitHash )
+    {
         ToolInvocationHelper.InvokeTool(
             context.Console,
             "git",
-            $"rev-parse HEAD",
+            $"rev-parse --verify --quiet {reference}",
             context.RepoDirectory,
             out var gitExitCode,
             out var gitOutput );
 
         if ( gitExitCode != 0 )
         {
-            context.Console.WriteError( gitOutput );
             currentCommitHash = null;
 
-            return false;
-        }
+            // If the reference doesn't exist, the command returns non-zero exit code and no output.
+            if ( !string.IsNullOrEmpty( gitOutput ) )
+            {
+                context.Console.WriteError( gitOutput );
 
-        currentCommitHash = gitOutput.Trim();
+                return false;
+            }
+        }
+        else
+        {
+            currentCommitHash = gitOutput.Trim();
+        }
 
         return true;
     }
@@ -180,16 +189,20 @@ internal static class GitHelper
 
         return true;
     }
-    
-    public static bool TryGetRemoteBranchesCount( BuildContext context, BaseBuildSettings settings, string filter, out int count )
+
+    public static bool TryGetRemoteReferences(
+        BuildContext context,
+        BaseBuildSettings settings,
+        string filter,
+        [NotNullWhen( true )] out (string CommitId, string Reference)[]? references )
     {
-        count = -1;
-        
+        references = null;
+
         if ( !TryGetOriginUrl( context, settings, out var originUrl ) )
         {
             return false;
         }
-        
+
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
@@ -203,7 +216,22 @@ internal static class GitHelper
             return false;
         }
 
-        count = output.Split( "\n", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries ).Length;
+        // This command doesn't have a porcelain switch and git can include warnings in the output,
+        // so we filter out lines that don't represent a reference.
+        
+        // Example of an output of this command:
+        // git: 'credential-manager' is not a git command. See 'git --help'.
+        //
+        // The most similar command is
+        //    credential-manager-core
+        
+        var lsRegex = new Regex( "^(?<commit>[^ ]+)[ ]{2,}(?<ref>[^ ]+)$" );
+
+        references = output.Split( "\n", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries )
+            .Select( l => lsRegex.Match( l ) )
+            .Where( m => m.Success )
+            .Select( m => (m.Groups["commit"].Value, m.Groups["ref"].Value) )
+            .ToArray();
 
         return true;
     }

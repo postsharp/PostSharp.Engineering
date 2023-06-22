@@ -65,7 +65,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         context.Console.WriteImportantMessage( $"Pulling changes from '{downstreamBranch}' downstream branch" );
 
-        if ( !GitHelper.TryCheckoutAndPull( context, downstreamBranch, out _ ) )
+        if ( !GitHelper.TryCheckoutAndPull( context, downstreamBranch ) )
         {
             return false;
         }
@@ -87,40 +87,84 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return true;
         }
 
-        context.Console.WriteMessage( $"There are {commitsCount} commits to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
-
-        context.Console.WriteImportantMessage( $"Downstream changes from '{downstreamBranch}' downstream branch were pulled." );
+        context.Console.WriteImportantMessage( $"There are {commitsCount} commits to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
 
         var targetBranch = $"merge/{downstreamProductFamily.Version}/{context.Product.ProductFamily.Version}-{sourceCommitHash}";
-
-        context.Console.WriteImportantMessage( $"Creating '{targetBranch}' target branch" );
-
-        // If the targetBranch exists already, use it. Otherwise, create it.
-        if ( GitHelper.TryCheckoutAndPull( context, targetBranch, out var remoteNotFound ) && !remoteNotFound )
+        
+        context.Console.WriteMessage( $"Checking '{context.Product.ProductName}' product version '{downstreamProductFamily.Version}' for pending merge branches." );
+            
+        var filter = $"merge/{downstreamProductFamily.Version}/*";
+            
+        if ( !GitHelper.TryGetRemoteReferences( context, settings, filter, out var references ) )
         {
             return false;
         }
-        else if ( !remoteNotFound )
+
+        var targetBranchReference = $"refs/heads/{targetBranch}";
+
+        var targetBranchExistsRemotely = references.Any( r => r.Reference == targetBranchReference );
+
+        var formerTargetBranchReferences = references.Where( r => r.Reference != targetBranchReference ).ToArray();
+
+        if ( formerTargetBranchReferences.Length > 0 && !settings.Force )
         {
-            context.Console.WriteImportantMessage( $"The '{targetBranch}' target branch already exists. Let's use it." );
+            MergeHelper.ExplainUnmergedBranches(
+                context.Console,
+                formerTargetBranchReferences.Select( r => r.Reference ),
+                settings.Force,
+                targetBranchExistsRemotely
+                    ? $"Until a new commit is pushed to the '{sourceBranch}' source branch, there's no need to delete the '{targetBranch}' target branch, as it will be reused next time the downstream merge is run."
+                    : null );
+
+            if ( !settings.Force )
+            {
+                return false;
+            }
+        }
+
+        bool targetBranchExists;
+
+        if ( targetBranchExistsRemotely )
+        {
+            targetBranchExists = true;
         }
         else
         {
-            context.Console.WriteMessage( $"The '{targetBranch}' target branch doesn't exits. Let's create it." );
+            if ( !GitHelper.TryGetCurrentCommitHash( context, targetBranch, out var targetBranchCurrentCommitHash ) )
+            {
+                return false;
+            }
+
+            targetBranchExists = targetBranchCurrentCommitHash != null;
+        }
+
+        if ( targetBranchExists )
+        {
+            context.Console.WriteImportantMessage( $"The '{targetBranch}' target branch already exists. Let's use it." );
+            
+            if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
+            {
+                return false;
+            }
+        }
+        else
+        {
+            context.Console.WriteImportantMessage( $"The '{targetBranch}' target branch doesn't exits. Let's create it." );
 
             if ( !GitHelper.TryCreateBranch( context, targetBranch ) )
             {
                 return false;
             }
 
-            // Push the new branch now to avoid issues when the DownstreamMergeCommand
-            // is executed again with the same upstream changes.
-            if ( !GitHelper.TryPush( context, settings ) )
-            {
-                return false;
-            }
-
             context.Console.WriteImportantMessage( $"The '{targetBranch}' target was created." );
+        }
+        
+        // Push the branch now to avoid issues when the DownstreamMergeCommand
+        // is executed again with the same upstream changes
+        // or when developers are required to resolve conflicts.
+        if ( !GitHelper.TryPush( context, settings ) )
+        {
+            return false;
         }
 
         if ( !TryMerge( context, settings, sourceBranch, targetBranch, downstreamBranch, out var areChangesPending ) )

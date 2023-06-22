@@ -19,12 +19,12 @@ internal class UpstreamCheckCommand : BaseCommand<UpstreamCheckSettings>
     {
         context.Console.WriteHeading( "Checking for pending upstream changes" );
         
-        if ( !TryCheckUnmergedCommits( context, settings ) )
+        if ( !TryCheckPendingMerges( context, settings ) )
         {
             return false;
         }
-
-        if ( !TryCheckPendingMerges( context, settings ) )
+        
+        if ( !TryCheckUnmergedCommits( context, settings ) )
         {
             return false;
         }
@@ -52,7 +52,7 @@ internal class UpstreamCheckCommand : BaseCommand<UpstreamCheckSettings>
             
             var upstreamBranch = upstreamDependencyDefinition.Branch;
 
-            if ( !GitHelper.TryFetch( context, upstreamBranch, out _ ) )
+            if ( !GitHelper.TryFetch( context, upstreamBranch ) )
             {
                 return false;
             }
@@ -89,6 +89,7 @@ internal class UpstreamCheckCommand : BaseCommand<UpstreamCheckSettings>
     private static bool TryCheckPendingMerges( BuildContext context, UpstreamCheckSettings settings )
     {
         var productFamily = context.Product.ProductFamily;
+        var pendingBranchesExist = false;
 
         while ( productFamily != null )
         {
@@ -96,32 +97,36 @@ internal class UpstreamCheckCommand : BaseCommand<UpstreamCheckSettings>
             
             var filter = $"merge/{productFamily.Version}/*";
             
-            if ( !GitHelper.TryGetRemoteBranchesCount( context, settings, filter, out var count ) )
+            if ( !GitHelper.TryGetRemoteReferences( context, settings, filter, out var references ) )
             {
                 return false;
             }
 
-            if ( count > 0 )
+            if ( references.Length > 0 )
             {
-                var message =
-                    $"There are '{filter}' branches in the repository of the '{context.Product.ProductName}' product version '{productFamily.Version}'.";
-                
-                if ( settings.Force )
-                {
-                    context.Console.WriteWarning( $"{message} Ignoring." );
-                }
-                else
-                {
-                    context.Console.WriteError(
-                        $"{message} Finish the related merges, delete the branches, or use --force." );
+                MergeHelper.ExplainUnmergedBranches(
+                    context.Console,
+                    references.Select( r => r.Reference ),
+                    settings.Force );
 
-                    return false;
-                }
+                pendingBranchesExist = true;
             }
 
             productFamily = productFamily.UpstreamProductFamily;
         }
 
-        return true;
+        if ( settings.Force )
+        {
+            return true;
+        }
+
+        if ( pendingBranchesExist )
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
     }
 }

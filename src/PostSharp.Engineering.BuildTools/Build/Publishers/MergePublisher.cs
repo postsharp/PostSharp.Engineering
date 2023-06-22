@@ -68,7 +68,7 @@ public class MergePublisher : IndependentPublisher
         context.Console.WriteHeading( $"Merging branch '{sourceBranch}' to '{targetBranch}' after publishing artifacts." );
 
         // Checkout to target branch branch and pull to update the local repository.
-        if ( !GitHelper.TryCheckoutAndPull( context, targetBranch, out _ ) )
+        if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
         {
             return SuccessCode.Error;
         }
