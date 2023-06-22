@@ -5,6 +5,7 @@ using Microsoft.Build.Evaluation;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -12,6 +13,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
+using System.Xml.XPath;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies;
 
@@ -21,7 +25,8 @@ public static class DependenciesHelper
         BuildContext context,
         BuildConfiguration configuration,
         DependenciesOverrideFile dependenciesOverrideFile,
-        bool update )
+        bool update,
+        (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation )
     {
         DependencyDefinition? GetDependencyDefinition( KeyValuePair<string, DependencySource> dependency )
         {
@@ -79,6 +84,7 @@ public static class DependenciesHelper
                     dependencyDictionary,
                     iterationDependencies,
                     dependenciesOverrideFile,
+                    teamCityEmulation,
                     out var newDependencies ) )
             {
                 return false;
@@ -98,6 +104,7 @@ public static class DependenciesHelper
         ImmutableDictionary<string, Dependency> allDependencies,
         ImmutableDictionary<string, Dependency> directDependencies,
         DependenciesOverrideFile dependenciesOverrideFile,
+        (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation,
         [NotNullWhen( true )] out ImmutableDictionary<string, Dependency>? newDependencies )
     {
         var newDependenciesBuilder = ImmutableDictionary.CreateBuilder<string, Dependency>();
@@ -207,6 +214,26 @@ public static class DependenciesHelper
                                 return false;
                             }
 
+                            if ( buildId.BuildTypeId == null )
+                            {
+                                context.Console.WriteError( $"Unknown build type ID of '{dependencyDefinition.Name}' transitive restored dependency." );
+                            }
+
+                            if ( teamCityEmulation != null )
+                            {
+                                if ( !DownloadBuild(
+                                        context,
+                                        teamCityEmulation.Value.TeamCity,
+                                        dependencyDefinition.Name,
+                                        buildId.BuildTypeId!,
+                                        buildId.BuildNumber,
+                                        out _,
+                                        teamCityEmulation.Value.ArtifactRules ) )
+                                {
+                                    throw new InvalidOperationException( $"Failed to download '{buildId.BuildTypeId}' build #{buildId.BuildNumber}" );
+                                }
+                            }
+
                             dependencySource = DependencySource.CreateRestoredDependency( buildId, DependencyConfigurationOrigin.Transitive );
                         }
 
@@ -239,6 +266,33 @@ public static class DependenciesHelper
         }
 
         newDependencies = newDependenciesBuilder.ToImmutable();
+
+        return true;
+    }
+
+    private static bool GetLatestBuildId(
+        ConsoleHelper console,
+        TeamCityClient teamCity,
+        string dependencyName,
+        string ciBuildType,
+        string branch,
+        string defaultBranch,
+        [NotNullWhen( true )] out CiBuildId? latestBuildId )
+    {
+        var isDefaultBranch = branch == defaultBranch;
+
+        latestBuildId = teamCity.GetLatestBuildId(
+            ciBuildType,
+            branch,
+            isDefaultBranch );
+
+        if ( latestBuildId == null )
+        {
+            console.WriteError(
+                $"No successful build for '{dependencyName}' dependency on '{branch}' branch, BuildTypeId='{ciBuildType}', IsDefaultBranch='{isDefaultBranch}'." );
+
+            return false;
+        }
 
         return true;
     }
@@ -295,22 +349,19 @@ public static class DependenciesHelper
                     branchName = dependency.Definition.Branch;
                 }
 
-                var isDefaultBranch = branchName == dependency.Definition.Branch;
-
-                var latestBuildNumber = teamCity.GetLatestBuildNumber(
-                    ciBuildType,
-                    branchName,
-                    isDefaultBranch );
-
-                if ( latestBuildNumber == null )
+                if ( !GetLatestBuildId(
+                        context.Console,
+                        teamCity,
+                        dependency.Definition.Name,
+                        ciBuildType,
+                        branchName,
+                        dependency.Definition.Branch,
+                        out var latestBuildId ) )
                 {
-                    context.Console.WriteError(
-                        $"No successful build for '{dependency.Definition.Name}' dependency on '{branchName}' branch, BuildTypeId='{ciBuildType}', IsDefaultBranch='{isDefaultBranch}'." );
-
                     return false;
                 }
 
-                resolvedBuildId = latestBuildNumber;
+                resolvedBuildId = latestBuildId;
             }
 
             dependency.Source.BuildServerSource = resolvedBuildId;
@@ -326,7 +377,7 @@ public static class DependenciesHelper
     {
         foreach ( var dependency in dependencies.Values )
         {
-            if ( dependency.Source.SourceKind is not DependencySourceKind.BuildServer )
+            if ( dependency.Source.SourceKind != DependencySourceKind.BuildServer )
             {
                 // No need to download.
                 continue;
@@ -345,7 +396,7 @@ public static class DependenciesHelper
                 return false;
             }
 
-            if ( !DownloadBuild(
+            if ( !DownloadDependency(
                     context,
                     teamCity,
                     dependency.Source,
@@ -389,32 +440,60 @@ public static class DependenciesHelper
     {
         foreach ( var dependency in dependencies.Values.Where( d => d.Source.SourceKind is DependencySourceKind.RestoredDependency ) )
         {
+            if ( dependency.Source.SourceKind != DependencySourceKind.RestoredDependency )
+            {
+                continue;
+            }
+
             if ( dependency.Source.VersionFile == null )
             {
                 var path = Path.Combine( context.RepoDirectory, "dependencies", dependency.Definition.Name, $"{dependency.Definition.Name}.version.props" );
                 dependency.Source.VersionFile = path;
             }
-
+            
             if ( !File.Exists( dependency.Source.VersionFile ) )
             {
-                context.Console.WriteError( $"The file '{dependency.Source.VersionFile}' does not exist. Check that the dependency has been restored." );
+                context.Console.WriteError( $"The following artifact was not restored by TeamCity: '{dependency.Source.VersionFile}'" );
 
                 return false;
             }
+
+            var document = XDocument.Load( dependency.Source.VersionFile );
+
+            var buildNumber = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependency.Definition.NameWithoutDot}BuildNumber" )?.Value;
+
+            if ( buildNumber == null )
+            {
+                context.Console.WriteError( $"The file '{dependency.Source.VersionFile}' does not have a property {dependency.Definition.NameWithoutDot}BuildNumber" );
+
+                return false;
+            }
+
+            var buildType = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependency.Definition.NameWithoutDot}BuildType" )?.Value;
+
+            if ( buildType == null )
+            {
+                context.Console.WriteError( $"The file '{dependency.Source.VersionFile}' does not have a property {dependency.Definition.NameWithoutDot}BuildType" );
+
+                return false;
+            }
+
+            dependency.Source.BuildServerSource = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), buildType );
         }
 
         return true;
     }
-
-    private static bool DownloadBuild(
+    
+    public static bool DownloadBuild(
         BuildContext context,
         TeamCityClient teamCity,
-        DependencySource dependencySource,
         string dependencyName,
         string ciBuildTypeId,
-        int buildNumber )
+        int buildNumber,
+        out string restoreDirectory,
+        ImmutableDictionary<string, string>? simulatedCiArtifactRules = null )
     {
-        var restoreDirectory = Path.Combine(
+        restoreDirectory = Path.Combine(
             Environment.GetEnvironmentVariable( "USERPROFILE" ) ?? Path.GetTempPath(),
             ".build-artifacts",
             dependencyName,
@@ -439,6 +518,136 @@ public static class DependenciesHelper
         else
         {
             context.Console.WriteMessage( $"Dependency '{dependencyName}' is up to date: build #{buildNumber} of {ciBuildTypeId} was already downloaded." );
+        }
+        
+        if ( simulatedCiArtifactRules != null )
+        {
+            if ( !simulatedCiArtifactRules.TryGetValue( ciBuildTypeId, out var artifactRules ) )
+            {
+                return false;
+            }
+
+            if ( !EmulateTeamCityArtifactRestore( context, dependencyName, restoreDirectory, artifactRules ) )
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static readonly Regex _artifactsRuleRegex = new( @"^\+:(?<filter>[^=]+)=>(?<target>.+)$" );
+    
+    private static bool EmulateTeamCityArtifactRestore(
+        BuildContext context,
+        string dependencyName,
+        string restoreDirectory,
+        string artifactRules )
+    {
+        context.Console.WriteMessage( $"Emulating TeamCity artifacts restore of '{dependencyName}'." );
+
+        foreach ( var artifactsRule in artifactRules.Split( ';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries ) )
+        {
+            context.Console.WriteMessage( $"Rule '{artifactsRule}':" );
+            
+            var artifactRulesMatch = _artifactsRuleRegex.Match( artifactsRule );
+
+            if ( !artifactRulesMatch.Success )
+            {
+                context.Console.WriteError( $"Invalid artifact rule: {artifactsRule}" );
+
+                return false;
+            }
+
+            var sourceFilter = artifactRulesMatch.Groups["filter"].Value;
+            var targetDirectory = artifactRulesMatch.Groups["target"].Value.Replace( '/', Path.DirectorySeparatorChar );
+
+            if ( !targetDirectory.StartsWith( $@"dependencies{Path.DirectorySeparatorChar}", StringComparison.Ordinal ) )
+            {
+                context.Console.WriteError( $"Invalid target directory of artifacts rule: {artifactsRule}" );
+            }
+
+            const string flatWildCard = "/*";
+            const string recursiveWildCard = "/**/*";
+
+            bool FilterToPath( string? wildcard, [NotNullWhen( true )] out string? path )
+            {
+                path = wildcard == null ? sourceFilter : sourceFilter.Substring( 0, sourceFilter.Length - wildcard.Length );
+                path = path.Replace( '/', Path.DirectorySeparatorChar );
+
+                if ( path.Contains( '*', StringComparison.Ordinal ) || path.Contains( '&', StringComparison.Ordinal ) )
+                {
+                    context.Console.WriteError( $"Path '{path}' contains unsupported wildcards." );
+
+                    return false;
+                }
+
+                path = Path.Combine( restoreDirectory, path );
+
+                return true;
+            }
+
+            IEnumerable<string> filesToCopy;
+
+            if ( sourceFilter.EndsWith( recursiveWildCard, StringComparison.Ordinal ) )
+            {
+                if ( !FilterToPath( recursiveWildCard, out var sourcePath ) )
+                {
+                    return false;
+                }
+
+                filesToCopy = Directory.EnumerateFiles( sourcePath, "*", SearchOption.TopDirectoryOnly );
+            }
+            else if ( sourceFilter.EndsWith( flatWildCard, StringComparison.Ordinal ) )
+            {
+                if ( !FilterToPath( flatWildCard, out var sourcePath ) )
+                {
+                    return false;
+                }
+
+                filesToCopy = Directory.EnumerateFiles( sourcePath, "*", SearchOption.TopDirectoryOnly );
+            }
+            else
+            {
+                if ( !FilterToPath( null, out var sourcePath ) )
+                {
+                    return false;
+                }
+
+                filesToCopy = new[] { sourcePath };
+            }
+
+            foreach ( var sourceFile in filesToCopy )
+            {
+                var fileName = Path.GetFileName( sourceFile );
+                var targetFile = Path.Combine( context.RepoDirectory, targetDirectory, fileName );
+                var absoluteTargetDirectory = Path.GetDirectoryName( targetFile )!;
+
+                Directory.CreateDirectory( absoluteTargetDirectory );
+
+                context.Console.WriteMessage(
+                    $"{Path.GetRelativePath( restoreDirectory, sourceFile )} -> {Path.GetRelativePath( context.RepoDirectory, targetFile )}" );
+                
+                File.Copy( sourceFile, targetFile );
+            }
+        }
+        
+        context.Console.WriteMessage( $"TeamCity artifacts restore emulation of '{dependencyName}' succeeded." );
+
+        return true;
+    }
+
+    private static bool DownloadDependency(
+        BuildContext context,
+        TeamCityClient teamCity,
+        DependencySource dependencySource,
+        string dependencyName,
+        string ciBuildTypeId,
+        int buildNumber )
+    {
+        if ( !DownloadBuild( context, teamCity, dependencyName, ciBuildTypeId, buildNumber, out var restoreDirectory ) )
+        {
+            return false;
         }
 
         // Find the version file.
@@ -476,6 +685,50 @@ public static class DependenciesHelper
         }
 
         return null;
+    }
+
+    public static bool TryPrepareTeamCityEmulation(
+        BuildContext context,
+        BuildConfiguration buildConfiguration,
+        [NotNullWhen( true )] out (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation )
+    {
+        teamCityEmulation = null;
+
+        if ( !TeamCityHelper.TryConnectTeamCity( context, out var tc ) )
+        {
+            return false;
+        }
+
+        var ciBuildTypeId = context.Product.DependencyDefinition.CiConfiguration.BuildTypes[buildConfiguration];
+
+        context.Console.WriteMessage( $"Fetching build configuration of '{ciBuildTypeId}' build type." );
+
+        if ( !tc.TryGetBuildTypeConfiguration( context.Console, ciBuildTypeId, out var teamCityBuildConfiguration ) )
+        {
+            return false;
+        }
+
+        var artifactRules = teamCityBuildConfiguration
+            .Root
+            !.Element( "artifact-dependencies" )!
+            .Elements( "artifact-dependency" )
+            .ToImmutableDictionary(
+                d => d.Element( "source-buildType" )!.Attribute( "id" )!.Value,
+                d => d.Element( "properties" )!.Elements( "property" ).Single( p => p.Attribute( "name" )!.Value == "pathRules" ).Attribute( "value" )!
+                    .Value );
+
+        teamCityEmulation = (tc, buildConfiguration, artifactRules);
+
+        var restoredDependenciesDirectory = Path.Combine( context.RepoDirectory, "dependencies" );
+
+        if ( Directory.Exists( restoredDependenciesDirectory ) )
+        {
+            context.Console.WriteMessage( $"Deleting directory '{restoredDependenciesDirectory}'." );
+
+            Directory.Delete( restoredDependenciesDirectory, true );
+        }
+
+        return true;
     }
 
     private record Dependency( DependencySource Source, DependencyDefinition Definition );

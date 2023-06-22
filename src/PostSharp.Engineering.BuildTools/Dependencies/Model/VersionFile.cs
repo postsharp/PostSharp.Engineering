@@ -27,17 +27,19 @@ public class VersionFile
 
     public ImmutableDictionary<string, DependencySource> Dependencies { get; }
 
-    public static bool TryRead( BuildContext context, CommonCommandSettings settings, [NotNullWhen( true )] out VersionFile? versionFile )
+    public static bool TryRead(
+        BuildContext context,
+        CommonCommandSettings settings,
+        (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation,
+        [NotNullWhen( true )] out VersionFile? versionFile )
     {
+        versionFile = null;
         var dependenciesBuilder = ImmutableDictionary.CreateBuilder<string, DependencySource>();
-
         var versionsPath = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
 
         if ( !File.Exists( versionsPath ) )
         {
             context.Console.WriteError( $"The file '{versionsPath}' does not exist." );
-
-            versionFile = null;
 
             return false;
         }
@@ -103,7 +105,11 @@ public class VersionFile
             }
             else if ( TeamCityHelper.IsTeamCityBuild( settings ) )
             {
-                dependencySource = DependencySource.CreateRestoredDependency( context, dependencyDefinition, DependencyConfigurationOrigin.Default );
+                dependencySource = DependencySource.CreateRestoredDependency(
+                    context,
+                    dependencyDefinition,
+                    DependencyConfigurationOrigin.Default,
+                    teamCityEmulation );
             }
             else
             {

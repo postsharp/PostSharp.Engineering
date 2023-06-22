@@ -142,6 +142,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 args += $" {additionalArguments}";
             }
 
+            var success = true;
+
             if ( File.Exists( testJsonFile ) )
             {
                 var testJsonFileContent = File.ReadAllText( testJsonFile );
@@ -154,53 +156,54 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     return false;
                 }
 
-                if ( !Run(
-                        context,
-                        settings,
-                        projectOrSolution,
-                        command,
-                        args,
-                        true,
-                        out var exitCode,
-                        out var output,
-                        new ToolInvocationOptions( environmentVariables ) ) )
+                _ = Run(
+                    context,
+                    settings,
+                    projectOrSolution,
+                    command,
+                    args,
+                    true,
+                    out var exitCode,
+                    out var output,
+                    new ToolInvocationOptions( environmentVariables ) );
+
+                success = exitCode != 0 && !testOptions.IgnoreExitCode;
+
+                if ( exitCode != 0 )
                 {
                     context.Console.WriteError( output );
-
-                    return false;
                 }
-
-                if ( exitCode != 0 && !testOptions.IgnoreExitCode )
+                else
                 {
-                    return false;
-                }
-
-                if ( testOptions.ErrorRegexes != null )
-                {
-                    foreach ( var regex in testOptions.ErrorRegexes )
+                    if ( testOptions.ErrorRegexes != null )
                     {
-                        if ( Regex.IsMatch( output, regex, RegexOptions.IgnoreCase ) )
+                        foreach ( var regex in testOptions.ErrorRegexes )
                         {
-                            context.Console.WriteError( $"Output matched for pattern '{regex}'." );
-                            context.Console.WriteError( output );
+                            if ( Regex.IsMatch( output, regex, RegexOptions.IgnoreCase ) )
+                            {
+                                context.Console.WriteError( $"Output matched for pattern '{regex}'." );
+                                context.Console.WriteError( output );
 
-                            return false;
+                                success = false;
+                            }
                         }
+                    }
+
+                    if ( success )
+                    {
+                        context.Console.WriteMessage( output );
                     }
                 }
             }
             else
             {
-                if ( !Run(
-                        context,
-                        settings,
-                        projectOrSolution,
-                        command,
-                        args,
-                        true ) )
-                {
-                    return false;
-                }
+                success = Run(
+                    context,
+                    settings,
+                    projectOrSolution,
+                    command,
+                    args,
+                    true );
             }
 
             if ( TeamCityHelper.IsTeamCityBuild( settings ) )
@@ -213,7 +216,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     false );
             }
 
-            return true;
+            return success;
         }
     }
 }

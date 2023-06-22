@@ -1,8 +1,10 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using Spectre.Console;
+using System.Collections.Immutable;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies;
@@ -37,9 +39,19 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         {
             return false;
         }
+        
+        (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation = null;
+
+        if ( settings.SimulateContinuousIntegration )
+        {
+            if ( !DependenciesHelper.TryPrepareTeamCityEmulation( context, configuration, out teamCityEmulation ) )
+            {
+                return false;
+            }
+        }
 
         // Loads the default dependencies.
-        if ( !DependenciesOverrideFile.TryLoadDefaultsOnly( context, settings, configuration, out var defaultDependenciesOverrideFile ) )
+        if ( !DependenciesOverrideFile.TryLoadDefaultsOnly( context, settings, configuration, teamCityEmulation, out var defaultDependenciesOverrideFile ) )
         {
             return false;
         }
@@ -103,7 +115,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         // Updating dependencies.
         context.Console.WriteImportantMessage( "Updating dependencies" );
 
-        if ( !DependenciesHelper.UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, true ) )
+        if ( !DependenciesHelper.UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, true, teamCityEmulation ) )
         {
             return false;
         }
@@ -115,7 +127,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         }
         
         // Writing the configurations neutral file.
-        context.Product.PrepareConfigurationNeutralVersionsFile( context, configuration );
+        context.Product.PrepareConfigurationNeutralVersionsFile( context, settings, configuration );
 
         context.Console.Out.WriteLine();
 

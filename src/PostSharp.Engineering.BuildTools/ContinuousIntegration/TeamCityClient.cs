@@ -13,6 +13,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 {
@@ -116,7 +117,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             return true;
         }
 
-        public CiBuildId? GetLatestBuildNumber( string buildTypeId, string branchName, bool isDefaultBranch )
+        public CiBuildId? GetLatestBuildId( string buildTypeId, string branchName, bool isDefaultBranch )
         {
             // In some cases, the default branch is not set for the TeamCity build and we need to use the "default:true" locator.
             var branchLocator = isDefaultBranch ? "default:true" : $"refs/heads/{branchName}";
@@ -518,6 +519,20 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 </vcs-root>";
 
             return this.TryPost( "/app/rest/vcs-roots", payload, console, "create VCS root", out _ );
+        }
+
+        public bool TryGetBuildTypeConfiguration( ConsoleHelper console, string buildTypeId, [NotNullWhen( true )] out XDocument? configuration )
+        {
+            if ( !this.TryGet( $"/app/rest/buildTypes/id:{buildTypeId}", console, $"get configuration of '{buildTypeId}' build type", out var response ) )
+            {
+                configuration = null;
+                
+                return false;
+            }
+
+            configuration = response.Content.ReadAsXDocument();
+
+            return true;
         }
 
         public void Dispose()

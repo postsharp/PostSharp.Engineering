@@ -1,8 +1,10 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System;
+using System.Collections.Immutable;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
 {
@@ -29,7 +31,36 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     break;
 
                 case DependencySourceKind.RestoredDependency:
-                    dependencySource = DependencySource.CreateRestoredDependency( context, dependencyDefinition, DependencyConfigurationOrigin.Override );
+                    (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation = null;
+
+                    if ( settings.SimulateContinuousIntegration )
+                    {
+#pragma warning disable CS0618
+
+                        // TODO: What to use instead of settings.BuildConfiguration?
+                        if ( settings.BuildConfiguration == null )
+
+                        {
+                            context.Console.WriteError( $"-c|--configuration is mandatory with --ci." );
+
+                            return false;
+                        }
+
+                        if ( settings.SimulateContinuousIntegration )
+                        {
+                            if ( !DependenciesHelper.TryPrepareTeamCityEmulation( context, settings.BuildConfiguration.Value, out teamCityEmulation ) )
+                            {
+                                return false;
+                            }
+                        }
+#pragma warning restore CS0618
+                    }
+
+                    dependencySource = DependencySource.CreateRestoredDependency(
+                        context,
+                        dependencyDefinition,
+                        DependencyConfigurationOrigin.Override,
+                        teamCityEmulation );
 
                     break;
 

@@ -6,6 +6,7 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
@@ -38,9 +39,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// </summary>
         /// <param name="context"></param>
         /// <returns></returns>
-        private bool TryLoadDefaultDependencies( BuildContext context, CommonCommandSettings settings )
+        private bool TryLoadDefaultDependencies( BuildContext context, CommonCommandSettings settings, (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation )
         {
-            if ( !VersionFile.TryRead( context, settings, out var versionFile ) )
+            if ( !VersionFile.TryRead( context, settings, teamCityEmulation, out var versionFile ) )
             {
                 return false;
             }
@@ -57,16 +58,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             BuildContext context,
             CommonCommandSettings settings,
             BuildConfiguration configuration,
+            (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation,
             [NotNullWhen( true )] out DependenciesOverrideFile? file )
         {
-            var configurationSpecificVersionFilePath = Path.Combine(
-                context.RepoDirectory,
-                context.Product.EngineeringDirectory,
-                $"Versions.{configuration}.g.props" );
+            var configurationSpecificVersionFilePath = context.Product.GetConfigurationSpecificVersionsFilePath( context, settings, configuration );
 
             file = new DependenciesOverrideFile( configurationSpecificVersionFilePath, configuration );
 
-            if ( !file.TryLoadDefaultDependencies( context, settings ) )
+            if ( !file.TryLoadDefaultDependencies( context, settings, teamCityEmulation ) )
             {
                 file = null;
 
@@ -76,9 +75,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             return true;
         }
 
-        public static bool TryLoad( BuildContext context, CommonCommandSettings settings, BuildConfiguration configuration, [NotNullWhen( true )] out DependenciesOverrideFile? file )
+        public static bool TryLoad(
+            BuildContext context,
+            CommonCommandSettings settings,
+            BuildConfiguration configuration,
+            [NotNullWhen( true )] out DependenciesOverrideFile? file,
+            (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation = null )
         {
-            if ( !TryLoadDefaultsOnly( context, settings, configuration, out file ) )
+            if ( !TryLoadDefaultsOnly( context, settings, configuration, teamCityEmulation, out file ) )
             {
                 return false;
             }
@@ -89,7 +93,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             {
                 return true;
             }
-
+            
             // Override defaults from the version file.
             var document = XDocument.Load( filePath );
             var project = document.Root!;
@@ -479,14 +483,17 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             context.Console.Out.Write( table );
         }
 
-        public bool Fetch( BuildContext context )
+        public bool Fetch(
+            BuildContext context,
+            bool isContinuousIntegrationSimulated,
+            (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation )
         {
             // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 
             if ( this.Dependencies.Any( d => d.Value.SourceKind != DependencySourceKind.Feed && d.Value.VersionFile == null ) )
             {
                 context.Console.WriteMessage( $"Fetching dependencies for configuration {this.Configuration}." );
 
-                if ( !DependenciesHelper.UpdateOrFetchDependencies( context, this.Configuration, this, false ) )
+                if ( !DependenciesHelper.UpdateOrFetchDependencies( context, this.Configuration, this, false, teamCityEmulation ) )
                 {
                     return false;
                 }

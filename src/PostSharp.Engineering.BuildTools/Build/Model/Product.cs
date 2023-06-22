@@ -8,6 +8,7 @@ using PostSharp.Engineering.BuildTools.Build.Triggers;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Coverage;
+using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.NuGet;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -808,9 +809,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         }
 
         public string GetConfigurationNeutralVersionsFilePath( BuildContext context )
-        {
-            return Path.Combine( context.RepoDirectory, this.EngineeringDirectory, "Versions.g.props" );
-        }
+            => Path.Combine( context.RepoDirectory, this.EngineeringDirectory, "Versions.g.props" );
+
+        public string GetConfigurationSpecificVersionsFilePath( BuildContext context, CommonCommandSettings settings, BuildConfiguration configuration )
+            => Path.Combine(
+                context.RepoDirectory,
+                this.EngineeringDirectory,
+                $"Versions.{configuration}.{(TeamCityHelper.IsTeamCityBuild( settings ) ? "ci." : "")}g.props" );
 
         public BuildConfiguration? ReadDefaultConfiguration( BuildContext context )
         {
@@ -965,9 +970,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public void PrepareConfigurationNeutralVersionsFile(
             BuildContext context,
+            CommonCommandSettings settings,
             BuildConfiguration buildConfiguration )
         {
             var configurationNeutralVersionsFilePath = this.GetConfigurationNeutralVersionsFilePath( context );
+            var configurationSpecificVersionFilePath = context.Product.GetConfigurationSpecificVersionsFilePath( context, settings, buildConfiguration );
 
             context.Console.WriteMessage( $"Writing '{configurationNeutralVersionsFilePath}'." );
 
@@ -979,7 +986,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     <PropertyGroup>
         <EngineeringConfiguration>{buildConfiguration}</EngineeringConfiguration>
     </PropertyGroup>
-    <Import Project=""Versions.{buildConfiguration}.g.props"" Condition=""'$(DoNotLoadGeneratedVersionFiles)'!='True' AND Exists('Versions.{buildConfiguration}.g.props')""/>
+    <Import Project=""{configurationSpecificVersionFilePath}"" Condition=""'$(DoNotLoadGeneratedVersionFiles)'!='True' AND Exists('{configurationSpecificVersionFilePath}')""/>
 </Project>
 " );
         }
@@ -998,14 +1005,26 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var propsFilePath = this.GetVersionPropertiesFilePath( context, settings );
             Directory.CreateDirectory( Path.GetDirectoryName( propsFilePath )! );
 
+            (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation = null;
+
+            if ( settings.SimulateContinuousIntegration )
+            {
+                if ( !DependenciesHelper.TryPrepareTeamCityEmulation( context, configuration, out teamCityEmulation ) )
+                {
+                    dependenciesOverrideFile = null;
+                    
+                    return false;
+                }
+            }
+            
             // Load Versions.g.props.
-            if ( !DependenciesOverrideFile.TryLoad( context, settings, configuration, out dependenciesOverrideFile ) )
+            if ( !DependenciesOverrideFile.TryLoad( context, settings, configuration, out dependenciesOverrideFile, teamCityEmulation ) )
             {
                 return false;
             }
 
             // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 
-            if ( !dependenciesOverrideFile.Fetch( context ) )
+            if ( !dependenciesOverrideFile.Fetch( context, settings.SimulateContinuousIntegration, teamCityEmulation ) )
             {
                 return false;
             }
@@ -1049,7 +1068,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             File.WriteAllText( propsFilePath, props );
 
             // Generating the configuration-neutral Versions.g.props for the prepared configuration.
-            this.PrepareConfigurationNeutralVersionsFile( context, settings.BuildConfiguration );
+            this.PrepareConfigurationNeutralVersionsFile( context, settings, settings.BuildConfiguration );
 
             return true;
         }
@@ -1876,7 +1895,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     return false;
                 }
 
-                if ( !dependenciesOverrideFile.Fetch( context ) )
+                if ( !dependenciesOverrideFile.Fetch( context, settings.SimulateContinuousIntegration, null ) )
                 {
                     return false;
                 }

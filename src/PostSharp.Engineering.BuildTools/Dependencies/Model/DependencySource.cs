@@ -1,7 +1,9 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using System;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
 using System.Xml.Linq;
@@ -34,8 +36,33 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencySource CreateRestoredDependency(
             BuildContext context,
             DependencyDefinition dependencyDefinition,
-            DependencyConfigurationOrigin origin )
+            DependencyConfigurationOrigin origin,
+            (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation )
         {
+            if ( teamCityEmulation != null )
+            {
+                var buildTypeId = dependencyDefinition.CiConfiguration.BuildTypes[teamCityEmulation.Value.BuildConfiguration];
+
+                var latestCiBuildId = teamCityEmulation.Value.TeamCity.GetLatestBuildId( buildTypeId, dependencyDefinition.Branch, true );
+
+                if ( latestCiBuildId == null || latestCiBuildId.BuildTypeId == null )
+                {
+                    throw new InvalidOperationException( $"Cannot find latest build of '{buildTypeId}'." );
+                }
+
+                if ( !DependenciesHelper.DownloadBuild(
+                        context,
+                        teamCityEmulation.Value.TeamCity,
+                        dependencyDefinition.Name,
+                        latestCiBuildId.BuildTypeId,
+                        latestCiBuildId.BuildNumber,
+                        out _,
+                        teamCityEmulation.Value.ArtifactRules ) )
+                {
+                    throw new InvalidOperationException( $"Failed to download '{latestCiBuildId.BuildTypeId}' build #{latestCiBuildId.BuildNumber}" );
+                }
+            }
+
             var path = Path.Combine( context.RepoDirectory, "dependencies", dependencyDefinition.Name, $"{dependencyDefinition.Name}.version.props" );
             var document = XDocument.Load( path );
 

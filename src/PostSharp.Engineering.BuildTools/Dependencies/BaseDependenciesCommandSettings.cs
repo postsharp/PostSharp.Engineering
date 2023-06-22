@@ -13,7 +13,7 @@ public class BaseDependenciesCommandSettings : CommonCommandSettings
     [CommandOption( "-c|--configuration" )]
     [Obsolete( "Use the BuildConfiguration property. " )]
     public BuildConfiguration? BuildConfiguration { get; set; }
-
+    
     public bool TryGetBuildConfiguration( BuildContext context, out BuildConfiguration configuration )
     {
 #pragma warning disable CS0618
