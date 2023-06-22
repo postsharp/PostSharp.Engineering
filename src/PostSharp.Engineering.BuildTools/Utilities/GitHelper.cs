@@ -224,8 +224,9 @@ internal static class GitHelper
         //
         // The most similar command is
         //    credential-manager-core
+        // ef0e24989cea502b873ec2b8db308eb57e014e47        refs/heads/merge/2023.2/2023.1-e23e936ad5de5d979187dc90cd352a69275fb2d7
         
-        var lsRegex = new Regex( "^(?<commit>[^ ]+)[ ]{2,}(?<ref>[^ ]+)$" );
+        var lsRegex = new Regex( @"^(?<commit>[^\s]+)[\s]+(?<ref>[^\s]+)$" );
 
         references = output.Split( "\n", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries )
             .Select( l => lsRegex.Match( l ) )
