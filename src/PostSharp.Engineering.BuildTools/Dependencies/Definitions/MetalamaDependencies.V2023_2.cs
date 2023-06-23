@@ -103,7 +103,7 @@ public static partial class MetalamaDependencies
             VcsProvider.GitHub,
             false,
             parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
-            customBranch: $"develop/{Family.Version}" );
+            customBranch: $"dev/{Family.Version}" );
 
         public static DependencyDefinition CargoSupport { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.CargoSupport",
