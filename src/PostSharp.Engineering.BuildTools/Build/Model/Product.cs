@@ -2169,27 +2169,24 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             // Check if we bumped since last deployment by looking in the Git log. 
             var gitLog = gitLogOutput.Split( new[] { '\n', '\r' }, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries );
-            
-            // This is to consider only version bumps from the current release. (E.g. 2023.1)
-            // Downstream merge would otherwise break the logic and version bump would be skipped.
-            var familyVersion = context.Product.DependencyDefinition.ProductFamily.Version;
-            var versionBumpLogCommentRegex = new Regex( $"^<<VERSION_BUMP>> (?<from>unknown|{familyVersion}.\\d+) to (?<to>{familyVersion}.\\d+)$" );
 
+            var versionBumpLogCommentRegex =
+                new Regex( GitHelper.GetEngineeringCommitsRegex( true, false, context.Product.DependencyDefinition.ProductFamily ) );
+            
             var lastVersionDump = gitLog.Select( ( s, i ) => (Log: s, LineNumber: i) )
                 .FirstOrDefault( s => versionBumpLogCommentRegex.IsMatch( s.Log.Split( ' ', 2, StringSplitOptions.TrimEntries )[1] ) );
 
             hasBumpSinceLastDeployment = lastVersionDump.Log != null;
 
             // Get count of commits since last deployment excluding version bumps and check if there are any changes.
-            // The --perl-regexp makes the --grep work with C# regexes. There are some differences though, so always test all cases. 
-            if ( !GitHelper.TryGetCommitsCount( context, lastTag, "HEAD", out var commitsSinceLastTag, $"--invert-grep --perl-regexp --grep=\"{versionBumpLogCommentRegex}\"" ) )
+            if ( !GitHelper.TryGetCommitsCount( context, lastTag, "HEAD", context.Product.DependencyDefinition.ProductFamily, out var commitsSinceLastTag ) )
             {
                 hasBumpSinceLastDeployment = false;
                 hasChangesSinceLastDeployment = false;
 
                 return false;
             }
-
+            
             hasChangesSinceLastDeployment = commitsSinceLastTag > 0;
 
             return true;

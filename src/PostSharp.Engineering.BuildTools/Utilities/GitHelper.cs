@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -188,6 +189,55 @@ internal static class GitHelper
         count = int.Parse( output, CultureInfo.InvariantCulture );
 
         return true;
+    }
+
+    public static string GetEngineeringCommitsRegex( bool includeVersionBump, bool includeDependenciesUpdate, ProductFamily? family )
+    {
+        var regex = "^";
+
+        if ( includeDependenciesUpdate )
+        {
+            regex += "<<DEPENDENCIES_UPDATED>>";
+
+            if ( includeVersionBump )
+            {
+                regex += "|";
+            }
+        }
+
+        if ( includeVersionBump )
+        {
+            if ( family == null )
+            {
+                throw new ArgumentNullException( nameof(family), "Product family is required to create version bump regex." );
+            }
+
+            var fromGroupName = includeDependenciesUpdate ? ":" : "<from>";
+            var toGroupName = includeDependenciesUpdate ? ":" : "<to>";
+            var familyVersionRegex = family.Version.Replace( ".", @"\.", StringComparison.Ordinal );
+
+            regex += $@"<<VERSION_BUMP>> (?{fromGroupName}unknown|{familyVersionRegex}\.\d+) to (?{toGroupName}{familyVersionRegex}\.\d+)";
+        }
+
+        regex += "$";
+
+        return regex;
+    }
+    
+    public static bool TryGetCommitsCount( BuildContext context, string from, string to, ProductFamily sourceFamily, out int count )
+    {
+        // This is to consider only version bumps from the source family release. (E.g. 2023.1)
+        // Downstream merge would otherwise break the logic and version bump would be skipped.
+        var regex = GetEngineeringCommitsRegex( true, true, sourceFamily );
+        var versionBumpLogCommentRegex = new Regex( regex );
+
+        // The --perl-regexp makes the --grep work with C# regexes. There are some differences though, so always test all cases.
+        return TryGetCommitsCount(
+            context,
+            from,
+            to,
+            out count,
+            $"--invert-grep --perl-regexp --grep=\"{versionBumpLogCommentRegex}\"" );
     }
 
     public static bool TryGetRemoteReferences(

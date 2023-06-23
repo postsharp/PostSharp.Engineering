@@ -25,7 +25,20 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
                 return false;
             }
         }
+        
+        if ( !GitHelper.TryGetStatus( context, context.RepoDirectory, out var statuses ) )
+        {
+            return false;
+        }
 
+        if ( statuses.Length > 0 )
+        {
+            context.Console.WriteError( "The repository needs to be clean before running the downstream merge." );
+
+            return false;
+        }
+
+        var sourceProductFamily = context.Product.ProductFamily;
         var downstreamProductFamily = context.Product.ProductFamily.DownstreamProductFamily;
 
         if ( downstreamProductFamily == null )
@@ -70,7 +83,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        if ( !GitHelper.TryGetCommitsCount( context, "HEAD", sourceBranch, out var commitsCount ) )
+        if ( !GitHelper.TryGetCommitsCount( context, "HEAD", sourceBranch, sourceProductFamily, out var commitsCount ) )
         {
             return false;
         }
@@ -265,34 +278,14 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             // If not all conflicts were expected, git commit fails here.
             if ( !GitHelper.TryCommitMerge( context ) )
             {
-                context.Console.WriteError(
-                    $"Merge conflicts need to be resolved manually. Merge '{sourceBranch}' branch to '{targetBranch}' branch. Then create a pull request to '{downstreamBranch}' branch or execute this command again." );
+                context.Console.WriteError( $"Merge conflicts need to be resolved manually. Merge '{sourceBranch}' branch to '{targetBranch}' branch." );
+                context.Console.WriteError( $"Then create a pull request to '{downstreamBranch}' branch or execute this command again." );
 
                 return false;
             }
         }
-        else
-        {
-            // If there is nothing to merge at this point, we check if the target branch contains some commits
-            // from previous run of the command or from another source.
-            // (Eg. developers handling downstream merge conflicts manually.)
-            
-            if ( !GitHelper.TryGetCommitsCount( context, downstreamBranch, "HEAD", out var commitsCount ) )
-            {
-                return false;
-            }
 
-            if ( commitsCount < 0 )
-            {
-                throw new InvalidOperationException( $"Invalid commits count: {commitsCount}" );
-            }
-
-            if ( commitsCount == 0 )
-            {
-                return true;
-            }
-        }
-
+        // We push even if there's nothing to merge as there could be commits from manual conflict resolution.
         if ( !GitHelper.TryPush( context, settings ) )
         {
             areChangesPending = false;

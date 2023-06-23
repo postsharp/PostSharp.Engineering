@@ -56,8 +56,10 @@ internal class UpstreamCheckCommand : BaseCommand<UpstreamCheckSettings>
             {
                 return false;
             }
+
+            var remoteUpstreamBranch = $"remotes/origin/{upstreamBranch}";
             
-            if ( !GitHelper.TryGetCommitsCount( context, "HEAD", upstreamBranch, out var commitsCount ) )
+            if ( !GitHelper.TryGetCommitsCount( context, "HEAD", remoteUpstreamBranch, upstreamProductFamily, out var commitsCount ) )
             {
                 return false;
             }
