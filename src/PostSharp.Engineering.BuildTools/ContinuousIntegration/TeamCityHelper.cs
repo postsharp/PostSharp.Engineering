@@ -15,7 +15,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 public static class TeamCityHelper
 {
-    public const string TeamCityOnPremUrl = "https://tc.teamcity.com";
+    public const string TeamCityOnPremUrl = "https://tc.postsharp.net";
     public const string TeamCityOnPremTokenEnvironmentVariableName = "TEAMCITY_TOKEN";
     public const string TeamCityCloudUrl = "https://postsharp.teamcity.com";
     public const string TeamCityCloudTokenEnvironmentVariableName = "TEAMCITY_CLOUD_TOKEN";
