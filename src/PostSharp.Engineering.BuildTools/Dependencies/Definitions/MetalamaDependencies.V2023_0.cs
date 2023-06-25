@@ -27,12 +27,19 @@ public static partial class MetalamaDependencies
                 BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
                 BuildConfiguration publicBuildDependency = BuildConfiguration.Public,
                 string? parentCiProjectId = null,
-                string? ciProjectId = null )
+                string? ciProjectId = null,
+                string? customBranch = null,
+                string? customReleaseBranch = null )
                 : base(
                     Family,
                     dependencyName,
-                    GetDevBranch( vcsProvider ),
-                    GetReleaseBranch( vcsProvider ),
+                    customBranch ?? GetDevBranch( vcsProvider ),
+                    customReleaseBranch switch
+                    {
+                        null => GetReleaseBranch( vcsProvider ),
+                        "" => null,
+                        _ => customReleaseBranch
+                    },
                     CreateMetalamaVcsRepository( dependencyName, vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
                         ciProjectId != null
@@ -113,12 +120,16 @@ public static partial class MetalamaDependencies
             "Metalama.Tests.NopCommerce",
             VcsProvider.GitHub,
             false,
-            parentCiProjectId: "Metalama_MetalamaTests" );
+            parentCiProjectId: "Metalama_MetalamaTests",
+            customBranch: "master",
+            customReleaseBranch: "" );
 
         public static DependencyDefinition CargoSupport { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.CargoSupport",
             VcsProvider.AzureDevOps,
             false,
-            parentCiProjectId: "Metalama_MetalamaTests" );
+            parentCiProjectId: "Metalama_MetalamaTests",
+            customBranch: "dev",
+            customReleaseBranch: "master" );
     }
 }
