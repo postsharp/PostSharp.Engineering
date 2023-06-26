@@ -1818,7 +1818,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             dependencyVersions = new Dictionary<string, Version>();
 
-            foreach ( var dependency in this.Dependencies.Union( this.SourceDependencies ) )
+            var allDependencies =
+                this.Dependencies
+                    .Union( this.SourceDependencies )
+                    .Union( this.MainVersionDependency == null ? Enumerable.Empty<DependencyDefinition>() : new[] { this.MainVersionDependency } );
+
+            foreach ( var dependency in allDependencies )
             {
                 if ( snapshotDependenciesOnly && !dependency.GenerateSnapshotDependency )
                 {

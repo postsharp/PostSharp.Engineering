@@ -114,7 +114,7 @@ public static partial class MetalamaDependencies
             new MetalamaDependencyDefinition( "Metalama.Documentation", VcsProvider.GitHub, false );
 
         public static DependencyDefinition MetalamaTry { get; } =
-            new MetalamaDependencyDefinition( "Metalama.Try", VcsProvider.AzureDevOps, false ) { EngineeringDirectory = "eng-Metalama" };
+            new MetalamaDependencyDefinition( "Metalama.Try", VcsProvider.AzureDevOps, false, customBranch: "main" ) { EngineeringDirectory = "eng-Metalama" };
 
         public static DependencyDefinition NopCommerce { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.NopCommerce",
