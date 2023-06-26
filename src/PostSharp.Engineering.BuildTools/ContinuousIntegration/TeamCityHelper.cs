@@ -106,13 +106,17 @@ public static class TeamCityHelper
 
     public static bool TriggerTeamCityBuild( BuildContext context, CommonCommandSettings settings, string productFamilyName, string productFamilyVersion, string productName, TeamCityBuildType buildType, BuildConfiguration? buildConfiguration )
     {
-        // We get build type ID of the product from its DependencyDefinition by finding the definition by product name.
-        if ( !TryGetBuildTypeId( context, productFamilyName, productFamilyVersion, productName, buildType, buildConfiguration, out var buildTypeId ) )
+        if ( !TryGetDependencyDefinition( context, productFamilyName, productFamilyVersion, productName, out var dependencyDefinition ) )
+        {
+            return false;
+        }
+        
+        if ( !TryGetBuildTypeId( context, dependencyDefinition, buildType, buildConfiguration, out var buildTypeId ) )
         {
             return false;
         }
 
-        if ( !TryConnectTeamCity( context, out var tc ) )
+        if ( !TryConnectTeamCity( dependencyDefinition.CiConfiguration, context.Console, out var tc ) )
         {
             return false;
         }
@@ -178,16 +182,14 @@ public static class TeamCityHelper
         return true;
     }
 
-    private static bool TryGetBuildTypeId(
+    private static bool TryGetDependencyDefinition(
         BuildContext context,
         string productFamilyName,
         string productFamilyVersion,
         string productName,
-        TeamCityBuildType buildType,
-        BuildConfiguration? buildConfiguration,
-        [NotNullWhen( true )] out string? ciBuildTypeId )
+        [NotNullWhen( true )] out DependencyDefinition? dependencyDefinition )
     {
-        ciBuildTypeId = null;
+        dependencyDefinition = null;
 
         if ( !ProductFamily.TryGetFamily( productFamilyName, productFamilyVersion, out var productFamily ) )
         {
@@ -196,15 +198,25 @@ public static class TeamCityHelper
             return false;
         }
 
-        if ( !productFamily.TryGetDependencyDefinition( productName, out var dependencyDefinition ) )
+        if ( !productFamily.TryGetDependencyDefinition( productName, out dependencyDefinition ) )
         {
             context.Console.WriteError(
                 $"Dependency definition '{productName}' not found in '{productFamily.Name}' product family version '{productFamily.Version}'." );
 
-            ciBuildTypeId = null;
-
             return false;
         }
+
+        return true;
+    }
+
+    private static bool TryGetBuildTypeId(
+        BuildContext context,
+        DependencyDefinition dependencyDefinition,
+        TeamCityBuildType buildType,
+        BuildConfiguration? buildConfiguration,
+        [NotNullWhen( true )] out string? ciBuildTypeId )
+    {
+        ciBuildTypeId = null;
 
         // We get the required build type ID of the product from the DependencyDefinition.
         switch ( buildType )
@@ -239,7 +251,7 @@ public static class TeamCityHelper
 
         if ( ciBuildTypeId == null )
         {
-            context.Console.WriteError( $"'{productName}' product has no known build type ID for build type '{buildType}'." );
+            context.Console.WriteError( $"'{dependencyDefinition.Name}' product has no known build type ID for build type '{buildType}'." );
 
             return false;
         }
