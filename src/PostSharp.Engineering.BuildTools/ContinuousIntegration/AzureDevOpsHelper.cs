@@ -4,19 +4,12 @@ using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Net.Mime;
-using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -111,19 +104,15 @@ public static class AzureDevOpsHelper
         }
     }
 
-    public static async Task<bool> TrySetBranchPoliciesAsync( BuildContext context, AzureDevOpsRepository azureDevOpsRepository, bool dry )
+    public static async Task<bool> TrySetBranchPoliciesAsync(
+        BuildContext context,
+        AzureDevOpsRepository azureDevOpsRepository,
+        string buildStatusGenre,
+        string buildStatusName,
+        bool dry )
     {
         // Error message "The update is rejected by policy." usually means that a policy already exists.
 
-        var buildId = context.Product.DependencyDefinition.CiConfiguration.BuildTypes.Debug;
-
-        if ( string.IsNullOrEmpty( buildId ) )
-        {
-            context.Console.WriteError( "Unknown TeamCity build ID." );
-
-            return false;
-        }
-        
         var repository = azureDevOpsRepository.Name;
         var org = azureDevOpsRepository.BaseUrl;
         var project = azureDevOpsRepository.Project;
@@ -198,8 +187,8 @@ public static class AzureDevOpsHelper
         ""repositoryId"": ""{repositoryId}""
       }}
     ],
-    ""statusGenre"": ""TeamCity"",
-    ""statusName"": ""{buildId}""
+    ""statusGenre"": ""{buildStatusGenre}"",
+    ""statusName"": ""{buildStatusName}""
   }},
   ""type"": {{
     ""displayName"": ""Status"",

@@ -2,13 +2,8 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
-using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.BuildTools.Git;
@@ -24,17 +19,37 @@ internal class SetBranchPoliciesCommand : BaseCommand<SetBranchPoliciesSettings>
             return false;
         }
 
+        var buildStatusGenre = "TeamCity";
+        var buildStatusName = context.Product.DependencyDefinition.CiConfiguration.PullRequestStatusCheckBuildType;
+
+        if ( string.IsNullOrEmpty( buildStatusName ) )
+        {
+            context.Console.WriteError( "Unknown TeamCity build ID." );
+
+            return false;
+        }
+
         try
         {
             Task<bool> setBranchPoliciesTask;
 
             if ( AzureDevOpsRepository.TryParse( remoteUrl, out var azureDevOpsRepository ) )
             {
-                setBranchPoliciesTask = AzureDevOpsHelper.TrySetBranchPoliciesAsync( context, azureDevOpsRepository, settings.Dry );
+                setBranchPoliciesTask = AzureDevOpsHelper.TrySetBranchPoliciesAsync(
+                    context,
+                    azureDevOpsRepository,
+                    buildStatusGenre,
+                    buildStatusName,
+                    settings.Dry );
             }
             else if ( GitHubRepository.TryParse( remoteUrl, out var gitHubRepository ) )
             {
-                setBranchPoliciesTask = GitHubHelper.TrySetBranchPoliciesAsync( context, gitHubRepository, settings.Dry );
+                setBranchPoliciesTask = GitHubHelper.TrySetBranchPoliciesAsync(
+                    context,
+                    gitHubRepository,
+                    buildStatusGenre,
+                    buildStatusName,
+                    settings.Dry );
             }
             else
             {

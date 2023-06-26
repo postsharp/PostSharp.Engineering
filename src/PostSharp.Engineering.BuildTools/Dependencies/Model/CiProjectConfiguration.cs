@@ -10,6 +10,8 @@ public class CiProjectConfiguration
 
     public ConfigurationSpecific<string> BuildTypes { get; }
 
+    public string PullRequestStatusCheckBuildType { get; }
+
     public string DeploymentBuildType { get; }
 
     public string? VersionBumpBuildType { get; }
@@ -20,10 +22,19 @@ public class CiProjectConfiguration
 
     public string BuildAgentType { get; }
 
-    public CiProjectConfiguration( TeamCityProjectId projectProjectId, ConfigurationSpecific<string> buildTypes, string deploymentBuildType, string? versionBumpBuildType, string tokenEnvironmentVariableName, string baseUrl, string buildAgentType )
+    public CiProjectConfiguration(
+        TeamCityProjectId projectProjectId,
+        ConfigurationSpecific<string> buildTypes,
+        string deploymentBuildType,
+        string? versionBumpBuildType,
+        string tokenEnvironmentVariableName,
+        string baseUrl,
+        string buildAgentType,
+        string? pullRequestStatusCheckBuildType = null )
     {
         this.ProjectId = projectProjectId;
         this.BuildTypes = buildTypes;
+        this.PullRequestStatusCheckBuildType = pullRequestStatusCheckBuildType ?? $"{this.ProjectId}_DebugBuild";
         this.DeploymentBuildType = deploymentBuildType;
         this.VersionBumpBuildType = versionBumpBuildType;
         this.TokenEnvironmentVariableName = tokenEnvironmentVariableName;

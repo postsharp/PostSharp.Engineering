@@ -198,7 +198,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        var buildTypeId = $"{downstreamDependencyDefinition.CiConfiguration.ProjectId}_DebugBuild";
+        var buildTypeId = downstreamDependencyDefinition.CiConfiguration.PullRequestStatusCheckBuildType;
 
         if ( !TryScheduleBuild(
                 downstreamDependencyDefinition.CiConfiguration,

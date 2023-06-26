@@ -153,17 +153,13 @@ public static class GitHubHelper
         return url;
     }
 
-    public static async Task<bool> TrySetBranchPoliciesAsync( BuildContext context, GitHubRepository gitHubRepository, bool dry )
+    public static async Task<bool> TrySetBranchPoliciesAsync(
+        BuildContext context,
+        GitHubRepository gitHubRepository,
+        string buildStatusGenre,
+        string buildStatusName,
+        bool dry )
     {
-        var buildId = context.Product.DependencyDefinition.CiConfiguration.BuildTypes.Debug;
-
-        if ( string.IsNullOrEmpty( buildId ) )
-        {
-            context.Console.WriteError( "Unknown TeamCity build ID." );
-
-            return false;
-        }
-
         if ( !TryConnectGraphQl( context.Console, out var graphQl ) )
         {
             return false;
@@ -180,7 +176,7 @@ public static class GitHubHelper
             .Compile();
 
         var repositoryId = await graphQl.Run( repositoryIdQuery );
-        
+
         var ruleMutation = new Mutation()
             .CreateBranchProtectionRule(
                 new(
@@ -191,7 +187,7 @@ public static class GitHubHelper
                         RequiresApprovingReviews = true,
                         RequiredApprovingReviewCount = 1,
                         RequiresStatusChecks = true,
-                        RequiredStatusChecks = new[] { new RequiredStatusCheckInput { Context = $"TeamCity/{buildId}" } },
+                        RequiredStatusChecks = new[] { new RequiredStatusCheckInput { Context = $"{buildStatusGenre}/{buildStatusName}" } },
                         RequiresConversationResolution = true
                     } ) )
             .Select( r => r.BranchProtectionRule ) // We need to select something to avoid ResponseDeserializerException
