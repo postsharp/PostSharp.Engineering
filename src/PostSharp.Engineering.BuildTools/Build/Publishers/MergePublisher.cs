@@ -44,9 +44,9 @@ public class MergePublisher : IndependentPublisher
 
         if ( targetBranch == null )
         {
-            context.Console.WriteError( $"The release branch is not set for '{context.Product.ProductName}' product." );
+            context.Console.WriteWarning( $"Source code not published. The release branch is not set for '{context.Product.ProductName}' product." );
 
-            return SuccessCode.Error;
+            return SuccessCode.Success;
         }
 
         // Go through all dependencies and update their fixed version in Versions.props file.
