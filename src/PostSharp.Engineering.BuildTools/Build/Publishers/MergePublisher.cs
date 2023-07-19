@@ -92,10 +92,9 @@ public class MergePublisher : IndependentPublisher
 
     private static bool TryParseAndVerifyDependencies( BuildContext context, PublishSettings settings, out bool dependenciesUpdated )
     {
+        context.Console.WriteImportantMessage( $"Checking versions of auto-updated dependencies." );
+        
         dependenciesUpdated = false;
-        var autoUpdatedVersionsFilePath = Path.Combine( context.RepoDirectory, context.Product.AutoUpdatedVersionsFilePath );
-        var autoUpdatedVersionsFileName = Path.GetFileName( autoUpdatedVersionsFilePath );
-        var currentVersionDocument = XDocument.Load( autoUpdatedVersionsFilePath, LoadOptions.PreserveWhitespace );
 
         // For following Prepare step we need to BuildSettings
         var buildSettings = new BuildSettings()
@@ -115,21 +114,19 @@ public class MergePublisher : IndependentPublisher
             return false;
         }
 
-        context.Console.WriteImportantMessage( $"Checking versions of dependencies in '{autoUpdatedVersionsFileName}'." );
+        var autoUpdatedDependencies = dependenciesOverrideFile.Dependencies.Where( d => d.Value.SourceKind != DependencySourceKind.Feed ).ToArray();
+        
+        var autoUpdatedVersionsFilePath = Path.Combine( context.RepoDirectory, context.Product.AutoUpdatedVersionsFilePath );
+        var autoUpdatedVersionsFileName = Path.GetFileName( autoUpdatedVersionsFilePath );
+        var currentVersionDocument = XDocument.Load( autoUpdatedVersionsFilePath, LoadOptions.PreserveWhitespace );
 
-        foreach ( var dependencyOverride in dependenciesOverrideFile.Dependencies )
+        var currentVersionPropertyGroup = currentVersionDocument.Root!.Element( "PropertyGroup" )!;
+
+        foreach ( var dependencyOverride in autoUpdatedDependencies )
         {
             var dependencySource = dependencyOverride.Value;
 
             var dependency = context.Product.ProductFamily.GetDependencyDefinition( dependencyOverride.Key );
-
-            // We don't automatically change version of Feed or Local dependencies.
-            if ( dependencySource.SourceKind is DependencySourceKind.Feed )
-            {
-                context.Console.WriteMessage( $"Skipping version update of feed dependency '{dependency.Name}'." );
-
-                continue;
-            }
 
             // Path to the downloaded build version file.
             var dependencyVersionPath = dependencySource.VersionFile;
@@ -147,18 +144,16 @@ public class MergePublisher : IndependentPublisher
             var currentDependencyVersionValue =
                 dependencyVersionDocument.Root!.Element( "PropertyGroup" )!.Element( $"{dependency.NameWithoutDot}Version" )!.Value;
 
-            // Load dependency version from public version (no condition attribute).
-            var versionElement = currentVersionDocument.XPathSelectElements( $"/Project/PropertyGroup/{dependency.NameWithoutDot}Version" )
-                .SingleOrDefault( p => !p.HasAttributes );
-
+            // Load dependency version from public version.
+            var versionElementName = $"{dependency.NameWithoutDot}Version";
+            var versionElement = currentVersionPropertyGroup.Element( versionElementName );
+            
             if ( versionElement == null )
             {
-                context.Console.WriteWarning( $"No property '{dependency.NameWithoutDot}Version'." );
-
-                continue;
+                context.Console.WriteWarning( $"No property '{versionElementName}'." );
             }
 
-            var oldVersionValue = versionElement.Value;
+            var oldVersionValue = versionElement?.Value;
 
             // We don't need to rewrite the file if there is no change in version.
             if ( oldVersionValue == currentDependencyVersionValue )
@@ -166,6 +161,12 @@ public class MergePublisher : IndependentPublisher
                 context.Console.WriteMessage( $"Version of '{dependency.Name}' dependency is up to date." );
 
                 continue;
+            }
+
+            if ( versionElement == null )
+            {
+                versionElement = new( versionElementName );
+                currentVersionPropertyGroup.Add( versionElement );
             }
 
             versionElement.Value = currentDependencyVersionValue;
@@ -192,11 +193,11 @@ public class MergePublisher : IndependentPublisher
 
     private static bool TryCommitAndPushBumpedDependenciesVersions( BuildContext context )
     {
-        // Adds Versions.props with updated dependencies versions to Git staging area.
+        // Adds AutoUpdatedVersions.props with updated dependencies versions to Git staging area.
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
-                $"add {context.Product.VersionsFilePath}",
+                $"add {context.Product.AutoUpdatedVersionsFilePath}",
                 context.RepoDirectory ) )
         {
             return false;
