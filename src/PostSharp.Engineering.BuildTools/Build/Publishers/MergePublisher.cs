@@ -93,8 +93,9 @@ public class MergePublisher : IndependentPublisher
     private static bool TryParseAndVerifyDependencies( BuildContext context, PublishSettings settings, out bool dependenciesUpdated )
     {
         dependenciesUpdated = false;
-        var versionsPropertiesFilePath = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
-        var currentVersionDocument = XDocument.Load( versionsPropertiesFilePath, LoadOptions.PreserveWhitespace );
+        var autoUpdatedVersionsFilePath = Path.Combine( context.RepoDirectory, context.Product.AutoUpdatedVersionsFilePath );
+        var autoUpdatedVersionsFileName = Path.GetFileName( autoUpdatedVersionsFilePath );
+        var currentVersionDocument = XDocument.Load( autoUpdatedVersionsFilePath, LoadOptions.PreserveWhitespace );
 
         // For following Prepare step we need to BuildSettings
         var buildSettings = new BuildSettings()
@@ -103,7 +104,7 @@ public class MergePublisher : IndependentPublisher
         };
 
         // Do prepare step to get Version.Public.g.props to load up-to-date versions from.
-        if ( !context.Product.PrepareVersionsFile( context, buildSettings, out _, out _ ) )
+        if ( !context.Product.PrepareVersionsFile( context, buildSettings, out _ ) )
         {
             return false;
         }
@@ -114,7 +115,7 @@ public class MergePublisher : IndependentPublisher
             return false;
         }
 
-        context.Console.WriteImportantMessage( "Updating versions of dependencies in 'Versions.props'." );
+        context.Console.WriteImportantMessage( $"Checking versions of dependencies in '{autoUpdatedVersionsFileName}'." );
 
         foreach ( var dependencyOverride in dependenciesOverrideFile.Dependencies )
         {
@@ -175,10 +176,12 @@ public class MergePublisher : IndependentPublisher
 
         if ( dependenciesUpdated )
         {
+            context.Console.WriteImportantMessage( $"Writing updated '{autoUpdatedVersionsFileName}'." );
+            
             var xmlWriterSettings =
                 new XmlWriterSettings { OmitXmlDeclaration = true, Indent = true, IndentChars = "    ", Encoding = new UTF8Encoding( false ) };
 
-            using ( var xmlWriter = XmlWriter.Create( versionsPropertiesFilePath, xmlWriterSettings ) )
+            using ( var xmlWriter = XmlWriter.Create( autoUpdatedVersionsFilePath, xmlWriterSettings ) )
             {
                 currentVersionDocument.Save( xmlWriter );
             }

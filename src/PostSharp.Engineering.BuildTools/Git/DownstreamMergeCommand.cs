@@ -255,6 +255,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             }
 
             AddFileToKeepOwn( context.Product.MainVersionFilePath );
+            AddFileToKeepOwn( context.Product.AutoUpdatedVersionsFilePath );
             AddFileToKeepOwn( context.Product.BumpInfoFilePath );
 
             Directory.EnumerateFiles( Path.Combine( context.RepoDirectory, ".teamcity" ), "*", SearchOption.AllDirectories )

@@ -60,6 +60,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             get => this._mainVersionFile ?? Path.Combine( this.EngineeringDirectory, "MainVersion.props" );
             init => this._mainVersionFile = value;
         }
+        
+        public string AutoUpdatedVersionsFilePath
+        {
+            get => this._versionsFile ?? Path.Combine( this.EngineeringDirectory, "AutoUpdatedVersions.props" );
+            init => this._versionsFile = value;
+        }
 
         public string BumpInfoFilePath
         {
@@ -863,7 +869,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Prepare the versions file.
-            if ( !this.PrepareVersionsFile( context, settings, out _, out dependenciesOverrideFile ) )
+            if ( !this.PrepareVersionsFile( context, settings, out dependenciesOverrideFile ) )
             {
                 return false;
             }
@@ -994,11 +1000,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool PrepareVersionsFile(
             BuildContext context,
             BuildSettings settings,
-            out string preparedPackageVersion,
             [NotNullWhen( true )] out DependenciesOverrideFile? dependenciesOverrideFile )
         {
             var configuration = settings.BuildConfiguration;
-            preparedPackageVersion = string.Empty;
 
             context.Console.WriteHeading( "Preparing the version file" );
 
