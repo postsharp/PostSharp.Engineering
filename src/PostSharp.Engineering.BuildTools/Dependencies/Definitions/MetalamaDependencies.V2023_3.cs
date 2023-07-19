@@ -5,7 +5,6 @@ using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using System;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
@@ -15,7 +14,7 @@ public static partial class MetalamaDependencies
     // ReSharper disable once InconsistentNaming
 
     [PublicAPI]
-    public static class V2023_0
+    public static class V2023_3
     {
         private class MetalamaDependencyDefinition : DependencyDefinition
         {
@@ -23,61 +22,37 @@ public static partial class MetalamaDependencies
                 string dependencyName,
                 VcsProvider vcsProvider,
                 bool isVersioned = true,
+                string? parentCiProjectId = null,
                 BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
                 BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
                 BuildConfiguration publicBuildDependency = BuildConfiguration.Public,
-                string? parentCiProjectId = null,
-                string? ciProjectId = null,
+                string? customCiProjectName = null,
                 string? customBranch = null,
                 string? customReleaseBranch = null )
                 : base(
                     Family,
                     dependencyName,
-                    customBranch ?? GetDevBranch( vcsProvider ),
-                    customReleaseBranch switch
-                    {
-                        null => GetReleaseBranch( vcsProvider ),
-                        "" => null,
-                        _ => customReleaseBranch
-                    },
+                    customBranch ?? $"develop/{Family.Version}",
+                    customReleaseBranch ?? $"release/{Family.Version}",
                     CreateMetalamaVcsRepository( dependencyName, vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
-                        ciProjectId != null
-                            ? new TeamCityProjectId(
-                                ciProjectId,
-                                parentCiProjectId ?? throw new InvalidOperationException( "Unknown parent project ID when project ID set explicitly." ) )
-                            : parentCiProjectId != null
-                                ? TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId )
-                                : TeamCityHelper.GetProjectId(
-                                    dependencyName,
-                                    _projectName ),
-                        "caravela04",
+                        parentCiProjectId == null
+                            ? TeamCityHelper.GetProjectId( dependencyName, _projectName, Family.Version )
+                            : TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId ),
+                        "caravela04cloud",
                         isVersioned,
                         debugBuildDependency,
                         releaseBuildDependency,
-                        publicBuildDependency,
-                        false ),
+                        publicBuildDependency ),
                     isVersioned ) { }
         }
 
-        public static ProductFamily Family { get; } =
-            new( _projectName, "2023.0", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_1.Family };
-
-        private static string GetDevBranch( VcsProvider vcsProvider )
-            => vcsProvider switch
-            {
-                VcsProvider.GitHub => "dev",
-                VcsProvider.AzureDevOps => "master",
-                _ => throw new InvalidOperationException( $"Unknown VCS provider: '{vcsProvider}'" )
-            };
-
-        private static string? GetReleaseBranch( VcsProvider vcsProvider )
-            => vcsProvider switch
-            {
-                VcsProvider.GitHub => "master",
-                VcsProvider.AzureDevOps => null,
-                _ => throw new InvalidOperationException( $"Unknown VCS provider: '{vcsProvider}'" )
-            };
+        public static ProductFamily Family { get; } = new( _projectName, "2023.3", DevelopmentDependencies.Family )
+        {
+            UpstreamProductFamily = V2023_2.Family,
+            
+            // DownstreamProductFamily = V2023_4.Family
+        };
 
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.AzureDevOps );
 
@@ -100,36 +75,40 @@ public static partial class MetalamaDependencies
         public static DependencyDefinition MetalamaSamples { get; } =
             new MetalamaDependencyDefinition( "Metalama.Samples", VcsProvider.GitHub, false ) { CodeStyle = "Metalama.Samples" };
 
-        public static DependencyDefinition MetalamaMigration { get; } = new MetalamaDependencyDefinition(
-            "Metalama.Migration",
-            VcsProvider.GitHub,
-            ciProjectId: "Metalama_Migration_MetalamaMigration",
-            parentCiProjectId: "Metalama" );
+        public static DependencyDefinition MetalamaMigration { get; } = new MetalamaDependencyDefinition( "Metalama.Migration", VcsProvider.GitHub );
 
         public static DependencyDefinition MetalamaLinqPad { get; } = new MetalamaDependencyDefinition( "Metalama.LinqPad", VcsProvider.GitHub );
 
         public static DependencyDefinition MetalamaCommunity { get; } = new MetalamaDependencyDefinition( "Metalama.Community", VcsProvider.GitHub );
 
-        public static DependencyDefinition MetalamaDocumentation { get; } =
-            new MetalamaDependencyDefinition( "Metalama.Documentation", VcsProvider.GitHub, false );
+        public static DependencyDefinition MetalamaDocumentation { get; } = new MetalamaDependencyDefinition(
+            "Metalama.Documentation",
+            VcsProvider.GitHub,
+            false );
 
         public static DependencyDefinition MetalamaTry { get; } =
-            new MetalamaDependencyDefinition( "Metalama.Try", VcsProvider.AzureDevOps, false, customBranch: "main" ) { EngineeringDirectory = "eng-Metalama" };
+            new MetalamaDependencyDefinition( "Metalama.Try", VcsProvider.AzureDevOps, false ) { EngineeringDirectory = "eng-Metalama" };
+
+        public static DependencyDefinition PostSharpPatterns { get; } = new MetalamaDependencyDefinition(
+            "PostSharp.Patterns",
+            VcsProvider.AzureDevOps,
+            false );
+
+        public static DependencyDefinition MetalamaPatterns { get; } = new MetalamaDependencyDefinition(
+            "Metalama.Patterns",
+            VcsProvider.GitHub );
 
         public static DependencyDefinition NopCommerce { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.NopCommerce",
             VcsProvider.GitHub,
             false,
-            parentCiProjectId: "Metalama_MetalamaTests",
-            customBranch: "master",
-            customReleaseBranch: "" );
+            parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
+            customBranch: $"dev/{Family.Version}" );
 
         public static DependencyDefinition CargoSupport { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.CargoSupport",
             VcsProvider.AzureDevOps,
             false,
-            parentCiProjectId: "Metalama_MetalamaTests",
-            customBranch: "dev",
-            customReleaseBranch: "master" );
+            parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests" );
     }
 }
