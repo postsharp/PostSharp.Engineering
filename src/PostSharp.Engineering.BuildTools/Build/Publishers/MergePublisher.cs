@@ -115,6 +115,13 @@ public class MergePublisher : IndependentPublisher
         }
 
         var autoUpdatedDependencies = dependenciesOverrideFile.Dependencies.Where( d => d.Value.SourceKind != DependencySourceKind.Feed ).ToArray();
+
+        if ( autoUpdatedDependencies.Length == 0 )
+        {
+            context.Console.WriteMessage( "There are no auto-updated dependencies to check." );
+            
+            return true;
+        }
         
         var autoUpdatedVersionsFilePath = Path.Combine( context.RepoDirectory, context.Product.AutoUpdatedVersionsFilePath );
         var autoUpdatedVersionsFileName = Path.GetFileName( autoUpdatedVersionsFilePath );
