@@ -473,6 +473,36 @@ internal static class GitHelper
         return true;
     }
 
+    public static bool TryGetIsMergeInProgress( BuildContext context, string repo, out bool isMergeInProgress )
+    {
+        if ( !ToolInvocationHelper.InvokeTool(
+                 context.Console,
+                 "git",
+                 "rev-parse -q --verify MERGE_HEAD",
+                 repo,
+                 out var exitCode,
+                 out var output )
+             || exitCode != 0 )
+        {
+            isMergeInProgress = false;
+            
+            // Exit code 1 with no output means that a merge is not in progress. Otherwise, something unexpected has happened.
+            if ( exitCode == 1 && output == "" )
+            {
+                return true;
+            }
+            
+            context.Console.WriteError( output );
+
+            return false;
+        }
+
+        // Exit code 0 means that merge is in progress.
+        isMergeInProgress = true;
+
+        return true;
+    }
+
     public static bool CheckNoChange( BuildContext context, CommonCommandSettings settings, string repo )
     {
         if ( !settings.Force )

@@ -236,46 +236,53 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return false;
         }
 
-        context.Console.WriteImportantMessage( "Checking the merged files for those we want to keep own." );
-        
-        if ( !GitHelper.TryGetStatus( context, context.RepoDirectory, out var statuses ) )
+        if ( !GitHelper.TryGetStatus( context, context.RepoDirectory, out var statuses )
+             
+             // We don't rely on the number of changed files, because when there are commits with the same changes,
+             // it results in a merge commit with zero changed files.
+             || !GitHelper.TryGetIsMergeInProgress( context, context.RepoDirectory, out var isMergeInProgress ) )
         {
             return false;
         }
 
-        if ( statuses.Length > 0 )
+        if ( isMergeInProgress )
         {
-            // We don't merge these files downstream as they are specific to the product family version.
-            var filesToKeepOwn = new HashSet<string>();
-
-            void AddFileToKeepOwn( string path )
+            if ( statuses.Length > 0 )
             {
-                var unixStylePath = path.Replace( Path.DirectorySeparatorChar, '/' );
-                filesToKeepOwn.Add( unixStylePath );
-            }
+                context.Console.WriteImportantMessage( "Checking the merged files for those we want to keep own." );
+                
+                // We don't merge these files downstream as they are specific to the product family version.
+                var filesToKeepOwn = new HashSet<string>();
 
-            AddFileToKeepOwn( context.Product.MainVersionFilePath );
-            AddFileToKeepOwn( context.Product.AutoUpdatedVersionsFilePath );
-            AddFileToKeepOwn( context.Product.BumpInfoFilePath );
-
-            Directory.EnumerateFiles( Path.Combine( context.RepoDirectory, ".teamcity" ), "*", SearchOption.AllDirectories )
-                .Select( p => Path.GetRelativePath( context.RepoDirectory, p ) )
-                .ToList()
-                .ForEach( AddFileToKeepOwn );
-
-            foreach ( var status in statuses.Select( s => s.Split( ' ', 2, StringSplitOptions.TrimEntries ) ) )
-            {
-                var fileToResolve = status[1];
-
-                if ( filesToKeepOwn.Contains( fileToResolve ) )
+                void AddFileToKeepOwn( string path )
                 {
-                    if ( !GitHelper.TryResolveUsingOurs( context, fileToResolve ) )
+                    var unixStylePath = path.Replace( Path.DirectorySeparatorChar, '/' );
+                    filesToKeepOwn.Add( unixStylePath );
+                }
+
+                AddFileToKeepOwn( context.Product.MainVersionFilePath );
+                AddFileToKeepOwn( context.Product.AutoUpdatedVersionsFilePath );
+                AddFileToKeepOwn( context.Product.BumpInfoFilePath );
+
+                Directory.EnumerateFiles( Path.Combine( context.RepoDirectory, ".teamcity" ), "*", SearchOption.AllDirectories )
+                    .Select( p => Path.GetRelativePath( context.RepoDirectory, p ) )
+                    .ToList()
+                    .ForEach( AddFileToKeepOwn );
+
+                foreach ( var status in statuses.Select( s => s.Split( ' ', 2, StringSplitOptions.TrimEntries ) ) )
+                {
+                    var fileToResolve = status[1];
+
+                    if ( filesToKeepOwn.Contains( fileToResolve ) )
                     {
-                        return false;
+                        if ( !GitHelper.TryResolveUsingOurs( context, fileToResolve ) )
+                        {
+                            return false;
+                        }
                     }
                 }
             }
-            
+
             // If not all conflicts were expected, git commit fails here.
             if ( !GitHelper.TryCommitMerge( context ) )
             {
