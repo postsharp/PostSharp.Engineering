@@ -38,10 +38,17 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// Loads the versions defined in Versions.props based on the Product definition.
         /// </summary>
         /// <param name="context"></param>
+        /// <param name="settings"></param>
+        /// <param name="configuration"></param>
+        /// <param name="teamCityEmulation"></param>
         /// <returns></returns>
-        private bool TryLoadDefaultDependencies( BuildContext context, CommonCommandSettings settings, (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation )
+        private bool TryLoadDefaultDependencies(
+            BuildContext context,
+            CommonCommandSettings settings,
+            BuildConfiguration configuration,
+            (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation )
         {
-            if ( !VersionFile.TryRead( context, settings, teamCityEmulation, out var versionFile ) )
+            if ( !VersionFile.TryRead( context, settings, configuration, teamCityEmulation, out var versionFile ) )
             {
                 return false;
             }
@@ -65,7 +72,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             file = new DependenciesOverrideFile( configurationSpecificVersionFilePath, configuration );
 
-            if ( !file.TryLoadDefaultDependencies( context, settings, teamCityEmulation ) )
+            if ( !file.TryLoadDefaultDependencies( context, settings, configuration, teamCityEmulation ) )
             {
                 file = null;
 
@@ -485,7 +492,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public bool Fetch(
             BuildContext context,
-            bool isContinuousIntegrationSimulated,
             (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation )
         {
             // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 

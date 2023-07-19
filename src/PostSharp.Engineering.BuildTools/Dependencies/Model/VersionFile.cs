@@ -30,6 +30,7 @@ public class VersionFile
     public static bool TryRead(
         BuildContext context,
         CommonCommandSettings settings,
+        BuildConfiguration configuration,
         (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation,
         [NotNullWhen( true )] out VersionFile? versionFile )
     {
@@ -108,6 +109,7 @@ public class VersionFile
                 dependencySource = DependencySource.CreateRestoredDependency(
                     context,
                     dependencyDefinition,
+                    configuration,
                     DependencyConfigurationOrigin.Default,
                     teamCityEmulation );
             }

@@ -8,11 +8,12 @@ using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
@@ -117,14 +118,14 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             return true;
         }
 
-        public CiBuildId? GetLatestBuildId( string buildTypeId, string branchName, bool isDefaultBranch )
+        public CiBuildId? GetLatestBuildId( ConsoleHelper console, string buildTypeId, string branchName, bool isDefaultBranch )
         {
             // In some cases, the default branch is not set for the TeamCity build and we need to use the "default:true" locator.
             var branchLocator = isDefaultBranch ? "default:true" : $"refs/heads/{branchName}";
 
             var path = $"/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId},branch:{branchLocator}";
 
-            if ( !this.TryGet( path, out var response ) )
+            if ( !this.TryGet( path, console, "get the latest build id", out var response ) )
             {
                 return null;
             }
@@ -142,24 +143,54 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             }
         }
 
-        public void DownloadArtifacts( string buildTypeId, int buildNumber, string directory )
+        public bool TryDownloadArtifacts( ConsoleHelper console, string buildTypeId, int buildNumber, string artifactsPath, string directory )
         {
-            var path = $"/repository/downloadAll/{buildTypeId}/{buildNumber}";
-            using var httpStream = this._httpClient.GetStream( path );
-            using var memoryStream = new MemoryStream();
-            httpStream.CopyTo( memoryStream );
-            memoryStream.Seek( 0, SeekOrigin.Begin );
+            var path = $"/app/rest/builds/defaultFilter:false,buildType:{buildTypeId},number:{buildNumber}/artifacts/children/{artifactsPath}";
 
-            using var zip = new ZipArchive( memoryStream, ZipArchiveMode.Read, false );
-            zip.ExtractToDirectory( directory, true );
-        }
+            if ( !this.TryGet( path, console, "list the artifacts", out var response ) )
+            {
+                return false;
+            }
 
-        public void DownloadSingleArtifact( string buildTypeId, int buildNumber, string artifactPath, string saveLocation )
-        {
-            var path = $"/repository/download/{buildTypeId}/{buildNumber}/{artifactPath}";
-            using var httpStream = this._httpClient.GetStream( path );
-            using var fileStream = File.OpenWrite( saveLocation );
-            httpStream.CopyTo( fileStream );
+            var document = response.Content.ReadAsXDocument();
+
+            var artifacts = document.Root!.Elements( "file" )
+                .Select(
+                    f => (f.Attribute( "name" )?.Value ?? throw new InvalidOperationException( "Unknown name of an artifact." ),
+                          f.Element( "content" )?.Attribute( "href" )?.Value ?? throw new InvalidOperationException( "Unknown URL of an artifact." )) );
+
+            var throttler = new SemaphoreSlim( 4, 4 );
+            var cancellationToken = ConsoleHelper.CancellationToken;
+            var targetDirectory = Path.Combine( directory, artifactsPath.Replace( '/', Path.DirectorySeparatorChar ) );
+
+            Directory.CreateDirectory( targetDirectory );
+         
+            async Task DownloadOneAsync( string url, string targetFilePath )
+            {
+                await using var httpStream = await this._httpClient.GetStreamAsync( url, cancellationToken );
+                await using var fileStream = File.Open( targetFilePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None );
+                await httpStream.CopyToAsync( fileStream, cancellationToken );
+                throttler.Release();
+            }
+            
+            async Task DownloadAsync()
+            {
+                List<Task> downloads = new();
+
+                foreach ( var artifact in artifacts )
+                {
+                    await throttler.WaitAsync( cancellationToken );
+                    var targetFilePath = Path.Combine( targetDirectory, artifact.Item1 );
+                    console.WriteMessage( $"{artifact.Item1} => {targetFilePath}" );
+                    downloads.Add( Task.Run( () => DownloadOneAsync( artifact.Item2, targetFilePath ), cancellationToken ) );
+                }
+
+                await Task.WhenAll( downloads );
+            }
+
+            Task.Run( DownloadAsync, cancellationToken ).GetAwaiter().GetResult();
+
+            return true;
         }
 
         public string? ScheduleBuild( ConsoleHelper console, string buildTypeId, string comment, string? branchName = null )

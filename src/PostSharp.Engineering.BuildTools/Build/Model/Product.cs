@@ -1024,7 +1024,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 
-            if ( !dependenciesOverrideFile.Fetch( context, settings.SimulateContinuousIntegration, teamCityEmulation ) )
+            if ( !dependenciesOverrideFile.Fetch( context, teamCityEmulation ) )
             {
                 return false;
             }
@@ -1900,7 +1900,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     return false;
                 }
 
-                if ( !dependenciesOverrideFile.Fetch( context, settings.SimulateContinuousIntegration, null ) )
+                if ( !dependenciesOverrideFile.Fetch( context, null ) )
                 {
                     return false;
                 }
@@ -1919,7 +1919,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         d => new TeamCitySnapshotDependency(
                             d.Definition.CiConfiguration.BuildTypes[d.Configuration],
                             true,
-                            $"+:{d.Definition.PrivateArtifactsDirectory.ToString( new BuildInfo( packageVersion, d.Configuration, this ) ).Replace( '\\', '/' )}/**/*=>dependencies/{d.Name}" ) )
+                            $"+:{d.Definition.PrivateArtifactsDirectory.ToString( new BuildInfo( packageVersion, d.Configuration, this ) ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Name}" ) )
                     .ToList();
 
                 var sourceDependencies = this.SourceDependencies.Where( d => d.GenerateSnapshotDependency )

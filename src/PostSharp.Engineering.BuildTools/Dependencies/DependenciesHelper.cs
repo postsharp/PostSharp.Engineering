@@ -2,6 +2,7 @@
 
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
+using Microsoft.Win32;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -71,6 +72,8 @@ public static class DependenciesHelper
 
         var iterationDependencies = dependencies.ToImmutableDictionary( d => d.Definition.Name, d => d );
         var dependencyDictionary = dependencies.ToImmutableDictionary( d => d.Definition.Name, d => d );
+        var parentBuildTypeId = context.Product.DependencyDefinition.CiConfiguration.BuildTypes[configuration];
+        var artifactDependencyRules = new ArtifactDependencyRules( context.Console, tc, parentBuildTypeId, teamCityEmulation?.ArtifactRules );
 
         while ( iterationDependencies.Count > 0 )
         {
@@ -82,7 +85,7 @@ public static class DependenciesHelper
             }
 
             // Download artefacts that are not transitive dependencies.
-            if ( !DownloadArtifacts( context, tc, iterationDependencies ) )
+            if ( !DownloadArtifacts( context, tc, artifactDependencyRules, iterationDependencies ) )
             {
                 return false;
             }
@@ -93,6 +96,7 @@ public static class DependenciesHelper
                     dependencyDictionary,
                     iterationDependencies,
                     dependenciesOverrideFile,
+                    artifactDependencyRules,
                     teamCityEmulation,
                     out var newDependencies ) )
             {
@@ -113,6 +117,7 @@ public static class DependenciesHelper
         ImmutableDictionary<string, Dependency> allDependencies,
         ImmutableDictionary<string, Dependency> directDependencies,
         DependenciesOverrideFile dependenciesOverrideFile,
+        ArtifactDependencyRules rules,
         (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation,
         [NotNullWhen( true )] out ImmutableDictionary<string, Dependency>? newDependencies )
     {
@@ -236,6 +241,7 @@ public static class DependenciesHelper
                                         dependencyDefinition.Name,
                                         buildId.BuildTypeId!,
                                         buildId.BuildNumber,
+                                        rules,
                                         out _,
                                         teamCityEmulation.Value.ArtifactRules ) )
                                 {
@@ -291,6 +297,7 @@ public static class DependenciesHelper
         var isDefaultBranch = branch == defaultBranch;
 
         latestBuildId = teamCity.GetLatestBuildId(
+            console,
             ciBuildType,
             branch,
             isDefaultBranch );
@@ -382,6 +389,7 @@ public static class DependenciesHelper
     private static bool DownloadArtifacts(
         BuildContext context,
         TeamCityClient teamCity,
+        ArtifactDependencyRules artifactDependencyRules,
         ImmutableDictionary<string, Dependency> dependencies )
     {
         foreach ( var dependency in dependencies.Values )
@@ -408,6 +416,7 @@ public static class DependenciesHelper
             if ( !DownloadDependency(
                     context,
                     teamCity,
+                    artifactDependencyRules,
                     dependency.Source,
                     dependency.Definition.Name,
                     buildId.BuildTypeId,
@@ -493,12 +502,13 @@ public static class DependenciesHelper
         return true;
     }
     
-    public static bool DownloadBuild(
+    private static bool DownloadBuild(
         BuildContext context,
         TeamCityClient teamCity,
         string dependencyName,
         string ciBuildTypeId,
         int buildNumber,
+        ArtifactDependencyRules rules,
         out string restoreDirectory,
         ImmutableDictionary<string, string>? simulatedCiArtifactRules = null )
     {
@@ -520,7 +530,16 @@ public static class DependenciesHelper
 
             Directory.CreateDirectory( restoreDirectory );
             context.Console.WriteMessage( $"Downloading {dependencyName} build #{buildNumber} of {ciBuildTypeId}" );
-            teamCity.DownloadArtifacts( ciBuildTypeId, buildNumber, restoreDirectory );
+
+            if ( !rules.TryGetArtifactsPath( ciBuildTypeId, out var artifactsPath ) )
+            {
+                return false;
+            }
+
+            if ( !teamCity.TryDownloadArtifacts( context.Console, ciBuildTypeId, buildNumber, artifactsPath, restoreDirectory ) )
+            {
+                return false;
+            }
 
             File.WriteAllText( completedFile, "Completed" );
         }
@@ -543,6 +562,30 @@ public static class DependenciesHelper
         }
 
         return true;
+    }
+
+    public static bool DownloadBuild(
+        BuildContext context,
+        TeamCityClient teamCity,
+        BuildConfiguration configuration,
+        string dependencyName,
+        string ciBuildTypeId,
+        int buildNumber,
+        out string restoreDirectory,
+        ImmutableDictionary<string, string>? simulatedCiArtifactRules = null )
+    {
+        var parentBuildTypeId = context.Product.DependencyDefinition.CiConfiguration.BuildTypes[configuration];
+        var rules = new ArtifactDependencyRules( context.Console, teamCity, parentBuildTypeId, simulatedCiArtifactRules );
+
+        return DownloadBuild(
+            context,
+            teamCity,
+            dependencyName,
+            ciBuildTypeId,
+            buildNumber,
+            rules,
+            out restoreDirectory,
+            simulatedCiArtifactRules );
     }
 
     private static readonly Regex _artifactsRuleRegex = new( @"^\+:(?<filter>[^=]+)=>(?<target>.+)$" );
@@ -649,12 +692,13 @@ public static class DependenciesHelper
     private static bool DownloadDependency(
         BuildContext context,
         TeamCityClient teamCity,
+        ArtifactDependencyRules artifactDependencyRules,
         DependencySource dependencySource,
         string dependencyName,
         string ciBuildTypeId,
         int buildNumber )
     {
-        if ( !DownloadBuild( context, teamCity, dependencyName, ciBuildTypeId, buildNumber, out var restoreDirectory ) )
+        if ( !DownloadBuild( context, teamCity, dependencyName, ciBuildTypeId, buildNumber, artifactDependencyRules, out var restoreDirectory ) )
         {
             return false;
         }
@@ -696,6 +740,29 @@ public static class DependenciesHelper
         return null;
     }
 
+    private static bool TryGetArtifactRules(TeamCityClient tc, ConsoleHelper console, string ciBuildTypeId, [NotNullWhen(true)] out ImmutableDictionary<string, string>? artifactRules)
+    {
+        console.WriteMessage( $"Fetching build configuration of '{ciBuildTypeId}' build type." );
+
+        if ( !tc.TryGetBuildTypeConfiguration( console, ciBuildTypeId, out var teamCityBuildConfiguration ) )
+        {
+            artifactRules = null;
+            
+            return false;
+        }
+
+        artifactRules = teamCityBuildConfiguration
+            .Root
+            !.Element( "artifact-dependencies" )!
+            .Elements( "artifact-dependency" )
+            .ToImmutableDictionary(
+                d => d.Element( "source-buildType" )!.Attribute( "id" )!.Value,
+                d => d.Element( "properties" )!.Elements( "property" ).Single( p => p.Attribute( "name" )!.Value == "pathRules" ).Attribute( "value" )!
+                    .Value );
+
+        return true;
+    }
+    
     public static bool TryPrepareTeamCityEmulation(
         BuildContext context,
         BuildConfiguration buildConfiguration,
@@ -710,21 +777,10 @@ public static class DependenciesHelper
 
         var ciBuildTypeId = context.Product.DependencyDefinition.CiConfiguration.BuildTypes[buildConfiguration];
 
-        context.Console.WriteMessage( $"Fetching build configuration of '{ciBuildTypeId}' build type." );
-
-        if ( !tc.TryGetBuildTypeConfiguration( context.Console, ciBuildTypeId, out var teamCityBuildConfiguration ) )
+        if ( !TryGetArtifactRules( tc, context.Console, ciBuildTypeId, out var artifactRules ) )
         {
             return false;
         }
-
-        var artifactRules = teamCityBuildConfiguration
-            .Root
-            !.Element( "artifact-dependencies" )!
-            .Elements( "artifact-dependency" )
-            .ToImmutableDictionary(
-                d => d.Element( "source-buildType" )!.Attribute( "id" )!.Value,
-                d => d.Element( "properties" )!.Elements( "property" ).Single( p => p.Attribute( "name" )!.Value == "pathRules" ).Attribute( "value" )!
-                    .Value );
 
         teamCityEmulation = (tc, buildConfiguration, artifactRules);
 
@@ -741,4 +797,80 @@ public static class DependenciesHelper
     }
 
     private record Dependency( DependencySource Source, DependencyDefinition Definition );
+    
+    private class ArtifactDependencyRules
+    {
+        private readonly ConsoleHelper _console;
+        private readonly TeamCityClient _tc;
+        private readonly string _parentCiBuildTypeId;
+        private ImmutableDictionary<string, string>? _rules;
+
+        public ArtifactDependencyRules( ConsoleHelper console, TeamCityClient tc, string parentCiBuildTypeId, ImmutableDictionary<string, string>? rules )
+        {
+            this._console = console;
+            this._tc = tc;
+            this._parentCiBuildTypeId = parentCiBuildTypeId;
+            this._rules = rules;
+        }
+
+        public bool TryGetArtifactsPath( string ciBuildTypeId, [NotNullWhen(true)] out string? artifactsPath )
+        {
+            artifactsPath = null;
+            
+            if ( this._rules == null )
+            {
+                if ( !TryGetArtifactRules( this._tc, this._console, this._parentCiBuildTypeId, out var rawRules ) )
+                {
+                    return false;
+                }
+
+                this._rules = rawRules.ToImmutableDictionary(
+                    kv => kv.Key,
+                    kv =>
+                    {
+                        var rule = kv.Value.Trim();
+
+                        if ( rule.Contains( ';', StringComparison.Ordinal ) )
+                        {
+                            throw new NotImplementedException( $"Multiple rules are not yet supported. Build: '{this._parentCiBuildTypeId}' Rule: {rule}" );
+                        }
+
+                        const string prefix = "+:";
+
+                        if ( !rule.StartsWith( prefix, StringComparison.Ordinal ) )
+                        {
+                            throw new InvalidOperationException( $"Unknown beginning of a rule. Build: '{this._parentCiBuildTypeId}' Rule: {rule}" );
+                        }
+
+                        var ruleParts = rule.Substring( prefix.Length ).Split( "=>" );
+
+                        if ( ruleParts.Length != 2 )
+                        {
+                            throw new InvalidOperationException( $"Invalid rule. Build: '{this._parentCiBuildTypeId}' Rule: {rule}" );
+                        }
+
+                        var sourcePath = ruleParts[0];
+
+                        const string suffix = "/**/*";
+
+                        if ( !sourcePath.EndsWith( suffix, StringComparison.Ordinal ) )
+                        {
+                            throw new NotImplementedException(
+                                $"Only path ending with '{suffix}' are supported. Build: '{this._parentCiBuildTypeId}' Rule: {rule}" );
+                        }
+
+                        return sourcePath.Substring( 0, sourcePath.Length - suffix.Length );
+                    } );
+            }
+
+            if ( !this._rules.TryGetValue( ciBuildTypeId, out artifactsPath ) )
+            {
+                this._console.WriteError( $"Rule for '{ciBuildTypeId}' not found in '{this._parentCiBuildTypeId}'." );
+
+                return false;
+            }
+
+            return true;
+        }
+    }
 }

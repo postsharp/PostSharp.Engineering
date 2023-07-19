@@ -36,6 +36,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencySource CreateRestoredDependency(
             BuildContext context,
             DependencyDefinition dependencyDefinition,
+            BuildConfiguration configuration,
             DependencyConfigurationOrigin origin,
             (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation )
         {
@@ -43,7 +44,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             {
                 var buildTypeId = dependencyDefinition.CiConfiguration.BuildTypes[teamCityEmulation.Value.BuildConfiguration];
 
-                var latestCiBuildId = teamCityEmulation.Value.TeamCity.GetLatestBuildId( buildTypeId, dependencyDefinition.Branch, true );
+                var latestCiBuildId = teamCityEmulation.Value.TeamCity.GetLatestBuildId( context.Console, buildTypeId, dependencyDefinition.Branch, true );
 
                 if ( latestCiBuildId == null || latestCiBuildId.BuildTypeId == null )
                 {
@@ -53,6 +54,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 if ( !DependenciesHelper.DownloadBuild(
                         context,
                         teamCityEmulation.Value.TeamCity,
+                        configuration,
                         dependencyDefinition.Name,
                         latestCiBuildId.BuildTypeId,
                         latestCiBuildId.BuildNumber,

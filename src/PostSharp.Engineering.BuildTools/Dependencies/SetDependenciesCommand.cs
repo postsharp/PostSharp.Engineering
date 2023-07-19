@@ -56,11 +56,16 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 #pragma warning restore CS0618
                     }
 
+#pragma warning disable CS0618
+
+                    // TODO: What to use instead of settings.BuildConfiguration?
                     dependencySource = DependencySource.CreateRestoredDependency(
                         context,
                         dependencyDefinition,
+                        settings.BuildConfiguration ?? BuildConfiguration.Debug,
                         DependencyConfigurationOrigin.Override,
                         teamCityEmulation );
+#pragma warning restore CS0618
 
                     break;
 
