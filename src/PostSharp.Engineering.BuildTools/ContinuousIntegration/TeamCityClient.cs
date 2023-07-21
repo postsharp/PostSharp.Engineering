@@ -143,54 +143,81 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             }
         }
 
-        public bool TryDownloadArtifacts( ConsoleHelper console, string buildTypeId, int buildNumber, string artifactsPath, string directory )
+        public void DownloadArtifacts( ConsoleHelper console, string buildTypeId, int buildNumber, string artifactsPath, string artifactsDirectory )
         {
-            var path = $"/app/rest/builds/defaultFilter:false,buildType:{buildTypeId},number:{buildNumber}/artifacts/children/{artifactsPath}";
-
-            if ( !this.TryGet( path, console, "list the artifacts", out var response ) )
-            {
-                return false;
-            }
-
-            var document = response.Content.ReadAsXDocument();
-
-            var artifacts = document.Root!.Elements( "file" )
-                .Select(
-                    f => (f.Attribute( "name" )?.Value ?? throw new InvalidOperationException( "Unknown name of an artifact." ),
-                          f.Element( "content" )?.Attribute( "href" )?.Value ?? throw new InvalidOperationException( "Unknown URL of an artifact." )) );
-
             var throttler = new SemaphoreSlim( 4, 4 );
             var cancellationToken = ConsoleHelper.CancellationToken;
-            var targetDirectory = Path.Combine( directory, artifactsPath.Replace( '/', Path.DirectorySeparatorChar ) );
 
-            Directory.CreateDirectory( targetDirectory );
-         
-            async Task DownloadOneAsync( string url, string targetFilePath )
+            async Task DownloadFileAsync( string url, string targetFilePath )
             {
                 await using var httpStream = await this._httpClient.GetStreamAsync( url, cancellationToken );
                 await using var fileStream = File.Open( targetFilePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None );
                 await httpStream.CopyToAsync( fileStream, cancellationToken );
                 throttler.Release();
             }
-            
-            async Task DownloadAsync()
-            {
-                List<Task> downloads = new();
 
-                foreach ( var artifact in artifacts )
+            async Task DownloadDirectoryAsync( IEnumerable<(string Name, string Path)> files, string targetDirectory )
+            {
+                List<Task> fileDownloads = new();
+                
+                Directory.CreateDirectory( targetDirectory );
+
+                foreach ( var file in files )
                 {
                     await throttler.WaitAsync( cancellationToken );
-                    var targetFilePath = Path.Combine( targetDirectory, artifact.Item1 );
-                    console.WriteMessage( $"{artifact.Item1} => {targetFilePath}" );
-                    downloads.Add( Task.Run( () => DownloadOneAsync( artifact.Item2, targetFilePath ), cancellationToken ) );
+                    var targetFilePath = Path.Combine( targetDirectory, file.Name );
+                    console.WriteMessage( $"{file.Name} => {targetFilePath}" );
+                    fileDownloads.Add( Task.Run( () => DownloadFileAsync( file.Path, targetFilePath ), cancellationToken ) );
                 }
 
-                await Task.WhenAll( downloads );
+                await Task.WhenAll( fileDownloads );
+            }
+            
+            List<Task> directoryDownloads = new();
+
+            void StartDownloadTree( string urlOrPath, string targetDirectory )
+            {
+                if ( !this.TryGet( urlOrPath, console, "list the artifacts", out var response ) )
+                {
+                    throw new InvalidOperationException( $"Failed to get '{urlOrPath}'." );
+                }
+
+                var document = response.Content.ReadAsXDocument();
+
+                (string Name, XElement Element)[] artifacts = document.Root!.Elements( "file" )
+                    .Select( f => (f.Attribute( "name" )?.Value ?? throw new InvalidOperationException( "Unknown name of an artifact." ), f) )
+                    .ToArray();
+
+                IEnumerable<(string Name, string Url)> files = artifacts
+                    .Select( a => (a.Name, a.Element.Element( "content" )?.Attribute( "href" )?.Value) )
+                    .Where( a => a.Value != null )
+                    .Select( a => (a.Item1, a.Value!) );
+
+                directoryDownloads.Add( DownloadDirectoryAsync( files, targetDirectory ) );
+
+                IEnumerable<(string Name, string Url)> directories = artifacts
+                    .Select( a => (a.Item1, a.Element.Element( "children" )?.Attribute( "href" )?.Value) )
+                    .Where( a => a.Value != null )
+                    .Select( a => (a.Item1, a.Value!) );
+
+                foreach ( var directory in directories )
+                {
+                    var childTargetDirectory = Path.Combine( targetDirectory, directory.Name );
+                    StartDownloadTree( directory.Url, childTargetDirectory );
+                }
             }
 
-            Task.Run( DownloadAsync, cancellationToken ).GetAwaiter().GetResult();
+            async Task DownloadAllAsync()
+            {
+                var basePath = $"/app/rest/builds/defaultFilter:false,buildType:{buildTypeId},number:{buildNumber}/artifacts/children/{artifactsPath}";
+                var baseTargetDirectory = Path.Combine( artifactsDirectory, artifactsPath.Replace( '/', Path.DirectorySeparatorChar ) );
 
-            return true;
+                StartDownloadTree( basePath, baseTargetDirectory );
+                
+                await Task.WhenAll( directoryDownloads );
+            }
+
+            Task.Run( DownloadAllAsync, cancellationToken ).GetAwaiter().GetResult();
         }
 
         public string? ScheduleBuild( ConsoleHelper console, string buildTypeId, string comment, string? branchName = null )

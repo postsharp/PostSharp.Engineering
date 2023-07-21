@@ -536,10 +536,7 @@ public static class DependenciesHelper
                 return false;
             }
 
-            if ( !teamCity.TryDownloadArtifacts( context.Console, ciBuildTypeId, buildNumber, artifactsPath, restoreDirectory ) )
-            {
-                return false;
-            }
+            teamCity.DownloadArtifacts( context.Console, ciBuildTypeId, buildNumber, artifactsPath, restoreDirectory );
 
             File.WriteAllText( completedFile, "Completed" );
         }
