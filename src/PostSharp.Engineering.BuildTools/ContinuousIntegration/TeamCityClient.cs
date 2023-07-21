@@ -164,7 +164,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
                 foreach ( var file in files )
                 {
-                    await throttler.WaitAsync( cancellationToken );
+                    await throttler!.WaitAsync( cancellationToken );
                     var targetFilePath = Path.Combine( targetDirectory, file.Name );
                     console.WriteMessage( $"{file.Name} => {targetFilePath}" );
                     fileDownloads.Add( Task.Run( () => DownloadFileAsync( file.Path, targetFilePath ), cancellationToken ) );
