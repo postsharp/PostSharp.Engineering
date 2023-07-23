@@ -10,7 +10,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 [PublicAPI]
 public partial class TestDependencies
 {
-    private const string _projectName = "Test";
+    private const string _projectName = "Engineering";
     
     private static VcsRepository CreateEngineeringVcsRepository( string name, VcsProvider provider )
     {
