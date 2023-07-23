@@ -10,14 +10,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 [PublicAPI]
 public partial class TestDependencies
 {
-    private const string _projectName = "Engineering";
-    
+    private const string _projectName = "Test";
+
     private static VcsRepository CreateEngineeringVcsRepository( string name, VcsProvider provider )
     {
         switch ( provider )
         {
             case VcsProvider.AzureDevOps:
-                return new AzureDevOpsRepository( _projectName, name );
+                return new AzureDevOpsRepository( DevelopmentDependencies.Family.Name, name );
             
             case VcsProvider.GitHub:
                 return new GitHubRepository( name );
