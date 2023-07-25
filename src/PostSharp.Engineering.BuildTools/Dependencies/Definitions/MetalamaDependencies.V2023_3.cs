@@ -1,7 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
-using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -23,9 +22,6 @@ public static partial class MetalamaDependencies
                 VcsProvider vcsProvider,
                 bool isVersioned = true,
                 string? parentCiProjectId = null,
-                BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
-                BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
-                BuildConfiguration publicBuildDependency = BuildConfiguration.Public,
                 string? customCiProjectName = null,
                 string? customBranch = null,
                 string? customReleaseBranch = null )
@@ -40,17 +36,14 @@ public static partial class MetalamaDependencies
                             ? TeamCityHelper.GetProjectId( dependencyName, _projectName, Family.Version )
                             : TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId ),
                         "caravela04cloud",
-                        isVersioned,
-                        debugBuildDependency,
-                        releaseBuildDependency,
-                        publicBuildDependency ),
+                        isVersioned ),
                     isVersioned ) { }
         }
 
         public static ProductFamily Family { get; } = new( _projectName, "2023.3", DevelopmentDependencies.Family )
         {
-            UpstreamProductFamily = V2023_2.Family,
-            
+            UpstreamProductFamily = V2023_2.Family
+
             // DownstreamProductFamily = V2023_4.Family
         };
 
@@ -60,8 +53,7 @@ public static partial class MetalamaDependencies
         // build, for performance reasons. The debug build will be used only locally, and for this we don't need a configuration here.
         public static DependencyDefinition MetalamaCompiler { get; } = new MetalamaDependencyDefinition(
             "Metalama.Compiler",
-            VcsProvider.AzureDevOps,
-            debugBuildDependency: BuildConfiguration.Release )
+            VcsProvider.AzureDevOps )
         {
             EngineeringDirectory = "eng-Metalama", PrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSSBuildConfiguration)", "Shipping" )
         };

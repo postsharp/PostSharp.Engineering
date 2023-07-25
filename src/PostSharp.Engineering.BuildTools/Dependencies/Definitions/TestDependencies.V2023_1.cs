@@ -1,7 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
-using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -20,10 +19,7 @@ public static partial class TestDependencies
             public TestDependencyDefinition(
                 string dependencyName,
                 VcsProvider vcsProvider,
-                bool isVersioned = true,
-                BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
-                BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
-                BuildConfiguration publicBuildDependency = BuildConfiguration.Public )
+                bool isVersioned = true )
                 : base(
                     Family,
                     dependencyName,
@@ -35,17 +31,12 @@ public static partial class TestDependencies
                             dependencyName,
                             $"Test_Test{Family.VersionWithoutDots}" ),
                         "caravela04cloud",
-                        isVersioned,
-                        debugBuildDependency,
-                        releaseBuildDependency,
-                        publicBuildDependency ),
+                        isVersioned ),
                     isVersioned ) { }
         }
 
-        public static ProductFamily Family { get; } = new( _projectName, "2023.1", DevelopmentDependencies.Family )
-        {
-            DownstreamProductFamily = V2023_2.Family
-        };
+        public static ProductFamily Family { get; } =
+            new( _projectName, "2023.1", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_2.Family };
 
         public static DependencyDefinition TestProduct { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.TestProduct",

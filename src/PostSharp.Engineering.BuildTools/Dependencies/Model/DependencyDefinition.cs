@@ -1,14 +1,26 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
+    /// <summary>
+    /// Represents the definition of a dependency. Dependencies are typically defined in PostSharp.Engineering. Dependency definitions
+    /// must not define any property that depends on the referencing product. Any such property must be defined in <see cref="ParametrizedDependency"/>.
+    /// </summary>
     public class DependencyDefinition
     {
+        [return: NotNullIfNotNull( "definition" )]
+        public static implicit operator ParametrizedDependency?( DependencyDefinition? definition ) => definition == null ? null : new ParametrizedDependency( definition );
+
+        [return: NotNullIfNotNull( "dependency" )]
+        public static implicit operator DependencyDefinition?( ParametrizedDependency? dependency ) => dependency?.Definition;
+
         public ProductFamily ProductFamily { get; }
 
         public string Name { get; }
@@ -34,7 +46,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public CiProjectConfiguration CiConfiguration { get; }
 
-        public bool IsVersioned { get; }
+        public bool IsVersioned { get; init; } = true;
 
         public bool GenerateSnapshotDependency { get; init; } = true;
 
@@ -45,6 +57,17 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public VcsRepository VcsRepository { get; }
 
         public ParametricString PrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "private" );
+
+        public string GetResolvedPrivateArtifactsDirectory( BuildConfiguration configuration )
+            => this.PrivateArtifactsDirectory.ToString(
+                new BuildInfo( null, configuration.ToString().ToLowerInvariant(), this.MSBuildConfiguration[configuration] ) );
+
+        public ConfigurationSpecific<string> MSBuildConfiguration { get; init; } = new( "Debug", "Release", "Release" );
+
+        public ParametrizedDependency ToDependency() => this;
+
+        public ParametrizedDependency ToDependency( ConfigurationSpecific<BuildConfiguration> configurationMapping )
+            => new ParametrizedDependency( this ) { ConfigurationMapping = configurationMapping };
 
         public DependencyDefinition(
             ProductFamily productFamily,
@@ -61,8 +84,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             this.VcsRepository = vcsRepository;
             this.Branch = branch;
             this.ReleaseBranch = releaseBranch;
-            this.IsVersioned = isVersioned;
             this.CiConfiguration = ciProjectConfiguration;
+            this.IsVersioned = true;
 
             productFamily.Register( this );
         }

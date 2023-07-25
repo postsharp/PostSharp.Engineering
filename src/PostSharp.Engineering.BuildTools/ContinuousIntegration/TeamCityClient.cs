@@ -24,53 +24,49 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public TeamCityClient( string baseAddress, string token )
         {
-            this._httpClient = new();
+            this._httpClient = new HttpClient();
             this._httpClient.BaseAddress = new Uri( baseAddress );
             this._httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Bearer", token );
         }
-        
-        private static bool IsSuccessResponse( HttpResponseMessage response, ConsoleHelper? console, string? description, bool writeError = true )
+
+        private static void ReportHttpErrorIfAny( HttpResponseMessage response, ConsoleHelper? console )
         {
             if ( !response.IsSuccessStatusCode )
             {
-                if ( writeError )
+                if ( console == null )
                 {
-                    if ( console == null )
-                    {
-                        throw new ArgumentNullException( nameof(console) );
-                    }
-
-                    if ( string.IsNullOrEmpty( description ) )
-                    {
-                        throw new ArgumentOutOfRangeException( nameof(description) );
-                    }
-
-                    console.WriteError( $"Failed to {description}." );
-                    console.WriteError( $"{response.StatusCode}: {response.ReasonPhrase}" );
-                    console.WriteError( response.Content.ReadAsString() );
+                    throw new ArgumentNullException( nameof(console) );
                 }
 
-                return false;
-            }
+                console.WriteError(
+                    $"{response.RequestMessage?.Method} {response.RequestMessage?.RequestUri} failed with code {response.StatusCode}. {response.ReasonPhrase}" );
 
-            return true;
+                console.WriteMessage( string.Join( Environment.NewLine, response.Content.ReadAsString().Split( '\n', '\r' ).Select( x => "> " + x ) ) );
+            }
         }
 
-        private bool TryGet( string path, ConsoleHelper? console, string? description, out HttpResponseMessage response, bool writeError = true )
+        private bool TryGet( string path, ConsoleHelper? console, out HttpResponseMessage response, bool writeError = true )
         {
             response = this._httpClient.GetAsync( path, ConsoleHelper.CancellationToken ).ConfigureAwait( false ).GetAwaiter().GetResult();
 
-            return IsSuccessResponse( response, console, description, writeError );
+            if ( writeError )
+            {
+                ReportHttpErrorIfAny( response, console );
+            }
+
+            return response.IsSuccessStatusCode;
         }
 
-        private bool TryGet( string path, out HttpResponseMessage response ) => this.TryGet( path, null, null, out response, false );
+        private bool TryGet( string path, out HttpResponseMessage response ) => this.TryGet( path, null, out response, false );
 
-        private bool TryPost( string path, string payload, ConsoleHelper console, string description, out HttpResponseMessage response )
+        private bool TryPost( string path, string payload, ConsoleHelper console, out HttpResponseMessage response )
         {
             var content = new StringContent( payload, Encoding.UTF8, "application/xml" );
             response = this._httpClient.PostAsync( path, content, ConsoleHelper.CancellationToken ).ConfigureAwait( false ).GetAwaiter().GetResult();
 
-            return IsSuccessResponse( response, console, description );
+            ReportHttpErrorIfAny( response, console );
+
+            return response.IsSuccessStatusCode;
         }
 
         public bool TryGetBranchFromBuildNumber( ConsoleHelper console, CiBuildId buildId, [NotNullWhen( true )] out string? branch )
@@ -78,7 +74,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             var path =
                 $"/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildId.BuildTypeId},number:{buildId.BuildNumber}";
 
-            if ( !this.TryGet( path, console, $"determine the branch of '{buildId}'", out var response ) )
+            if ( !this.TryGet( path, console, out var response ) )
             {
                 branch = null;
 
@@ -109,7 +105,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             if ( string.IsNullOrEmpty( branch ) )
             {
                 console.WriteError( $"Cannot determine the branch of '{buildId}': the branch name is empty." );
-                
+
                 branch = null;
 
                 return false;
@@ -122,7 +118,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
         {
             var path = $"/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId},branch:{branchName}";
 
-            if ( !this.TryGet( path, console, "get the latest build id", out var response ) )
+            if ( !this.TryGet( path, console, out var response ) )
             {
                 return null;
             }
@@ -156,7 +152,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             async Task DownloadDirectoryAsync( IEnumerable<(string Name, string Path)> files, string targetDirectory )
             {
                 List<Task> fileDownloads = new();
-                
+
                 Directory.CreateDirectory( targetDirectory );
 
                 foreach ( var file in files )
@@ -169,12 +165,12 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
                 await Task.WhenAll( fileDownloads );
             }
-            
+
             List<Task> directoryDownloads = new();
 
             void StartDownloadTree( string urlOrPath, string targetDirectory )
             {
-                if ( !this.TryGet( urlOrPath, console, "list the artifacts", out var response ) )
+                if ( !this.TryGet( urlOrPath, console, out var response ) )
                 {
                     throw new InvalidOperationException( $"Failed to get '{urlOrPath}'." );
                 }
@@ -210,7 +206,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 var baseTargetDirectory = Path.Combine( artifactsDirectory, artifactsPath.Replace( '/', Path.DirectorySeparatorChar ) );
 
                 StartDownloadTree( basePath, baseTargetDirectory );
-                
+
                 await Task.WhenAll( directoryDownloads );
             }
 
@@ -219,9 +215,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public string? ScheduleBuild( ConsoleHelper console, string buildTypeId, string comment, string? branchName = null )
         {
-            var payload = $"<build buildTypeId=\"{buildTypeId}\"{(branchName == null ? "" : $" branchName=\"{branchName}\"")}><comment><text>{comment}</text></comment></build>";
+            var payload =
+                $"<build buildTypeId=\"{buildTypeId}\"{(branchName == null ? "" : $" branchName=\"{branchName}\"")}><comment><text>{comment}</text></comment></build>";
 
-            if ( !this.TryPost( "/app/rest/buildQueue", payload, console, "schedule build", out var response ) )
+            if ( !this.TryPost( "/app/rest/buildQueue", payload, console, out var response ) )
             {
                 return null;
             }
@@ -264,7 +261,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool IsBuildQueued( ConsoleHelper console, string buildId )
         {
-            if ( !this.TryGet( TeamCityHelper.TeamcityApiBuildQueuePath, console, "retrieve build queue", out var response ) )
+            if ( !this.TryGet( TeamCityHelper.TeamcityApiBuildQueuePath, console, out var response ) )
             {
                 return false;
             }
@@ -289,7 +286,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool IsBuildRunning( ConsoleHelper console, string buildId )
         {
-            if ( !this.TryGet( TeamCityHelper.TeamCityApiRunningBuildsPath, console, "retrieve running builds", out var response ) )
+            if ( !this.TryGet( TeamCityHelper.TeamCityApiRunningBuildsPath, console, out var response ) )
             {
                 return false;
             }
@@ -316,7 +313,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool HasBuildFinishedSuccessfully( ConsoleHelper console, string buildId )
         {
-            if ( !this.TryGet( TeamCityHelper.TeamCityApiFinishedBuildsPath, console, "retrieve finished builds", out var response ) )
+            if ( !this.TryGet( TeamCityHelper.TeamCityApiFinishedBuildsPath, console, out var response ) )
             {
                 return false;
             }
@@ -350,7 +347,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool HasBuildFinished( ConsoleHelper console, string buildId )
         {
-            if ( !this.TryGet( TeamCityHelper.TeamCityApiFinishedBuildsPath, console, "retrieve finished builds", out var response ) )
+            if ( !this.TryGet( TeamCityHelper.TeamCityApiFinishedBuildsPath, console, out var response ) )
             {
                 return false;
             }
@@ -377,11 +374,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         private bool TryGetDetails( ConsoleHelper console, string path, string description )
         {
-            if ( !this.TryGet( path, console, description, out var response ) )
+            if ( !this.TryGet( path, console, out var response ) )
             {
                 return false;
             }
-            
+
             console.WriteMessage( response.Content.ReadAsXDocument().ToString() );
 
             return true;
@@ -389,16 +386,16 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool TryGetProjectDetails( ConsoleHelper console, string id )
             => this.TryGetDetails( console, $"/app/rest/projects/id:{id}", "retrieve project details" );
-        
+
         public bool TryCreateProject( ConsoleHelper console, string name, string id, string? parentId = null )
         {
             parentId ??= "_Root";
-            
+
             var payload = $@"<newProjectDescription id=""{id}"" name=""{name}"">
   <parentProject locator=""id:{parentId}"" />
 </newProjectDescription>";
 
-            return this.TryPost( "/app/rest/projects", payload, console, "create project", out _ );
+            return this.TryPost( "/app/rest/projects", payload, console, out _ );
         }
 
         public bool TrySetProjectVersionedSettings( ConsoleHelper console, string projectId, string vcsRootId )
@@ -423,9 +420,9 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
       </properties>
 </projectFeature>";
 
-            return this.TryPost( $"/app/rest/projects/id:{projectId}/projectFeatures", payload, console, "set project versioned settings", out _ );
+            return this.TryPost( $"/app/rest/projects/id:{projectId}/projectFeatures", payload, console, out _ );
         }
-        
+
         public bool TryGetProjectVersionedSettingsConfiguration( ConsoleHelper console, string projectId )
             => this.TryGetDetails( console, $"/app/rest/projects/id:{projectId}/versionedSettings/config", "get versioned settings configuration" );
 
@@ -434,7 +431,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 $"/app/rest/projects/id:{projectId}/versionedSettings/config",
                 $"<versionedSettingsConfig allowUIEditing=\"false\" buildSettingsMode=\"useFromVCS\" format=\"kotlin\" showSettingsChanges=\"true\" synchronizationMode=\"enabled\" vcsRootId=\"{vcsRootId}\" />",
                 console,
-                "set project versioned settings configuration",
                 out _ );
 
         public bool TryLoadProjectVersionedSettings( ConsoleHelper console, string projectId )
@@ -442,7 +438,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 $"/app/rest/projects/id:{projectId}/versionedSettings/loadSettings",
                 "",
                 console,
-                "load versioned settings",
                 out _ );
 
         public bool TryGetVcsRootDetails( ConsoleHelper console, string id )
@@ -458,7 +453,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             do
             {
-                if ( !this.TryGet( nextVcsRootsPath, console, "retrieve VCS roots", out var vcsRootsResponse ) )
+                if ( !this.TryGet( nextVcsRootsPath, console, out var vcsRootsResponse ) )
                 {
                     return false;
                 }
@@ -480,7 +475,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 {
                     var vcsRootPath = partialVcsRootElement.Attribute( "href" )!.Value;
 
-                    if ( !this.TryGet( vcsRootPath, console, "retrieve VCS root", out var vcsRootResponse ) )
+                    if ( !this.TryGet( vcsRootPath, console, out var vcsRootResponse ) )
                     {
                         return false;
                     }
@@ -526,7 +521,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             [NotNullWhen( true )] out string? id )
         {
             projectId ??= "_Root";
-            
+
             var properties = new List<(string Name, string Value)>();
 
             void AddProperty( string name, string value ) => properties.Add( (name, value) );
@@ -573,15 +568,15 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
    </properties>
 </vcs-root>";
 
-            return this.TryPost( "/app/rest/vcs-roots", payload, console, "create VCS root", out _ );
+            return this.TryPost( "/app/rest/vcs-roots", payload, console, out _ );
         }
 
         public bool TryGetBuildTypeConfiguration( ConsoleHelper console, string buildTypeId, [NotNullWhen( true )] out XDocument? configuration )
         {
-            if ( !this.TryGet( $"/app/rest/buildTypes/id:{buildTypeId}", console, $"get configuration of '{buildTypeId}' build type", out var response ) )
+            if ( !this.TryGet( $"/app/rest/buildTypes/id:{buildTypeId}", console, out var response ) )
             {
                 configuration = null;
-                
+
                 return false;
             }
 

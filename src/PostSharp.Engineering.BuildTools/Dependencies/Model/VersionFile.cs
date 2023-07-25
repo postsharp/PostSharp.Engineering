@@ -31,7 +31,6 @@ public class VersionFile
         BuildContext context,
         CommonCommandSettings settings,
         BuildConfiguration configuration,
-        (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation,
         [NotNullWhen( true )] out VersionFile? versionFile )
     {
         versionFile = null;
@@ -49,14 +48,14 @@ public class VersionFile
 
         var projectFile = Project.FromFile( versionsPath, projectOptions );
 
-        var defaultDependencyProperties = context.Product.Dependencies
+        var defaultDependencyProperties = context.Product.ParametrizedDependencies
             .ToDictionary(
                 d => d.Name,
                 d => projectFile.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" )?.EvaluatedValue );
 
         ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
-        foreach ( var dependencyDefinition in context.Product.Dependencies )
+        foreach ( var dependencyDefinition in context.Product.ParametrizedDependencies )
         {
             var dependencyVersion = defaultDependencyProperties[dependencyDefinition.Name];
 
@@ -91,7 +90,7 @@ public class VersionFile
             // Set the default source of the dependency according to the build context.
             DependencySource dependencySource;
 
-            if ( BuildContext.IsGuestDevice || !dependencyDefinition.GenerateSnapshotDependency )
+            if ( BuildContext.IsGuestDevice || !dependencyDefinition.Definition.GenerateSnapshotDependency )
             {
                 if ( dependencyVersion == "" )
                 {
@@ -110,13 +109,12 @@ public class VersionFile
                     context,
                     dependencyDefinition,
                     configuration,
-                    DependencyConfigurationOrigin.Default,
-                    teamCityEmulation );
+                    DependencyConfigurationOrigin.Default );
             }
             else
             {
                 dependencySource = DependencySource.CreateBuildServerSource(
-                    new CiLatestBuildOfBranch( dependencyDefinition.Branch ),
+                    new CiLatestBuildOfBranch( dependencyDefinition.Definition.Branch ),
                     DependencyConfigurationOrigin.Default );
             }
 

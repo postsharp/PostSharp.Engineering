@@ -1,10 +1,8 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using Spectre.Console;
-using System.Collections.Immutable;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies;
@@ -21,7 +19,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         // Validates the command line options.
         context.Console.WriteHeading( "Setting the local dependencies" );
 
-        if ( context.Product.Dependencies is not { Length: > 0 } )
+        if ( context.Product.ParametrizedDependencies is not { Length: > 0 } )
         {
             context.Console.WriteError( "This product has no dependency." );
 
@@ -39,19 +37,9 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         {
             return false;
         }
-        
-        (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation = null;
-
-        if ( settings.SimulateContinuousIntegration )
-        {
-            if ( !DependenciesHelper.TryPrepareTeamCityEmulation( context, configuration, out teamCityEmulation ) )
-            {
-                return false;
-            }
-        }
 
         // Loads the default dependencies.
-        if ( !DependenciesOverrideFile.TryLoadDefaultsOnly( context, settings, configuration, teamCityEmulation, out var defaultDependenciesOverrideFile ) )
+        if ( !DependenciesOverrideFile.TryLoadDefaultsOnly( context, settings, configuration, out var defaultDependenciesOverrideFile ) )
         {
             return false;
         }
@@ -63,7 +51,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         }
 
         // Iterate all matching dependencies.
-        var dependencies = settings.GetAllFlag() ? context.Product.Dependencies.Select( x => x.Name ) : settings.GetDependencies();
+        var dependencies = settings.GetAllFlag() ? context.Product.ParametrizedDependencies.Select( x => x.Name ) : settings.GetDependencies();
 
         foreach ( var dependency in dependencies )
         {
@@ -73,14 +61,14 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
             {
                 // The dependency was given by position.
 
-                if ( index < 1 || index > context.Product.Dependencies.Length )
+                if ( index < 1 || index > context.Product.ParametrizedDependencies.Length )
                 {
                     context.Console.WriteError( $"'{index}' is not a valid dependency index. Use the 'dependencies list' command." );
 
                     return false;
                 }
 
-                dependencyDefinition = context.Product.Dependencies[index - 1];
+                dependencyDefinition = context.Product.ParametrizedDependencies[index - 1];
             }
             else
             {
@@ -115,7 +103,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         // Updating dependencies.
         context.Console.WriteImportantMessage( "Updating dependencies" );
 
-        if ( !DependenciesHelper.UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, true, teamCityEmulation ) )
+        if ( !DependenciesHelper.UpdateOrFetchDependencies( context, configuration, dependenciesOverrideFile, true ) )
         {
             return false;
         }
@@ -125,7 +113,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         {
             return false;
         }
-        
+
         // Writing the configurations neutral file.
         context.Product.PrepareConfigurationNeutralVersionsFile( context, settings, configuration );
 

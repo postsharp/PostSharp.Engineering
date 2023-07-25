@@ -1,7 +1,4 @@
-﻿using HtmlAgilityPack;
-using System;
-
-namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
+﻿namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
 
 public record BreadcrumbInfo(
     string Breadcrumb,

@@ -20,7 +20,6 @@ namespace PostSharp.Engineering.BuildTools.Build;
 public record BuildConfigurationInfo(
 
     // ReSharper disable once InconsistentNaming
-    string MSBuildName,
     bool RequiresSigning = false,
     IBuildTrigger[]? BuildTriggers = null,
 

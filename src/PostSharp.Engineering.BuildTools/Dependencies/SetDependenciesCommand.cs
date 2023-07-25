@@ -1,10 +1,8 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System;
-using System.Collections.Immutable;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
 {
@@ -31,8 +29,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     break;
 
                 case DependencySourceKind.RestoredDependency:
-                    (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation = null;
-
                     if ( settings.SimulateContinuousIntegration )
                     {
 #pragma warning disable CS0618
@@ -46,13 +42,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                             return false;
                         }
 
-                        if ( settings.SimulateContinuousIntegration )
-                        {
-                            if ( !DependenciesHelper.TryPrepareTeamCityEmulation( context, settings.BuildConfiguration.Value, out teamCityEmulation ) )
-                            {
-                                return false;
-                            }
-                        }
 #pragma warning restore CS0618
                     }
 
@@ -63,8 +52,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                         context,
                         dependencyDefinition,
                         settings.BuildConfiguration ?? BuildConfiguration.Debug,
-                        DependencyConfigurationOrigin.Override,
-                        teamCityEmulation );
+                        DependencyConfigurationOrigin.Override );
 #pragma warning restore CS0618
 
                     break;

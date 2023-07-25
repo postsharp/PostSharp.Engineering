@@ -1,7 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -9,7 +8,6 @@ using Spectre.Console;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using System.Threading;
 
@@ -106,13 +104,20 @@ public static class TeamCityHelper
         return true;
     }
 
-    public static bool TriggerTeamCityBuild( BuildContext context, CommonCommandSettings settings, string productFamilyName, string productFamilyVersion, string productName, TeamCityBuildType buildType, BuildConfiguration? buildConfiguration )
+    public static bool TriggerTeamCityBuild(
+        BuildContext context,
+        CommonCommandSettings settings,
+        string productFamilyName,
+        string productFamilyVersion,
+        string productName,
+        TeamCityBuildType buildType,
+        BuildConfiguration? buildConfiguration )
     {
         if ( !TryGetDependencyDefinition( context, productFamilyName, productFamilyVersion, productName, out var dependencyDefinition ) )
         {
             return false;
         }
-        
+
         if ( !TryGetBuildTypeId( context, dependencyDefinition, buildType, buildConfiguration, out var buildTypeId ) )
         {
             return false;
@@ -156,7 +161,7 @@ public static class TeamCityHelper
             {
                 Thread.Sleep( 5000 );
             }
-            
+
             ClearLine( message.Length );
         }
 
@@ -166,9 +171,9 @@ public static class TeamCityHelper
             var message = tc.PollRunningBuildStatus( scheduledBuildId, out var buildNumber );
             context.Console.WriteMessage( message );
             scheduledBuildNumber = buildNumber;
-            
+
             Thread.Sleep( 5000 );
-            
+
             ClearLine( message.Length );
         }
 
@@ -265,15 +270,12 @@ public static class TeamCityHelper
         TeamCityProjectId teamCityProjectId,
         string buildAgentType,
         bool hasVersionBump = true,
-        BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
-        BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
-        BuildConfiguration publicBuildDependency = BuildConfiguration.Public,
         bool isCloudInstance = true )
     {
         var buildTypes = new ConfigurationSpecific<string>(
-            $"{teamCityProjectId}_{debugBuildDependency}Build",
-            $"{teamCityProjectId}_{releaseBuildDependency}Build",
-            $"{teamCityProjectId}_{publicBuildDependency}Build" );
+            $"{teamCityProjectId}_DebugBuild",
+            $"{teamCityProjectId}_ReleaseBuild",
+            $"{teamCityProjectId}_PublicBuild" );
 
         string? versionBumpBuildType = null;
 
@@ -428,7 +430,7 @@ public static class TeamCityHelper
                 $"+:refs/heads/(feature/{familyVersion}/*)",
                 $"+:refs/heads/(experimental/{familyVersion}/*)",
                 $"+:refs/heads/(merge/{familyVersion}/*)",
-                $"+:refs/heads/({context.Product.DependencyDefinition.Branch})",
+                $"+:refs/heads/({context.Product.DependencyDefinition.Branch})"
             };
 
             if ( context.Product.DependencyDefinition.ReleaseBranch != null )

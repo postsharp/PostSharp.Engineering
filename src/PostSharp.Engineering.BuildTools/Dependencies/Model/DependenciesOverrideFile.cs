@@ -6,7 +6,6 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
@@ -40,15 +39,13 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// <param name="context"></param>
         /// <param name="settings"></param>
         /// <param name="configuration"></param>
-        /// <param name="teamCityEmulation"></param>
         /// <returns></returns>
         private bool TryLoadDefaultDependencies(
             BuildContext context,
             CommonCommandSettings settings,
-            BuildConfiguration configuration,
-            (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation )
+            BuildConfiguration configuration )
         {
-            if ( !VersionFile.TryRead( context, settings, configuration, teamCityEmulation, out var versionFile ) )
+            if ( !VersionFile.TryRead( context, settings, configuration, out var versionFile ) )
             {
                 return false;
             }
@@ -65,14 +62,13 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             BuildContext context,
             CommonCommandSettings settings,
             BuildConfiguration configuration,
-            (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation,
             [NotNullWhen( true )] out DependenciesOverrideFile? file )
         {
             var configurationSpecificVersionFilePath = context.Product.GetConfigurationSpecificVersionsFilePath( context, settings, configuration );
 
             file = new DependenciesOverrideFile( configurationSpecificVersionFilePath, configuration );
 
-            if ( !file.TryLoadDefaultDependencies( context, settings, configuration, teamCityEmulation ) )
+            if ( !file.TryLoadDefaultDependencies( context, settings, configuration ) )
             {
                 file = null;
 
@@ -86,10 +82,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             BuildContext context,
             CommonCommandSettings settings,
             BuildConfiguration configuration,
-            [NotNullWhen( true )] out DependenciesOverrideFile? file,
-            (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation = null )
+            [NotNullWhen( true )] out DependenciesOverrideFile? file )
         {
-            if ( !TryLoadDefaultsOnly( context, settings, configuration, teamCityEmulation, out file ) )
+            if ( !TryLoadDefaultsOnly( context, settings, configuration, out file ) )
             {
                 return false;
             }
@@ -100,7 +95,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             {
                 return true;
             }
-            
+
             // Override defaults from the version file.
             var document = XDocument.Load( filePath );
             var project = document.Root!;
@@ -354,7 +349,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     case DependencySourceKind.BuildServer:
                     case DependencySourceKind.RestoredDependency when !TeamCityHelper.IsTeamCityBuild( settings ):
                         {
-                            var dependencyDefinition = context.Product.Dependencies.SingleOrDefault( p => p.Name == dependency.Key );
+                            var dependencyDefinition = context.Product.ParametrizedDependencies.SingleOrDefault( p => p.Name == dependency.Key )?.Definition;
 
                             if ( dependencyDefinition == null
                                  && !context.Product.ProductFamily.TryGetDependencyDefinition( dependency.Key, out dependencyDefinition ) )
@@ -460,9 +455,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             table.AddColumn( "Path" );
 
             // Add direct dependencies.
-            for ( var i = 0; i < context.Product.Dependencies.Length; i++ )
+            for ( var i = 0; i < context.Product.ParametrizedDependencies.Length; i++ )
             {
-                var name = context.Product.Dependencies[i].Name;
+                var name = context.Product.ParametrizedDependencies[i].Name;
 
                 var rowNumber = (i + 1).ToString( CultureInfo.InvariantCulture );
 
@@ -479,7 +474,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             // Add implicit dependencies (if previously fetched).
             foreach ( var dependency in this.Dependencies )
             {
-                if ( context.Product.Dependencies.Any( d => d.Name == dependency.Key ) )
+                if ( context.Product.ParametrizedDependencies.Any( d => d.Name == dependency.Key ) )
                 {
                     continue;
                 }
@@ -490,16 +485,14 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             context.Console.Out.Write( table );
         }
 
-        public bool Fetch(
-            BuildContext context,
-            (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation )
+        public bool Fetch( BuildContext context )
         {
             // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 
             if ( this.Dependencies.Any( d => d.Value.SourceKind != DependencySourceKind.Feed && d.Value.VersionFile == null ) )
             {
                 context.Console.WriteMessage( $"Fetching dependencies for configuration {this.Configuration}." );
 
-                if ( !DependenciesHelper.UpdateOrFetchDependencies( context, this.Configuration, this, false, teamCityEmulation ) )
+                if ( !DependenciesHelper.UpdateOrFetchDependencies( context, this.Configuration, this, false ) )
                 {
                     return false;
                 }

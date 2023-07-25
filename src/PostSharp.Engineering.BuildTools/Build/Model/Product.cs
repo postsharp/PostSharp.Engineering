@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using Microsoft.Extensions.FileSystemGlobbing;
@@ -8,7 +9,6 @@ using PostSharp.Engineering.BuildTools.Build.Triggers;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Coverage;
-using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.NuGet;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -35,6 +35,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private readonly string? _mainVersionFile;
 
         private readonly string? _bumpInfoFile;
+        private readonly ParametrizedDependency[] _parametrizedDependencies = Array.Empty<ParametrizedDependency>();
+        private readonly DependencyDefinition[] _dependencyDefinitions = Array.Empty<DependencyDefinition>();
 
         public Product( DependencyDefinition dependencyDefinition )
         {
@@ -60,7 +62,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             get => this._mainVersionFile ?? Path.Combine( this.EngineeringDirectory, "MainVersion.props" );
             init => this._mainVersionFile = value;
         }
-        
+
         public string AutoUpdatedVersionsFilePath
         {
             get => this._versionsFile ?? Path.Combine( this.EngineeringDirectory, "AutoUpdatedVersions.props" );
@@ -105,17 +107,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool KeepEditorConfig { get; init; }
 
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
-        
+
         public TimeSpan BuildTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
-        
+
         public TimeSpan DeploymentTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
-        
+
         public TimeSpan SwapTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
 
         public TimeSpan VersionBumpTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
 
         public TimeSpan DownstreamMergeTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
-        
+
         public static ImmutableArray<Publisher> DefaultPublicPublishers { get; }
             = ImmutableArray.Create(
                 new Publisher[]
@@ -128,12 +130,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
                 debug:
-                new BuildConfigurationInfo(
-                    MSBuildName: "Debug",
-                    BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
-                release: new BuildConfigurationInfo( MSBuildName: "Release", RequiresSigning: true, ExportsToTeamCityBuild: false ),
+                new BuildConfigurationInfo( BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
+                release: new BuildConfigurationInfo( RequiresSigning: true, ExportsToTeamCityBuild: false ),
                 @public: new BuildConfigurationInfo(
-                    MSBuildName: "Release",
                     RequiresSigning: true,
                     PublicPublishers: DefaultPublicPublishers.ToArray(),
                     ExportsToTeamCityDeploy: true,
@@ -156,9 +155,31 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string[] ExportedProperties { get; init; } = Array.Empty<string>();
 
         /// <summary>
-        /// Gets the set of artifact dependencies of this product.
+        /// Gets the set of artifact dependencies of this product given their <see cref="DependencyDefinition"/>.
+        /// When at least one dependency requires to override some parameter from its defaults, use the <see cref="ParametrizedDependencies"/> property.
         /// </summary>
-        public DependencyDefinition[] Dependencies { get; init; } = Array.Empty<DependencyDefinition>();
+        [PublicAPI]
+        public DependencyDefinition[] Dependencies
+        {
+            [Obsolete("Use CustomizedDependencies")]
+            get => this._dependencyDefinitions;
+            init => this.ParametrizedDependencies = value.Select( x => x.ToDependency() ).ToArray();
+        }
+
+        /// <summary>
+        /// Gets the set of artifact dependencies of this product given their <see cref="ParametrizedDependency"/>.
+        /// </summary>
+        [PublicAPI]
+        public ParametrizedDependency[] ParametrizedDependencies
+        {
+            get => this._parametrizedDependencies;
+            
+            init
+            {
+                this._parametrizedDependencies = value;
+                this._dependencyDefinitions = value.Select( x => x.Definition ).ToArray();
+            }
+        }
 
         /// <summary>
         /// Gets the set of source code dependencies of this product. 
@@ -167,9 +188,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public IBumpStrategy BumpStrategy { get; init; } = new DefaultBumpStrategy();
 
-        public DependencyDefinition? GetDependency( string name )
+        public ParametrizedDependency? GetDependency( string name )
         {
-            return this.Dependencies.SingleOrDefault( d => d.Name == name )
+            return this.ParametrizedDependencies.SingleOrDefault( d => d.Name == name )
                    ?? (this.ProductFamily.TryGetDependencyDefinition( name, out var dependency )
                        ? dependency
                        : null);
@@ -1009,26 +1030,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var propsFilePath = this.GetVersionPropertiesFilePath( context, settings );
             Directory.CreateDirectory( Path.GetDirectoryName( propsFilePath )! );
 
-            (TeamCityClient TeamCity, BuildConfiguration BuildConfiguration, ImmutableDictionary<string, string> ArtifactRules)? teamCityEmulation = null;
-
-            if ( settings.SimulateContinuousIntegration )
-            {
-                if ( !DependenciesHelper.TryPrepareTeamCityEmulation( context, configuration, out teamCityEmulation ) )
-                {
-                    dependenciesOverrideFile = null;
-                    
-                    return false;
-                }
-            }
-            
             // Load Versions.g.props.
-            if ( !DependenciesOverrideFile.TryLoad( context, settings, configuration, out dependenciesOverrideFile, teamCityEmulation ) )
+            if ( !DependenciesOverrideFile.TryLoad( context, settings, configuration, out dependenciesOverrideFile ) )
             {
                 return false;
             }
 
             // If we have any non-feed dependency that does not have a resolved VersionFile, it means that we have not fetched yet. 
-            if ( !dependenciesOverrideFile.Fetch( context, teamCityEmulation ) )
+            if ( !dependenciesOverrideFile.Fetch( context ) )
             {
                 return false;
             }
@@ -1057,7 +1066,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 return false;
             }
-            
+
             // Read the main version number.
             var mainVersionFileInfo = this.ReadMainVersionFile( mainVersionFile );
 
@@ -1290,7 +1299,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             props += $@"
         <{this.ProductNameWithoutDot}BuildConfiguration>{configuration}</{this.ProductNameWithoutDot}BuildConfiguration>
-        <{this.ProductNameWithoutDot}Dependencies>{string.Join( ";", this.Dependencies.Select( x => x.Name ) )}</{this.ProductNameWithoutDot}Dependencies>
+        <{this.ProductNameWithoutDot}Dependencies>{string.Join( ";", this.ParametrizedDependencies.Select( x => x.Name ) )}</{this.ProductNameWithoutDot}Dependencies>
         <{this.ProductNameWithoutDot}PublicArtifactsDirectory>{this.PublicArtifactsDirectory}</{this.ProductNameWithoutDot}PublicArtifactsDirectory>
         <{this.ProductNameWithoutDot}PrivateArtifactsDirectory>{this.PrivateArtifactsDirectory}</{this.ProductNameWithoutDot}PrivateArtifactsDirectory>
         <{this.ProductNameWithoutDot}EngineeringVersion>{VersionHelper.EngineeringVersion}</{this.ProductNameWithoutDot}EngineeringVersion>
@@ -1523,7 +1532,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 return false;
             }
-            
+
             // Get the location of MainVersion.props file.
             var mainVersionFileInfo = this.ReadMainVersionFile( mainVersionFile );
 
@@ -1761,7 +1770,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var bumpInfoFilePath = Path.Combine(
                 context.RepoDirectory,
                 this.BumpInfoFilePath );
-            
+
             var oldBumpFileContent = File.Exists( bumpInfoFilePath ) ? File.ReadAllText( bumpInfoFilePath ) : "";
             var hasChangesInDependencies = newBumpInfoFile.ToString() != oldBumpFileContent;
 
@@ -1823,7 +1832,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             dependencyVersions = new Dictionary<string, Version>();
 
             var allDependencies =
-                this.Dependencies
+                this.ParametrizedDependencies.Select( x => x.Definition )
                     .Union( this.SourceDependencies )
                     .Union( this.MainVersionDependency == null ? Enumerable.Empty<DependencyDefinition>() : new[] { this.MainVersionDependency } );
 
@@ -1886,11 +1895,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var testResultsDirectory =
                     context.Product.TestResultsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
-                var artifactRules =
+                var publishedArtifactRules =
                     $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
 
                 // Add testResults to artifacts
-                artifactRules += $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}";
+                publishedArtifactRules += $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}";
 
                 var additionalArtifactRules = this.DefaultArtifactRules;
 
@@ -1904,7 +1913,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     return false;
                 }
 
-                if ( !dependenciesOverrideFile.Fetch( context, null ) )
+                if ( !dependenciesOverrideFile.Fetch( context ) )
                 {
                     return false;
                 }
@@ -1939,7 +1948,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
                 {
                     RequiresClearCache = true,
-                    ArtifactRules = artifactRules,
+                    ArtifactRules = publishedArtifactRules,
                     AdditionalArtifactRules = additionalArtifactRules.ToArray(),
                     BuildTriggers = configurationInfo.BuildTriggers,
                     Dependencies = buildDependencies,
@@ -1965,9 +1974,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         {
                             IsDeployment = true,
                             Dependencies = buildDependencies.Where( d => d.ArtifactsRules != null )
-                                .Concat( new[] { new TeamCitySnapshotDependency( buildTeamCityConfiguration.ObjectName, false, artifactRules ) } )
+                                .Concat( new[] { new TeamCitySnapshotDependency( buildTeamCityConfiguration.ObjectName, false, publishedArtifactRules ) } )
                                 .Concat(
-                                    this.Dependencies.Union( this.SourceDependencies )
+                                    this.ParametrizedDependencies.Select( d => d.Definition )
+                                        .Union( this.SourceDependencies )
                                         .Where( d => d.GenerateSnapshotDependency )
                                         .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DeploymentBuildType, true ) ) )
                                 .ToArray(),
@@ -1989,7 +1999,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         {
                             IsDeployment = true,
                             Dependencies = buildDependencies.Where( d => d.ArtifactsRules != null )
-                                .Concat( new[] { new TeamCitySnapshotDependency( buildTeamCityConfiguration.ObjectName, false, artifactRules ) } )
+                                .Concat( new[] { new TeamCitySnapshotDependency( buildTeamCityConfiguration.ObjectName, false, publishedArtifactRules ) } )
                                 .ToArray(),
                             IsSshAgentRequired = true,
                             BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? this.DeploymentTimeOutThreshold
@@ -2007,7 +2017,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     if ( teamCityDeploymentConfiguration != null )
                     {
                         swapDependencies.Add( new TeamCitySnapshotDependency( teamCityDeploymentConfiguration.ObjectName, false ) );
-                        swapDependencies.Add( new TeamCitySnapshotDependency( buildTeamCityConfiguration.ObjectName, false, artifactRules ) );
+                        swapDependencies.Add( new TeamCitySnapshotDependency( buildTeamCityConfiguration.ObjectName, false, publishedArtifactRules ) );
                     }
 
                     teamCityBuildConfigurations.Add(
@@ -2028,9 +2038,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Only versioned products can be bumped.
             if ( this.DependencyDefinition.IsVersioned )
             {
-                var dependencyDefinitions = this.Dependencies;
+                var dependencies = this.ParametrizedDependencies;
 
-                if ( dependencyDefinitions != null! )
+                if ( dependencies != null! )
                 {
                     teamCityBuildConfigurations.Add(
                         new TeamCityBuildConfiguration(
@@ -2040,8 +2050,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             buildArguments: $"bump",
                             buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
                         {
-                            IsSshAgentRequired = true,
-                            BuildTimeOutThreshold = this.VersionBumpTimeOutThreshold
+                            IsSshAgentRequired = true, BuildTimeOutThreshold = this.VersionBumpTimeOutThreshold
                         } );
                 }
             }
@@ -2181,7 +2190,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             var versionBumpLogCommentRegex =
                 new Regex( GitHelper.GetEngineeringCommitsRegex( true, false, context.Product.DependencyDefinition.ProductFamily ) );
-            
+
             var lastVersionDump = gitLog.Select( ( s, i ) => (Log: s, LineNumber: i) )
                 .FirstOrDefault( s => versionBumpLogCommentRegex.IsMatch( s.Log.Split( ' ', 2, StringSplitOptions.TrimEntries )[1] ) );
 
@@ -2195,7 +2204,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 return false;
             }
-            
+
             hasChangesSinceLastDeployment = commitsSinceLastTag > 0;
 
             return true;

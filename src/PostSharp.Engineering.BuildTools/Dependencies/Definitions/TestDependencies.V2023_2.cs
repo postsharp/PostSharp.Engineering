@@ -1,7 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
-using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -20,10 +19,7 @@ public static partial class TestDependencies
             public TestDependencyDefinition(
                 string dependencyName,
                 VcsProvider vcsProvider,
-                bool isVersioned = true,
-                BuildConfiguration debugBuildDependency = BuildConfiguration.Debug,
-                BuildConfiguration releaseBuildDependency = BuildConfiguration.Release,
-                BuildConfiguration publicBuildDependency = BuildConfiguration.Public )
+                bool isVersioned = true )
                 : base(
                     Family,
                     dependencyName,
@@ -35,10 +31,7 @@ public static partial class TestDependencies
                             dependencyName,
                             $"Test_Test{Family.VersionWithoutDots}" ),
                         "caravela04cloud",
-                        isVersioned,
-                        debugBuildDependency,
-                        releaseBuildDependency,
-                        publicBuildDependency ),
+                        isVersioned ),
                     isVersioned ) { }
         }
 
@@ -54,7 +47,7 @@ public static partial class TestDependencies
         public static DependencyDefinition Dependency { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.Dependency",
             VcsProvider.AzureDevOps );
-        
+
         public static DependencyDefinition DependencyOfDependency { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.DependencyOfDependency",
             VcsProvider.AzureDevOps );

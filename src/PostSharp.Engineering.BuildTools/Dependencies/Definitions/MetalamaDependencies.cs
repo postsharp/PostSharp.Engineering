@@ -3,7 +3,6 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
-using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using System;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;

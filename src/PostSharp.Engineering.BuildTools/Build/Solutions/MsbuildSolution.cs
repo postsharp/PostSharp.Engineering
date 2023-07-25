@@ -80,11 +80,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 context.Product.LogsDirectory.ToString(),
                 $"{this.Name}.{target}.binlog" );
 
-            var configurationInfo = context.Product.Configurations[settings.BuildConfiguration];
-
             argsBuilder.Append(
                 CultureInfo.InvariantCulture,
-                $"-t:{target} -p:Configuration={configurationInfo.MSBuildName} \"{path}\" -v:{settings.Verbosity.ToAlias()} -NoLogo" );
+                $"-t:{target} -p:Configuration={context.Product.DependencyDefinition.MSBuildConfiguration[settings.BuildConfiguration]} \"{path}\" -v:{settings.Verbosity.ToAlias()} -NoLogo" );
 
             if ( settings.NoConcurrency )
             {

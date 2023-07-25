@@ -12,7 +12,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
     {
         protected override bool ExecuteCore( BuildContext context, BaseDependenciesCommandSettings settings )
         {
-            var productDependencies = context.Product.Dependencies;
+            var productDependencies = context.Product.ParametrizedDependencies;
 
             if ( productDependencies is not { Length: > 0 } )
             {

@@ -75,9 +75,9 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
             if ( addConfigurationFlag )
             {
-                var configuration = context.Product.Configurations[settings.BuildConfiguration];
-
-                argsBuilder.Append( CultureInfo.InvariantCulture, $" -c {configuration.MSBuildName}" );
+                argsBuilder.Append(
+                    CultureInfo.InvariantCulture,
+                    $" -c {context.Product.DependencyDefinition.MSBuildConfiguration[settings.BuildConfiguration]}" );
             }
 
             if ( settings.NoConcurrency )
