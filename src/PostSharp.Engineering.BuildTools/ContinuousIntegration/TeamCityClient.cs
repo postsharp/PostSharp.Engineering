@@ -118,12 +118,9 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             return true;
         }
 
-        public CiBuildId? GetLatestBuildId( ConsoleHelper console, string buildTypeId, string branchName, bool isDefaultBranch )
+        public CiBuildId? GetLatestBuildId( ConsoleHelper console, string buildTypeId, string branchName )
         {
-            // In some cases, the default branch is not set for the TeamCity build and we need to use the "default:true" locator.
-            var branchLocator = isDefaultBranch ? "default:true" : $"refs/heads/{branchName}";
-
-            var path = $"/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId},branch:{branchLocator}";
+            var path = $"/app/rest/builds?locator=defaultFilter:false,state:finished,status:SUCCESS,buildType:{buildTypeId},branch:{branchName}";
 
             if ( !this.TryGet( path, console, "get the latest build id", out var response ) )
             {

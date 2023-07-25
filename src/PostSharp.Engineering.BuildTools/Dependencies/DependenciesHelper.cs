@@ -291,21 +291,17 @@ public static class DependenciesHelper
         string dependencyName,
         string ciBuildType,
         string branch,
-        string defaultBranch,
         [NotNullWhen( true )] out CiBuildId? latestBuildId )
     {
-        var isDefaultBranch = branch == defaultBranch;
-
         latestBuildId = teamCity.GetLatestBuildId(
             console,
             ciBuildType,
-            branch,
-            isDefaultBranch );
+            branch );
 
         if ( latestBuildId == null )
         {
             console.WriteError(
-                $"No successful build for '{dependencyName}' dependency on '{branch}' branch, BuildTypeId='{ciBuildType}', IsDefaultBranch='{isDefaultBranch}'." );
+                $"No successful build for '{dependencyName}' dependency on '{branch}' branch, BuildTypeId='{ciBuildType}'." );
 
             return false;
         }
@@ -371,7 +367,6 @@ public static class DependenciesHelper
                         dependency.Definition.Name,
                         ciBuildType,
                         branchName,
-                        dependency.Definition.Branch,
                         out var latestBuildId ) )
                 {
                     return false;

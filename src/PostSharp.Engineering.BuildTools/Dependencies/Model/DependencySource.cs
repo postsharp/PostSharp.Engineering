@@ -44,7 +44,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             {
                 var buildTypeId = dependencyDefinition.CiConfiguration.BuildTypes[teamCityEmulation.Value.BuildConfiguration];
 
-                var latestCiBuildId = teamCityEmulation.Value.TeamCity.GetLatestBuildId( context.Console, buildTypeId, dependencyDefinition.Branch, true );
+                var latestCiBuildId = teamCityEmulation.Value.TeamCity.GetLatestBuildId( context.Console, buildTypeId, dependencyDefinition.Branch );
 
                 if ( latestCiBuildId == null || latestCiBuildId.BuildTypeId == null )
                 {

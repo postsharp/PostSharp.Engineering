@@ -252,7 +252,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         if ( !ToolInvocationHelper.InvokePowershell(
                                 context.Console,
                                 buildFile,
-                                $"build --recursive --if-older={dateTag.ToBinary()} --nologo",
+                                $"build --recursive --if-older={dateTag.ToBinary()} -c {settings.BuildConfiguration.ToString().ToLowerInvariant()} --nologo",
                                 dependencyDirectory ) )
                         {
                             context.Console.WriteError( $"Cannot build the dependency {dependency.Key}." );
