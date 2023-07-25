@@ -2,11 +2,14 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using System;
+using System.Collections.Immutable;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 
 public class ConfigurationSpecific<T>
 {
+    private ImmutableDictionary<BuildConfiguration, T>? _asDictionary;
+
     public T Debug { get; init; }
 
     public T Release { get; init; }
@@ -58,4 +61,14 @@ public class ConfigurationSpecific<T>
         => this.WithValue( configuration, func( this.GetValue( configuration ) ) );
 
     public override string ToString() => $"Debug={{{this.Debug}}}, Release={{{this.Release}}}, Public={{{this.Public}}}";
+
+    public ImmutableDictionary<BuildConfiguration, T> AsDictionary()
+    {
+        this._asDictionary ??= ImmutableDictionary<BuildConfiguration, T>.Empty
+            .Add( BuildConfiguration.Debug, this.Debug )
+            .Add( BuildConfiguration.Release, this.Release )
+            .Add( BuildConfiguration.Public, this.Public );
+
+        return this._asDictionary;
+    }
 }

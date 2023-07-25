@@ -15,9 +15,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
     /// </summary>
     public class DependencyDefinition
     {
-        [return: NotNullIfNotNull( "definition" )]
-        public static implicit operator ParametrizedDependency?( DependencyDefinition? definition ) => definition == null ? null : new ParametrizedDependency( definition );
-
         [return: NotNullIfNotNull( "dependency" )]
         public static implicit operator DependencyDefinition?( ParametrizedDependency? dependency ) => dependency?.Definition;
 
@@ -64,10 +61,10 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public ConfigurationSpecific<string> MSBuildConfiguration { get; init; } = new( "Debug", "Release", "Release" );
 
-        public ParametrizedDependency ToDependency() => this;
+        public ParametrizedDependency ToDependency() => new( this );
 
         public ParametrizedDependency ToDependency( ConfigurationSpecific<BuildConfiguration> configurationMapping )
-            => new ParametrizedDependency( this ) { ConfigurationMapping = configurationMapping };
+            => new( this ) { ConfigurationMapping = configurationMapping };
 
         public DependencyDefinition(
             ProductFamily productFamily,

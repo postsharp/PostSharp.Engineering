@@ -161,7 +161,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         [PublicAPI]
         public DependencyDefinition[] Dependencies
         {
-            [Obsolete("Use CustomizedDependencies")]
+            [Obsolete( "Use CustomizedDependencies" )]
             get => this._dependencyDefinitions;
             init => this.ParametrizedDependencies = value.Select( x => x.ToDependency() ).ToArray();
         }
@@ -173,7 +173,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public ParametrizedDependency[] ParametrizedDependencies
         {
             get => this._parametrizedDependencies;
-            
+
             init
             {
                 this._parametrizedDependencies = value;
@@ -188,12 +188,29 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public IBumpStrategy BumpStrategy { get; init; } = new DefaultBumpStrategy();
 
-        public ParametrizedDependency? GetDependency( string name )
+        public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )
         {
-            return this.ParametrizedDependencies.SingleOrDefault( d => d.Name == name )
-                   ?? (this.ProductFamily.TryGetDependencyDefinition( name, out var dependency )
-                       ? dependency
-                       : null);
+            dependency = this.ParametrizedDependencies.SingleOrDefault( d => d.Name == name );
+
+            // We do NOT attempt to get a ParametrizedDependency from a DependencyDefinition because we basically
+            // don't know what the parameters are, and returning default parameters may delay the moment when a design
+            // issue is visible.
+
+            return dependency != null;
+        }
+
+        public bool TryGetDependencyDefinition( string name, [NotNullWhen( true )] out DependencyDefinition? dependencyDefinition )
+        {
+            dependencyDefinition = this.ParametrizedDependencies.SingleOrDefault( d => d.Name == name )?.Definition;
+
+            if ( dependencyDefinition != null )
+            {
+                return true;
+            }
+            else
+            {
+                return this.ProductFamily.TryGetDependencyDefinition( name, out dependencyDefinition );
+            }
         }
 
         public Dictionary<string, string> SupportedProperties { get; init; } = new();

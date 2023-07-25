@@ -51,7 +51,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
                     dependencySource = DependencySource.CreateRestoredDependency(
                         context,
                         dependencyDefinition,
-                        settings.BuildConfiguration ?? BuildConfiguration.Debug,
                         DependencyConfigurationOrigin.Override );
 #pragma warning restore CS0618
 

@@ -105,6 +105,19 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             file.LocalBuildFile = localImport?.Attribute( "Project" )?.Value;
 
+            // Verify version.
+            var productFamily = project.Element( "PropertyGroup" )?.Element( "ProductFamily" )?.Value;
+            var productFamilyVersion = project.Element( "PropertyGroup" )?.Element( "ProductFamilyVersion" )?.Value;
+
+            if ( (productFamily != context.Product.ProductFamily.Name || productFamilyVersion != context.Product.ProductFamily.Version) && !settings.Force )
+            {
+                context.Console.WriteError(
+                    $"The file '{filePath}' was generated for a different version of this repo ({productFamily} {productFamilyVersion}). Clean your repo or use --force." );
+
+                return false;
+            }
+
+            // Load dependencies.
             var itemGroup = project.Element( "ItemGroup" );
 
             if ( itemGroup != null )
@@ -276,6 +289,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             var properties = new XElement( "PropertyGroup" );
             project.Add( properties );
             properties.Add( new XElement( "PostSharpEngineeringExePath", context.Product.BuildExePath ) );
+            properties.Add( new XElement( "ProductFamily", context.Product.ProductFamily.Name ) );
+            properties.Add( new XElement( "ProductFamilyVersion", context.Product.ProductFamily.Version ) );
 
             var requiredFiles = new List<string>();
 

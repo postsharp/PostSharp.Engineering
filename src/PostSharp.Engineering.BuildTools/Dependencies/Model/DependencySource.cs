@@ -34,7 +34,6 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public static DependencySource CreateRestoredDependency(
             BuildContext context,
             DependencyDefinition dependencyDefinition,
-            BuildConfiguration configuration,
             DependencyConfigurationOrigin origin )
         {
             var path = Path.Combine( context.RepoDirectory, "dependencies", dependencyDefinition.Name, $"{dependencyDefinition.Name}.version.props" );

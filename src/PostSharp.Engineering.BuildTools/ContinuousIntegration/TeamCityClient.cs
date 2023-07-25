@@ -202,7 +202,9 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             async Task DownloadAllAsync()
             {
-                var basePath = $"/app/rest/builds/defaultFilter:false,buildType:{buildTypeId},number:{buildNumber}/artifacts/children/{artifactsPath}";
+                var basePath =
+                    $"/app/rest/builds/defaultFilter:false,buildType:{buildTypeId},number:{buildNumber}/artifacts/children/{artifactsPath.Replace( '\\', '/' )}";
+
                 var baseTargetDirectory = Path.Combine( artifactsDirectory, artifactsPath.Replace( '/', Path.DirectorySeparatorChar ) );
 
                 StartDownloadTree( basePath, baseTargetDirectory );

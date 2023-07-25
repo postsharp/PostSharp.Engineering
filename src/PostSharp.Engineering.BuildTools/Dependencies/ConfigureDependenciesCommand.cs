@@ -53,11 +53,11 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         // Iterate all matching dependencies.
         var dependencies = settings.GetAllFlag() ? context.Product.ParametrizedDependencies.Select( x => x.Name ) : settings.GetDependencies();
 
-        foreach ( var dependency in dependencies )
+        foreach ( var dependencyName in dependencies )
         {
-            DependencyDefinition? dependencyDefinition;
+            ParametrizedDependency? dependency;
 
-            if ( int.TryParse( dependency, out var index ) )
+            if ( int.TryParse( dependencyName, out var index ) )
             {
                 // The dependency was given by position.
 
@@ -68,24 +68,22 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
                     return false;
                 }
 
-                dependencyDefinition = context.Product.ParametrizedDependencies[index - 1];
+                dependency = context.Product.ParametrizedDependencies[index - 1];
             }
             else
             {
                 // The dependency was given by name.
 
-                dependencyDefinition = context.Product.GetDependency( dependency );
-
-                if ( dependencyDefinition == null )
+                if ( !context.Product.TryGetDependency( dependencyName, out dependency ) )
                 {
-                    context.Console.WriteError( $"'{dependency}' is not a valid dependency name for this product. Use the 'dependencies list' command." );
+                    context.Console.WriteError( $"'{dependencyName}' is not a valid dependency name for this product. Use the 'dependencies list' command." );
 
                     return false;
                 }
             }
 
             // Executes the logic itself.
-            if ( !this.ConfigureDependency( context, dependenciesOverrideFile, dependencyDefinition, settings, defaultDependenciesOverrideFile ) )
+            if ( !this.ConfigureDependency( context, dependenciesOverrideFile, dependency, settings, defaultDependenciesOverrideFile ) )
             {
                 return false;
             }

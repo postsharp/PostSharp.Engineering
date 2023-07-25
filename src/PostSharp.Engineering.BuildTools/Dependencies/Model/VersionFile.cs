@@ -108,7 +108,6 @@ public class VersionFile
                 dependencySource = DependencySource.CreateRestoredDependency(
                     context,
                     dependencyDefinition,
-                    configuration,
                     DependencyConfigurationOrigin.Default );
             }
             else
