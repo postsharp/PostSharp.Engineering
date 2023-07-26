@@ -82,7 +82,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             this.Branch = branch;
             this.ReleaseBranch = releaseBranch;
             this.CiConfiguration = ciProjectConfiguration;
-            this.IsVersioned = true;
+            this.IsVersioned = isVersioned;
 
             productFamily.Register( this );
         }
