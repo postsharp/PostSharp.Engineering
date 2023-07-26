@@ -61,7 +61,20 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public ConfigurationSpecific<string> MSBuildConfiguration { get; init; } = new( "Debug", "Release", "Release" );
 
-        public ParametrizedDependency ToDependency() => new( this );
+        /// <summary>
+        /// Gets or sets the mapping between the build configuration of the referencing repo and the build configuration of the current repo.
+        /// This can be overwritten by the referencing repo using <see cref="ParametrizedDependency.ConfigurationMapping"/>.
+        /// Normally, choosing the configuration mapping is the concern of the referencing project and not the dependency definition,
+        /// but there is an exception for PostSharp.Engineering and therefore this property is needed.
+        /// </summary>
+        public ConfigurationSpecific<BuildConfiguration> DefaultConfigurationMapping { get; init; } = new(
+            BuildConfiguration.Debug,
+            BuildConfiguration.Release,
+            BuildConfiguration.Public );
+
+        public bool ExcludeFromRecursiveBuild { get; init; }
+
+        public ParametrizedDependency ToDependency() => this.ToDependency( this.DefaultConfigurationMapping );
 
         public ParametrizedDependency ToDependency( ConfigurationSpecific<BuildConfiguration> configurationMapping )
             => new( this ) { ConfigurationMapping = configurationMapping };

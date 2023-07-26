@@ -274,6 +274,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     if ( dependency.Value.SourceKind == DependencySourceKind.Local )
                     {
+                        if ( context.Product.TryGetDependencyDefinition( dependency.Key, out var dependencyDefinition )
+                             && dependencyDefinition.ExcludeFromRecursiveBuild )
+                        {
+                            continue;
+                        }
+
                         context.Console.WriteHeading( $"Build dependency {dependency.Key}" );
 
                         var dependencyDirectory = Path.GetDirectoryName( dependency.Value.VersionFile! )!;
