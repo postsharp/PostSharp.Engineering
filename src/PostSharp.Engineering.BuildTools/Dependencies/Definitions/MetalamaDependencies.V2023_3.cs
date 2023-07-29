@@ -65,7 +65,7 @@ public static partial class MetalamaDependencies
         public static DependencyDefinition MetalamaExtensions { get; } = new MetalamaDependencyDefinition( "Metalama.Extensions", VcsProvider.GitHub );
 
         public static DependencyDefinition MetalamaSamples { get; } =
-            new MetalamaDependencyDefinition( "Metalama.Samples", VcsProvider.GitHub, false ) { CodeStyle = "Metalama.Samples" };
+            new MetalamaDependencyDefinition( "Metalama.Samples", VcsProvider.GitHub ) { CodeStyle = "Metalama.Samples" };
 
         public static DependencyDefinition MetalamaMigration { get; } = new MetalamaDependencyDefinition( "Metalama.Migration", VcsProvider.GitHub );
 
