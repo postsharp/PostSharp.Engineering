@@ -27,14 +27,11 @@ public class MergeHelper
         Write( "Before retrying, make sure that there are no important changes in these branches that need to be merged." );
         Write( "Such changes may be created when solving a merge conflict." );
         Write( "You can either finish merging of those branches or delete them." );
+        Write( "If a pull request doesn't exist for these branches already, create one manually." );
 
         if ( force )
         {
             console.WriteWarning( "Existence of these branches is ignored because --force has been used." );
-        }
-        else
-        {
-            console.WriteError( "To ignore this, use --force." );
         }
 
         Write( "" );
