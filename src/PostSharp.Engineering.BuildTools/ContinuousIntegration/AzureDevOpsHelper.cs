@@ -200,7 +200,7 @@ public static class AzureDevOpsHelper
 
         try
         {
-            File.WriteAllText( statusCheckPayloadFile, statusCheckPayload );
+            await File.WriteAllTextAsync( statusCheckPayloadFile, statusCheckPayload );
 
             if ( !AzHelper.Run( context.Console, $"repos policy create {projectIdArgs} --config {statusCheckPayloadFile}", dry ) )
             {
@@ -238,6 +238,31 @@ public static class AzureDevOpsHelper
             {
                 return false;
             }
+        }
+
+        return await Task.FromResult( true );
+    }
+    
+    public static async Task<bool> TrySetDefaultBranchAsync(
+        ConsoleHelper console,
+        AzureDevOpsRepository azureDevOpsRepository,
+        string defaultBranch,
+        bool dry )
+    {
+        var repository = azureDevOpsRepository.Name;
+        var org = azureDevOpsRepository.BaseUrl;
+        var project = azureDevOpsRepository.Project;
+        var projectIdArgs = $"--org {org} --project {project}";
+        var repositoryIdArgs = $"{projectIdArgs} --repository {repository}";
+
+        console.WriteMessage( $"Setting repository default branch to '{defaultBranch}'." );
+
+        if ( !AzHelper.Run(
+                console,
+                $"repos update {repositoryIdArgs} --default-branch {defaultBranch}",
+                dry ) )
+        {
+            return false;
         }
 
         return await Task.FromResult( true );

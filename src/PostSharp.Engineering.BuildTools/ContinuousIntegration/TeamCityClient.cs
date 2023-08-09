@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
+using Spectre.Console;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -141,15 +142,29 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             var throttler = new SemaphoreSlim( 4, 4 );
             var cancellationToken = ConsoleHelper.CancellationToken;
 
-            async Task DownloadFileAsync( string url, string targetFilePath )
+            async Task DownloadFileAsync( ProgressTask progress, string url, string targetFilePath )
             {
+                progress.StartTask();
                 await using var httpStream = await this._httpClient.GetStreamAsync( url, cancellationToken );
                 await using var fileStream = File.Open( targetFilePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None );
-                await httpStream.CopyToAsync( fileStream, cancellationToken );
-                throttler.Release();
+
+                var buffer = new byte[4096];
+                int bytesRead;
+
+                while ( (bytesRead = await httpStream.ReadAsync( buffer, 0, buffer.Length, cancellationToken )) != 0 )
+                {
+                    await fileStream.WriteAsync( buffer, 0, bytesRead, cancellationToken );
+                    progress.Increment( bytesRead );
+                }
+
+                throttler!.Release();
+                progress.StopTask();
             }
 
-            async Task DownloadDirectoryAsync( IEnumerable<(string Name, string Path)> files, string targetDirectory )
+            async Task DownloadDirectoryAsync(
+                ProgressContext totalProgress,
+                IEnumerable<(string Name, string Path, long Length)> files,
+                string targetDirectory )
             {
                 List<Task> fileDownloads = new();
 
@@ -157,10 +172,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
                 foreach ( var file in files )
                 {
-                    await throttler!.WaitAsync( cancellationToken );
                     var targetFilePath = Path.Combine( targetDirectory, file.Name );
-                    console.WriteMessage( $"{file.Name} => {targetFilePath}" );
-                    fileDownloads.Add( Task.Run( () => DownloadFileAsync( file.Path, targetFilePath ), cancellationToken ) );
+                    var targetFileRelativePath = Path.GetRelativePath( artifactsDirectory, targetFilePath );
+                    var fileProgress = totalProgress.AddTask( targetFileRelativePath, false, file.Length );
+                    await throttler!.WaitAsync( cancellationToken );
+                    fileDownloads.Add( Task.Run( () => DownloadFileAsync( fileProgress, file.Path, targetFilePath ), cancellationToken ) );
                 }
 
                 await Task.WhenAll( fileDownloads );
@@ -168,7 +184,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             List<Task> directoryDownloads = new();
 
-            void StartDownloadTree( string urlOrPath, string targetDirectory )
+            void StartDownloadTree( ProgressContext progress, string urlOrPath, string targetDirectory )
             {
                 if ( !this.TryGet( urlOrPath, console, out var response ) )
                 {
@@ -181,12 +197,16 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                     .Select( f => (f.Attribute( "name" )?.Value ?? throw new InvalidOperationException( "Unknown name of an artifact." ), f) )
                     .ToArray();
 
-                IEnumerable<(string Name, string Url)> files = artifacts
-                    .Select( a => (a.Name, a.Element.Element( "content" )?.Attribute( "href" )?.Value) )
+                IEnumerable<(string Name, string Url, long Size)> files = artifacts
+                    .Select(
+                        a => (
+                            a.Name,
+                            a.Element.Element( "content" )?.Attribute( "href" )?.Value,
+                            long.Parse( a.Element.Attribute( "size" )?.Value ?? "0", NumberStyles.Integer, CultureInfo.InvariantCulture )) )
                     .Where( a => a.Value != null )
-                    .Select( a => (a.Item1, a.Value!) );
+                    .Select( a => (a.Name, a.Value!, a.Item3) );
 
-                directoryDownloads.Add( DownloadDirectoryAsync( files, targetDirectory ) );
+                directoryDownloads.Add( DownloadDirectoryAsync( progress, files, targetDirectory ) );
 
                 IEnumerable<(string Name, string Url)> directories = artifacts
                     .Select( a => (a.Item1, a.Element.Element( "children" )?.Attribute( "href" )?.Value) )
@@ -196,23 +216,36 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 foreach ( var directory in directories )
                 {
                     var childTargetDirectory = Path.Combine( targetDirectory, directory.Name );
-                    StartDownloadTree( directory.Url, childTargetDirectory );
+                    StartDownloadTree( progress, directory.Url, childTargetDirectory );
                 }
             }
 
-            async Task DownloadAllAsync()
+            async Task DownloadAllAsync( ProgressContext progress )
             {
                 var basePath =
                     $"/app/rest/builds/defaultFilter:false,buildType:{buildTypeId},number:{buildNumber}/artifacts/children/{artifactsPath.Replace( '\\', '/' )}";
 
                 var baseTargetDirectory = Path.Combine( artifactsDirectory, artifactsPath.Replace( '/', Path.DirectorySeparatorChar ) );
 
-                StartDownloadTree( basePath, baseTargetDirectory );
+                StartDownloadTree( progress, basePath, baseTargetDirectory );
 
                 await Task.WhenAll( directoryDownloads );
             }
 
-            Task.Run( DownloadAllAsync, cancellationToken ).GetAwaiter().GetResult();
+            Task.Run(
+                    () => AnsiConsole.Progress()
+                        .Columns(
+                            new TaskDescriptionColumn(),
+                            new ProgressBarColumn(),
+                            new DownloadedColumn(),
+                            new TransferSpeedColumn(),
+                            new RemainingTimeColumn(),
+                            new ElapsedTimeColumn(),
+                            new SpinnerColumn() )
+                        .StartAsync( DownloadAllAsync ),
+                    cancellationToken )
+                .GetAwaiter()
+                .GetResult();
         }
 
         public string? ScheduleBuild( ConsoleHelper console, string buildTypeId, string comment, string? branchName = null )
@@ -374,7 +407,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             return true;
         }
 
-        private bool TryGetDetails( ConsoleHelper console, string path, string description )
+        private bool TryGetDetails( ConsoleHelper console, string path )
         {
             if ( !this.TryGet( path, console, out var response ) )
             {
@@ -386,8 +419,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             return true;
         }
 
-        public bool TryGetProjectDetails( ConsoleHelper console, string id )
-            => this.TryGetDetails( console, $"/app/rest/projects/id:{id}", "retrieve project details" );
+        public bool TryGetProjectDetails( ConsoleHelper console, string id ) => this.TryGetDetails( console, $"/app/rest/projects/id:{id}" );
 
         public bool TryCreateProject( ConsoleHelper console, string name, string id, string? parentId = null )
         {
@@ -426,7 +458,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
         }
 
         public bool TryGetProjectVersionedSettingsConfiguration( ConsoleHelper console, string projectId )
-            => this.TryGetDetails( console, $"/app/rest/projects/id:{projectId}/versionedSettings/config", "get versioned settings configuration" );
+            => this.TryGetDetails( console, $"/app/rest/projects/id:{projectId}/versionedSettings/config" );
 
         public bool TrySetProjectVersionedSettingsConfiguration( ConsoleHelper console, string projectId, string vcsRootId )
             => this.TryPost(
@@ -442,8 +474,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 console,
                 out _ );
 
-        public bool TryGetVcsRootDetails( ConsoleHelper console, string id )
-            => this.TryGetDetails( console, $"/app/rest/vcs-roots/id:{id}", "retrieve VCS root details" );
+        public bool TryGetVcsRootDetails( ConsoleHelper console, string id ) => this.TryGetDetails( console, $"/app/rest/vcs-roots/id:{id}" );
 
         public bool TryGetVcsRoots( ConsoleHelper console, string projectId, [NotNullWhen( true )] out ImmutableArray<(string Id, string Url)>? vcsRoots )
         {

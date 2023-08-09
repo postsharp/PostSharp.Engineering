@@ -228,4 +228,27 @@ public static class GitHubHelper
 
         return true;
     }
+    
+    public static async Task<bool> TrySetDefaultBranchAsync(
+        ConsoleHelper console,
+        GitHubRepository gitHubRepository,
+        string defaultBranch,
+        bool dry )
+    {
+        console.WriteMessage( $"Setting repository default branch to '{defaultBranch}'." );
+        
+        if ( !TryConnectRestApi( console, out var gitHub ) )
+        {
+            return false;
+        }
+
+        var repositoryUpdate = new RepositoryUpdate() { DefaultBranch = defaultBranch };
+        
+        if ( !dry )
+        {
+            _ = await gitHub.Repository.Edit( gitHubRepository.Owner, gitHubRepository.Name, repositoryUpdate );
+        }
+
+        return true;
+    }
 }

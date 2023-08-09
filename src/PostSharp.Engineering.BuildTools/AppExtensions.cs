@@ -181,6 +181,10 @@ namespace PostSharp.Engineering.BuildTools
                                             .WithData( product )
                                             .WithDescription(
                                                 "Sets the branch policies of the development and release branch of the current product version." );
+
+                                        git.AddCommand<SetDefaultBranchCommand>( "set-default-branch" )
+                                            .WithData( product )
+                                            .WithDescription( "Sets the default branch of the repository." );
                                     } );
 
                                 tools.AddBranch(

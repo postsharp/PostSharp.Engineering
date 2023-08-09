@@ -58,7 +58,10 @@ internal class SetBranchPoliciesCommand : BaseCommand<SetBranchPoliciesSettings>
                 return false;
             }
 
-            setBranchPoliciesTask.ConfigureAwait( false ).GetAwaiter().GetResult();
+            if ( !setBranchPoliciesTask.ConfigureAwait( false ).GetAwaiter().GetResult() )
+            {
+                return false;
+            }
         }
         catch ( Exception e )
         {
