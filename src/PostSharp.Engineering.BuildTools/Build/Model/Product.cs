@@ -31,9 +31,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public DependencyDefinition DependencyDefinition { get; }
 
         private readonly string? _versionsFile;
-
         private readonly string? _mainVersionFile;
-
+        private readonly string? _autoUpdatedVersionsFile;
         private readonly string? _bumpInfoFile;
         private readonly ParametrizedDependency[] _parametrizedDependencies = Array.Empty<ParametrizedDependency>();
         private readonly DependencyDefinition[] _dependencyDefinitions = Array.Empty<DependencyDefinition>();
@@ -65,8 +64,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string AutoUpdatedVersionsFilePath
         {
-            get => this._versionsFile ?? Path.Combine( this.EngineeringDirectory, "AutoUpdatedVersions.props" );
-            init => this._versionsFile = value;
+            get => this._autoUpdatedVersionsFile ?? Path.Combine( this.EngineeringDirectory, "AutoUpdatedVersions.props" );
+            init => this._autoUpdatedVersionsFile = value;
         }
 
         public string BumpInfoFilePath
