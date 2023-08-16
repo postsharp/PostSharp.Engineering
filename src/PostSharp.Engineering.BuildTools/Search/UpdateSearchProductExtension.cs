@@ -3,6 +3,7 @@
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 using System;
 using System.Collections.Generic;
 
@@ -38,26 +39,23 @@ public class UpdateSearchProductExtension : ProductExtension
         this.TimeOutThreshold = timeOutThreshold ?? TimeSpan.FromMinutes( 5 );
     }
 
-    private string GetArguments()
-    {
-        var arguments = new List<string>();
-        arguments.Add( "tools" );
-        arguments.Add( "search" );
-        arguments.Add( "update" );
-        arguments.Add( this.TypesenseUri );
-        arguments.Add( this.Source );
-        arguments.Add( this.SourceUrl );
-
-        if ( this.IgnoreTls )
-        {
-            arguments.Add( "--ignore-tls" );
-        }
-
-        return string.Join( " ", arguments );
-    }
-
     internal override bool AddTeamcityBuildConfiguration( BuildContext context, List<TeamCityBuildConfiguration> teamCityBuildConfigurations )
     {
+        TeamCityBuildStep CreateBuildStep()
+        {
+            var arguments = new List<string>();
+            arguments.Add( this.TypesenseUri );
+            arguments.Add( this.Source );
+            arguments.Add( this.SourceUrl );
+
+            if ( this.IgnoreTls )
+            {
+                arguments.Add( "--ignore-tls" );
+            }
+
+            return new TeamCityEngineeringCommandBuildStep( "UpdateSearch", "Update search", "tools search update", string.Join( " ", arguments ), true );
+        }
+        
         foreach ( var configuration in this.BuildConfigurations )
         {
             var configurationInfo = context.Product.Configurations[configuration];
@@ -79,16 +77,13 @@ public class UpdateSearchProductExtension : ProductExtension
 
                 return false;
             }
-            
-            var isRepoRemoteSsh = context.Product.DependencyDefinition.VcsRepository.IsSshAgentRequired;
 
             var teamCityUpdateSearchConfiguration = new TeamCityBuildConfiguration(
                 $"{configuration}UpdateSearch",
                 name,
-                this.GetArguments(),
-                context.Product.DependencyDefinition.CiConfiguration.BuildAgentType,
-                isRepoRemoteSsh )
+                context.Product.DependencyDefinition.CiConfiguration.BuildAgentType )
             {
+                BuildSteps = new[] { CreateBuildStep() },
                 IsDeployment = true,
                 SnapshotDependencies = new[] { new TeamCitySnapshotDependency( $"{configuration}Deployment", false ) },
                 BuildTimeOutThreshold = this.TimeOutThreshold
@@ -101,11 +96,9 @@ public class UpdateSearchProductExtension : ProductExtension
                 var teamCityUpdateSearchWithoutDependenciesConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}UpdateSearchNoDependency",
                     $"Standalone {name}",
-                    this.GetArguments(),
-                    context.Product.DependencyDefinition.CiConfiguration.BuildAgentType,
-                    isRepoRemoteSsh )
+                    context.Product.DependencyDefinition.CiConfiguration.BuildAgentType )
                 {
-                    IsDeployment = true, BuildTimeOutThreshold = this.TimeOutThreshold
+                    BuildSteps = new[] { CreateBuildStep() }, IsDeployment = true, BuildTimeOutThreshold = this.TimeOutThreshold
                 };
 
                 teamCityBuildConfigurations.Add( teamCityUpdateSearchWithoutDependenciesConfiguration );

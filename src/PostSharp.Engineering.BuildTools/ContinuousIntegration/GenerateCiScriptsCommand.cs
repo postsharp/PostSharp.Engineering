@@ -8,6 +8,8 @@ public class GenerateCiScriptsCommand : BaseCommand<CommonCommandSettings>
 {
     protected override bool ExecuteCore( BuildContext context, CommonCommandSettings settings )
     {
-        return context.Product.GenerateTeamcityConfiguration( context, settings );
+        return context.Product.IsBundle
+            ? TeamCityHelper.TryGenerateConsolidatedTeamcityConfiguration( context )
+            : context.Product.GenerateTeamcityConfiguration( context, settings );
     }
 }

@@ -43,6 +43,8 @@ public static partial class MetalamaDependencies
         public static ProductFamily Family { get; } =
             new( _projectName, "2023.1", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_2.Family };
 
+        public static DependencyDefinition MetalamaConsolidated { get; } = new MetalamaDependencyDefinition( "Metalama.Consolidated", VcsProvider.AzureDevOps );
+        
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.AzureDevOps );
 
         // The release build is intentionally used for the debug configuration because we want dependencies to consume the release

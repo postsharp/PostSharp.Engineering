@@ -1,6 +1,8 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.Arguments;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -18,17 +20,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public string Name { get; }
 
-        public string BuildArguments { get; }
-
         public string BuildAgentType { get; }
-        
-        public bool IsRepoRemoteSsh { get; }
 
+        public TeamCityBuildStep[]? BuildSteps { get; init; }
+        
         public bool IsDeployment { get; init; }
         
-        public bool IsClearCacheRequired { get; init; }
-        
-        public bool IsGitAuthenticationRequired { get; init; }
+        public bool IsSshAgentRequired { get; init; }
 
         public string? ArtifactRules { get; init; }
 
@@ -39,18 +37,14 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         public TeamCitySnapshotDependency[]? SnapshotDependencies { get; init; }
         
         public TeamCitySourceDependency[]? SourceDependencies { get; init; }
-
-        public bool RequiresUpstreamCheck { get; init; }
         
         public TimeSpan BuildTimeOutThreshold { get; init; }
 
-        public TeamCityBuildConfiguration( string objectName, string name, string buildArguments, string buildAgentType, bool isRepoRemoteSsh )
+        public TeamCityBuildConfiguration( string objectName, string name, string buildAgentType )
         {
             this.ObjectName = objectName;
             this.Name = name;
-            this.BuildArguments = buildArguments;
             this.BuildAgentType = buildAgentType;
-            this.IsRepoRemoteSsh = isRepoRemoteSsh;
         }
 
         public void GenerateTeamcityCode( TextWriter writer )
@@ -81,24 +75,27 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 writer.WriteLine();
             }
 
-            var parameters = new List<string>
-            {
-                @"        text(""BuildArguments"", """", label = ""Build Arguments"", description = ""Arguments to append to the engineering command."", allowEmpty = true)"
-            };
+            var timeOutParameter = new TeamCityTextBuildConfigurationParameter(
+                "TimeOut",
+                "Time-Out Threshold",
+                "Seconds after the duration of the last successful build.",
+                $"{(int) this.BuildTimeOutThreshold.TotalSeconds}" ) { Validation = (@"\d+", "The timeout has to be an integer number.") };
 
-            if ( this.RequiresUpstreamCheck )
-            {
-                parameters.Add(
-                    @"        text(""UpstreamCheckArguments"", """", label = ""Upstream Check Arguments"", description = ""Arguments to append to the upstream check command."", allowEmpty = true)" );
-            }
-
-            parameters.Add(
-                @$"        text(""TimeOut"", ""{(int) this.BuildTimeOutThreshold.TotalSeconds}"", label = ""Time-Out Threshold"", description = ""Seconds after the duration of the last successful build."",
-              regex = """"""\d+"""""", validationMessage = ""The timeout has to be an integer number."")" );
+            var hasBuildSteps = this.BuildSteps is { Length: > 0 };
             
+            var buildParameters = new List<TeamCityBuildConfigurationParameter>();
+
+            if ( hasBuildSteps )
+            {
+                buildParameters.AddRange(
+                    this.BuildSteps!.SelectMany( s => s.BuildConfigurationParameters ?? Enumerable.Empty<TeamCityBuildConfigurationParameter>() ) );
+            }
+            
+            buildParameters.Add( timeOutParameter );
+
             writer.WriteLine(
                 $@"    params {{
-{string.Join( Environment.NewLine, parameters )}
+{string.Join( Environment.NewLine, buildParameters.Select( p => p.GenerateTeamCityCode() ) )}
     }}" );
             
             writer.WriteLine(
@@ -119,49 +116,25 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 }
             }
 
-            writer.WriteLine(
-                $@"    }}
+            writer.WriteLine( $@"    }}" );
 
+            // Build steps.
+            if ( hasBuildSteps )
+            {
+                writer.WriteLine(
+                    $@"
     steps {{" );
 
-            if ( this.IsClearCacheRequired )
-            {
-                writer.WriteLine(
-                    $@"        // Step to kill all dotnet or VBCSCompiler processes that might be locking files we delete in during cleanup.
-        powerShell {{
-            name = ""Kill background processes before cleanup""
-            scriptMode = file {{
-                path = ""Build.ps1""
-            }}
-            noProfile = false
-            param(""jetbrains_powershell_scriptArguments"", ""tools kill"")
-        }}" );
+                foreach ( var buildStep in this.BuildSteps! )
+                {
+                    writer.WriteLine( buildStep.GenerateTeamCityCode() );
+                }
+
+                writer.WriteLine( @"    }" );
             }
 
-            if ( this.RequiresUpstreamCheck )
-            {
-                writer.WriteLine(
-                    $@"        powerShell {{
-            name = ""Check pending upstream changes""
-            scriptMode = file {{
-                path = ""Build.ps1""
-            }}
-            noProfile = false
-            param(""jetbrains_powershell_scriptArguments"", ""tools git check-upstream %UpstreamCheckArguments%"")
-        }}" );
-            }
-            
             writer.WriteLine(
-                $@"        powerShell {{
-            name = ""{this.Name}""
-            scriptMode = file {{
-                path = ""Build.ps1""
-            }}
-            noProfile = false
-            param(""jetbrains_powershell_scriptArguments"", ""{this.BuildArguments} %BuildArguments%"")
-        }}
-    }}
-
+                @$"
     failureConditions {{
         failOnMetricChange {{
             metric = BuildFailureOnMetric.MetricType.BUILD_DURATION
@@ -185,7 +158,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             verbose = true
         }}" );
 
-            if ( (this.RequiresUpstreamCheck || this.IsGitAuthenticationRequired) && this.IsRepoRemoteSsh )
+            if ( this.IsSshAgentRequired )
             {
                 writer.WriteLine(
                     $@"        sshAgent {{

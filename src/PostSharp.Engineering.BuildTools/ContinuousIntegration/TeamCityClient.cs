@@ -421,6 +421,169 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool TryGetProjectDetails( ConsoleHelper console, string id ) => this.TryGetDetails( console, $"/app/rest/projects/id:{id}" );
 
+        public bool TryGetOrderedSubprojectsRecursively( ConsoleHelper console, string projectId, [NotNullWhen( true )] out ImmutableArray<string>? subprojects )
+        {
+            int? expectedCount = null;
+            subprojects = null;
+            var subprojectsList = new List<string>();
+
+            var nextSubprojectsPath = $"/app/rest/projects/id:{projectId}/order/projects";
+
+            do
+            {
+                if ( !this.TryGet( nextSubprojectsPath, console, out var subprojectsResponse ) )
+                {
+                    return false;
+                }
+
+                var subprojectsRootsElement = subprojectsResponse.Content.ReadAsXDocument().Root!;
+
+                var newExpectedCount = int.Parse( subprojectsRootsElement.Attribute( "count" )!.Value, NumberStyles.Integer, CultureInfo.InvariantCulture );
+
+                if ( expectedCount == null )
+                {
+                    expectedCount = newExpectedCount;
+                }
+                else if ( expectedCount != newExpectedCount )
+                {
+                    throw new InvalidOperationException( "Inconsistent subprojects count" );
+                }
+
+                foreach ( var subprojectElement in subprojectsRootsElement.Elements( "project" ) )
+                {
+                    var subprojectId = subprojectElement.Attribute( "id" )!.Value;
+                    subprojectsList.Add( subprojectId );
+
+                    if ( !this.TryGetOrderedSubprojectsRecursively( console, subprojectId, out var subProjectsSubprojects ) )
+                    {
+                        return false;
+                    }
+                    
+                    subprojectsList.AddRange( subProjectsSubprojects );
+                }
+
+                nextSubprojectsPath = subprojectsRootsElement.Attribute( "nextHref" )?.Value;
+            }
+            while ( nextSubprojectsPath != null );
+
+            subprojects = subprojectsList.ToImmutableArray();
+
+            if ( expectedCount == null )
+            {
+                throw new InvalidOperationException( "Unknown expected count." );
+            }
+            else if ( subprojects.Value.Length != expectedCount )
+            {
+                throw new InvalidOperationException( "Not all subprojects have been retrieved." );
+            }
+
+            return true;
+        }
+
+        public bool TryGetProjectsBuildConfigurations( ConsoleHelper console, string projectId, [NotNullWhen( true )] out ImmutableArray<string>? buildConfigurations )
+        {
+            int? expectedCount = null;
+            buildConfigurations = null;
+            var buildConfigurationsList = new List<string>();
+
+            var nextBuildConfigurationsPath = $"/app/rest/projects/id:{projectId}/buildTypes";
+
+            do
+            {
+                if ( !this.TryGet( nextBuildConfigurationsPath, console, out var buildConfigurationsResponse ) )
+                {
+                    return false;
+                }
+
+                var buildConfigurationsRootsElement = buildConfigurationsResponse.Content.ReadAsXDocument().Root!;
+
+                var newExpectedCount = int.Parse( buildConfigurationsRootsElement.Attribute( "count" )!.Value, NumberStyles.Integer, CultureInfo.InvariantCulture );
+
+                if ( expectedCount == null )
+                {
+                    expectedCount = newExpectedCount;
+                }
+                else if ( expectedCount != newExpectedCount )
+                {
+                    throw new InvalidOperationException( "Inconsistent build configurations count" );
+                }
+
+                foreach ( var buildConfigurationsElement in buildConfigurationsRootsElement.Elements( "buildType" ) )
+                {
+                    var buildConfigurationId = buildConfigurationsElement.Attribute( "id" )!.Value;
+                    buildConfigurationsList.Add( buildConfigurationId );
+                }
+
+                nextBuildConfigurationsPath = buildConfigurationsRootsElement.Attribute( "nextHref" )?.Value;
+            }
+            while ( nextBuildConfigurationsPath != null );
+
+            buildConfigurations = buildConfigurationsList.ToImmutableArray();
+
+            if ( expectedCount == null )
+            {
+                throw new InvalidOperationException( "Unknown expected count." );
+            }
+            else if ( buildConfigurations.Value.Length != expectedCount )
+            {
+                throw new InvalidOperationException( "Not all build configurations have been retrieved." );
+            }
+
+            return true;
+        }
+        
+        public bool TryGetBuildConfigurationsSnapshotDependencies( ConsoleHelper console, string buildConfigurationId, [NotNullWhen( true )] out ImmutableArray<string>? snapshotDependencies )
+        {
+            int? expectedCount = null;
+            snapshotDependencies = null;
+            var snapshotDependenciesList = new List<string>();
+
+            var nextSnapshotDependenciesPath = $"/app/rest/buildTypes/id:{buildConfigurationId}/snapshot-dependencies";
+
+            do
+            {
+                if ( !this.TryGet( nextSnapshotDependenciesPath, console, out var snapshotDependenciesResponse ) )
+                {
+                    return false;
+                }
+
+                var snapshotDependenciesRootsElement = snapshotDependenciesResponse.Content.ReadAsXDocument().Root!;
+
+                var newExpectedCount = int.Parse( snapshotDependenciesRootsElement.Attribute( "count" )!.Value, NumberStyles.Integer, CultureInfo.InvariantCulture );
+
+                if ( expectedCount == null )
+                {
+                    expectedCount = newExpectedCount;
+                }
+                else if ( expectedCount != newExpectedCount )
+                {
+                    throw new InvalidOperationException( "Inconsistent snapshot dependencies count" );
+                }
+
+                foreach ( var snapshotDependenciesElement in snapshotDependenciesRootsElement.Elements( "snapshot-dependency" ) )
+                {
+                    var snapshotDependencyId = snapshotDependenciesElement.Attribute( "id" )!.Value;
+                    snapshotDependenciesList.Add( snapshotDependencyId );
+                }
+
+                nextSnapshotDependenciesPath = snapshotDependenciesRootsElement.Attribute( "nextHref" )?.Value;
+            }
+            while ( nextSnapshotDependenciesPath != null );
+
+            snapshotDependencies = snapshotDependenciesList.ToImmutableArray();
+
+            if ( expectedCount == null )
+            {
+                throw new InvalidOperationException( "Unknown expected count." );
+            }
+            else if ( snapshotDependencies.Value.Length != expectedCount )
+            {
+                throw new InvalidOperationException( "Not all snapshot dependencies have been retrieved." );
+            }
+
+            return true;
+        }
+        
         public bool TryCreateProject( ConsoleHelper console, string name, string id, string? parentId = null )
         {
             parentId ??= "_Root";

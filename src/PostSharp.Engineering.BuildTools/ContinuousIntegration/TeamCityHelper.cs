@@ -501,4 +501,58 @@ public static class TeamCityHelper
 
         context.Console.WriteSuccess( "Continuous integration scripts generated." );
     }
+
+    internal static bool TryGenerateConsolidatedTeamcityConfiguration( BuildContext context )
+    {
+        if ( !TryConnectTeamCity( context, out var tc ) )
+        {
+            return false;
+        }
+        
+        var tcConfigurations = new List<TeamCityBuildConfiguration>();
+
+        if ( !tc.TryGetOrderedSubprojectsRecursively(
+                context.Console,
+                context.Product.DependencyDefinition.CiConfiguration.ProjectId.Id,
+                out var subprojects ) )
+        {
+            return false;
+        }
+
+        var orderedBuildConfigurations = new Dictionary<string, List<(string ProjectId, string BuildConfigurationId, HashSet<string> Dependencies)>>();
+
+        foreach ( var projectId in subprojects )
+        {
+            if ( !tc.TryGetProjectsBuildConfigurations( context.Console, projectId, out var projectsBuildConfigurations ) )
+            {
+                return false;
+            }
+
+            foreach ( var buildConfigurationId in projectsBuildConfigurations )
+            {
+                if ( !tc.TryGetBuildConfigurationsSnapshotDependencies( context.Console, buildConfigurationId, out var snapshotDependencies ) )
+                {
+                    return false;
+                }
+
+                var buildConfigurationKind = buildConfigurationId.Split().Last();
+
+                if ( !orderedBuildConfigurations.TryGetValue( buildConfigurationKind, out var buildConfigurationsOfKind ) )
+                {
+                    buildConfigurationsOfKind = new();
+                    orderedBuildConfigurations.Add( projectId, buildConfigurationsOfKind );
+                }
+
+                buildConfigurationsOfKind.Add( (projectId, buildConfigurationId, snapshotDependencies.Value.ToHashSet()) );
+            }
+        }
+
+        var consolidatedProjectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId.Id;
+        // var consolidatedDebugBuildConfiguration = new TeamCityBuildConfiguration( $"{consolidatedProjectId}_{}", name,  )
+
+        var tcProject = new TeamCityProject( tcConfigurations.ToArray() );
+        GenerateTeamCityConfiguration( context, tcProject );
+
+        return true;
+    }
 }
