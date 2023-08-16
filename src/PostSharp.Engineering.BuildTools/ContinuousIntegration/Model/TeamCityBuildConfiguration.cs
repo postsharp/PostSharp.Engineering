@@ -8,45 +8,49 @@ using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 {
-    internal record TeamCitySnapshotDependency( string ObjectId, bool IsAbsoluteId, string? ArtifactsRules = null );
+    internal record TeamCitySnapshotDependency( string ObjectId, bool IsAbsoluteId, string? ArtifactRules = null );
+
+    internal record TeamCitySourceDependency( string ObjectId, bool IsAbsoluteId, string ArtifactRules );
 
     internal class TeamCityBuildConfiguration
     {
-        public Product Product { get; }
-
         public string ObjectName { get; }
 
         public string Name { get; }
 
-        public bool RequiresClearCache { get; init; }
-
         public string BuildArguments { get; }
 
         public string BuildAgentType { get; }
+        
+        public bool IsRepoRemoteSsh { get; }
 
         public bool IsDeployment { get; init; }
-
-        public bool IsSshAgentRequired { get; set; }
+        
+        public bool IsClearCacheRequired { get; init; }
+        
+        public bool IsGitAuthenticationRequired { get; init; }
 
         public string? ArtifactRules { get; init; }
 
         public string[]? AdditionalArtifactRules { get; init; }
 
         public IBuildTrigger[]? BuildTriggers { get; init; }
-
-        public TeamCitySnapshotDependency[]? Dependencies { get; init; }
+        
+        public TeamCitySnapshotDependency[]? SnapshotDependencies { get; init; }
+        
+        public TeamCitySourceDependency[]? SourceDependencies { get; init; }
 
         public bool RequiresUpstreamCheck { get; init; }
         
         public TimeSpan BuildTimeOutThreshold { get; init; }
 
-        public TeamCityBuildConfiguration( Product product, string objectName, string name, string buildArguments, string buildAgentType )
+        public TeamCityBuildConfiguration( string objectName, string name, string buildArguments, string buildAgentType, bool isRepoRemoteSsh )
         {
-            this.Product = product;
             this.ObjectName = objectName;
             this.Name = name;
             this.BuildArguments = buildArguments;
             this.BuildAgentType = buildAgentType;
+            this.IsRepoRemoteSsh = isRepoRemoteSsh;
         }
 
         public void GenerateTeamcityCode( TextWriter writer )
@@ -101,10 +105,18 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 $@"    vcs {{
         root(DslContext.settingsRoot)" );
 
-            foreach ( var sourceDependency in this.Product.SourceDependencies )
+            // Source dependencies.
+            var hasSourceDependencies = this.SourceDependencies is { Length: > 0 };
+
+            if ( hasSourceDependencies )
             {
-                writer.WriteLine(
-                    $@"        root(AbsoluteId(""{sourceDependency.CiConfiguration.ProjectId}""), ""+:. => {this.Product.SourceDependenciesDirectory}/{sourceDependency.Name}"")" );
+                foreach ( var sourceDependency in this.SourceDependencies!.OrderBy( d => d.ObjectId ) )
+                {
+                    var objectName = sourceDependency.IsAbsoluteId ? @$"AbsoluteId(""{sourceDependency.ObjectId}"")" : sourceDependency.ObjectId;
+                    
+                    writer.WriteLine(
+                        $@"        root({objectName}, ""{sourceDependency.ArtifactRules}"")" );
+                }
             }
 
             writer.WriteLine(
@@ -112,7 +124,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
     steps {{" );
 
-            if ( this.RequiresClearCache )
+            if ( this.IsClearCacheRequired )
             {
                 writer.WriteLine(
                     $@"        // Step to kill all dotnet or VBCSCompiler processes that might be locking files we delete in during cleanup.
@@ -173,8 +185,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             verbose = true
         }}" );
 
-            if ( (this.RequiresUpstreamCheck || this.IsSshAgentRequired)
-                 && this.Product.DependencyDefinition.VcsRepository.IsSshAgentRequired )
+            if ( (this.RequiresUpstreamCheck || this.IsGitAuthenticationRequired) && this.IsRepoRemoteSsh )
             {
                 writer.WriteLine(
                     $@"        sshAgent {{
@@ -203,7 +214,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             }
 
             // Dependencies
-            var hasSnapshotDependencies = this.Dependencies is { Length: > 0 };
+            var hasSnapshotDependencies = this.SnapshotDependencies is { Length: > 0 };
 
             if ( hasSnapshotDependencies )
             {
@@ -211,7 +222,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                     $@"
     dependencies {{" );
 
-                foreach ( var dependency in this.Dependencies!.OrderBy( d => d.ObjectId ) )
+                foreach ( var dependency in this.SnapshotDependencies!.OrderBy( d => d.ObjectId ) )
                 {
                     var objectName = dependency.IsAbsoluteId ? @$"AbsoluteId(""{dependency.ObjectId}"")" : dependency.ObjectId;
 
@@ -223,13 +234,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             }}
 " );
 
-                    if ( dependency.ArtifactsRules != null )
+                    if ( dependency.ArtifactRules != null )
                     {
                         writer.WriteLine(
                             $@"
             artifacts {{
                 cleanDestination = true
-                artifactRules = ""{dependency.ArtifactsRules}""
+                artifactRules = ""{dependency.ArtifactRules}""
             }}" );
                     }
 

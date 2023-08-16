@@ -1894,8 +1894,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             const string packageVersion = "<INVALID>";
 
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
-
             var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
+            var isRepoRemoteSsh = this.DependencyDefinition.VcsRepository.IsSshAgentRequired;            
 
             foreach ( var configuration in configurations )
             {
@@ -1957,23 +1957,31 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             $"+:{d.Definition.PrivateArtifactsDirectory.ToString( new BuildInfo( packageVersion, d.Configuration, this ) ).Replace( Path.DirectorySeparatorChar, '/' )}/**/*=>dependencies/{d.Name}" ) )
                     .ToList();
 
-                var sourceDependencies = this.SourceDependencies.Where( d => d.GenerateSnapshotDependency )
+                var sourceSnapshotDependencies = this.SourceDependencies.Where( d => d.GenerateSnapshotDependency )
                     .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.BuildTypes[configuration], true ) );
 
-                var buildDependencies = snapshotDependencies.Concat( sourceDependencies ).ToArray();
+                var buildDependencies = snapshotDependencies.Concat( sourceSnapshotDependencies ).ToArray();
+
+                var sourceDependencies = this.SourceDependencies.Select(
+                        d => new TeamCitySourceDependency(
+                            d.CiConfiguration.ProjectId.ToString(),
+                            true,
+                            $"+:. => {this.SourceDependenciesDirectory}/{d.Name}" ) )
+                    .ToArray();
 
                 var buildTeamCityConfiguration = new TeamCityBuildConfiguration(
-                    this,
-                    objectName: $"{configuration}Build",
-                    name: configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
-                    buildArguments: $"test --configuration {configuration} --buildNumber %build.number% --buildType %system.teamcity.buildType.id%",
-                    buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                    $"{configuration}Build",
+                    configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
+                    $"test --configuration {configuration} --buildNumber %build.number% --buildType %system.teamcity.buildType.id%",
+                    this.DependencyDefinition.CiConfiguration.BuildAgentType,
+                    isRepoRemoteSsh )
                 {
-                    RequiresClearCache = true,
+                    IsClearCacheRequired = true,
                     ArtifactRules = publishedArtifactRules,
                     AdditionalArtifactRules = additionalArtifactRules.ToArray(),
                     BuildTriggers = configurationInfo.BuildTriggers,
-                    Dependencies = buildDependencies,
+                    SnapshotDependencies = buildDependencies,
+                    SourceDependencies = sourceDependencies,
                     RequiresUpstreamCheck = configurationInfo.RequiresUpstreamCheck && this.ProductFamily.UpstreamProductFamily != null,
                     BuildTimeOutThreshold = configurationInfo.BuildTimeOutThreshold ?? this.BuildTimeOutThreshold
                 };
@@ -1988,14 +1996,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     if ( configurationInfo.ExportsToTeamCityDeploy )
                     {
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
-                            this,
                             objectName: $"{configuration}Deployment",
                             name: configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
                             buildArguments: $"publish --configuration {configuration}",
-                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType,
+                            isRepoRemoteSsh )
                         {
                             IsDeployment = true,
-                            Dependencies = buildDependencies.Where( d => d.ArtifactsRules != null )
+                            SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
                                 .Concat( new[] { new TeamCitySnapshotDependency( buildTeamCityConfiguration.ObjectName, false, publishedArtifactRules ) } )
                                 .Concat(
                                     this.ParametrizedDependencies.Select( d => d.Definition )
@@ -2003,7 +2011,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                         .Where( d => d.GenerateSnapshotDependency )
                                         .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DeploymentBuildType, true ) ) )
                                 .ToArray(),
-                            IsSshAgentRequired = true,
+                            IsGitAuthenticationRequired = true,
                             BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? this.DeploymentTimeOutThreshold
                         };
 
@@ -2013,17 +2021,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     if ( configurationInfo.ExportsToTeamCityDeployWithoutDependencies )
                     {
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
-                            this,
                             objectName: $"{configuration}DeploymentNoDependency",
                             name: "Standalone " + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
                             buildArguments: $"publish --configuration {configuration}",
-                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType,
+                            isRepoRemoteSsh )
                         {
                             IsDeployment = true,
-                            Dependencies = buildDependencies.Where( d => d.ArtifactsRules != null )
+                            SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
                                 .Concat( new[] { new TeamCitySnapshotDependency( buildTeamCityConfiguration.ObjectName, false, publishedArtifactRules ) } )
                                 .ToArray(),
-                            IsSshAgentRequired = true,
+                            IsGitAuthenticationRequired = true,
                             BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? this.DeploymentTimeOutThreshold
                         };
 
@@ -2044,14 +2052,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     teamCityBuildConfigurations.Add(
                         new TeamCityBuildConfiguration(
-                            this,
                             objectName: $"{configuration}Swap",
                             name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
                             buildArguments: $"swap --configuration {configuration}",
-                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType,
+                            isRepoRemoteSsh )
                         {
                             IsDeployment = true,
-                            Dependencies = swapDependencies.ToArray(),
+                            SnapshotDependencies = swapDependencies.ToArray(),
                             BuildTimeOutThreshold = configurationInfo.SwapTimeOutThreshold ?? this.SwapTimeOutThreshold
                         } );
                 }
@@ -2066,13 +2074,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     teamCityBuildConfigurations.Add(
                         new TeamCityBuildConfiguration(
-                            this,
                             objectName: "VersionBump",
                             name: $"Version Bump",
                             buildArguments: $"bump",
-                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType,
+                            isRepoRemoteSsh )
                         {
-                            IsSshAgentRequired = true, BuildTimeOutThreshold = this.VersionBumpTimeOutThreshold
+                            IsGitAuthenticationRequired = true, BuildTimeOutThreshold = this.VersionBumpTimeOutThreshold
                         } );
                 }
             }
@@ -2082,15 +2090,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 teamCityBuildConfigurations.Add(
                     new TeamCityBuildConfiguration(
-                        this,
                         "DownstreamMerge",
                         "Downstream Merge",
                         "tools git merge-downstream",
-                        this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                        this.DependencyDefinition.CiConfiguration.BuildAgentType,
+                        isRepoRemoteSsh )
                     {
-                        Dependencies = new[] { new TeamCitySnapshotDependency( "DebugBuild", false ) },
+                        SnapshotDependencies = new[] { new TeamCitySnapshotDependency( "DebugBuild", false ) },
                         BuildTriggers = new IBuildTrigger[] { new SourceBuildTrigger() },
-                        IsSshAgentRequired = true,
+                        IsGitAuthenticationRequired = true,
                         BuildTimeOutThreshold = this.DownstreamMergeTimeOutThreshold
                     } );
             }

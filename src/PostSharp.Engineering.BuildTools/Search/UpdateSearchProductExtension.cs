@@ -79,16 +79,18 @@ public class UpdateSearchProductExtension : ProductExtension
 
                 return false;
             }
+            
+            var isRepoRemoteSsh = context.Product.DependencyDefinition.VcsRepository.IsSshAgentRequired;
 
             var teamCityUpdateSearchConfiguration = new TeamCityBuildConfiguration(
-                context.Product,
                 $"{configuration}UpdateSearch",
                 name,
                 this.GetArguments(),
-                context.Product.DependencyDefinition.CiConfiguration.BuildAgentType )
+                context.Product.DependencyDefinition.CiConfiguration.BuildAgentType,
+                isRepoRemoteSsh )
             {
                 IsDeployment = true,
-                Dependencies = new[] { new TeamCitySnapshotDependency( $"{configuration}Deployment", false ) },
+                SnapshotDependencies = new[] { new TeamCitySnapshotDependency( $"{configuration}Deployment", false ) },
                 BuildTimeOutThreshold = this.TimeOutThreshold
             };
 
@@ -97,11 +99,11 @@ public class UpdateSearchProductExtension : ProductExtension
             if ( configurationInfo.ExportsToTeamCityDeployWithoutDependencies )
             {
                 var teamCityUpdateSearchWithoutDependenciesConfiguration = new TeamCityBuildConfiguration(
-                    context.Product,
                     $"{configuration}UpdateSearchNoDependency",
                     $"Standalone {name}",
                     this.GetArguments(),
-                    context.Product.DependencyDefinition.CiConfiguration.BuildAgentType )
+                    context.Product.DependencyDefinition.CiConfiguration.BuildAgentType,
+                    isRepoRemoteSsh )
                 {
                     IsDeployment = true, BuildTimeOutThreshold = this.TimeOutThreshold
                 };

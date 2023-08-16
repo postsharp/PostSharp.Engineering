@@ -8,6 +8,7 @@ using Spectre.Console;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Threading;
 
@@ -483,5 +484,21 @@ public static class TeamCityHelper
         }
 
         return true;
+    }
+
+    public static void GenerateTeamCityConfiguration( BuildContext context, TeamCityProject project )
+    {
+        var content = new StringWriter();
+        project.GenerateTeamcityCode( content );
+
+        var filePath = Path.Combine( context.RepoDirectory, ".teamcity", "settings.kts" );
+
+        if ( !File.Exists( filePath ) || File.ReadAllText( filePath ) != content.ToString() )
+        {
+            context.Console.WriteWarning( $"Replacing '{filePath}'." );
+            File.WriteAllText( filePath, content.ToString() );
+        }
+
+        context.Console.WriteSuccess( "Continuous integration scripts generated." );
     }
 }
