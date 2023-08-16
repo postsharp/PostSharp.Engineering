@@ -9,7 +9,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
     {
         private readonly TeamCityBuildConfiguration[] _configurations;
 
-        public TeamCityProject( TeamCityBuildConfiguration[] configurations )
+        internal TeamCityProject( TeamCityBuildConfiguration[] configurations )
         {
             this._configurations = configurations;
         }

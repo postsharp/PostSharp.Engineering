@@ -486,7 +486,7 @@ public static class TeamCityHelper
         return true;
     }
 
-    public static void GenerateTeamCityConfiguration( BuildContext context, TeamCityProject project )
+    internal static void GenerateTeamCityConfiguration( BuildContext context, TeamCityProject project )
     {
         var content = new StringWriter();
         project.GenerateTeamcityCode( content );

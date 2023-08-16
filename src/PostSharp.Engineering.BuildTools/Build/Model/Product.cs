@@ -1887,7 +1887,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        public bool GenerateTeamcityConfiguration( BuildContext context, CommonCommandSettings settings )
+        internal bool GenerateTeamcityConfiguration( BuildContext context, CommonCommandSettings settings )
         {
             context.Console.WriteHeading( "Generating build integration scripts" );
 
