@@ -421,11 +421,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool TryGetProjectDetails( ConsoleHelper console, string id ) => this.TryGetDetails( console, $"/app/rest/projects/id:{id}" );
 
-        public bool TryGetOrderedSubprojectsRecursively( ConsoleHelper console, string projectId, [NotNullWhen( true )] out ImmutableArray<string>? subprojects )
+        public bool TryGetOrderedSubprojectsRecursively( ConsoleHelper console, string projectId, [NotNullWhen( true )] out IEnumerable<(string Id, string Name)>? subprojects )
         {
             int? expectedCount = null;
             subprojects = null;
-            var subprojectsList = new List<string>();
+            var subprojectsList = new List<(string, string)>();
 
             var nextSubprojectsPath = $"/app/rest/projects/id:{projectId}/order/projects";
 
@@ -452,7 +452,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 foreach ( var subprojectElement in subprojectsRootsElement.Elements( "project" ) )
                 {
                     var subprojectId = subprojectElement.Attribute( "id" )!.Value;
-                    subprojectsList.Add( subprojectId );
+                    var subprojectName = subprojectElement.Attribute( "name" )!.Value;
+                    subprojectsList.Add( (subprojectId, subprojectName) );
 
                     if ( !this.TryGetOrderedSubprojectsRecursively( console, subprojectId, out var subProjectsSubprojects ) )
                     {
@@ -466,16 +467,16 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             }
             while ( nextSubprojectsPath != null );
 
-            subprojects = subprojectsList.ToImmutableArray();
-
             if ( expectedCount == null )
             {
                 throw new InvalidOperationException( "Unknown expected count." );
             }
-            else if ( subprojects.Value.Length != expectedCount )
+            else if ( subprojectsList.Count != expectedCount )
             {
                 throw new InvalidOperationException( "Not all subprojects have been retrieved." );
             }
+            
+            subprojects = subprojectsList.ToImmutableArray();
 
             return true;
         }

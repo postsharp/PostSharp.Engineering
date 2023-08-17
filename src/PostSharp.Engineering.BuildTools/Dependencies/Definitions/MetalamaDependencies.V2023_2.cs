@@ -24,7 +24,8 @@ public static partial class MetalamaDependencies
                 string? parentCiProjectId = null,
                 string? customCiProjectName = null,
                 string? customBranch = null,
-                string? customReleaseBranch = null )
+                string? customReleaseBranch = null,
+                string? customRepositoryName = null )
                 : base(
                     Family,
                     dependencyName,
@@ -33,7 +34,7 @@ public static partial class MetalamaDependencies
                     CreateMetalamaVcsRepository( dependencyName, vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
                         parentCiProjectId == null
-                            ? TeamCityHelper.GetProjectId( dependencyName, _projectName, Family.Version )
+                            ? TeamCityHelper.GetProjectId( customRepositoryName ?? dependencyName, _projectName, Family.Version )
                             : TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId ),
                         "caravela04cloud",
                         isVersioned ),
@@ -44,6 +45,11 @@ public static partial class MetalamaDependencies
         {
             UpstreamProductFamily = V2023_1.Family, DownstreamProductFamily = V2023_3.Family
         };
+        
+        public static DependencyDefinition Consolidated { get; } = new MetalamaDependencyDefinition(
+            "Consolidated",
+            VcsProvider.AzureDevOps,
+            customRepositoryName: "Metalama.Consolidated" );
 
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.AzureDevOps );
 

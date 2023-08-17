@@ -24,13 +24,14 @@ public static partial class MetalamaDependencies
                 string? parentCiProjectId = null,
                 string? customCiProjectName = null,
                 string? customBranch = null,
-                string? customReleaseBranch = null )
+                string? customReleaseBranch = null,
+                string? customRepositoryName = null )
                 : base(
                     Family,
                     dependencyName,
                     customBranch ?? $"develop/{Family.Version}",
                     customReleaseBranch ?? $"release/{Family.Version}",
-                    CreateMetalamaVcsRepository( dependencyName, vcsProvider ),
+                    CreateMetalamaVcsRepository( customRepositoryName ?? dependencyName, vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
                         parentCiProjectId == null
                             ? TeamCityHelper.GetProjectId( dependencyName, _projectName, Family.Version )
@@ -43,7 +44,10 @@ public static partial class MetalamaDependencies
         public static ProductFamily Family { get; } =
             new( _projectName, "2023.1", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_2.Family };
 
-        public static DependencyDefinition MetalamaConsolidated { get; } = new MetalamaDependencyDefinition( "Metalama.Consolidated", VcsProvider.AzureDevOps );
+        public static DependencyDefinition Consolidated { get; } = new MetalamaDependencyDefinition(
+            "Consolidated",
+            VcsProvider.AzureDevOps,
+            customRepositoryName: "Metalama.Consolidated" );
         
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.AzureDevOps );
 

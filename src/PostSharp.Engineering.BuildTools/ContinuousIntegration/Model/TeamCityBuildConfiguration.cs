@@ -20,11 +20,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public string Name { get; }
 
-        public string BuildAgentType { get; }
+        public string? BuildAgentType { get; }
 
         public TeamCityBuildStep[]? BuildSteps { get; init; }
         
         public bool IsDeployment { get; init; }
+
+        public bool IsComposite => this.BuildAgentType == null;
         
         public bool IsSshAgentRequired { get; init; }
 
@@ -38,9 +40,9 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         
         public TeamCitySourceDependency[]? SourceDependencies { get; init; }
         
-        public TimeSpan BuildTimeOutThreshold { get; init; }
+        public TimeSpan? BuildTimeOutThreshold { get; init; }
 
-        public TeamCityBuildConfiguration( string objectName, string name, string buildAgentType )
+        public TeamCityBuildConfiguration( string objectName, string name, string? buildAgentType = null )
         {
             this.ObjectName = objectName;
             this.Name = name;
@@ -60,6 +62,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 writer.WriteLine( "    type = Type.DEPLOYMENT" );
                 writer.WriteLine();
             }
+            else if ( this.IsComposite )
+            {
+                writer.WriteLine( "    type = Type.COMPOSITE" );
+                writer.WriteLine();
+            }
 
             if ( this.ArtifactRules != null )
             {
@@ -75,12 +82,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 writer.WriteLine();
             }
 
-            var timeOutParameter = new TeamCityTextBuildConfigurationParameter(
-                "TimeOut",
-                "Time-Out Threshold",
-                "Seconds after the duration of the last successful build.",
-                $"{(int) this.BuildTimeOutThreshold.TotalSeconds}" ) { Validation = (@"\d+", "The timeout has to be an integer number.") };
-
             var hasBuildSteps = this.BuildSteps is { Length: > 0 };
             
             var buildParameters = new List<TeamCityBuildConfigurationParameter>();
@@ -90,17 +91,29 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 buildParameters.AddRange(
                     this.BuildSteps!.SelectMany( s => s.BuildConfigurationParameters ?? Enumerable.Empty<TeamCityBuildConfigurationParameter>() ) );
             }
-            
-            buildParameters.Add( timeOutParameter );
 
-            writer.WriteLine(
-                $@"    params {{
+            if ( this.BuildTimeOutThreshold.HasValue )
+            {
+                var timeOutParameter = new TeamCityTextBuildConfigurationParameter(
+                    "TimeOut",
+                    "Time-Out Threshold",
+                    "Seconds after the duration of the last successful build.",
+                    $"{(int) this.BuildTimeOutThreshold.Value.TotalSeconds}" ) { Validation = (@"\d+", "The timeout has to be an integer number.") };
+                
+                buildParameters.Add( timeOutParameter );
+            }
+
+            if ( buildParameters.Count > 0 )
+            {
+                writer.WriteLine(
+                    $@"    params {{
 {string.Join( Environment.NewLine, buildParameters.Select( p => p.GenerateTeamCityCode() ) )}
     }}" );
-            
+            }
+
             writer.WriteLine(
                 $@"    vcs {{
-        root(DslContext.settingsRoot)" );
+        {(this.IsComposite ? "showDependenciesChanges = true" : "root(DslContext.settingsRoot)")}" );
 
             // Source dependencies.
             var hasSourceDependencies = this.SourceDependencies is { Length: > 0 };
@@ -121,6 +134,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             // Build steps.
             if ( hasBuildSteps )
             {
+                if ( this.IsComposite )
+                {
+                    throw new InvalidOperationException( "Composite build cannot have build steps." );
+                }
+                
                 writer.WriteLine(
                     $@"
     steps {{" );
@@ -133,8 +151,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 writer.WriteLine( @"    }" );
             }
 
-            writer.WriteLine(
-                @$"
+            if ( this.BuildTimeOutThreshold.HasValue )
+            {
+                writer.WriteLine(
+                    @$"
     failureConditions {{
         failOnMetricChange {{
             metric = BuildFailureOnMetric.MetricType.BUILD_DURATION
@@ -146,28 +166,46 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             stopBuildOnFailure = true
             param(""metricThreshold"", ""%TimeOut%"")
         }}
-    }}
+    }}" );
+            }
 
+            if ( !this.IsComposite )
+            {
+                writer.WriteLine(
+                    $@"
     requirements {{
         equals(""env.BuildAgentType"", ""{this.BuildAgentType}"")
-    }}
+    }}" );
+            }
 
-    features {{
+            // Features.
+            if ( !this.IsComposite || this.IsSshAgentRequired )
+            {
+                writer.WriteLine(
+                    $@"
+            features {{" );
+
+                if ( !this.IsComposite )
+                {
+                    writer.WriteLine(
+                        $@"
         swabra {{
             lockingProcesses = Swabra.LockingProcessPolicy.KILL
             verbose = true
         }}" );
+                }
 
-            if ( this.IsSshAgentRequired )
-            {
-                writer.WriteLine(
-                    $@"        sshAgent {{
+                if ( this.IsSshAgentRequired )
+                {
+                    writer.WriteLine(
+                        $@"        sshAgent {{
             // By convention, the SSH key name is always PostSharp.Engineering for all repositories using SSH to connect.
             teamcitySshKey = ""PostSharp.Engineering""
         }}" );
-            }
+                }
 
-            writer.WriteLine( $@"    }}" );
+                writer.WriteLine( $@"    }}" );
+            }
 
             // Triggers.
             if ( this.BuildTriggers is { Length: > 0 } )

@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
@@ -508,47 +509,146 @@ public static class TeamCityHelper
         {
             return false;
         }
-        
+
         var tcConfigurations = new List<TeamCityBuildConfiguration>();
 
         if ( !tc.TryGetOrderedSubprojectsRecursively(
                 context.Console,
-                context.Product.DependencyDefinition.CiConfiguration.ProjectId.Id,
-                out var subprojects ) )
+                context.Product.DependencyDefinition.CiConfiguration.ProjectId.ParentId,
+                out var orderedSubprojects ) )
         {
             return false;
         }
 
-        var orderedBuildConfigurations = new Dictionary<string, List<(string ProjectId, string BuildConfigurationId, HashSet<string> Dependencies)>>();
+        var consolidatedProjectName = context.Product.ProductName;
 
-        foreach ( var projectId in subprojects )
+        var buildConfigurations = new Dictionary<string, List<(string ProjectId, string BuildConfigurationId)>>();
+        var buildConfigurationDependencies = new Dictionary<string, List<string>>();
+
+        orderedSubprojects = orderedSubprojects.Where( p => !p.Id.EndsWith( $"_{consolidatedProjectName}", StringComparison.Ordinal ) );
+
+        const string versionBumpId = "VersionBump";
+
+        var versionBumpSteps = new List<TeamCityBuildStep>();
+
+        foreach ( var project in orderedSubprojects )
         {
-            if ( !tc.TryGetProjectsBuildConfigurations( context.Console, projectId, out var projectsBuildConfigurations ) )
+            if ( !tc.TryGetProjectsBuildConfigurations( context.Console, project.Id, out var projectsBuildConfigurations ) )
             {
                 return false;
             }
 
             foreach ( var buildConfigurationId in projectsBuildConfigurations )
             {
+                // Add to the collection of build configurations
+                var buildConfigurationKind = buildConfigurationId.Split( '_' ).Last();
+
+                if ( !buildConfigurations.TryGetValue( buildConfigurationKind, out var buildConfigurationsOfKind ) )
+                {
+                    buildConfigurationsOfKind = new();
+                    buildConfigurations.Add( buildConfigurationKind, buildConfigurationsOfKind );
+                }
+
+                buildConfigurationsOfKind.Add( (project.Id, buildConfigurationId) );
+
+                // Add to the list of dependencies
                 if ( !tc.TryGetBuildConfigurationsSnapshotDependencies( context.Console, buildConfigurationId, out var snapshotDependencies ) )
                 {
                     return false;
                 }
 
-                var buildConfigurationKind = buildConfigurationId.Split().Last();
-
-                if ( !orderedBuildConfigurations.TryGetValue( buildConfigurationKind, out var buildConfigurationsOfKind ) )
+                foreach ( var snapshotDependencyId in snapshotDependencies )
                 {
-                    buildConfigurationsOfKind = new();
-                    orderedBuildConfigurations.Add( projectId, buildConfigurationsOfKind );
+                    var snapshotDependencyKind = snapshotDependencyId.Split( '_' ).Last();
+
+                    if ( !buildConfigurationDependencies.TryGetValue( snapshotDependencyKind, out var snapshotDependenciesOfKind ) )
+                    {
+                        snapshotDependenciesOfKind = new();
+                        buildConfigurationDependencies.Add( snapshotDependencyKind, snapshotDependenciesOfKind );
+                    }
+
+                    snapshotDependenciesOfKind.Add( snapshotDependencyId );
                 }
 
-                buildConfigurationsOfKind.Add( (projectId, buildConfigurationId, snapshotDependencies.Value.ToHashSet()) );
+                // We create the version bump build steps here to preserve the order.
+                if ( buildConfigurationKind == versionBumpId )
+                {
+                    var projectSubId = project.Id.Split( '_' ).Last();
+                    var familyName = context.Product.ProductFamily.Name;
+                    var familyVersion = context.Product.ProductFamily.Version;
+
+                    versionBumpSteps.Add(
+                        new TeamCityEngineeringCommandBuildStep(
+                            $"Bump{projectSubId}",
+                            $"Trigger version bump of {project.Name}",
+                            "teamcity run bump",
+                            $"{familyName} {familyVersion} {project.Name}" ) );
+                }
             }
         }
 
         var consolidatedProjectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId.Id;
-        // var consolidatedDebugBuildConfiguration = new TeamCityBuildConfiguration( $"{consolidatedProjectId}_{}", name,  )
+
+        // Debug Build
+        const string debugBuildId = "DebugBuild";
+
+        var consolidatedDebugBuildSnapshotDependencies =
+            buildConfigurations[debugBuildId].Select( c => new TeamCitySnapshotDependency( c.BuildConfigurationId, true ) );
+
+        tcConfigurations.Add(
+            new TeamCityBuildConfiguration( $"{consolidatedProjectId}_{debugBuildId}", "Build [Debug]" )
+            {
+                SnapshotDependencies = consolidatedDebugBuildSnapshotDependencies.ToArray()
+            } );
+
+        // Downstream Merge
+        const string downstreamMergeId = "DownstreamMerge";
+
+        if ( buildConfigurations.TryGetValue( downstreamMergeId, out var downstreamMergeBuildConfigurations ) )
+        {
+            var consolidatedDownstreamMergeSnapshotDependencies =
+                buildConfigurations[downstreamMergeId].Select( c => new TeamCitySnapshotDependency( c.BuildConfigurationId, true ) );
+
+            tcConfigurations.Add(
+                new TeamCityBuildConfiguration( $"{consolidatedProjectId}_{downstreamMergeId}", "Merge Downstream" )
+                {
+                    SnapshotDependencies = consolidatedDownstreamMergeSnapshotDependencies.ToArray()
+                } );
+        }
+
+        // Version bump
+        tcConfigurations.Add(
+            new TeamCityBuildConfiguration(
+                $"{consolidatedProjectId}_{versionBumpId}",
+                "1. Version Bump",
+                context.Product.DependencyDefinition.CiConfiguration.BuildAgentType ) { BuildSteps = versionBumpSteps.ToArray() } );
+
+        // Public build
+        const string publicBuildId = "PublicBuild";
+
+        var publicBuildSnapshotDependencies =
+            buildConfigurations[publicBuildId].Select( c => new TeamCitySnapshotDependency( c.BuildConfigurationId, true ) );
+
+        tcConfigurations.Add(
+            new TeamCityBuildConfiguration( $"{consolidatedProjectId}_{publicBuildId}", "2. Build [Public]" )
+            {
+                SnapshotDependencies = publicBuildSnapshotDependencies.ToArray()
+            } );
+
+        // Public deployment
+        const string publicDeploymentId = "PublicDeployment";
+
+        var publicDeploymentSnapshotDependencies =
+            buildConfigurations[publicDeploymentId]
+                .Select( c => c.BuildConfigurationId )
+                .Concat( buildConfigurationDependencies[publicDeploymentId] )
+                .Select( c => new TeamCitySnapshotDependency( c, true ) );
+
+        tcConfigurations.Add(
+            new TeamCityBuildConfiguration( $"{consolidatedProjectId}_{publicDeploymentId}", "3. Deploy [Public]" )
+            {
+                SnapshotDependencies = publicDeploymentSnapshotDependencies.ToArray()
+            } );
 
         var tcProject = new TeamCityProject( tcConfigurations.ToArray() );
         GenerateTeamCityConfiguration( context, tcProject );

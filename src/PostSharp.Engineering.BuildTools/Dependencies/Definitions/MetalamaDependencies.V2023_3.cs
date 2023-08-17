@@ -24,13 +24,14 @@ public static partial class MetalamaDependencies
                 string? parentCiProjectId = null,
                 string? customCiProjectName = null,
                 string? customBranch = null,
-                string? customReleaseBranch = null )
+                string? customReleaseBranch = null,
+                string? customRepositoryName = null )
                 : base(
                     Family,
                     dependencyName,
                     customBranch ?? $"develop/{Family.Version}",
                     customReleaseBranch ?? $"release/{Family.Version}",
-                    CreateMetalamaVcsRepository( dependencyName, vcsProvider ),
+                    CreateMetalamaVcsRepository( customRepositoryName ?? dependencyName, vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
                         parentCiProjectId == null
                             ? TeamCityHelper.GetProjectId( dependencyName, _projectName, Family.Version )
@@ -48,6 +49,11 @@ public static partial class MetalamaDependencies
         };
 
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.AzureDevOps );
+        
+        public static DependencyDefinition Consolidated { get; } = new MetalamaDependencyDefinition(
+            "Consolidated",
+            VcsProvider.AzureDevOps,
+            customRepositoryName: "Metalama.Consolidated" );
 
         // The release build is intentionally used for the debug configuration because we want dependencies to consume the release
         // build, for performance reasons. The debug build will be used only locally, and for this we don't need a configuration here.
