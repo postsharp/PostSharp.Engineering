@@ -13,7 +13,7 @@ public static partial class MetalamaDependencies
     // ReSharper disable once InconsistentNaming
 
     [PublicAPI]
-    public static class V2023_3
+    public static class V2023_4
     {
         private class MetalamaDependencyDefinition : DependencyDefinition
         {
@@ -41,10 +41,11 @@ public static partial class MetalamaDependencies
                     isVersioned ) { }
         }
 
-        public static ProductFamily Family { get; } = new( _projectName, "2023.3", DevelopmentDependencies.Family )
+        public static ProductFamily Family { get; } = new( _projectName, "2023.4", DevelopmentDependencies.Family )
         {
-            UpstreamProductFamily = V2023_2.Family,
-            DownstreamProductFamily = V2023_4.Family
+            UpstreamProductFamily = V2023_3.Family
+
+            // DownstreamProductFamily = V2023_5.Family
         };
 
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.AzureDevOps );
