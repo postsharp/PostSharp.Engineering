@@ -1963,7 +1963,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var sourceSnapshotDependencies = this.SourceDependencies.Where( d => d.GenerateSnapshotDependency )
                     .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.BuildTypes[configuration], true ) );
 
-                var buildDependencies = snapshotDependencies.Concat( sourceSnapshotDependencies ).ToArray();
+                var buildDependencies = snapshotDependencies.Concat( sourceSnapshotDependencies ).OrderBy( d => d.ObjectId ).ToArray();
 
                 var sourceDependencies = this.SourceDependencies.Select(
                         d => new TeamCitySourceDependency(
@@ -2057,6 +2057,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             IsDeployment = true,
                             SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
                                 .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, publishedArtifactRules ) } )
+                                .OrderBy( d => d.ObjectId )
                                 .ToArray(),
                             BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? this.DeploymentTimeOutThreshold,
                             IsSshAgentRequired = isRepoRemoteSsh
@@ -2088,7 +2089,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                 new TeamCityEngineeringCommandBuildStep( "Swap", "Swap", "swap", $"--configuration {configuration}", true )
                             },
                             IsDeployment = true,
-                            SnapshotDependencies = swapDependencies.ToArray(),
+                            SnapshotDependencies = swapDependencies.OrderBy( d => d.ObjectId ).ToArray(),
                             BuildTimeOutThreshold = configurationInfo.SwapTimeOutThreshold ?? this.SwapTimeOutThreshold
                         } );
                 }
