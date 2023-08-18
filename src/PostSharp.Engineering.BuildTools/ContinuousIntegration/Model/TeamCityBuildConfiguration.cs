@@ -183,13 +183,12 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             {
                 writer.WriteLine(
                     $@"
-            features {{" );
+    features {{" );
 
                 if ( !this.IsComposite )
                 {
                     writer.WriteLine(
-                        $@"
-        swabra {{
+                        $@"        swabra {{
             lockingProcesses = Swabra.LockingProcessPolicy.KILL
             verbose = true
         }}" );

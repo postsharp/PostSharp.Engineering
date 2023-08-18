@@ -2148,18 +2148,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             var teamCityProject = new TeamCityProject( teamCityBuildConfigurations.ToArray() );
-            var content = new StringWriter();
-            teamCityProject.GenerateTeamcityCode( content );
-
-            var filePath = Path.Combine( context.RepoDirectory, ".teamcity", "settings.kts" );
-
-            if ( !File.Exists( filePath ) || File.ReadAllText( filePath ) != content.ToString() )
-            {
-                context.Console.WriteWarning( $"Replacing '{filePath}'." );
-                File.WriteAllText( filePath, content.ToString() );
-            }
-
-            context.Console.WriteSuccess( "Continuous integration scripts generated." );
+            TeamCityHelper.GenerateTeamCityConfiguration( context, teamCityProject );
 
             return true;
         }

@@ -602,12 +602,16 @@ public static class TeamCityHelper
             } );
 
         // Downstream Merge
+        
+        // Downstream merge of the consolidated build repo itself needs to be done manually,
+        // because the TeamCity script needs to be regenerated in each product family version. 
+
         const string downstreamMergeId = "DownstreamMerge";
 
         if ( buildConfigurations.TryGetValue( downstreamMergeId, out var downstreamMergeBuildConfigurations ) )
         {
             var consolidatedDownstreamMergeSnapshotDependencies =
-                buildConfigurations[downstreamMergeId].Select( c => new TeamCitySnapshotDependency( c.BuildConfigurationId, true ) );
+                downstreamMergeBuildConfigurations.Select( c => new TeamCitySnapshotDependency( c.BuildConfigurationId, true ) );
 
             tcConfigurations.Add(
                 new TeamCityBuildConfiguration( $"{consolidatedProjectId}_{downstreamMergeId}", "Merge Downstream" )
