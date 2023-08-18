@@ -421,57 +421,72 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool TryGetProjectDetails( ConsoleHelper console, string id ) => this.TryGetDetails( console, $"/app/rest/projects/id:{id}" );
 
-        public bool TryGetOrderedSubprojectsRecursively( ConsoleHelper console, string projectId, [NotNullWhen( true )] out IEnumerable<(string Id, string Name)>? subprojects )
+        public bool TryGetOrderedSubprojectsRecursively( ConsoleHelper console, string projectId, [NotNullWhen( true )] out IReadOnlyList<(string Id, string Name)>? subprojects )
         {
-            int? expectedCount = null;
             subprojects = null;
+            
+            if ( !this.TryGet( $"/app/rest/projects/id:{projectId}", console, out var projectResponse ) )
+            {
+                return false;
+            }
+
+            var projectRootElement = projectResponse.Content.ReadAsXDocument().Root!;
+
+            var expectedCount = int.Parse(
+                projectRootElement.Element( "projects" )!.Attribute( "count" )!.Value,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture );
+            
             var subprojectsList = new List<(string, string)>();
 
-            var nextSubprojectsPath = $"/app/rest/projects/id:{projectId}/order/projects";
-
-            do
+            if ( expectedCount > 0 )
             {
-                if ( !this.TryGet( nextSubprojectsPath, console, out var subprojectsResponse ) )
+                var nextSubprojectsPath = $"/app/rest/projects/id:{projectId}/order/projects";
+
+                do
                 {
-                    return false;
-                }
-
-                var subprojectsRootsElement = subprojectsResponse.Content.ReadAsXDocument().Root!;
-
-                var newExpectedCount = int.Parse( subprojectsRootsElement.Attribute( "count" )!.Value, NumberStyles.Integer, CultureInfo.InvariantCulture );
-
-                if ( expectedCount == null )
-                {
-                    expectedCount = newExpectedCount;
-                }
-                else if ( expectedCount != newExpectedCount )
-                {
-                    throw new InvalidOperationException( "Inconsistent subprojects count" );
-                }
-
-                foreach ( var subprojectElement in subprojectsRootsElement.Elements( "project" ) )
-                {
-                    var subprojectId = subprojectElement.Attribute( "id" )!.Value;
-                    var subprojectName = subprojectElement.Attribute( "name" )!.Value;
-                    subprojectsList.Add( (subprojectId, subprojectName) );
-
-                    if ( !this.TryGetOrderedSubprojectsRecursively( console, subprojectId, out var subProjectsSubprojects ) )
+                    if ( !this.TryGet( nextSubprojectsPath, console, out var subprojectsResponse ) )
                     {
                         return false;
                     }
-                    
-                    subprojectsList.AddRange( subProjectsSubprojects );
+
+                    var subprojectsRootsElement = subprojectsResponse.Content.ReadAsXDocument().Root!;
+
+                    var newExpectedCount = int.Parse( subprojectsRootsElement.Attribute( "count" )!.Value, NumberStyles.Integer, CultureInfo.InvariantCulture );
+
+                    if ( newExpectedCount == 0 )
+                    {
+                        console.WriteError(
+                            $"No ordered subprojects retrieved for '{projectId}' project. Expected {expectedCount}. Custom order may not be set for the project." );
+
+                        return false;
+                    }
+                    else if ( expectedCount != newExpectedCount )
+                    {
+                        throw new InvalidOperationException( "Inconsistent subprojects count" );
+                    }
+
+                    foreach ( var subprojectElement in subprojectsRootsElement.Elements( "project" ) )
+                    {
+                        var subprojectId = subprojectElement.Attribute( "id" )!.Value;
+                        var subprojectName = subprojectElement.Attribute( "name" )!.Value;
+                        subprojectsList.Add( (subprojectId, subprojectName) );
+
+                        if ( !this.TryGetOrderedSubprojectsRecursively( console, subprojectId, out var subProjectsSubprojects ) )
+                        {
+                            return false;
+                        }
+
+                        expectedCount += subProjectsSubprojects.Count;
+                        subprojectsList.AddRange( subProjectsSubprojects );
+                    }
+
+                    nextSubprojectsPath = subprojectsRootsElement.Attribute( "nextHref" )?.Value;
                 }
-
-                nextSubprojectsPath = subprojectsRootsElement.Attribute( "nextHref" )?.Value;
+                while ( nextSubprojectsPath != null );
             }
-            while ( nextSubprojectsPath != null );
 
-            if ( expectedCount == null )
-            {
-                throw new InvalidOperationException( "Unknown expected count." );
-            }
-            else if ( subprojectsList.Count != expectedCount )
+            if ( subprojectsList.Count != expectedCount )
             {
                 throw new InvalidOperationException( "Not all subprojects have been retrieved." );
             }

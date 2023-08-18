@@ -120,7 +120,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
             if ( hasSourceDependencies )
             {
-                foreach ( var sourceDependency in this.SourceDependencies!.OrderBy( d => d.ObjectId ) )
+                foreach ( var sourceDependency in this.SourceDependencies! )
                 {
                     var objectName = sourceDependency.IsAbsoluteId ? @$"AbsoluteId(""{sourceDependency.ObjectId}"")" : sourceDependency.ObjectId;
                     
@@ -232,7 +232,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                     $@"
     dependencies {{" );
 
-                foreach ( var dependency in this.SnapshotDependencies!.OrderBy( d => d.ObjectId ) )
+                foreach ( var dependency in this.SnapshotDependencies! )
                 {
                     var objectName = dependency.IsAbsoluteId ? @$"AbsoluteId(""{dependency.ObjectId}"")" : dependency.ObjectId;
 
@@ -241,8 +241,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         dependency({objectName}) {{
             snapshot {{
                      onDependencyFailure = FailureAction.FAIL_TO_START
-            }}
-" );
+            }}" );
 
                     if ( dependency.ArtifactRules != null )
                     {
@@ -255,8 +254,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                     }
 
                     writer.WriteLine(
-                        $@"
-        }}" );
+                        $@"        }}" );
                 }
 
                 writer.WriteLine(

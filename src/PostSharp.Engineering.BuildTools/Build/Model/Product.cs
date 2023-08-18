@@ -2037,6 +2037,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                         .Union( this.SourceDependencies )
                                         .Where( d => d.GenerateSnapshotDependency )
                                         .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DeploymentBuildType, true ) ) )
+                                .OrderBy( d => d.ObjectId )
                                 .ToArray(),
                             BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? this.DeploymentTimeOutThreshold,
                             IsSshAgentRequired = isRepoRemoteSsh
