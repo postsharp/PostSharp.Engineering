@@ -10,17 +10,26 @@ namespace PostSharp.Engineering.BuildTools.Build.Triggers;
 /// </summary>
 public class NightlyBuildTrigger : IBuildTrigger
 {
+    public int Hour { get; }
+
+    public bool WithPendingChangesOnly { get; }
+
+    public NightlyBuildTrigger( int hour, bool withPendingChangesOnly )
+    {
+        this.Hour = hour;
+        this.WithPendingChangesOnly = withPendingChangesOnly;
+    }
+
     public void GenerateTeamcityCode( TextWriter writer )
     {
         writer.WriteLine(
-            @"
-        schedule {
-            schedulingPolicy = daily {
-                hour = 22
-            }
+            @$"        schedule {{
+            schedulingPolicy = daily {{
+                hour = {this.Hour}
+            }}
             branchFilter = ""+:<default>""
             triggerBuild = always()
-        }
-" );
+            withPendingChangesOnly = {this.WithPendingChangesOnly.ToString().ToLowerInvariant()}
+        }}" );
     }
 }

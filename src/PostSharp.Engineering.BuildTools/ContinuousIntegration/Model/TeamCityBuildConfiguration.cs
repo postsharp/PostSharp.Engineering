@@ -219,8 +219,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 }
 
                 writer.WriteLine(
-                    @"
-    }" );
+                    @"    }" );
             }
 
             // Dependencies
@@ -237,8 +236,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                     var objectName = dependency.IsAbsoluteId ? @$"AbsoluteId(""{dependency.ObjectId}"")" : dependency.ObjectId;
 
                     writer.WriteLine(
-                        $@"
-        dependency({objectName}) {{
+                        $@"        dependency({objectName}) {{
             snapshot {{
                      onDependencyFailure = FailureAction.FAIL_TO_START
             }}" );
