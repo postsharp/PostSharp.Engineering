@@ -568,16 +568,14 @@ public static class TeamCityHelper
             }
         }
 
-        var consolidatedProjectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId.Id;
-
         // Debug Build
-        const string debugBuildId = "DebugBuild";
+        const string debugBuildObjectName = "DebugBuild";
 
         var consolidatedDebugBuildSnapshotDependencies =
-            buildConfigurationsByKind[debugBuildId].Select( c => new TeamCitySnapshotDependency( c.BuildConfigurationId, true ) );
+            buildConfigurationsByKind[debugBuildObjectName].Select( c => new TeamCitySnapshotDependency( c.BuildConfigurationId, true ) );
 
         tcConfigurations.Add(
-            new TeamCityBuildConfiguration( $"{consolidatedProjectId}_{debugBuildId}", "Build [Debug]" )
+            new TeamCityBuildConfiguration( debugBuildObjectName, "Build [Debug]" )
             {
                 SnapshotDependencies = consolidatedDebugBuildSnapshotDependencies.ToArray()
             } );
@@ -587,9 +585,9 @@ public static class TeamCityHelper
         // Downstream merge of the consolidated build repo itself needs to be done manually,
         // because the TeamCity script needs to be regenerated in each product family version. 
 
-        const string downstreamMergeId = "DownstreamMerge";
+        const string downstreamMergeObjectName = "DownstreamMerge";
 
-        if ( buildConfigurationsByKind.TryGetValue( downstreamMergeId, out var downstreamMergeBuildConfigurations ) )
+        if ( buildConfigurationsByKind.TryGetValue( downstreamMergeObjectName, out var downstreamMergeBuildConfigurations ) )
         {
             var consolidatedDownstreamMergeSnapshotDependencies =
                 downstreamMergeBuildConfigurations.Select( c => new TeamCitySnapshotDependency( c.BuildConfigurationId, true ) );
@@ -597,19 +595,19 @@ public static class TeamCityHelper
             var consolidatedDownstreamMergeBuildTriggers = new IBuildTrigger[] { new NightlyBuildTrigger( 23, true ) };
 
             tcConfigurations.Add(
-                new TeamCityBuildConfiguration( $"{consolidatedProjectId}_{downstreamMergeId}", "Merge Downstream" )
+                new TeamCityBuildConfiguration( downstreamMergeObjectName, "Merge Downstream" )
                 {
                     SnapshotDependencies = consolidatedDownstreamMergeSnapshotDependencies.ToArray(), BuildTriggers = consolidatedDownstreamMergeBuildTriggers
                 } );
         }
 
         // Version bump and public build
-        const string publicBuildId = "PublicBuild";
+        const string publicBuildObjectName = "PublicBuild";
 
         var consolidatedPublicBuildSnapshotDependencies = new List<TeamCitySnapshotDependency>();
         var projectDependenciesByProjectId = new Dictionary<string, HashSet<string>>();
 
-        foreach ( var publicBuildConfiguration in buildConfigurationsByKind[publicBuildId] )
+        foreach ( var publicBuildConfiguration in buildConfigurationsByKind[publicBuildObjectName] )
         {
             consolidatedPublicBuildSnapshotDependencies.Add( new( publicBuildConfiguration.BuildConfigurationId, true ) );
 
@@ -622,7 +620,7 @@ public static class TeamCityHelper
             projectDependencies.AddRange( publicBuildConfiguration.SnapshotDependencies.Select( d => buildConfigurationsById[d].ProjectId ) );
         }
 
-        const string versionBumpId = "VersionBump";
+        const string versionBumpObjectName = "VersionBump";
 
         var consolidatedVersionBumpSteps = new List<TeamCityBuildStep>();
         var bumpedProjects = new HashSet<string>();
@@ -632,7 +630,7 @@ public static class TeamCityHelper
 
         var success = true;
 
-        foreach ( var versionBumpBuildConfiguration in buildConfigurationsByKind[versionBumpId] )
+        foreach ( var versionBumpBuildConfiguration in buildConfigurationsByKind[versionBumpObjectName] )
         {
             var bumpedProjectId = versionBumpBuildConfiguration.ProjectId;
             var bumpedProjectName = versionBumpBuildConfiguration.ProjectName;
@@ -665,7 +663,7 @@ public static class TeamCityHelper
 
         tcConfigurations.Add(
             new TeamCityBuildConfiguration(
-                $"{consolidatedProjectId}_{versionBumpId}",
+                versionBumpObjectName,
                 "1. Version Bump",
                 context.Product.DependencyDefinition.CiConfiguration.BuildAgentType )
             {
@@ -673,17 +671,17 @@ public static class TeamCityHelper
             } );
 
         var consolidatedPublicBuildBuildTriggers = new IBuildTrigger[] { new NightlyBuildTrigger( 2, true ) };
-        
+
         tcConfigurations.Add(
-            new TeamCityBuildConfiguration( $"{consolidatedProjectId}_{publicBuildId}", "2. Build [Public]" )
+            new TeamCityBuildConfiguration( publicBuildObjectName, "2. Build [Public]" )
             {
                 SnapshotDependencies = consolidatedPublicBuildSnapshotDependencies.ToArray(), BuildTriggers = consolidatedPublicBuildBuildTriggers
             } );
 
         // Public deployment
-        const string publicDeploymentId = "PublicDeployment";
+        const string publicDeploymentObjectName = "PublicDeployment";
 
-        var publicDeploymentBuildConfigurations = buildConfigurationsByKind[publicDeploymentId];
+        var publicDeploymentBuildConfigurations = buildConfigurationsByKind[publicDeploymentObjectName];
         var publicDeploymentBuildConfigurationIds = publicDeploymentBuildConfigurations.Select( c => c.BuildConfigurationId ).ToArray();
 
         // Include dependants of the public deployment build configurations, like search update.
@@ -698,7 +696,7 @@ public static class TeamCityHelper
                 .Select( c => new TeamCitySnapshotDependency( c, true ) );
 
         tcConfigurations.Add(
-            new TeamCityBuildConfiguration( $"{consolidatedProjectId}_{publicDeploymentId}", "3. Deploy [Public]" )
+            new TeamCityBuildConfiguration( publicDeploymentObjectName, "3. Deploy [Public]" )
             {
                 SnapshotDependencies = consolidatedPublicDeploymentSnapshotDependencies.ToArray()
             } );

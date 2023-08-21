@@ -31,10 +31,10 @@ public static partial class MetalamaDependencies
                     dependencyName,
                     customBranch ?? $"develop/{Family.Version}",
                     customReleaseBranch ?? $"release/{Family.Version}",
-                    CreateMetalamaVcsRepository( dependencyName, vcsProvider ),
+                    CreateMetalamaVcsRepository( customRepositoryName ?? dependencyName, vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
                         parentCiProjectId == null
-                            ? TeamCityHelper.GetProjectId( customRepositoryName ?? dependencyName, _projectName, Family.Version )
+                            ? TeamCityHelper.GetProjectId( dependencyName, _projectName, Family.Version )
                             : TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId ),
                         "caravela04cloud",
                         isVersioned ),

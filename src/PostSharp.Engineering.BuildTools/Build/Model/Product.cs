@@ -1827,10 +1827,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
             else
             {
-                if ( hasChangesSinceLastDeployment && !hasChangesInDependencies && !settings.Force )
+                if ( hasChangesSinceLastDeployment && !hasChangesInDependencies )
                 {
-                    context.Console.WriteError(
-                        "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning. Do a fake change in a parent repo or use --force." );
+                    const string message =
+                        "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning."; 
+                    
+                    if ( settings.Force )
+                    {
+                        context.Console.WriteImportantMessage( $"{message} This is being ignored using --force." );
+                        
+                        return true;
+                    }
+
+                    context.Console.WriteError( $"{message} Do a fake change in a parent repo or use --force." );
 
                     return false;
                 }

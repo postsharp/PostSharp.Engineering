@@ -449,13 +449,13 @@ internal static class GitHelper
         return true;
     }
 
-    public static bool TryGetStatus( BuildContext context, string repo, [NotNullWhen( true )] out string[]? status )
+    public static bool TryGetStatus( BuildContext context, string repoDirectory, [NotNullWhen( true )] out string[]? status )
     {
         if ( !ToolInvocationHelper.InvokeTool(
                  context.Console,
                  "git",
                  "status --porcelain",
-                 repo,
+                 repoDirectory,
                  out var exitCode,
                  out var statusOutput )
              || exitCode != 0 )
