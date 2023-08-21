@@ -62,6 +62,29 @@ namespace PostSharp.Engineering.BuildTools.Build
         [CommandOption( "--if-older", IsHidden = true )]
         public long? DateTag { get; set; }
 
+        [Description( "Does not sign the assemblies and packages" )]
+        [CommandOption( "--no-sign" )]
+        public bool NoSign { get; set; }
+
+        [Description( "Creates a zip file with all artifacts" )]
+        [CommandOption( "--zip" )]
+        public bool CreateZip { get; set; }
+
+        [Description( "Analyzes the test coverage while and after running the tests" )]
+        [CommandOption( "--analyze-coverage" )]
+        public bool AnalyzeCoverage { get; set; }
+
+        // The following option is used e.g. when testing the LinqPad driver. It is not included by default because of 
+        // performance of the normal build scenario.
+
+        [Description( "Creates a directory with all packages of the current repo and all transitive dependencies." )]
+        [CommandOption( "--consolidated" )]
+        public bool CreateConsolidatedDirectory { get; set; }
+
+        [Description( "An expression to filter the executed tests as specified at https://learn.microsoft.com/en-us/dotnet/core/testing/selective-unit-tests." )]
+        [CommandOption( "--tests-filter" )]
+        public string? TestsFilter { get; set; }
+        
         public BuildSettings WithIncludeTests( bool value )
         {
             var clone = (BuildSettings) this.MemberwiseClone();
@@ -91,30 +114,19 @@ namespace PostSharp.Engineering.BuildTools.Build
             return clone;
         }
 
+        public BuildSettings WithTestsFilter( string testsFilter )
+        {
+            var clone = (BuildSettings) this.MemberwiseClone();
+            clone.TestsFilter = testsFilter;
+
+            return clone;
+        }
+
         public VersionSpec GetVersionSpec( BuildConfiguration configuration )
             => configuration == BuildConfiguration.Public
                 ? new VersionSpec( VersionKind.Public )
                 : this.BuildNumber != null
                     ? new VersionSpec( VersionKind.Numbered, this.BuildNumber.Value )
                     : new VersionSpec( VersionKind.Local );
-
-        [Description( "Does not sign the assemblies and packages" )]
-        [CommandOption( "--no-sign" )]
-        public bool NoSign { get; set; }
-
-        [Description( "Creates a zip file with all artifacts" )]
-        [CommandOption( "--zip" )]
-        public bool CreateZip { get; set; }
-
-        [Description( "Analyzes the test coverage while and after running the tests" )]
-        [CommandOption( "--analyze-coverage" )]
-        public bool AnalyzeCoverage { get; set; }
-
-        // The following option is used e.g. when testing the LinqPad driver. It is not included by default because of 
-        // performance of the normal build scenario.
-
-        [Description( "Creates a directory with all packages of the current repo and all transitive dependencies." )]
-        [CommandOption( "--consolidated" )]
-        public bool CreateConsolidatedDirectory { get; set; }
     }
 }

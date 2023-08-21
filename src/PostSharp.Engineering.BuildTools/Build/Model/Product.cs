@@ -220,6 +220,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public ImmutableArray<DotNetTool> DotNetTools { get; init; } = DotNetTool.DefaultTools;
 
         public bool TestOnBuild { get; init; }
+        
+        public string? DefaultTestsFilter { get; init; } 
 
         public ProductExtension[] Extensions { get; init; } = Array.Empty<ProductExtension>();
 
@@ -796,14 +798,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 solutionsToTest = this.Solutions;
             }
 
+            if ( settings.TestsFilter == null && this.DefaultTestsFilter != null )
+            {
+                settings = settings.WithTestsFilter( this.DefaultTestsFilter );
+            }
+
             foreach ( var solution in solutionsToTest )
             {
                 var solutionSettings = settings;
 
                 if ( settings.AnalyzeCoverage && solution.SupportsTestCoverage )
                 {
-                    solutionSettings =
-                        settings.WithAdditionalProperties( properties ).WithoutConcurrency();
+                    solutionSettings = settings.WithAdditionalProperties( properties.ToImmutableDictionary() ).WithoutConcurrency();
                 }
 
                 context.Console.WriteHeading( $"Testing {solution.Name}." );

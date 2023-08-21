@@ -72,6 +72,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
         private bool RunMsbuild( BuildContext context, BuildSettings settings, string project, string target, string arguments = "" )
         {
+            if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
+            {
+                // TODO if needed
+                context.Console.WriteError( "Test filters are not implemented for non-SDK-style projects." );
+
+                return false;
+            }
+            
             var argsBuilder = new StringBuilder();
             var path = Path.Combine( context.RepoDirectory, project );
 
