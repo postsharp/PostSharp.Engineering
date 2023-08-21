@@ -521,7 +521,10 @@ public static class DependenciesHelper
             Directory.CreateDirectory( restoreDirectory );
             context.Console.WriteMessage( $"Downloading {dependencyName} build #{buildNumber} of {ciBuildTypeId}" );
 
-            teamCity.DownloadArtifacts( context.Console, ciBuildTypeId, buildNumber, artifactsDirectory, restoreDirectory );
+            if ( !teamCity.TryDownloadArtifacts( context.Console, ciBuildTypeId, buildNumber, artifactsDirectory, restoreDirectory ) )
+            {
+                return false;
+            }
 
             File.WriteAllText( completedFile, "Completed" );
         }

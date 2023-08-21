@@ -137,36 +137,52 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             }
         }
 
-        public void DownloadArtifacts( ConsoleHelper console, string buildTypeId, int buildNumber, string artifactsPath, string artifactsDirectory )
+        public bool TryDownloadArtifacts( ConsoleHelper console, string buildTypeId, int buildNumber, string artifactsPath, string artifactsDirectory )
         {
             var throttler = new SemaphoreSlim( 4, 4 );
             var cancellationToken = ConsoleHelper.CancellationToken;
 
-            async Task DownloadFileAsync( ProgressTask progress, string url, string targetFilePath )
+            async Task<bool> DownloadFileAsync( ProgressTask progress, string url, string targetFilePath )
             {
-                progress.StartTask();
-                await using var httpStream = await this._httpClient.GetStreamAsync( url, cancellationToken );
-                await using var fileStream = File.Open( targetFilePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None );
-
-                var buffer = new byte[4096];
-                int bytesRead;
-
-                while ( (bytesRead = await httpStream.ReadAsync( buffer, 0, buffer.Length, cancellationToken )) != 0 )
+                try
                 {
-                    await fileStream.WriteAsync( buffer, 0, bytesRead, cancellationToken );
-                    progress.Increment( bytesRead );
-                }
+                    progress.StartTask();
+                    var response = await this._httpClient.GetAsync( url, HttpCompletionOption.ResponseHeadersRead, cancellationToken );
 
-                throttler!.Release();
-                progress.StopTask();
+                    if ( !response.IsSuccessStatusCode )
+                    {
+                        progress.Description( $"{progress.Description} failed: {response.StatusCode} {response.ReasonPhrase}" );
+
+                        return false;
+                    }
+
+                    await using var httpStream = await this._httpClient.GetStreamAsync( url, cancellationToken );
+                    await using var fileStream = File.Open( targetFilePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None );
+
+                    var buffer = new byte[4096];
+                    int bytesRead;
+
+                    while ( (bytesRead = await httpStream.ReadAsync( buffer, 0, buffer.Length, cancellationToken )) != 0 )
+                    {
+                        await fileStream.WriteAsync( buffer, 0, bytesRead, cancellationToken );
+                        progress.Increment( bytesRead );
+                    }
+
+                    return true;
+                }
+                finally
+                {
+                    throttler!.Release();
+                    progress.StopTask();
+                }
             }
 
-            async Task DownloadDirectoryAsync(
+            async Task<bool> DownloadDirectoryAsync(
                 ProgressContext totalProgress,
                 IEnumerable<(string Name, string Path, long Length)> files,
                 string targetDirectory )
             {
-                List<Task> fileDownloads = new();
+                List<Task<bool>> fileDownloads = new();
 
                 Directory.CreateDirectory( targetDirectory );
 
@@ -180,9 +196,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 }
 
                 await Task.WhenAll( fileDownloads );
+
+                return fileDownloads.All( d => d.GetAwaiter().GetResult() );
             }
 
-            List<Task> directoryDownloads = new();
+            List<Task<bool>> directoryDownloads = new();
 
             void StartDownloadTree( ProgressContext progress, string urlOrPath, string targetDirectory )
             {
@@ -220,7 +238,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 }
             }
 
-            async Task DownloadAllAsync( ProgressContext progress )
+            async Task<bool> DownloadAllAsync( ProgressContext progress )
             {
                 var basePath =
                     $"/app/rest/builds/defaultFilter:false,buildType:{buildTypeId},number:{buildNumber}/artifacts/children/{artifactsPath.Replace( '\\', '/' )}";
@@ -230,9 +248,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 StartDownloadTree( progress, basePath, baseTargetDirectory );
 
                 await Task.WhenAll( directoryDownloads );
+
+                return directoryDownloads.All( d => d.GetAwaiter().GetResult() );
             }
 
-            Task.Run(
+            var success = Task.Run(
                     () => AnsiConsole.Progress()
                         .Columns(
                             new TaskDescriptionColumn(),
@@ -246,6 +266,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                     cancellationToken )
                 .GetAwaiter()
                 .GetResult();
+
+            if ( !success )
+            {
+                console.WriteError( "Failed to fetch artifacts. Check the descriptions above." );
+            }
+            
+            return success;
         }
 
         public string? ScheduleBuild( ConsoleHelper console, string buildTypeId, string comment, string? branchName = null )
