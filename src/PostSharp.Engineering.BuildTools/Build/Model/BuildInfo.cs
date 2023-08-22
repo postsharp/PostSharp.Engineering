@@ -1,5 +1,7 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using System;
+
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     // ReSharper disable once InconsistentNaming
@@ -16,5 +18,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             packageVersion,
             configuration.ToString(),
             product.DependencyDefinition.MSBuildConfiguration[configuration] ) { }
+
+        public bool IsPrerelease => this.PackageVersion?.Contains( "-", StringComparison.Ordinal ) ?? throw new InvalidOperationException();
     }
 }
