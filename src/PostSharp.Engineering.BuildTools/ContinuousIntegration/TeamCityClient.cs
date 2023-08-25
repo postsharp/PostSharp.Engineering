@@ -197,7 +197,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
                 await Task.WhenAll( fileDownloads );
 
-                return fileDownloads.All( d => d.GetAwaiter().GetResult() );
+                return fileDownloads.All( d => d.Result );
             }
 
             List<Task<bool>> directoryDownloads = new();
@@ -249,7 +249,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
                 await Task.WhenAll( directoryDownloads );
 
-                return directoryDownloads.All( d => d.GetAwaiter().GetResult() );
+                return directoryDownloads.All( d => d.Result );
             }
 
             var success = Task.Run(
