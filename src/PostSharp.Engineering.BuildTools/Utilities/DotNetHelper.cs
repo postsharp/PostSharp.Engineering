@@ -137,6 +137,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             const string command = "test";
             var args = $"--logger \"trx\" --logger \"console;verbosity=minimal\" --results-directory \"{resultsDirectory}\"";
 
+            if ( !string.IsNullOrEmpty( settings.TestsFilter ) )
+            {
+                args += $" --filter \"{settings.TestsFilter}\"";
+            }
+
             if ( !string.IsNullOrWhiteSpace( additionalArguments ) )
             {
                 args += $" {additionalArguments}";
