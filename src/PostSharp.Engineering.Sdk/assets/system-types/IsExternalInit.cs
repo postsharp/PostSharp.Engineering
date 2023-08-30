@@ -17,4 +17,8 @@ namespace System.Runtime.CompilerServices
     [Obfuscation( Exclude = true )]
     internal static class IsExternalInit { }
 }
+#else
+using System.Runtime.CompilerServices;
+
+[assembly: TypeForwardedTo( typeof(IsExternalInit) )]
 #endif
