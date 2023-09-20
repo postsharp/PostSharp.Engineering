@@ -7,6 +7,7 @@
         <RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
         <RunAnalyzersDuringLiveAnalysis>true</RunAnalyzersDuringLiveAnalysis>
         <WarningLevel>4</WarningLevel>
+        <StyleCopVersion Condition="'$(StyleCopVersion)'==''">1.2.0-beta.507</StyleCopVersion>
     </PropertyGroup>
 
     <!-- Documentation -->
@@ -25,7 +26,7 @@
     <!-- Stylecop -->
     <ItemGroup Condition="'$(DisableCodeQuality)'!='True' AND '$(DisableStyleCop)'!='True'">
         <PackageReference Include="StyleCop.Analyzers"
-                          Version="1.2.0-beta.435"
+                          Version="$(StyleCopVersion)"
                           Condition="'$(EnforceCodeStyleInBuild)'=='True'"
                           PrivateAssets="All" />
         <AdditionalFiles Include="$(MSBuildThisFileDirectory)\assets\stylecop.json"
