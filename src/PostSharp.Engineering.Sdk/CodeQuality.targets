@@ -23,8 +23,7 @@
     </PropertyGroup>
 
     <!-- Stylecop -->
-    <ItemGroup Condition="'$(DisableCodeQuality)'!='True'">
-        <!-- Beta version fixes issue with record parameter names -->
+    <ItemGroup Condition="'$(DisableCodeQuality)'!='True' AND '$(DisableStyleCop)'!='True'">
         <PackageReference Include="StyleCop.Analyzers"
                           Version="1.2.0-beta.435"
                           Condition="'$(EnforceCodeStyleInBuild)'=='True'"
