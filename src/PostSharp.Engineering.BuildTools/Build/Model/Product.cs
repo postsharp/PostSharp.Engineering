@@ -150,9 +150,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 $@"+:%system.teamcity.build.tempDir%/Metalama/Logs/**/*=>logs" );
 
         /// <summary>
-        /// List of properties that must be exported into the *.version.props. These properties must be defined in MainVersion.props.
+        /// List of properties that must be exported into the *.version.props. These properties must be defined in *.props files specified as the dictionary keys.
         /// </summary>
-        public string[] ExportedProperties { get; init; } = Array.Empty<string>();
+        public Dictionary<string, string[]> ExportedProperties { get; init; } = new();
 
         /// <summary>
         /// Gets the set of artifact dependencies of this product given their <see cref="DependencyDefinition"/>.
@@ -606,8 +606,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             string MainVersion,
             string? OverriddenPatchVersion,
             string PackageVersionSuffix,
-            int? OurPatchVersion,
-            ImmutableDictionary<string, string?> ExportedProperties )
+            int? OurPatchVersion )
         {
             public string Release => new Version( this.MainVersion ).ToString( 2 );
         }
@@ -615,7 +614,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Reads MainVersion.props but does not interpret anything.
         /// </summary>
-        public MainVersionFileInfo ReadMainVersionFile( string path )
+        public static MainVersionFileInfo ReadMainVersionFile( string path )
         {
             var versionFilePath = path;
             var versionFile = Project.FromFile( versionFilePath, new ProjectOptions() );
@@ -648,27 +647,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             // Empty suffixes are allowed and mean RTM.
 
-            // Read exported properties.
-            var exportedProperties = ImmutableDictionary.CreateBuilder<string, string?>();
-
-            foreach ( var exportedPropertyName in this.ExportedProperties )
-            {
-                var exportedPropertyValue = versionFile
-                    .Properties
-                    .SingleOrDefault( p => string.Equals( p.Name, exportedPropertyName, StringComparison.OrdinalIgnoreCase ) )
-                    ?.EvaluatedValue;
-
-                exportedProperties[exportedPropertyName] = exportedPropertyValue;
-            }
-
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
             return new MainVersionFileInfo(
                 mainVersion,
                 overriddenPatchVersion,
                 suffix,
-                ourPatchVersion != null ? int.Parse( ourPatchVersion, CultureInfo.InvariantCulture ) : null,
-                exportedProperties.ToImmutable() );
+                ourPatchVersion != null ? int.Parse( ourPatchVersion, CultureInfo.InvariantCulture ) : null );
         }
 
         /// <summary>
@@ -1099,7 +1084,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Read the main version number.
-            var mainVersionFileInfo = this.ReadMainVersionFile( mainVersionFile );
+            var mainVersionFileInfo = ReadMainVersionFile( mainVersionFile );
 
             if ( !this.TryComputeVersion( context, settings, configuration, mainVersionFileInfo, dependenciesOverrideFile, out var version ) )
             {
@@ -1107,7 +1092,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Generate Versions.g.props.
-            var props = this.GenerateManifestFile( version, configuration, mainVersionFileInfo, dependenciesOverrideFile, settings );
+            var props = this.GenerateManifestFile( version, configuration, dependenciesOverrideFile, context, settings );
             context.Console.WriteMessage( $"Writing '{propsFilePath}'." );
             File.WriteAllText( propsFilePath, props );
 
@@ -1264,8 +1249,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private string GenerateManifestFile(
             VersionComponents version,
             BuildConfiguration configuration,
-            MainVersionFileInfo mainVersionFileInfo,
             DependenciesOverrideFile dependenciesOverrideFile,
+            BuildContext context,
             BuildSettings buildSettings )
         {
             string packageVersion;
@@ -1389,11 +1374,25 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         <{nameWithoutDot}Version Condition=""'$({nameWithoutDot}Version)'==''"">{dependency.Value.Version}</{nameWithoutDot}Version>";
             }
 
-            foreach ( var exportedProperty in mainVersionFileInfo.ExportedProperties )
+            // Process exported properties.
+            foreach ( var kvp in this.ExportedProperties )
             {
-                props += $@"
-        <{exportedProperty.Key} Condition=""'$({exportedProperty.Key}Version)'==''"">{exportedProperty.Value}</{exportedProperty.Key}>";
+                var propsFilePath = Path.Combine( context.RepoDirectory, kvp.Key );
+                var propsFile = Project.FromFile( propsFilePath, new() );
+
+                foreach ( var exportedPropertyName in kvp.Value )
+                {
+                    var exportedPropertyValue = propsFile
+                        .Properties
+                        .SingleOrDefault( p => string.Equals( p.Name, exportedPropertyName, StringComparison.OrdinalIgnoreCase ) )
+                        ?.EvaluatedValue;
+
+                    props += $@"
+        <{exportedPropertyName} Condition=""'$({exportedPropertyName})'==''"">{exportedPropertyValue}</{exportedPropertyName}>";
+                }
             }
+
+            ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
             props += @"
     </PropertyGroup>
@@ -1565,7 +1564,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Get the location of MainVersion.props file.
-            var mainVersionFileInfo = this.ReadMainVersionFile( mainVersionFile );
+            var mainVersionFileInfo = ReadMainVersionFile( mainVersionFile );
 
             // Get the current version from MainVersion.props.
             if ( !this.TryGetPreparedVersionInfo(
@@ -1773,7 +1772,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            var currentMainVersionFile = this.ReadMainVersionFile( mainVersionFile );
+            var currentMainVersionFile = ReadMainVersionFile( mainVersionFile );
 
             // If the version has already been dumped since the last deployment, there is nothing to do. 
             if ( !TryAnalyzeGitHistory( context, currentMainVersionFile, out var hasBumpSinceLastDeployment, out var hasChangesSinceLastDeployment, out _ ) )
