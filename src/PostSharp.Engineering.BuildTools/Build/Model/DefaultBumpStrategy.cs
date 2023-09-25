@@ -31,7 +31,7 @@ internal class DefaultBumpStrategy : IBumpStrategy
             return false;
         }
 
-        var currentMainVersionFile = product.ReadMainVersionFile( mainVersionFile );
+        var currentMainVersionFile = Product.ReadMainVersionFile( mainVersionFile );
 
         oldVersion = new Version( currentMainVersionFile.MainVersion );
 

@@ -32,7 +32,7 @@ public class PatchVersionBumpStrategy : IBumpStrategy
             return false;
         }
 
-        var currentMainVersionFile = product.ReadMainVersionFile( mainVersionFile );
+        var currentMainVersionFile = Product.ReadMainVersionFile( mainVersionFile );
         var oldOurPatchVersion = currentMainVersionFile.OurPatchVersion;
         oldVersion = new Version( currentMainVersionFile.MainVersion );
 
@@ -57,7 +57,7 @@ public class PatchVersionBumpStrategy : IBumpStrategy
             return false;
         }
 
-        var updatedMainVersionFile = product.ReadMainVersionFile( mainVersionFile );
+        var updatedMainVersionFile = Product.ReadMainVersionFile( mainVersionFile );
         newVersion = new Version( updatedMainVersionFile.MainVersion );
 
         context.Console.WriteSuccess( $"Bumping the '{context.Product.ProductName}' version from '{oldVersion}' to '{newVersion}' was successful." );
