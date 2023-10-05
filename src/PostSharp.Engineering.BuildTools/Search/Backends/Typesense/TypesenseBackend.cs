@@ -9,7 +9,7 @@ using Typesense.Setup;
 
 namespace PostSharp.Engineering.BuildTools.Search.Backends.Typesense;
 
-public class TypesenseBackend : SearchBackend
+public class TypesenseBackend : SearchBackendBase
 {
     private readonly ITypesenseClient _client;
 

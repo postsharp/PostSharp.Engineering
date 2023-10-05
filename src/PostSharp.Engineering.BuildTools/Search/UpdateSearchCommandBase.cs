@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Search.Backends;
 using PostSharp.Engineering.BuildTools.Search.Backends.Typesense;
 using PostSharp.Engineering.BuildTools.Search.Updaters;
@@ -14,9 +15,9 @@ using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.BuildTools.Search;
 
-public abstract class UpdateSearchCommand : AsyncCommand<UpdateSearchCommandSettings>
+public abstract class UpdateSearchCommandBase : AsyncCommand<UpdateSearchCommandSettings>
 {
-    protected abstract CollectionUpdater CreateUpdater( SearchBackend backend );
+    protected abstract CollectionUpdater CreateUpdater( SearchBackendBase backend );
     
     public override async Task<int> ExecuteAsync( CommandContext context, UpdateSearchCommandSettings settings )
     {
@@ -68,7 +69,12 @@ public abstract class UpdateSearchCommand : AsyncCommand<UpdateSearchCommandSett
         
         await ResetCollectionAsync( updater, targetCollection );
 
-        var success = await updater.UpdateAsync( console, settings, targetCollection );
+        if ( !BuildContext.TryCreate( context, out var buildContext ) )
+        {
+            return -1;
+        }
+
+        var success = await updater.UpdateAsync( buildContext, settings, targetCollection );
 
         if ( success && !settings.Dry && alias != null )
         {
@@ -92,7 +98,7 @@ public abstract class UpdateSearchCommand : AsyncCommand<UpdateSearchCommandSett
         return 0;
     }
 
-    private static async Task<(string? Production, string Staging)> GetTargetCollectionsForAliasAsync( SearchBackend search, string alias )
+    private static async Task<(string? Production, string Staging)> GetTargetCollectionsForAliasAsync( SearchBackendBase search, string alias )
     {
         var aliasResponses = await search.RetrieveCollectionAliasesAsync();
         var aliasResponse = aliasResponses.SingleOrDefault( a => a.Name == alias );

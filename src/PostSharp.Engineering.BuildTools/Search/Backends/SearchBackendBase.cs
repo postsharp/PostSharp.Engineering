@@ -6,7 +6,7 @@ using Typesense;
 
 namespace PostSharp.Engineering.BuildTools.Search.Backends;
 
-public abstract class SearchBackend
+public abstract class SearchBackendBase
 {
     public abstract Task CreateCollectionAsync( Schema schema );
 

@@ -17,11 +17,11 @@ namespace PostSharp.Engineering.BuildTools.Search.Indexers;
 
 public class DocFxIndexer<TDocFxCrawler> where TDocFxCrawler : DocFxCrawler, new()
 {
-    private readonly SearchBackend _search;
+    private readonly SearchBackendBase _search;
     private readonly HttpClient _web;
     private readonly ConsoleHelper _console;
 
-    public DocFxIndexer( SearchBackend search, HttpClient web, ConsoleHelper console )
+    public DocFxIndexer( SearchBackendBase search, HttpClient web, ConsoleHelper console )
     {
         this._search = search;
         this._web = web;

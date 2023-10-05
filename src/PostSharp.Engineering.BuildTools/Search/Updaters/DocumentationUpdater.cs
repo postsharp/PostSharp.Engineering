@@ -1,10 +1,10 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Search.Backends;
 using PostSharp.Engineering.BuildTools.Search.Backends.Typesense;
 using PostSharp.Engineering.BuildTools.Search.Crawlers;
 using PostSharp.Engineering.BuildTools.Search.Indexers;
-using PostSharp.Engineering.BuildTools.Utilities;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Typesense;
@@ -15,12 +15,12 @@ public class DocumentationUpdater<TDocFxCrawler> : CollectionUpdater where TDocF
 {
     private readonly string[] _products;
 
-    public DocumentationUpdater( string[] products, SearchBackend backend ) : base( backend )
+    public DocumentationUpdater( string[] products, SearchBackendBase backend ) : base( backend )
     {
         this._products = products;
     }
 
-    public override Task<bool> UpdateAsync( ConsoleHelper console, UpdateSearchCommandSettings settings, string targetCollection )
+    public override Task<bool> UpdateAsync( BuildContext context, UpdateSearchCommandSettings settings, string targetCollection )
     {
         HttpClient web;
 
@@ -41,17 +41,17 @@ public class DocumentationUpdater<TDocFxCrawler> : CollectionUpdater where TDocF
 
         using ( web )
         {
-            var indexer = new DocFxIndexer<TDocFxCrawler>( this.Backend, web, console );
+            var indexer = new DocFxIndexer<TDocFxCrawler>( this.Backend, web, context.Console );
 
             if ( settings.Single )
             {
-                console.WriteMessage( $"Indexing single page '{settings.SourceUrl}' to '{targetCollection}' collection." );
+                context.Console.WriteMessage( $"Indexing single page '{settings.SourceUrl}' to '{targetCollection}' collection." );
 
                 return indexer.IndexArticlesAsync( targetCollection, settings.Source, this._products, settings.SourceUrl );
             }
             else
             {
-                console.WriteMessage( $"Indexing sitemap '{settings.SourceUrl}' to '{targetCollection}' collection." );
+                context.Console.WriteMessage( $"Indexing sitemap '{settings.SourceUrl}' to '{targetCollection}' collection." );
 
                 return indexer.IndexSiteMapAsync( targetCollection, settings.Source, this._products, settings.SourceUrl );
             }

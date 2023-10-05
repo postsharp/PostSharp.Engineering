@@ -9,7 +9,7 @@ using Typesense;
 
 namespace PostSharp.Engineering.BuildTools.Search.Backends;
 
-public class ConsoleBackend : SearchBackend
+public class ConsoleBackend : SearchBackendBase
 {
     private readonly ConsoleHelper _console;
 
@@ -46,35 +46,48 @@ public class ConsoleBackend : SearchBackend
 
     public override Task<string> GetTargetOfCollectionAliasAsync( string alias ) => throw new NotSupportedException();
 
-    private void WriteDocument<T>( T document )
+    private void WriteObject( object o, int indentation = 0 )
     {
-        foreach ( var property in document!.GetType().GetProperties() )
+        var indentationString = new string( ' ', indentation );
+        
+        foreach ( var property in o.GetType().GetProperties() )
         {
-            var value = property.GetValue( document );
-            
-            if ( property.GetType().IsArray )
-            {
-                this._console.WriteMessage( property.Name );
+            var value = property.GetValue( o )!;
+            var type = value.GetType();
 
-                foreach ( var item in (IEnumerable) value! )
+            if ( type.IsArray )
+            {
+                this._console.WriteMessage( $"{indentationString}{property.Name}" );
+
+                foreach ( var item in (IEnumerable) value )
                 {
-                    this._console.WriteMessage( $"  {item}" );
+                    if ( item.GetType().IsPrimitive || item is string )
+                    {
+                        this._console.WriteMessage( $"{indentationString}  {item}" );
+                    }
+                    else
+                    {
+                        this.WriteObject( item );
+                    }
                 }
+            }
+            else if ( type.IsPrimitive || value is string )
+            {
+                this._console.WriteMessage( $"{indentationString}{property.Name}: {value}" );
             }
             else
             {
-                this._console.WriteMessage( $"{property.Name}: {value}" );
+                this.WriteObject( value, indentation + 2 );
             }
         }
-        
-        this._console.WriteMessage( "" );
     }
 
     private Task WriteDocuments<T>( IEnumerable<T> documents )
     {
         foreach ( var document in documents )
         {
-            this.WriteDocument( document );
+            this.WriteObject( document! );
+            this._console.WriteMessage( "" );
         }
 
         return Task.CompletedTask;

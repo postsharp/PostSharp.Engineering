@@ -10,7 +10,7 @@ using System.Collections.Generic;
 
 namespace PostSharp.Engineering.BuildTools.Search;
 
-public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtension where TUpdateSearchCommand : UpdateSearchCommand
+public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtension where TUpdateSearchCommand : UpdateSearchCommandBase
 {
     public string TypesenseUri { get; }
 
