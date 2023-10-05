@@ -13,6 +13,7 @@ public static class CollectionSchemaFactory
     public static Schema CreateSchema<T>( string collectionName )
     {
         var fields = new List<Field>();
+        var containsNestedFields = false;
 
         foreach ( var property in typeof(T).GetProperties() )
         {
@@ -32,6 +33,11 @@ public static class CollectionSchemaFactory
                     TypeCode.Object => FieldType.ObjectArray,
                     _ => throw new InvalidOperationException( $"Unknown array type code: \"{arrayTypeCode}\"" )
                 };
+
+                if ( arrayTypeCode == TypeCode.Object )
+                {
+                    containsNestedFields = true;
+                }
             }
             else
             {
@@ -44,13 +50,18 @@ public static class CollectionSchemaFactory
                     TypeCode.Object => FieldType.Object,
                     _ => throw new InvalidOperationException( $"Unknown type code: \"{typeCode}\"" )
                 };
+                
+                if ( typeCode == TypeCode.Object )
+                {
+                    containsNestedFields = true;
+                }
             }
 
             var isFacet = property.GetCustomAttribute<FacetAttribute>() != null;
 
             fields.Add( new( jsonNameAttribute.Name, type, isFacet ) );
         }
-        
-        return new Schema( collectionName, fields );
+
+        return new Schema( collectionName, fields ) { EnableNestedFields = containsNestedFields };
     }
 }

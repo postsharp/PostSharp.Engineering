@@ -31,7 +31,7 @@
         <PackageReference Include="Spectre.Console.Cli" Version="0.46.0" />
         <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0" />
         <PackageReference Include="System.Management" Version="6.0.0" />
-        <PackageReference Include="Typesense" Version="6.3.0" />
+        <PackageReference Include="Typesense" Version="6.7.0" />
         <PackageReference Include="Octokit" Version="6.0.0" />
         <PackageReference Include="Octokit.GraphQL" Version="0.2.0-beta" />
     </ItemGroup>

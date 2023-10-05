@@ -109,8 +109,8 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
             {
                 search.AddCommand<TUpdateSearchCommand>( "update" )
                     .WithDescription( "Updates a search collection from the given source or writes data to the console when --dry option is used." )
-                    .WithExample( new[] { "metalamadoc", "http://localhost:8108", "https://doc.example.com/sitemap.xml" } )
-                    .WithExample( new[] { "metalamadoc", "http://localhost:8108", "https://doc.example.com/conceptual/tryme", "--single", "--dry" } );
+                    .WithExample( new[] { "tools", "search", "update", "http://localhost:8108", "metalamadoc", "https://doc.example.com/sitemap.xml" } )
+                    .WithExample( new[] { "tools", "search", "update", "http://localhost:8108", "metalamadoc", "https://doc.example.com/conceptual/tryme", "--single", "--dry" } );
             } );
 
         return true;
