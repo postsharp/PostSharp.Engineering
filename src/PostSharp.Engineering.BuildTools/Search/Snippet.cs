@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Search.Backends.Typesense;
 using System.Text.Json.Serialization;
 
 namespace PostSharp.Engineering.BuildTools.Search;
@@ -37,29 +38,35 @@ public class Snippet
     public string[] Text { get; set; } = null!;
 
     [JsonPropertyName( "source" )]
+    [Facet]
     public string Source { get; set; } = null!;
 
     [JsonPropertyName( "link" )]
     public string Link { get; set; } = null!;
 
     [JsonPropertyName( "products" )]
+    [Facet]
     public string[] Products { get; set; } = null!;
 
     [JsonPropertyName( "kinds" )]
+    [Facet]
     public string[] Kinds { get; set; } = null!;
 
     [JsonPropertyName( "kind-rank" )]
     public int KindRank { get; set; }
 
     [JsonPropertyName( "categories" )]
+    [Facet]
     public string[] Categories { get; set; } = null!;
 
     [JsonPropertyName( "complexity-levels" )]
+    [Facet]
     public int[] ComplexityLevels { get; set; } = null!;
 
     [JsonPropertyName( "complexity-level-rank" )]
     public int ComplexityLevelRank { get; set; }
     
     [JsonPropertyName( "navigation-level" )]
+    [Facet]
     public int NavigationLevel { get; set; }
 }

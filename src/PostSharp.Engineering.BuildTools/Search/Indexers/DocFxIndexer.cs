@@ -15,19 +15,17 @@ using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.BuildTools.Search.Indexers;
 
-public abstract class DocFxIndexer
+public class DocFxIndexer<TDocFxCrawler> where TDocFxCrawler : DocFxCrawler, new()
 {
     private readonly SearchBackend _search;
     private readonly HttpClient _web;
     private readonly ConsoleHelper _console;
-    private readonly Func<DocFxCrawler> _crawlerFactory;
 
-    protected DocFxIndexer( SearchBackend search, HttpClient web, ConsoleHelper console, Func<DocFxCrawler> crawlerFactory )
+    public DocFxIndexer( SearchBackend search, HttpClient web, ConsoleHelper console )
     {
         this._search = search;
         this._web = web;
         this._console = console;
-        this._crawlerFactory = crawlerFactory;
     }
 
     public async Task<bool> IndexSiteMapAsync( string collection, string source, string[] products, string url )
@@ -131,7 +129,7 @@ public abstract class DocFxIndexer
                 document.Load( stream );
             }
 
-            var snippets = await this._crawlerFactory().GetSnippetsFromDocument( document, source, products );
+            var snippets = await new TDocFxCrawler().GetSnippetsFromDocument( document, source, products );
             
             foreach ( var snippet in snippets )
             {

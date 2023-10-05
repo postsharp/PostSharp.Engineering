@@ -4,12 +4,13 @@ using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
+using Spectre.Console.Cli;
 using System;
 using System.Collections.Generic;
 
 namespace PostSharp.Engineering.BuildTools.Search;
 
-public class UpdateSearchProductExtension : ProductExtension
+public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtension where TUpdateSearchCommand : UpdateSearchCommand
 {
     public string TypesenseUri { get; }
 
@@ -22,6 +23,8 @@ public class UpdateSearchProductExtension : ProductExtension
     public BuildConfiguration[] BuildConfigurations { get; }
 
     public TimeSpan TimeOutThreshold { get; }
+    
+    public string? CustomBuildConfigurationName { get; }
 
     public UpdateSearchProductExtension(
         string typesenseUri,
@@ -29,7 +32,8 @@ public class UpdateSearchProductExtension : ProductExtension
         string sourceUrl,
         bool ignoreTls = false,
         BuildConfiguration[]? buildConfigurations = null,
-        TimeSpan? timeOutThreshold = null )
+        TimeSpan? timeOutThreshold = null,
+        string? customBuildConfigurationName = null )
     {
         this.TypesenseUri = typesenseUri;
         this.Source = source;
@@ -37,6 +41,7 @@ public class UpdateSearchProductExtension : ProductExtension
         this.IgnoreTls = ignoreTls;
         this.BuildConfigurations = buildConfigurations ?? new[] { BuildConfiguration.Public };
         this.TimeOutThreshold = timeOutThreshold ?? TimeSpan.FromMinutes( 5 );
+        this.CustomBuildConfigurationName = customBuildConfigurationName;
     }
 
     internal override bool AddTeamcityBuildConfiguration( BuildContext context, List<TeamCityBuildConfiguration> teamCityBuildConfigurations )
@@ -60,23 +65,11 @@ public class UpdateSearchProductExtension : ProductExtension
         {
             var configurationInfo = context.Product.Configurations[configuration];
 
-            var name = $"Update Search [{configuration}]";
+            var name = this.CustomBuildConfigurationName ?? $"Update Search [{configuration}]";
 
-            if ( !configurationInfo.ExportsToTeamCityBuild )
-            {
-                context.Console.WriteError(
-                    $"Cannot crate '{name}' TeamCity Build configuration because the '{configuration}' build configuration is not exportable to TeamCity." );
-
-                return false;
-            }
-
-            if ( !configurationInfo.ExportsToTeamCityDeploy )
-            {
-                context.Console.WriteError(
-                    $"Cannot crate '{name}' TeamCity Build configuration because the '{configuration}' build configuration doesn't export deployment TeamCity build configuration to TeamCity." );
-
-                return false;
-            }
+            var dependencies = configurationInfo.ExportsToTeamCityDeploy
+                ? new[] { new TeamCitySnapshotDependency( $"{configuration}Deployment", false ) }
+                : null;
 
             var teamCityUpdateSearchConfiguration = new TeamCityBuildConfiguration(
                 $"{configuration}UpdateSearch",
@@ -85,7 +78,7 @@ public class UpdateSearchProductExtension : ProductExtension
             {
                 BuildSteps = new[] { CreateBuildStep() },
                 IsDeployment = true,
-                SnapshotDependencies = new[] { new TeamCitySnapshotDependency( $"{configuration}Deployment", false ) },
+                SnapshotDependencies = dependencies,
                 BuildTimeOutThreshold = this.TimeOutThreshold
             };
 
@@ -104,6 +97,21 @@ public class UpdateSearchProductExtension : ProductExtension
                 teamCityBuildConfigurations.Add( teamCityUpdateSearchWithoutDependenciesConfiguration );
             }
         }
+
+        return true;
+    }
+
+    internal override bool AddTool( IConfigurator<CommandSettings> tools )
+    {
+        tools.AddBranch(
+            "search",
+            search =>
+            {
+                search.AddCommand<TUpdateSearchCommand>( "update" )
+                    .WithDescription( "Updates a search collection from the given source or writes data to the console when --dry option is used." )
+                    .WithExample( new[] { "metalamadoc", "http://localhost:8108", "https://doc.example.com/sitemap.xml" } )
+                    .WithExample( new[] { "metalamadoc", "http://localhost:8108", "https://doc.example.com/conceptual/tryme", "--single", "--dry" } );
+            } );
 
         return true;
     }

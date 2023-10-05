@@ -38,6 +38,10 @@
 
     <ItemGroup>
         <EmbeddedResource Include="ToolsResources\*.*" />
+
+
+
+
     </ItemGroup>
 
 

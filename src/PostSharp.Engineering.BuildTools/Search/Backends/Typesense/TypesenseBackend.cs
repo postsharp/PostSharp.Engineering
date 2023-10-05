@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Typesense;
 using Typesense.Setup;
 
-namespace PostSharp.Engineering.BuildTools.Search.Backends;
+namespace PostSharp.Engineering.BuildTools.Search.Backends.Typesense;
 
 public class TypesenseBackend : SearchBackend
 {

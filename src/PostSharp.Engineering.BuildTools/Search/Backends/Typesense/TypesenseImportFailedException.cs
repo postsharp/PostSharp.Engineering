@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Typesense;
 
-namespace PostSharp.Engineering.BuildTools.Search.Backends;
+namespace PostSharp.Engineering.BuildTools.Search.Backends.Typesense;
 
 public class TypesenseImportFailedException : Exception
 {
