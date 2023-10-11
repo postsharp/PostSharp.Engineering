@@ -48,7 +48,7 @@ public static partial class MetalamaDependencies
             // DownstreamProductFamily = V2023_5.Family
         };
 
-        public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.AzureDevOps );
+        public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.GitHub );
         
         public static DependencyDefinition Consolidated { get; } = new MetalamaDependencyDefinition(
             "Consolidated",
@@ -59,14 +59,14 @@ public static partial class MetalamaDependencies
         // build, for performance reasons. The debug build will be used only locally, and for this we don't need a configuration here.
         public static DependencyDefinition MetalamaCompiler { get; } = new MetalamaDependencyDefinition(
             "Metalama.Compiler",
-            VcsProvider.AzureDevOps )
+            VcsProvider.GitHub )
         {
             EngineeringDirectory = "eng-Metalama", PrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSSBuildConfiguration)", "Shipping" )
         };
 
         public static DependencyDefinition MetalamaFrameworkRunTime { get; } = new MetalamaDependencyDefinition( "Metalama.Framework.RunTime", VcsProvider.GitHub );
 
-        public static DependencyDefinition Metalama { get; } = new MetalamaDependencyDefinition( "Metalama", VcsProvider.AzureDevOps );
+        public static DependencyDefinition Metalama { get; } = new MetalamaDependencyDefinition( "Metalama", VcsProvider.GitHub );
 
         public static DependencyDefinition MetalamaVsx { get; } = new MetalamaDependencyDefinition( "Metalama.Vsx", VcsProvider.AzureDevOps );
 
