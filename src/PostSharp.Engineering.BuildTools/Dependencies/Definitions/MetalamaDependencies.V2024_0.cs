@@ -65,6 +65,8 @@ public static partial class MetalamaDependencies
         };
 
         public static DependencyDefinition MetalamaFrameworkRunTime { get; } = new MetalamaDependencyDefinition( "Metalama.Framework.RunTime", VcsProvider.GitHub );
+        
+        public static DependencyDefinition MetalamaFrameworkPrivate { get; } = new MetalamaDependencyDefinition( "Metalama.Framework.Private", VcsProvider.GitHub );
 
         public static DependencyDefinition Metalama { get; } = new MetalamaDependencyDefinition(
             "Metalama",
