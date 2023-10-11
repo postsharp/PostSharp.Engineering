@@ -2133,6 +2133,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Create a TeamCity configuration for downstream merge.
             if ( this.ProductFamily.DownstreamProductFamily != null )
             {
+                var snapshotDependencies = this.Configurations[BuildConfiguration.Debug].ExportsToTeamCityBuild
+                    ? new[] { new TeamCitySnapshotDependency( "DebugBuild", false ) }
+                    : null;
+
                 teamCityBuildConfigurations.Add(
                     new TeamCityBuildConfiguration(
                         "DownstreamMerge",
@@ -2147,7 +2151,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                 "tools git merge-downstream",
                                 areCustomArgumentsAllowed: true )
                         },
-                        SnapshotDependencies = new[] { new TeamCitySnapshotDependency( "DebugBuild", false ) },
+                        SnapshotDependencies = snapshotDependencies,
                         BuildTriggers = new IBuildTrigger[] { new SourceBuildTrigger() },
                         BuildTimeOutThreshold = this.DownstreamMergeTimeOutThreshold,
                         IsSshAgentRequired = isRepoRemoteSsh
