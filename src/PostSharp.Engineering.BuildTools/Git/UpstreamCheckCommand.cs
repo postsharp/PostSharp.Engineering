@@ -37,10 +37,10 @@ internal class UpstreamCheckCommand : BaseCommand<UpstreamCheckSettings>
             
             if ( !upstreamProductFamily.TryGetDependencyDefinition( context.Product.ProductName, out var upstreamDependencyDefinition ) )
             {
-                context.Console.WriteError(
-                    $"The '{context.Product.ProductName}' upstream product version '{upstreamProductFamily.Version}' is not configured." );
+                context.Console.WriteWarning(
+                    $"The '{context.Product.ProductName}' upstream product version '{upstreamProductFamily.Version}' is not configured. Assuming it didn't exists in this family version." );
 
-                return false;
+                break;
             }
             
             var upstreamBranch = upstreamDependencyDefinition.Branch;
