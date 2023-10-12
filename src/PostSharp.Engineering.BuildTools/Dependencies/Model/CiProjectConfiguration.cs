@@ -10,7 +10,7 @@ public class CiProjectConfiguration
 
     public ConfigurationSpecific<string> BuildTypes { get; }
 
-    public string PullRequestStatusCheckBuildType { get; }
+    public string? PullRequestStatusCheckBuildType { get; }
 
     public string DeploymentBuildType { get; }
 
@@ -30,11 +30,12 @@ public class CiProjectConfiguration
         string tokenEnvironmentVariableName,
         string baseUrl,
         string buildAgentType,
+        bool pullRequestRequiresStatusCheck = true,
         string? pullRequestStatusCheckBuildType = null )
     {
         this.ProjectId = projectProjectId;
         this.BuildTypes = buildTypes;
-        this.PullRequestStatusCheckBuildType = pullRequestStatusCheckBuildType ?? $"{this.ProjectId}_DebugBuild";
+        this.PullRequestStatusCheckBuildType = pullRequestRequiresStatusCheck ? pullRequestStatusCheckBuildType ?? $"{this.ProjectId}_DebugBuild" : null;
         this.DeploymentBuildType = deploymentBuildType;
         this.VersionBumpBuildType = versionBumpBuildType;
         this.TokenEnvironmentVariableName = tokenEnvironmentVariableName;

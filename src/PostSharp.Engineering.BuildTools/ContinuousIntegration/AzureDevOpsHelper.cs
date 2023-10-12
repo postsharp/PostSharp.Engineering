@@ -108,7 +108,7 @@ public static class AzureDevOpsHelper
         BuildContext context,
         AzureDevOpsRepository azureDevOpsRepository,
         string buildStatusGenre,
-        string buildStatusName,
+        string? buildStatusName,
         bool dry )
     {
         // Error message "The update is rejected by policy." usually means that a policy already exists.
@@ -169,10 +169,16 @@ public static class AzureDevOpsHelper
             return false;
         }
 
-        context.Console.WriteMessage( $"Requiring success status for '{branch}' branch." );
+        if ( buildStatusName == null )
+        {
+            context.Console.WriteMessage( $"Success status for '{branch}' branch is not required." );    
+        }
+        else
+        {
+            context.Console.WriteMessage( $"Requiring success status for '{branch}' branch." );
 
-        // This is not covered by "az repos policy" command. https://github.com/Azure/azure-devops-cli-extension/issues/1040
-        var statusCheckPayload = $@"{{
+            // This is not covered by "az repos policy" command. https://github.com/Azure/azure-devops-cli-extension/issues/1040
+            var statusCheckPayload = $@"{{
   ""isBlocking"": true,
   ""isEnabled"": true,
   ""settings"": {{
@@ -196,20 +202,21 @@ public static class AzureDevOpsHelper
   }}
 }}";
 
-        var statusCheckPayloadFile = Path.GetTempFileName();
+            var statusCheckPayloadFile = Path.GetTempFileName();
 
-        try
-        {
-            await File.WriteAllTextAsync( statusCheckPayloadFile, statusCheckPayload );
-
-            if ( !AzHelper.Run( context.Console, $"repos policy create {projectIdArgs} --config {statusCheckPayloadFile}", dry ) )
+            try
             {
-                return false;
+                await File.WriteAllTextAsync( statusCheckPayloadFile, statusCheckPayload );
+
+                if ( !AzHelper.Run( context.Console, $"repos policy create {projectIdArgs} --config {statusCheckPayloadFile}", dry ) )
+                {
+                    return false;
+                }
             }
-        }
-        finally
-        {
-            File.Delete( statusCheckPayloadFile );
+            finally
+            {
+                File.Delete( statusCheckPayloadFile );
+            }
         }
 
         if ( context.Product.DependencyDefinition.ReleaseBranch != null )

@@ -25,7 +25,8 @@ public static partial class MetalamaDependencies
                 string? customCiProjectName = null,
                 string? customBranch = null,
                 string? customReleaseBranch = null,
-                string? customRepositoryName = null )
+                string? customRepositoryName = null,
+                bool pullRequestRequiresStatusCheck = true )
                 : base(
                     Family,
                     dependencyName,
@@ -37,7 +38,8 @@ public static partial class MetalamaDependencies
                             ? TeamCityHelper.GetProjectId( dependencyName, _projectName, Family.Version )
                             : TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId ),
                         "caravela04cloud",
-                        isVersioned ),
+                        isVersioned,
+                        pullRequestRequiresStatusCheck: pullRequestRequiresStatusCheck ),
                     isVersioned ) { }
         }
 
@@ -64,11 +66,12 @@ public static partial class MetalamaDependencies
         };
 
         public static DependencyDefinition MetalamaFrameworkRunTime { get; } = new MetalamaDependencyDefinition( "Metalama.Framework.RunTime", VcsProvider.GitHub );
-        
+
         public static DependencyDefinition MetalamaFrameworkPrivate { get; } = new MetalamaDependencyDefinition(
             "Metalama.Framework.Private",
             VcsProvider.GitHub,
-            isVersioned: false );
+            isVersioned: false,
+            pullRequestRequiresStatusCheck: false ) { GenerateSnapshotDependency = false };
 
         public static DependencyDefinition Metalama { get; } = new MetalamaDependencyDefinition(
             "Metalama",

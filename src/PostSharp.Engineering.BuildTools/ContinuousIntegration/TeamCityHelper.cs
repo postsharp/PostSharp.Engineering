@@ -276,7 +276,9 @@ public static class TeamCityHelper
         TeamCityProjectId teamCityProjectId,
         string buildAgentType,
         bool hasVersionBump = true,
-        bool isCloudInstance = true )
+        bool isCloudInstance = true,
+        bool pullRequestRequiresStatusCheck = true,
+        string? pullRequestStatusCheckBuildType = null )
     {
         var buildTypes = new ConfigurationSpecific<string>(
             $"{teamCityProjectId}_DebugBuild",
@@ -312,7 +314,9 @@ public static class TeamCityHelper
             versionBumpBuildType,
             tokenEnvironmentVariableName,
             baseUrl,
-            buildAgentType );
+            buildAgentType,
+            pullRequestRequiresStatusCheck,
+            pullRequestStatusCheckBuildType );
     }
 
     private static string ReplaceDots( string input, string substitute ) => input.Replace( ".", substitute, StringComparison.Ordinal );

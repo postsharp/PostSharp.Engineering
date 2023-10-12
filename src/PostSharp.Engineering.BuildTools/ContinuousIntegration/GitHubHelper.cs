@@ -5,6 +5,7 @@ using Octokit.GraphQL;
 using Octokit.GraphQL.Model;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
@@ -157,7 +158,7 @@ public static class GitHubHelper
         BuildContext context,
         GitHubRepository gitHubRepository,
         string buildStatusGenre,
-        string buildStatusName,
+        string? buildStatusName,
         bool dry )
     {
         if ( !TryConnectGraphQl( context.Console, out var graphQl ) )
@@ -186,8 +187,11 @@ public static class GitHubHelper
                         Pattern = branch,
                         RequiresApprovingReviews = true,
                         RequiredApprovingReviewCount = 1,
-                        RequiresStatusChecks = true,
-                        RequiredStatusChecks = new[] { new RequiredStatusCheckInput { Context = $"{buildStatusGenre}/{buildStatusName}" } },
+                        RequiresStatusChecks = buildStatusName != null,
+                        RequiredStatusChecks =
+                            buildStatusName == null
+                                ? Array.Empty<RequiredStatusCheckInput>()
+                                : new[] { new RequiredStatusCheckInput { Context = $"{buildStatusGenre}/{buildStatusName}" } },
                         RequiresConversationResolution = true
                     } ) )
             .Select( r => r.BranchProtectionRule ) // We need to select something to avoid ResponseDeserializerException

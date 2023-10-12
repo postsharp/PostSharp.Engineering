@@ -22,13 +22,6 @@ internal class SetBranchPoliciesCommand : BaseCommand<SetBranchPoliciesSettings>
         var buildStatusGenre = "TeamCity";
         var buildStatusName = context.Product.DependencyDefinition.CiConfiguration.PullRequestStatusCheckBuildType;
 
-        if ( string.IsNullOrEmpty( buildStatusName ) )
-        {
-            context.Console.WriteError( "Unknown TeamCity build ID." );
-
-            return false;
-        }
-
         try
         {
             Task<bool> setBranchPoliciesTask;

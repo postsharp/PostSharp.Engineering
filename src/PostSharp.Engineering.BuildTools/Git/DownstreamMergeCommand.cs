@@ -199,22 +199,30 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         }
 
         var buildTypeId = downstreamDependencyDefinition.CiConfiguration.PullRequestStatusCheckBuildType;
+        string? buildUrl = null;
 
-        if ( !TryScheduleBuild(
-                downstreamDependencyDefinition.CiConfiguration,
-                context.Console,
-                targetBranch,
-                sourceBranch,
-                pullRequestUrl,
-                buildTypeId,
-                out var buildUrl ) )
+        if ( buildTypeId == null )
         {
-            return false;
+            context.Console.WriteImportantMessage( "Build scheduling is not required." );
+        }
+        else
+        {
+            if ( !TryScheduleBuild(
+                    downstreamDependencyDefinition.CiConfiguration,
+                    context.Console,
+                    targetBranch,
+                    sourceBranch,
+                    pullRequestUrl,
+                    buildTypeId,
+                    out buildUrl ) )
+            {
+                return false;
+            }
         }
 
         context.Console.WriteSuccess( $"Changes from '{sourceBranch}' missing in '{downstreamBranch}' branch have been merged in branch '{targetBranch}'." );
         context.Console.WriteSuccess( $"Created pull request: {pullRequestUrl}" );
-        context.Console.WriteSuccess( $"Scheduled build: {buildUrl}" );
+        context.Console.WriteSuccess( buildUrl == null ? "Build is not required." : $"Scheduled build: {buildUrl}" );
 
         return true;
     }
