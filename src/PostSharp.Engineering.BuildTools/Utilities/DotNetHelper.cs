@@ -118,7 +118,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             string? additionalArguments = null )
         {
             var resultsRelativeDirectory =
-                context.Product.TestResultsDirectory.ToString( new BuildInfo( null!, settings.BuildConfiguration, context.Product ) );
+                context.Product.TestResultsDirectory.ToString( new BuildInfo( null, settings.BuildConfiguration, context.Product, null ) );
 
             var resultsDirectory = Path.Combine( context.RepoDirectory, resultsRelativeDirectory );
 
@@ -147,7 +147,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 args += $" {additionalArguments}";
             }
 
-            var success = true;
+            bool success;
 
             if ( File.Exists( testJsonFile ) )
             {

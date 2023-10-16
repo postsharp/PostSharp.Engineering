@@ -57,7 +57,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public string GetResolvedPrivateArtifactsDirectory( BuildConfiguration configuration )
             => this.PrivateArtifactsDirectory.ToString(
-                new BuildInfo( null, configuration.ToString().ToLowerInvariant(), this.MSBuildConfiguration[configuration] ) );
+                new BuildInfo( null, configuration.ToString().ToLowerInvariant(), this.MSBuildConfiguration[configuration], null ) );
 
         public ConfigurationSpecific<string> MSBuildConfiguration { get; init; } = new( "Debug", "Release", "Release" );
 
