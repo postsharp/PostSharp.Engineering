@@ -21,6 +21,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string ToString( BuildInfo parameters )
             => this._value?
                 .Replace( "$(PackageVersion)", parameters.PackageVersion, StringComparison.OrdinalIgnoreCase )
+                .Replace( "$(PackagePreviewVersion)", parameters.PackagePreviewVersion, StringComparison.OrdinalIgnoreCase )
                 .Replace( "$(Configuration)", parameters.Configuration, StringComparison.OrdinalIgnoreCase )
                 .Replace( "$(MSSBuildConfiguration)", parameters.MSBuildConfiguration, StringComparison.OrdinalIgnoreCase ) ?? "";
 

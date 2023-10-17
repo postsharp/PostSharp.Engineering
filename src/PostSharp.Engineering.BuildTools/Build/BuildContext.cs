@@ -52,7 +52,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             return Path.Combine(
                 this.RepoDirectory,
                 this.Product.PrivateArtifactsDirectory.ToString(
-                    new BuildInfo( null!, configuration.ToString(), this.Product.DependencyDefinition.MSBuildConfiguration[configuration] ) ),
+                    new BuildInfo( null, configuration.ToString(), this.Product.DependencyDefinition.MSBuildConfiguration[configuration], null ) ),
                 $"{this.Product.ProductName}.version.props" );
         }
 
