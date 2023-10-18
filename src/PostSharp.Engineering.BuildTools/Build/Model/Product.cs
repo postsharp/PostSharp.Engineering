@@ -1892,7 +1892,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     continue;
                 }
 
-                var mainVersionFile = Path.Combine( dependency.EngineeringDirectory, "MainVersion.props" );
+                var mainVersionFile = $"{dependency.EngineeringDirectory}/MainVersion.props";
                 context.Console.WriteMessage( $"Downloading '{mainVersionFile}' from '{dependency.VcsRepository}'." );
 
                 if ( !dependency.VcsRepository.TryDownloadTextFile( context.Console, dependency.Branch, mainVersionFile, out var mainVersionContent ) )
