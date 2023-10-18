@@ -69,7 +69,7 @@ public class AzureDevOpsRepository : VcsRepository
         return true;
     }
 
-    public override string DownloadTextFile( string branch, string path )
+    public override bool TryDownloadTextFile( ConsoleHelper console, string branch, string path, [NotNullWhen( true )] out string? text )
     {
         var httpClient = new HttpClient();
 
@@ -78,6 +78,8 @@ public class AzureDevOpsRepository : VcsRepository
         var authString = Convert.ToBase64String( Encoding.UTF8.GetBytes( $@"{TeamCityHelper.TeamCityUsername}:{teamCitySourceReadToken}" ) );
         httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue( "Basic", authString );
 
-        return httpClient.GetString( $"{this.BaseUrl}/{this.Project}/_apis/git/repositories/{this.Name}/items?path={path}&versionDescriptor.version={branch}" );
+        text = httpClient.GetString( $"{this.BaseUrl}/{this.Project}/_apis/git/repositories/{this.Name}/items?path={path}&versionDescriptor.version={branch}" );
+
+        return true;
     }
 }

@@ -1894,7 +1894,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var mainVersionFile = Path.Combine( dependency.EngineeringDirectory, "MainVersion.props" );
                 context.Console.WriteMessage( $"Downloading '{mainVersionFile}' from '{dependency.VcsRepository}'." );
-                var mainVersionContent = dependency.VcsRepository.DownloadTextFile( dependency.Branch, mainVersionFile );
+
+                if ( !dependency.VcsRepository.TryDownloadTextFile( context.Console, dependency.Branch, mainVersionFile, out var mainVersionContent ) )
+                {
+                    return false;
+                }
 
                 var document = XDocument.Parse( mainVersionContent );
                 var project = Project.FromXmlReader( document.CreateReader(), new ProjectOptions() );

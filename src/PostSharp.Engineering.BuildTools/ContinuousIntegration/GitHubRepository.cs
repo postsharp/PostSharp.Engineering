@@ -4,6 +4,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
@@ -55,10 +56,6 @@ public class GitHubRepository : VcsRepository
         return true;
     }
 
-    public override string DownloadTextFile( string branch, string path )
-    {
-        var httpClient = new HttpClient();
-
-        return httpClient.GetString( $"https://raw.githubusercontent.com/{this.Owner}/{this.Name}/{branch}/{path}" );
-    }
+    public override bool TryDownloadTextFile( ConsoleHelper console, string branch, string path, [NotNullWhen( true )] out string? text )
+        => GitHubHelper.TryDownloadText( console, this, path, branch, out text );
 }

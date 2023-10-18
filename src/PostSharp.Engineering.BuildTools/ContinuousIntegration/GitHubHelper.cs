@@ -8,6 +8,9 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Threading.Tasks;
 using Environment = System.Environment;
 using PullRequestMergeMethod = Octokit.GraphQL.Model.PullRequestMergeMethod;
@@ -70,6 +73,21 @@ public static class GitHubHelper
         }
 
         connection = new( new Octokit.GraphQL.ProductHeaderValue( _productHeaderName, _productHeaderVersion ), token );
+
+        return true;
+    }
+
+    public static bool TryDownloadText( ConsoleHelper console, GitHubRepository repository, string path, string branch, [NotNullWhen( true )] out string? text )
+    {
+        if ( !TryConnectRestApi( console, out var gitHub ) )
+        {
+            text = null;
+
+            return false;
+        }
+
+        var raw = gitHub.Repository.Content.GetRawContentByRef( repository.Owner, repository.Name, path, branch ).GetAwaiter().GetResult();
+        text = Encoding.UTF8.GetString( raw );
 
         return true;
     }
@@ -192,7 +210,7 @@ public static class GitHubHelper
                             buildStatusName == null
                                 ? Array.Empty<RequiredStatusCheckInput>()
                                 : new[] { new RequiredStatusCheckInput { Context = $"{buildStatusGenre}/{buildStatusName}" } },
-                        RequiresConversationResolution = true
+                        RequiresConversationResolution = true,
                     } ) )
             .Select( r => r.BranchProtectionRule ) // We need to select something to avoid ResponseDeserializerException
             .Select( r => r.Pattern )
@@ -218,7 +236,7 @@ public static class GitHubHelper
                             Pattern = branch,
                             RequiresApprovingReviews = true,
                             RequiredApprovingReviewCount = 1,
-                            RequiresConversationResolution = true
+                            RequiresConversationResolution = true,
                         } ) )
                 .Select( r => r.BranchProtectionRule ) // We need to select something to avoid ResponseDeserializerException
                 .Select( r => r.Pattern )
