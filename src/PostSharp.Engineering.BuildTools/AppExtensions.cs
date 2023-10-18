@@ -196,20 +196,10 @@ namespace PostSharp.Engineering.BuildTools
                                     "xmldoc",
                                     xmldoc => xmldoc.AddCommand<RemoveInternalsCommand>( "clean" ).WithDescription( "Remove internals." ).WithData( product ) );
 
-                                tools.AddBranch(
-                                    "search",
-                                    search =>
-                                    {
-                                        search.AddCommand<UpdateSearchCommand>( "update" )
-                                            .WithDescription(
-                                                "Updates a search collection from the given source or writes data retrieved by a crawler to the console when --dry option is used." )
-                                            .WithExample(
-                                                new[]
-                                                {
-                                                    "metalamadoc http://localhost:8108 https://doc.example.com/sitemap.xml",
-                                                    "metalamadoc http://localhost:8108 https://doc.example.com/conceptual/tryme --page --dry"
-                                                } );
-                                    } );
+                                foreach ( var extension in product.Extensions )
+                                {
+                                    extension.AddTool( tools );
+                                }
 
                                 foreach ( var tool in product.DotNetTools )
                                 {

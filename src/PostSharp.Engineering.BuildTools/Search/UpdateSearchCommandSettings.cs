@@ -7,7 +7,7 @@ namespace PostSharp.Engineering.BuildTools.Search;
 
 public class UpdateSearchCommandSettings : TypesenseCommandSettings
 {
-    [Description( "Name of the search source to retrieve data from. Valid values are: metalamadoc|postsharpdoc" )]
+    [Description( "Name of the search source to retrieve data from." )]
     [CommandArgument( 1, "<source>" )]
     public string Source { get; init; } = null!;
 
@@ -20,9 +20,9 @@ public class UpdateSearchCommandSettings : TypesenseCommandSettings
     public string? Collection { get; init; } = null;
 
     [Description(
-        "Makes a single page to be crawled intead of all pages. Useful with --dry. When used, the <url> argument represents the signdle page to be crawled." )]
-    [CommandOption( "--page" )]
-    public bool SinglePage { get; init; } = false;
+        "Makes a single page/document to be crawled intead of all pages/documents. Useful with --dry. When used, the <url> argument represents the signdle page/document to be crawled." )]
+    [CommandOption( "--single" )]
+    public bool Single { get; init; } = false;
 
     [Description( "Does not change any data and writes the retrieved snippets to console. Use with --verbose." )]
     [CommandOption( "--dry" )]
