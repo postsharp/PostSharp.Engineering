@@ -4,6 +4,7 @@ using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using Spectre.Console.Cli;
 using System;
 using System.Collections.Generic;
@@ -26,6 +27,8 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
     
     public string? CustomBuildConfigurationName { get; }
 
+    public ConfigurationSpecific<IBuildTrigger[]?>? BuildTriggers { get; }
+
     public UpdateSearchProductExtension(
         string typesenseUri,
         string source,
@@ -33,7 +36,8 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
         bool ignoreTls = false,
         BuildConfiguration[]? buildConfigurations = null,
         TimeSpan? timeOutThreshold = null,
-        string? customBuildConfigurationName = null )
+        string? customBuildConfigurationName = null,
+        ConfigurationSpecific<IBuildTrigger[]?>? buildTriggers = null )
     {
         this.TypesenseUri = typesenseUri;
         this.Source = source;
@@ -42,6 +46,7 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
         this.BuildConfigurations = buildConfigurations ?? new[] { BuildConfiguration.Public };
         this.TimeOutThreshold = timeOutThreshold ?? TimeSpan.FromMinutes( 5 );
         this.CustomBuildConfigurationName = customBuildConfigurationName;
+        this.BuildTriggers = buildTriggers;
     }
 
     internal override bool AddTeamcityBuildConfiguration( BuildContext context, List<TeamCityBuildConfiguration> teamCityBuildConfigurations )
@@ -71,6 +76,8 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
                 ? new[] { new TeamCitySnapshotDependency( $"{configuration}Deployment", false ) }
                 : null;
 
+            var buildTriggers = this.BuildTriggers?[configuration];
+
             var teamCityUpdateSearchConfiguration = new TeamCityBuildConfiguration(
                 $"{configuration}UpdateSearch",
                 name,
@@ -79,7 +86,8 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
                 BuildSteps = new[] { CreateBuildStep() },
                 IsDeployment = true,
                 SnapshotDependencies = dependencies,
-                BuildTimeOutThreshold = this.TimeOutThreshold
+                BuildTimeOutThreshold = this.TimeOutThreshold,
+                BuildTriggers = buildTriggers
             };
 
             teamCityBuildConfigurations.Add( teamCityUpdateSearchConfiguration );
