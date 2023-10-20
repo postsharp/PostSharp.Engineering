@@ -5,6 +5,7 @@ using PostSharp.Engineering.BuildTools.Search.Backends;
 using PostSharp.Engineering.BuildTools.Search.Backends.Typesense;
 using PostSharp.Engineering.BuildTools.Search.Crawlers;
 using PostSharp.Engineering.BuildTools.Search.Indexers;
+using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Typesense;
@@ -20,7 +21,7 @@ public class DocumentationUpdater<TDocFxCrawler> : CollectionUpdater where TDocF
         this._products = products;
     }
 
-    public override Task<bool> UpdateAsync( BuildContext context, UpdateSearchCommandSettings settings, string targetCollection )
+    public override async Task<bool> UpdateAsync( BuildContext context, UpdateSearchCommandSettings settings, string targetCollection )
     {
         HttpClient web;
 
@@ -47,13 +48,13 @@ public class DocumentationUpdater<TDocFxCrawler> : CollectionUpdater where TDocF
             {
                 context.Console.WriteMessage( $"Indexing single page '{settings.SourceUrl}' to '{targetCollection}' collection." );
 
-                return indexer.IndexArticlesAsync( targetCollection, settings.Source, this._products, settings.SourceUrl );
+                return await indexer.IndexArticlesAsync( targetCollection, settings.Source, this._products, settings.SourceUrl );
             }
             else
             {
                 context.Console.WriteMessage( $"Indexing sitemap '{settings.SourceUrl}' to '{targetCollection}' collection." );
 
-                return indexer.IndexSiteMapAsync( targetCollection, settings.Source, this._products, settings.SourceUrl );
+                return await indexer.IndexSiteMapAsync( targetCollection, settings.Source, this._products, settings.SourceUrl );
             }
         }
     }

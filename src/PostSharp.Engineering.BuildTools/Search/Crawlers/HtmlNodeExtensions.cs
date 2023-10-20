@@ -5,7 +5,7 @@ using System;
 
 namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
 
-internal static class HtmlNodeExtensions
+public static class HtmlNodeExtensions
 {
     private static readonly string _zeroWidthSpace = ((char) 8203).ToString();
     private static readonly string _softHyphen = ((char) 173).ToString();
