@@ -1770,6 +1770,55 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool BumpVersion( BuildContext context, BumpSettings settings )
         {
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
+            
+            var developmentBranch = context.Product.DependencyDefinition.Branch;
+
+            if ( context.Branch != developmentBranch )
+            {
+                context.Console.WriteError(
+                    $"The version bump can only be executed on the development branch ('{developmentBranch}'). The current branch is '{context.Branch}'." );
+
+                return false;
+            }
+
+            // It is forbidden to push to the release branch, but it occasionally happens.
+            // We need to make sure that there are no pending changes in the release branch to be merged to the development branch.
+            // Failing to do so could result in missing published changes, and it could also break the version bump.
+            // (The merge publisher creates a merge commit in the release branch, and tags this commit as the released one,
+            //  instead of the released one. The tag is then not visible in the development branch by the version bump,
+            //  and it is considered, that bump is not needed, because there was no release.)
+            var releaseBranch = context.Product.DependencyDefinition.ReleaseBranch;
+
+            if ( releaseBranch == null )
+            {
+                context.Console.WriteMessage( $"Skipping check for pending changes from the release branch, as the release branch is not set for this product." );
+            }
+            else
+            {
+                context.Console.WriteMessage( $"Checking for pending changes from the release branch ('{releaseBranch}')." );
+
+                if ( !GitHelper.TryCheckoutAndPull( context, releaseBranch ) )
+                {
+                    return false;
+                }
+                
+                if ( !GitHelper.TryCheckoutAndPull( context, context.Branch ) )
+                {
+                    return false;
+                }
+
+                if ( !GitHelper.TryGetCommitsCount( context, "HEAD", releaseBranch, out var count ) )
+                {
+                    return false;
+                }
+
+                if ( count > 0 )
+                {
+                    context.Console.WriteError( $"There are pending changes from the '{releaseBranch}' branch." );
+                    context.Console.WriteError( $"Merge the '{releaseBranch}' branch to the '{developmentBranch}'." );
+                    context.Console.WriteError( "Failing to do so could result in invalid version number of this product." );
+                }
+            }
 
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,

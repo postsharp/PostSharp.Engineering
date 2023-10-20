@@ -64,7 +64,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         if ( context.Branch != sourceBranch )
         {
             context.Console.WriteError(
-                $"Downstream merge can only be executed on the default branch ('{sourceBranch}'). The current branch is '{context.Branch}'." );
+                $"Downstream merge can only be executed on the development branch ('{sourceBranch}'). The current branch is '{context.Branch}'." );
 
             return false;
         }

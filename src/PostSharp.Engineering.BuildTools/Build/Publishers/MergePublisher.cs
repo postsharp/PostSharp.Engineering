@@ -35,7 +35,7 @@ public class MergePublisher : IndependentPublisher
         if ( context.Branch != sourceBranch )
         {
             context.Console.WriteError(
-                $"{nameof(MergePublisher)} can only be executed on the default branch ('{sourceBranch}'). The current branch is '{context.Branch}'." );
+                $"{nameof(MergePublisher)} can only be executed on the development branch ('{sourceBranch}'). The current branch is '{context.Branch}'." );
 
             return SuccessCode.Error;
         }
