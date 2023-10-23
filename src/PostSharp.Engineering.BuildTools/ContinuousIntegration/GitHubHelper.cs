@@ -8,8 +8,6 @@ using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Environment = System.Environment;
@@ -206,6 +204,9 @@ public static class GitHubHelper
                         RequiresApprovingReviews = true,
                         RequiredApprovingReviewCount = 1,
                         RequiresStatusChecks = buildStatusName != null,
+                        
+                        // Don't require the branch to be up to date.
+                        RequiresStrictStatusChecks = false,
                         RequiredStatusChecks =
                             buildStatusName == null
                                 ? Array.Empty<RequiredStatusCheckInput>()
@@ -248,6 +249,79 @@ public static class GitHubHelper
             }
         }
 
+        return true;
+    }
+    
+    public static async Task<bool> TryPrintBranchPoliciesAsync(
+        BuildContext context,
+        GitHubRepository gitHubRepository )
+    {
+        if ( !TryConnectGraphQl( context.Console, out var graphQl ) )
+        {
+            return false;
+        }
+
+        // GraphQL requires explicit list of properties.
+        // This loop is used to list the properties for the query bellow.
+        foreach ( var property in typeof(BranchProtectionRule).GetProperties() )
+        {
+            if ( property.PropertyType != typeof(bool) && property.PropertyType != typeof(string) )
+            {
+                continue;
+            }
+            
+            context.Console.WriteMessage( $"r.{property.Name}," );
+        }
+        
+        context.Console.WriteMessage( $"" );
+
+        context.Console.WriteMessage( $"Getting protection rules." );
+
+        var branchProtectionRulesQuery = new Query()
+            .RepositoryOwner( gitHubRepository.Owner )
+            .Repository( gitHubRepository.Name )
+            .BranchProtectionRules()
+            .AllPages()
+            .Select(
+                r => new
+                {
+                    // For this code, use the output of the loop above.
+                    r.AllowsDeletions,
+                    r.AllowsForcePushes,
+                    r.BlocksCreations,
+                    r.DismissesStaleReviews,
+                    r.IsAdminEnforced,
+                    r.Pattern,
+                    r.RequiresApprovingReviews,
+                    r.RequiresCodeOwnerReviews,
+                    r.RequiresCommitSignatures,
+                    r.RequiresConversationResolution,
+                    r.RequiresLinearHistory,
+                    r.RequiresStatusChecks,
+                    r.RequiresStrictStatusChecks,
+                    r.RestrictsPushes,
+                    r.RestrictsReviewDismissals,
+                } )
+            .Compile();
+        
+        var rules = await graphQl.Run( branchProtectionRulesQuery );
+
+        context.Console.WriteMessage( "" );
+        
+        var i = 0;
+        
+        foreach ( var rule in rules )
+        {
+            context.Console.WriteMessage( $"{i++}:" );
+
+            foreach ( var property in rule.GetType().GetProperties() )
+            {
+                context.Console.WriteMessage( $"{property.Name}: {property.GetValue( rule )}" );
+            }
+            
+            context.Console.WriteMessage( "" );
+        }
+        
         return true;
     }
     

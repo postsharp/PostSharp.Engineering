@@ -1815,8 +1815,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 if ( count > 0 )
                 {
                     context.Console.WriteError( $"There are pending changes from the '{releaseBranch}' branch." );
-                    context.Console.WriteError( $"Merge the '{releaseBranch}' branch to the '{developmentBranch}'." );
+                    context.Console.WriteError( $"Check the relevancy of the changes and merge the '{releaseBranch}' branch to the '{developmentBranch}'." );
                     context.Console.WriteError( "Failing to do so could result in invalid version number of this product." );
+
+                    return false;
                 }
             }
 

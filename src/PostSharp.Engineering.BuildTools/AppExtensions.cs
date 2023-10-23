@@ -186,6 +186,11 @@ namespace PostSharp.Engineering.BuildTools
                                             .WithData( product )
                                             .WithDescription(
                                                 "Sets the branch policies of the development and release branch of the current product version." );
+                                        
+                                        git.AddCommand<PrintBranchPoliciesCommand>( "print-branch-policies" )
+                                            .WithData( product )
+                                            .WithDescription(
+                                                "Prints the branch policies currently set for the repository." );
 
                                         git.AddCommand<SetDefaultBranchCommand>( "set-default-branch" )
                                             .WithData( product )
