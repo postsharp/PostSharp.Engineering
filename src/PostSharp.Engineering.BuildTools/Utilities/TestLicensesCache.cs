@@ -30,7 +30,7 @@ public static class TestLicensesCache
 
         if ( File.Exists( licensesFile ) )
         {
-            arg.Context.Console.WriteMessage( "Test license are fetched already." );
+            arg.Context.Console.WriteMessage( "Test license keys are fetched already." );
 
             return;
         }
