@@ -141,11 +141,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public ImmutableArray<string> DefaultArtifactRules { get; } =
             ImmutableArray.Create(
                 $@"+:artifacts/logs/**/*=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/AssemblyLocator/**/*=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/CompileTime/**/.completed=>logs",
                 $@"+:%system.teamcity.build.tempDir%/Metalama/CompileTimeTroubleshooting/**/*=>logs",
                 $@"+:%system.teamcity.build.tempDir%/Metalama/CrashReports/**/*=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/Extract/**/.completed=>logs",
                 $@"+:%system.teamcity.build.tempDir%/Metalama/ExtractExceptions/**/*=>logs",
                 $@"+:%system.teamcity.build.tempDir%/Metalama/Logs/**/*=>logs" );
 
