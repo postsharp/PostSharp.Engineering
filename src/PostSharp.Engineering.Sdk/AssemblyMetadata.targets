@@ -8,11 +8,18 @@
             <_Parameter2>$(Version)</_Parameter2>
         </AssemblyAttribute>
 
-        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
-            <_Parameter1>PackageBuildDate</_Parameter1>
-            <_Parameter2>$([System.DateTime]::Today.ToString(o))</_Parameter2>
-        </AssemblyAttribute>
-
     </ItemGroup>
+
+    <Target Name="_SetAssemblyBuildDateMetadata" BeforeTargets="CoreCompile" DependsOnTargets="GenerateAssemblyInfo">
+        <Exec Command="git log -1 --format=%25%25cd --date=iso-strict" WorkingDirectory="$(MSBuildProjectDirectory)" ConsoleToMSBuild="true" IgnoreExitCode="true">
+            <Output TaskParameter="ConsoleOutput" PropertyName="_PackageBuildDate" />
+        </Exec>
+
+        <WriteLinesToFile
+            File="$(GeneratedAssemblyInfoFile)"
+            Lines="[assembly: System.Reflection.AssemblyMetadataAttribute(&quot;PackageBuildDate&quot;, &quot;$(_PackageBuildDate)&quot;)]"
+            Overwrite="false"
+            Encoding="UTF-8"/>
+    </Target>
 
 </Project>
