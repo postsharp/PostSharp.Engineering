@@ -30,7 +30,9 @@ namespace PostSharp.Engineering.BuildTools.NuGet
 
             var directory = new DirectoryInfo( settings.Directory );
 
-            var files = Directory.GetFiles( directory.FullName, "Microsoft.*.nupkg" );
+            var files = Directory.GetFiles( directory.FullName, "Microsoft.*.nupkg" )
+                .Concat( Directory.GetFiles( directory.FullName, "Microsoft.*.snupkg" ) )
+                .ToArray();
 
             if ( files.Length == 0 )
             {

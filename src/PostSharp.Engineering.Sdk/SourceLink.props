@@ -2,6 +2,9 @@
 
     <!-- Source Link  -->
     <PropertyGroup>
+        <!-- https://learn.microsoft.com/en-us/dotnet/core/project-sdk/msbuild-props#continuousintegrationbuild -->
+        <ContinuousIntegrationBuild Condition="'$(IS_TEAMCITY_AGENT)' != ''"></ContinuousIntegrationBuild>
+
         <!-- Publish the repository URL in the built .nupkg (in the NuSpec <Repository> element) -->
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
 
@@ -11,12 +14,16 @@
         <!-- Recommended: Embed symbols containing Source Link in the main file (exe/dll) -->
         <DebugType Condition="'$(Configuration)'=='Debug'">embedded</DebugType>
 
+        <!-- Create symbol NuGet packages -->
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.SourceLink.AzureRepos.Git" Version="1.0.0" PrivateAssets="All"
+        <PackageReference Include="Microsoft.SourceLink.AzureRepos.Git" Version="8.0.0" PrivateAssets="All"
                           Condition="'$(RepoKind)'=='AzureRepos'" />
-        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All"
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"
                           Condition="'$(RepoKind)'=='GitHub'" />
     </ItemGroup>
 

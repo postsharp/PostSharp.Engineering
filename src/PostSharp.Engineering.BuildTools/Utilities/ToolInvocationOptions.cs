@@ -28,4 +28,12 @@ public record ToolInvocationOptions(
     public ImmutableArray<Regex> SilentPatterns { get; init; } = ImmutableArray<Regex>.Empty;
 
     public ImmutableArray<ReplacePattern> ReplacePatterns { get; init; } = ImmutableArray<ReplacePattern>.Empty;
+
+    public ToolInvocationOptions WithEnvironmentVariables( ImmutableDictionary<string, string?> additionalEnvironmentVariables )
+        => this with
+        {
+            EnvironmentVariables = this.EnvironmentVariables == null
+                ? additionalEnvironmentVariables
+                : this.EnvironmentVariables.AddRange( additionalEnvironmentVariables )
+        };
 }

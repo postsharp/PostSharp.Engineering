@@ -122,7 +122,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             = ImmutableArray.Create(
                 new Publisher[]
                 {
-                    new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
+                    new NugetPublisher( Pattern.Create( "*.nupkg", "*.snupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
                     new VsixPublisher( Pattern.Create( "*.vsix" ) ),
                     new MergePublisher()
                 } );
@@ -399,16 +399,23 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 // Copy artifacts.
                 context.Console.WriteHeading( "Copying public artifacts" );
-                var files = new List<FilePatternMatch>();
+                var filePatternMatches = new List<FilePatternMatch>();
 
-                this.PublicArtifacts.TryGetFiles( privateArtifactsDir, versionInfo, files );
+                this.PublicArtifacts.TryGetFiles( privateArtifactsDir, versionInfo, filePatternMatches );
+                IEnumerable<string> files = filePatternMatches.Select( m => m.Path ).ToArray();
+
+                // Automatically include respective symbol NuGet packages.
+                files = files.Concat(
+                    files.Where( f => f.EndsWith( ".nupkg", StringComparison.OrdinalIgnoreCase ) )
+                        .Select( f => f[..^".nupkg".Length] + ".snupkg" )
+                        .Where( File.Exists ) );
 
                 foreach ( var file in files )
                 {
-                    var targetFile = Path.Combine( publicArtifactsDirectory, Path.GetFileName( file.Path ) );
+                    var targetFile = Path.Combine( publicArtifactsDirectory, Path.GetFileName( file ) );
 
-                    context.Console.WriteMessage( file.Path );
-                    File.Copy( Path.Combine( privateArtifactsDir, file.Path ), targetFile, true );
+                    context.Console.WriteMessage( file );
+                    File.Copy( Path.Combine( privateArtifactsDir, file ), targetFile, true );
                 }
 
                 var signSuccess = true;
@@ -430,9 +437,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     {
                         if ( Directory.EnumerateFiles( publicArtifactsDirectory, filter ).Any() )
                         {
-                            // We don't pass the secret so it does not get printed. We pass an environment variable reference instead.
-                            // The ToolInvocationHelper will expand it.
-
                             signSuccess = signSuccess && DotNetTool.SignClient.Invoke(
                                 context,
                                 $"Sign --baseDirectory \"{publicArtifactsDirectory}\" --input {filter}" );
@@ -440,6 +444,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     }
 
                     Sign( "*.nupkg" );
+                    Sign( "*.snupkg" );
                     Sign( "*.vsix" );
 
                     if ( !signSuccess )
@@ -503,7 +508,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 void CopyPackages( string directory )
                 {
-                    foreach ( var file in Directory.GetFiles( directory, "*.nupkg" ) )
+                    foreach ( var file in Directory.GetFiles( directory, "*.nupkg" ).Concat( Directory.GetFiles( directory, "*.snupkg" ) ) )
                     {
                         File.Copy( file, Path.Combine( consolidatedDirectory, Path.GetFileName( file ) ), true );
                     }
@@ -1470,9 +1475,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // NugetCache gets automatically deleted only on TeamCity.
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) && !settings.NoNuGetCacheCleanup )
             {
                 context.Console.WriteHeading( "Cleaning NuGet cache." );
+                context.Console.WriteMessage( "The NuGet cache cleanup can be skipped using --no-nuget-cache-cleanup." );
 
                 CleanNugetCache();
             }
