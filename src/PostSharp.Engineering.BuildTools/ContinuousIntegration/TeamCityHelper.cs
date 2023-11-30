@@ -33,6 +33,21 @@ public static class TeamCityHelper
     public static bool IsTeamCityBuild( CommonCommandSettings settings )
         => settings.SimulateContinuousIntegration || Environment.GetEnvironmentVariable( "IS_TEAMCITY_AGENT" )?.ToLowerInvariant() == "true";
 
+    public static ImmutableDictionary<string, string?> GetSimulatedContinuousIntegrationEnvironmentVariables( CommonCommandSettings settings )
+    {
+        if ( settings.SimulateContinuousIntegration )
+        {
+            var isIsTeamCityAgentEnvironmentVariableSet = Environment.GetEnvironmentVariable( "IS_TEAMCITY_AGENT" )?.ToLowerInvariant() == "true";
+
+            if ( !isIsTeamCityAgentEnvironmentVariableSet )
+            {
+                return new Dictionary<string, string?> { { "IS_TEAMCITY_AGENT", "true" } }.ToImmutableDictionary();
+            }
+        }
+        
+        return ImmutableDictionary<string, string?>.Empty;
+    }
+
     public static bool TryConnectTeamCity( CiProjectConfiguration configuration, ConsoleHelper console, [NotNullWhen( true )] out TeamCityClient? client )
     {
         var teamcityTokenVariable = configuration.TokenEnvironmentVariableName;

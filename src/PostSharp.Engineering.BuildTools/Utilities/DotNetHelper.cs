@@ -28,6 +28,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         {
             var argsBuilder = CreateCommandLine( context, settings, projectOrSolution, command, arguments, addConfigurationFlag );
 
+            options = AddSimulatedContinuousIntegrationEnvironmentVariables( settings, options );
+
             return ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "dotnet",
@@ -48,6 +50,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             ToolInvocationOptions? options = null )
         {
             var argsBuilder = CreateCommandLine( context, settings, projectOrSolution, command, arguments, addConfigurationFlag );
+            
+            options = AddSimulatedContinuousIntegrationEnvironmentVariables( settings, options );
 
             return ToolInvocationHelper.InvokeTool(
                 context.Console,
@@ -57,6 +61,24 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 out exitCode,
                 out output,
                 options );
+        }
+
+        private static ToolInvocationOptions? AddSimulatedContinuousIntegrationEnvironmentVariables( BuildSettings settings, ToolInvocationOptions? options )
+        {
+            var environmentVariables = TeamCityHelper.GetSimulatedContinuousIntegrationEnvironmentVariables( settings );
+
+            if ( environmentVariables.IsEmpty )
+            {
+                return options;
+            }
+            else if ( options == null )
+            {
+                return new ToolInvocationOptions( environmentVariables );
+            }
+            else
+            {
+                return options.WithEnvironmentVariables( environmentVariables );
+            }
         }
 
         private static string CreateCommandLine(
@@ -170,7 +192,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     true,
                     out var exitCode,
                     out var output,
-                    new ToolInvocationOptions( environmentVariables ) );
+                    new ToolInvocationOptions( environmentVariables ).WithEnvironmentVariables(
+                        TeamCityHelper.GetSimulatedContinuousIntegrationEnvironmentVariables( settings ) ) );
 
                 success = exitCode != 0 && !testOptions.IgnoreExitCode;
 
@@ -208,7 +231,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     projectOrSolution,
                     command,
                     args,
-                    true );
+                    true,
+                    new ToolInvocationOptions( TeamCityHelper.GetSimulatedContinuousIntegrationEnvironmentVariables( settings ) ) );
             }
 
             if ( TeamCityHelper.IsTeamCityBuild( settings ) )

@@ -84,7 +84,11 @@ namespace PostSharp.Engineering.BuildTools.Build
         [Description( "An expression to filter the executed tests as specified at https://learn.microsoft.com/en-us/dotnet/core/testing/selective-unit-tests." )]
         [CommandOption( "--tests-filter" )]
         public string? TestsFilter { get; set; }
-        
+
+        [Description( "Does not clean the NuGet cache. By default, the cache is not cleaned locally, at it is cleaned on a build agent." )]
+        [CommandOption( "--no-nuget-cache-cleanup" )]
+        public bool NoNuGetCacheCleanup { get; set; }
+
         public BuildSettings WithIncludeTests( bool value )
         {
             var clone = (BuildSettings) this.MemberwiseClone();
