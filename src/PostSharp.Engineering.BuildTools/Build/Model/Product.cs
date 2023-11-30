@@ -122,7 +122,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             = ImmutableArray.Create(
                 new Publisher[]
                 {
-                    new NugetPublisher( Pattern.Create( "*.nupkg", "*.snupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
+                    // .snupkg packages are published along with .nupkg packages automatically by the "dotnet nuget push" tool.
+                    new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
                     new VsixPublisher( Pattern.Create( "*.vsix" ) ),
                     new MergePublisher()
                 } );
