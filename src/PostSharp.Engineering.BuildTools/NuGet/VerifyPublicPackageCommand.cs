@@ -36,6 +36,13 @@ namespace PostSharp.Engineering.BuildTools.NuGet
             var directory = new DirectoryInfo( settings.Directory );
 
             var files = Directory.GetFiles( directory.FullName, "*.nupkg" );
+            
+            // Automatically include respective symbol NuGet packages.
+            files = files.Concat(
+                    files.Where( f => f.EndsWith( ".nupkg", StringComparison.OrdinalIgnoreCase ) )
+                        .Select( f => f[..^".nupkg".Length] + ".snupkg" )
+                        .Where( File.Exists ) )
+                .ToArray();
 
             if ( files.Length == 0 )
             {
@@ -77,6 +84,8 @@ namespace PostSharp.Engineering.BuildTools.NuGet
             Dictionary<string, Task<HttpResponseMessage>> remotePackageTasks )
         {
             var inputShortPath = Path.GetFileName( inputPath );
+            
+            console.WriteMessage( $"Verifying {inputShortPath} package." );
 
             var success = true;
 

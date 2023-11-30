@@ -405,7 +405,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 files = files.Concat(
                     files.Where( f => f.EndsWith( ".nupkg", StringComparison.OrdinalIgnoreCase ) )
                         .Select( f => f[..^".nupkg".Length] + ".snupkg" )
-                        .Where( File.Exists ) );
+                        .Where( f => File.Exists( Path.Combine( privateArtifactsDir, f ) ) ) );
 
                 foreach ( var file in files )
                 {
