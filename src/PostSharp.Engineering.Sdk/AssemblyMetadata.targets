@@ -17,7 +17,7 @@
         </PropertyGroup>
     </Target>
 
-    <Target Name="_SetAssemblyBuildDateMetadata" BeforeTargets="CoreCompile" DependsOnTargets="GenerateAssemblyInfo" Inputs="$(GeneratedAssemblyInfoFile)" Outputs="$(_SetAssemblyBuildDateMetadataTouchFile)">
+    <Target Name="_SetAssemblyBuildDateMetadata" BeforeTargets="CoreCompile" DependsOnTargets="GenerateAssemblyInfo" Inputs="$(GeneratedAssemblyInfoFile)" Outputs="$(_SetAssemblyBuildDateMetadataTouchFile)" Condition="'$(GenerateAssemblyInfo)'=='true'">
         <Exec Command="git log -1 --format=%25%25cd --date=iso-strict" WorkingDirectory="$(MSBuildProjectDirectory)" ConsoleToMSBuild="true" EchoOff="true" StandardOutputImportance="low">
             <Output TaskParameter="ConsoleOutput" PropertyName="_PackageBuildDate" />
         </Exec>
