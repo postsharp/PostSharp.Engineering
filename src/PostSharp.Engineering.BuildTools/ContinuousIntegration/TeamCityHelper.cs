@@ -678,7 +678,21 @@ public static class TeamCityHelper
             return false;
         }
 
-        var consolidatedVersionBumpBuildTriggers = new IBuildTrigger[] { new NightlyBuildTrigger( 1, false ) };
+        // Consolidated version bumps don't run for all versions at the same time to avoid build agent starvation.
+        var consolidatedVersionBumpBuildTriggerMinute = 0;
+
+        if ( context.Product.ProductFamily.UpstreamProductFamily != null )
+        {
+            var previousProductFamily = context.Product.ProductFamily.UpstreamProductFamily;
+
+            while ( previousProductFamily != null )
+            {
+                consolidatedVersionBumpBuildTriggerMinute += 10;
+                previousProductFamily = previousProductFamily.UpstreamProductFamily;
+            }
+        }
+
+        var consolidatedVersionBumpBuildTriggers = new IBuildTrigger[] { new NightlyBuildTrigger( 1, consolidatedVersionBumpBuildTriggerMinute, false ) };
 
         tcConfigurations.Add(
             new TeamCityBuildConfiguration(

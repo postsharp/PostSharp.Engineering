@@ -11,12 +11,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Triggers;
 public class NightlyBuildTrigger : IBuildTrigger
 {
     public int Hour { get; }
+    
+    public int Minute { get; }
 
     public bool WithPendingChangesOnly { get; }
 
     public NightlyBuildTrigger( int hour, bool withPendingChangesOnly )
     {
         this.Hour = hour;
+        this.WithPendingChangesOnly = withPendingChangesOnly;
+    }
+    
+    public NightlyBuildTrigger( int hour, int minute, bool withPendingChangesOnly )
+    {
+        this.Hour = hour;
+        this.Minute = minute;
         this.WithPendingChangesOnly = withPendingChangesOnly;
     }
 
@@ -26,6 +35,7 @@ public class NightlyBuildTrigger : IBuildTrigger
             @$"        schedule {{
             schedulingPolicy = daily {{
                 hour = {this.Hour}
+                minute = {this.Minute}
             }}
             branchFilter = ""+:<default>""
             triggerBuild = always()
