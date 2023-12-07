@@ -48,7 +48,7 @@ internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
                 
                 // This is to force the tool to use a specific version of the .NET SDK. It does not work without that.
                 // ReSharper disable once StringLiteralTypo
-                command += " --dotnetcoresdk=7.0.100";
+                command += " --dotnetcoresdk=8.0.100";
 
                 command += " --verbosity=WARN";
 
