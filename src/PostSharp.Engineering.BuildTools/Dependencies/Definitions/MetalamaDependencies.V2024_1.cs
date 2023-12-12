@@ -13,7 +13,7 @@ public static partial class MetalamaDependencies
     // ReSharper disable once InconsistentNaming
 
     [PublicAPI]
-    public static class V2023_2
+    public static class V2024_1
     {
         private class MetalamaDependencyDefinition : DependencyDefinition
         {
@@ -25,7 +25,8 @@ public static partial class MetalamaDependencies
                 string? customCiProjectName = null,
                 string? customBranch = null,
                 string? customReleaseBranch = null,
-                string? customRepositoryName = null )
+                string? customRepositoryName = null,
+                bool pullRequestRequiresStatusCheck = true )
                 : base(
                     Family,
                     dependencyName,
@@ -37,21 +38,24 @@ public static partial class MetalamaDependencies
                             ? TeamCityHelper.GetProjectId( dependencyName, _projectName, Family.Version )
                             : TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId ),
                         "caravela04cloud",
-                        isVersioned ),
+                        isVersioned,
+                        pullRequestRequiresStatusCheck: pullRequestRequiresStatusCheck ),
                     isVersioned ) { }
         }
 
-        public static ProductFamily Family { get; } = new( _projectName, "2023.2", DevelopmentDependencies.Family )
+        public static ProductFamily Family { get; } = new( _projectName, "2024.1", DevelopmentDependencies.Family )
         {
-            DownstreamProductFamily = V2023_3.Family
+            UpstreamProductFamily = V2024_0.Family
+
+            // DownstreamProductFamily = V2024_2.Family
         };
+
+        public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.GitHub );
         
         public static DependencyDefinition Consolidated { get; } = new MetalamaDependencyDefinition(
             "Consolidated",
             VcsProvider.AzureDevOps,
             customRepositoryName: "Metalama.Consolidated" );
-
-        public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.GitHub );
 
         // The release build is intentionally used for the debug configuration because we want dependencies to consume the release
         // build, for performance reasons. The debug build will be used only locally, and for this we don't need a configuration here.
@@ -61,6 +65,14 @@ public static partial class MetalamaDependencies
         {
             EngineeringDirectory = "eng-Metalama", PrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSSBuildConfiguration)", "Shipping" )
         };
+
+        public static DependencyDefinition MetalamaFrameworkRunTime { get; } = new MetalamaDependencyDefinition( "Metalama.Framework.RunTime", VcsProvider.GitHub );
+
+        public static DependencyDefinition MetalamaFrameworkPrivate { get; } = new MetalamaDependencyDefinition(
+            "Metalama.Framework.Private",
+            VcsProvider.GitHub,
+            isVersioned: false,
+            pullRequestRequiresStatusCheck: false ) { GenerateSnapshotDependency = false };
 
         public static DependencyDefinition Metalama { get; } = new MetalamaDependencyDefinition(
             "Metalama",
@@ -72,7 +84,7 @@ public static partial class MetalamaDependencies
         public static DependencyDefinition MetalamaExtensions { get; } = new MetalamaDependencyDefinition( "Metalama.Extensions", VcsProvider.GitHub );
 
         public static DependencyDefinition MetalamaSamples { get; } =
-            new MetalamaDependencyDefinition( "Metalama.Samples", VcsProvider.GitHub, false ) { CodeStyle = "Metalama.Samples" };
+            new MetalamaDependencyDefinition( "Metalama.Samples", VcsProvider.GitHub ) { CodeStyle = "Metalama.Samples" };
 
         public static DependencyDefinition MetalamaMigration { get; } = new MetalamaDependencyDefinition( "Metalama.Migration", VcsProvider.GitHub );
 

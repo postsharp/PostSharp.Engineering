@@ -45,9 +45,8 @@ public static partial class MetalamaDependencies
 
         public static ProductFamily Family { get; } = new( _projectName, "2024.0", DevelopmentDependencies.Family )
         {
-            UpstreamProductFamily = V2023_4.Family
-
-            // DownstreamProductFamily = V2024_1.Family
+            UpstreamProductFamily = V2023_4.Family,
+            DownstreamProductFamily = V2024_1.Family
         };
 
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.GitHub );
