@@ -771,7 +771,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 properties = settings.AnalyzeCoverage
                     ? ImmutableDictionary.Create<string, string>()
                         .Add( "CollectCoverage", "True" )
-                        .Add( "CoverletOutput", testResultsDir + "\\" )
+                        .Add( "CoverletOutput", testResultsDir + Path.DirectorySeparatorChar )
                     : ImmutableDictionary<string, string>.Empty;
             }
             else
@@ -1187,10 +1187,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 case VersionKind.Local:
                     {
                         // Local build with timestamp-based version and randomized package number. For the assembly version we use a local incremental file stored in the user profile.
-                        var localVersionDirectory =
-                            Environment.ExpandEnvironmentVariables( "%APPDATA%\\Metalama.Engineering" );
 
-                        var localVersionFile = $"{localVersionDirectory}\\{this.ProductName}.version";
+                        // On Alpine Linux, the ApplicationData directory (~/.config) might not exist, so it needs to be created.
+                        var localVersionDirectory =
+                            Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create ), "Metalama.Engineering" );
+
+                        var localVersionFile = Path.Combine( localVersionDirectory, $"{this.ProductName}.version" );
                         int localVersion;
 
                         if ( File.Exists( localVersionFile ) )
