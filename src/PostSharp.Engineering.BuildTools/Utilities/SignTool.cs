@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
+using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Utilities;
 
@@ -14,7 +15,7 @@ internal class SignTool : DotNetTool
         // The ToolInvocationHelper will expand it.
         
         command +=
-            $" --config $(ToolsDirectory)\\signclient-appsettings.json --name {context.Product.ProductName} --user sign-caravela@postsharp.net --secret %SIGNSERVER_SECRET%";
+            $" --config $(ToolsDirectory){Path.DirectorySeparatorChar}signclient-appsettings.json --name {context.Product.ProductName} --user sign-caravela@postsharp.net --secret %SIGNSERVER_SECRET%";
 
         return base.Invoke( context, command, options );
     }
