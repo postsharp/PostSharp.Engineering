@@ -51,27 +51,35 @@ public static class DependenciesHelper
             return true;
         }
 
-        TeamCityClient? tc;
-
-        if ( !TeamCityHelper.TryConnectTeamCity( context, out tc ) )
-        {
-            return false;
-        }
-
+        TeamCityClient? tc = null;
         var iterationDependencies = dependencies.ToImmutableDictionary( d => d.Dependency.Name, d => d );
         var dependencyDictionary = dependencies.ToImmutableDictionary( d => d.Dependency.Name, d => d );
 
         while ( iterationDependencies.Count > 0 )
         {
-            if ( !ResolveBuildNumbersFromBranches( context, configuration, tc, iterationDependencies, update ) ||
-                 !ResolveLocalDependencies( context, iterationDependencies ) ||
+            // Don't try to connect to TeamCity if no dependency is a build server dependency
+            // to allow for build without access to TeamCity.
+            if ( tc == null && iterationDependencies.Values.Any( d => d.Source.SourceKind == DependencySourceKind.BuildServer ) )
+            {
+                if ( !TeamCityHelper.TryConnectTeamCity( context, out tc ) )
+                {
+                    return false;
+                }
+            }
+
+            if ( tc != null && !ResolveBuildNumbersFromBranches( context, configuration, tc, iterationDependencies, update ) )
+            {
+                return false;
+            }
+
+            if ( !ResolveLocalDependencies( context, iterationDependencies ) ||
                  !ResolveRestoredDependencies( context, iterationDependencies ) )
             {
                 return false;
             }
 
-            // Download artefacts that are not transitive dependencies.
-            if ( !DownloadArtifacts( context, tc, iterationDependencies ) )
+            // Download build server dependencies.
+            if ( tc != null && !DownloadArtifacts( context, tc, iterationDependencies ) )
             {
                 return false;
             }
