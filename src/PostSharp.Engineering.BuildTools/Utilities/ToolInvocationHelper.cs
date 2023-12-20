@@ -132,7 +132,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             ConsoleHelper console,
             string fileName,
             string commandLine,
-            string workingDirectory,
+            string? workingDirectory,
             out int exitCode,
             out string output,
             ToolInvocationOptions? options = null )

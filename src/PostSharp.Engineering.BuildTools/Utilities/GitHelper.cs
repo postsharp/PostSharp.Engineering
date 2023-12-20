@@ -11,7 +11,7 @@ using System.Text.RegularExpressions;
 
 namespace PostSharp.Engineering.BuildTools.Utilities;
 
-internal static class GitHelper
+public static class GitHelper
 {
     private static bool TryAddOrigin( BuildContext context, string branch )
     {
