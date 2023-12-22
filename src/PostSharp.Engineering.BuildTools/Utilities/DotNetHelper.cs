@@ -91,9 +91,22 @@ namespace PostSharp.Engineering.BuildTools.Utilities
         {
             var argsBuilder = new StringBuilder();
 
+            var isRunCommand = command == "run";
+
+            var projectPrefix = string.Empty;
+            var nologo = " --nologo";
+
+            if ( isRunCommand )
+            {
+                // The command `dotnet run SomeProject.csproj` does not work, it requires explicit argument name.
+                projectPrefix = "--project ";
+                // dotnet run does not support --nologo.
+                nologo = string.Empty;
+            }
+
             argsBuilder.Append(
                 CultureInfo.InvariantCulture,
-                $"{command} \"{projectOrSolution}\" -v:{settings.Verbosity.ToAlias()} --nologo" );
+                $"{command} {projectPrefix}\"{projectOrSolution}\" -v:{settings.Verbosity.ToAlias()}{nologo}" );
 
             if ( addConfigurationFlag )
             {
@@ -112,22 +125,25 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 argsBuilder.Append( CultureInfo.InvariantCulture, $" -p:{property.Key}={property.Value}" );
             }
 
-            if ( !string.IsNullOrWhiteSpace( arguments ) )
-            {
-                argsBuilder.Append( " " + arguments.Trim() );
-            }
-
             if ( TeamCityHelper.IsTeamCityBuild( settings ) )
             {
                 argsBuilder.Append( " -p:ContinuousIntegrationBuild=True" );
             }
 
-            var binaryLogFilePath = Path.Combine(
-                context.RepoDirectory,
-                context.Product.LogsDirectory.ToString(),
-                $"{Path.GetFileName( projectOrSolution )}.{command}.binlog" );
+            if ( !isRunCommand )
+            {
+                var binaryLogFilePath = Path.Combine(
+                    context.RepoDirectory,
+                    context.Product.LogsDirectory.ToString(),
+                    $"{Path.GetFileName( projectOrSolution )}.{command}.binlog" );
 
-            argsBuilder.Append( CultureInfo.InvariantCulture, $" -bl:\"{binaryLogFilePath}\"" );
+                argsBuilder.Append( CultureInfo.InvariantCulture, $" -bl:\"{binaryLogFilePath}\"" );
+            }
+
+            if ( !string.IsNullOrWhiteSpace( arguments ) )
+            {
+                argsBuilder.Append( " " + arguments.Trim() );
+            }
 
             return argsBuilder.ToString();
         }
