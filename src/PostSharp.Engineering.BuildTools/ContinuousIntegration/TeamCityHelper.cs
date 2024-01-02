@@ -619,6 +619,18 @@ public static class TeamCityHelper
                     SnapshotDependencies = consolidatedDownstreamMergeSnapshotDependencies.ToArray(), BuildTriggers = consolidatedDownstreamMergeBuildTriggers
                 } );
         }
+        
+        // Release Build
+        const string releaseBuildObjectName = "ReleaseBuild";
+
+        var consolidatedReleaseBuildSnapshotDependencies =
+            buildConfigurationsByKind[releaseBuildObjectName].Select( c => new TeamCitySnapshotDependency( c.BuildConfigurationId, true ) );
+
+        tcConfigurations.Add(
+            new TeamCityBuildConfiguration( debugBuildObjectName, "Build [Release]" )
+            {
+                SnapshotDependencies = consolidatedReleaseBuildSnapshotDependencies.ToArray()
+            } );
 
         // Version bump and public build
         const string publicBuildObjectName = "PublicBuild";

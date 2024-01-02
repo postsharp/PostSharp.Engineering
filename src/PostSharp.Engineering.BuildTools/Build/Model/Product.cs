@@ -132,7 +132,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             = new(
                 debug:
                 new BuildConfigurationInfo( BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
-                release: new BuildConfigurationInfo( RequiresSigning: true, ExportsToTeamCityBuild: false ),
+                release: new BuildConfigurationInfo(),
                 @public: new BuildConfigurationInfo(
                     RequiresSigning: true,
                     PublicPublishers: DefaultPublicPublishers.ToArray(),
