@@ -627,7 +627,7 @@ public static class TeamCityHelper
             buildConfigurationsByKind[releaseBuildObjectName].Select( c => new TeamCitySnapshotDependency( c.BuildConfigurationId, true ) );
 
         tcConfigurations.Add(
-            new TeamCityBuildConfiguration( debugBuildObjectName, "Build [Release]" )
+            new TeamCityBuildConfiguration( releaseBuildObjectName, "Build [Release]" )
             {
                 SnapshotDependencies = consolidatedReleaseBuildSnapshotDependencies.ToArray()
             } );
