@@ -5,7 +5,6 @@ using Newtonsoft.Json;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
-using System;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
@@ -34,7 +33,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 context.Console,
                 "dotnet",
                 argsBuilder,
-                Environment.CurrentDirectory,
+                context.GetWorkingDirectory( projectOrSolution ),
                 options );
         }
 
@@ -57,7 +56,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 context.Console,
                 "dotnet",
                 argsBuilder,
-                Environment.CurrentDirectory,
+                context.GetWorkingDirectory( projectOrSolution ),
                 out exitCode,
                 out output,
                 options );
