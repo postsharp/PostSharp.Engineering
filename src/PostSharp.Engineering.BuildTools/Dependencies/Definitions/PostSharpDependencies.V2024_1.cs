@@ -17,7 +17,10 @@ public static partial class PostSharpDependencies
     {
         private class PostSharpDependencyDefinition : DependencyDefinition
         {
-            private static readonly TeamCityProjectId _teamCityProjectId = TeamCityHelper.GetProjectId( _projectName, _projectName, Family.Version );
+            private static readonly TeamCityProjectId _teamCityProjectId = new TeamCityProjectId(
+                $"{_projectName}_{_projectName}{Family.VersionWithoutDots}",
+                _projectName );
+            
             private static readonly string _distributionBuildId = $"{_teamCityProjectId}_BuildDistribution";
 
             public PostSharpDependencyDefinition()
@@ -29,7 +32,7 @@ public static partial class PostSharpDependencies
                     new AzureDevOpsRepository( _projectName, _projectName ),
                     new CiProjectConfiguration(
                         _teamCityProjectId,
-                        new ConfigurationSpecific<string>( _distributionBuildId, _distributionBuildId, _distributionBuildId ),
+                        new ConfigurationSpecific<string>( "not-used", _distributionBuildId, "not-used" ),
                         null,
                         null,
                         TeamCityHelper.TeamCityCloudTokenEnvironmentVariableName,
