@@ -12,7 +12,7 @@ public class CiProjectConfiguration
 
     public string? PullRequestStatusCheckBuildType { get; }
 
-    public string DeploymentBuildType { get; }
+    public string? DeploymentBuildType { get; }
 
     public string? VersionBumpBuildType { get; }
 
@@ -25,7 +25,7 @@ public class CiProjectConfiguration
     public CiProjectConfiguration(
         TeamCityProjectId projectProjectId,
         ConfigurationSpecific<string> buildTypes,
-        string deploymentBuildType,
+        string? deploymentBuildType,
         string? versionBumpBuildType,
         string tokenEnvironmentVariableName,
         string baseUrl,

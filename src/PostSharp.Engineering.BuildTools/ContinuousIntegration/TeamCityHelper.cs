@@ -274,7 +274,7 @@ public static class TeamCityHelper
             default:
                 ciBuildTypeId = null;
 
-                return false;
+                break;
         }
 
         if ( ciBuildTypeId == null )

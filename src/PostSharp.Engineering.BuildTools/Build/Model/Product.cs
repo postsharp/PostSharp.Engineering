@@ -2118,8 +2118,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                 .Concat(
                                     this.ParametrizedDependencies.Select( d => d.Definition )
                                         .Union( this.SourceDependencies )
-                                        .Where( d => d.GenerateSnapshotDependency )
-                                        .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DeploymentBuildType, true ) ) )
+                                        .Where( d => d is { GenerateSnapshotDependency: true, CiConfiguration.DeploymentBuildType: not null } )
+                                        .Select( d => new TeamCitySnapshotDependency( d.CiConfiguration.DeploymentBuildType!, true ) ) )
                                 .OrderBy( d => d.ObjectId )
                                 .ToArray(),
                             BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? this.DeploymentTimeOutThreshold,

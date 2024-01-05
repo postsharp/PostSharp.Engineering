@@ -10,30 +10,30 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 [PublicAPI]
 public static partial class PostSharpDependencies
 {
-    private class PostSharpDependencyDefinition : DependencyDefinition
+    private const string _projectName = "PostSharp";
+    
+    private class PostSharpDocumentationDependencyDefinition : DependencyDefinition
     {
-        public PostSharpDependencyDefinition(
+        public PostSharpDocumentationDependencyDefinition(
             string dependencyName,
-            VcsProvider vcsProvider,
-            bool isVersioned = true )
+            VcsProvider vcsProvider )
             : base(
-                Family,
+                DocumentationFamily,
                 dependencyName,
                 "dev",
                 "master",
                 new GitHubRepository( dependencyName ),
                 TeamCityHelper.CreateConfiguration(
-                    TeamCityHelper.GetProjectId( dependencyName, "PostSharp" ),
+                    TeamCityHelper.GetProjectId( dependencyName, _projectName ),
                     "caravela04",
-                    isVersioned,
+                    false,
                     isCloudInstance: false ),
-                isVersioned ) { }
+                false ) { }
     }
 
-    public static ProductFamily Family { get; } = new( "PostSharp", "1.0", DevelopmentDependencies.Family );
+    public static ProductFamily DocumentationFamily { get; } = new( "PostSharp.Documentation", "1.0", DevelopmentDependencies.Family );
 
-    public static DependencyDefinition PostSharpDocumentation { get; } = new PostSharpDependencyDefinition(
+    public static DependencyDefinition PostSharpDocumentation { get; } = new PostSharpDocumentationDependencyDefinition(
         "PostSharp.Documentation",
-        VcsProvider.GitHub,
-        false );
+        VcsProvider.GitHub );
 }
