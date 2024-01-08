@@ -26,7 +26,7 @@ namespace PostSharp.Engineering.BuildTools.Build
         public string RepoDirectory { get; }
 
         /// <summary>
-        /// Gets the current <see cref="PostSharp.Engineering.BuildTools.Build.Model.Product"/> definition.
+        /// Gets the current <see cref="Model.Product"/> definition.
         /// </summary>
         public Product Product { get; }
 
@@ -36,6 +36,13 @@ namespace PostSharp.Engineering.BuildTools.Build
         public string Branch { get; }
 
         public CommandContext CommandContext { get; }
+
+        public bool UseProjectDirectoryAsWorkingDirectory { get; }
+
+        public string GetWorkingDirectory( string projectOrSolution )
+            => this.UseProjectDirectoryAsWorkingDirectory
+                ? Path.GetDirectoryName( projectOrSolution )!
+                : Environment.CurrentDirectory;
 
         /// <summary>
         /// Gets a value indicating whether the current device is a guest device, as opposed to a device owned and configured by PostSharp.
@@ -56,13 +63,20 @@ namespace PostSharp.Engineering.BuildTools.Build
                 $"{this.Product.ProductName}.version.props" );
         }
 
-        private BuildContext( ConsoleHelper console, string repoDirectory, Product product, string branch, CommandContext commandContext )
+        private BuildContext(
+            ConsoleHelper console,
+            string repoDirectory,
+            Product product,
+            string branch,
+            CommandContext commandContext,
+            bool useProjectDirectoryAsWorkingDirectory )
         {
             this.Console = console;
             this.RepoDirectory = repoDirectory;
             this.Product = product;
             this.Branch = branch;
             this.CommandContext = commandContext;
+            this.UseProjectDirectoryAsWorkingDirectory = useProjectDirectoryAsWorkingDirectory;
         }
 
         /// <summary>
@@ -90,7 +104,13 @@ namespace PostSharp.Engineering.BuildTools.Build
                 return false;
             }
 
-            buildContext = new BuildContext( console, repoDirectory, (Product) commandContext.Data!, currentBranch, commandContext );
+            buildContext = new BuildContext(
+                console,
+                repoDirectory,
+                (Product) commandContext.Data!,
+                currentBranch,
+                commandContext,
+                useProjectDirectoryAsWorkingDirectory: false );
 
             return true;
         }
@@ -127,6 +147,9 @@ namespace PostSharp.Engineering.BuildTools.Build
         }
 
         public BuildContext WithConsoleHelper( ConsoleHelper consoleHelper )
-            => new( consoleHelper, this.RepoDirectory, this.Product, this.Branch, this.CommandContext );
+            => new( consoleHelper, this.RepoDirectory, this.Product, this.Branch, this.CommandContext, this.UseProjectDirectoryAsWorkingDirectory );
+
+        public BuildContext WithUseProjectDirectoryAsWorkingDirectory( bool useProjectDirectoryAsWorkingDirectory )
+            => new( this.Console, this.RepoDirectory, this.Product, this.Branch, this.CommandContext, useProjectDirectoryAsWorkingDirectory );
     }
 }

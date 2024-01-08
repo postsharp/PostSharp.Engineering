@@ -60,15 +60,15 @@ public class ManyDotNetSolutions : Solution
 
                     // Write the build output to a buffer so we don't get mixed output.
                     var bufferingConsole = BufferingConsoleHelper.Create( context.Console );
-                    var bufferingContext = context.WithConsoleHelper( bufferingConsole );
+                    var localContext = context.WithConsoleHelper( bufferingConsole ).WithUseProjectDirectoryAsWorkingDirectory( true );
 
                     try
                     {
-                        if ( solution.Build( bufferingContext, settings ) )
+                        if ( solution.Build( localContext, settings ) )
                         {
                             if ( solution.TestMethod == Model.BuildMethod.Test )
                             {
-                                if ( !solution.Test( bufferingContext, settings ) )
+                                if ( !solution.Test( localContext, settings ) )
                                 {
                                     failedProjects.Add( solution );
                                 }
