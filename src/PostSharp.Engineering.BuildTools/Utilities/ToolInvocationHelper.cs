@@ -145,7 +145,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     fileName,
                     commandLine,
                     workingDirectory,
-                    null,
+                    default,
                     out exitCode,
                     s =>
                     {
@@ -170,12 +170,12 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             return success && exitCode == 0;
         }
 
-        private static bool InvokeTool(
+        public static bool InvokeTool(
             ConsoleHelper console,
             string fileName,
             string commandLine,
             string? workingDirectory,
-            CancellationToken? cancellationToken,
+            CancellationToken cancellationToken,
             out int exitCode,
             Action<string> handleErrorData,
             Action<string> handleOutputData,
@@ -313,7 +313,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                             throw;
                         }
 
-                        if ( !cancellationToken.HasValue )
+                        if ( !cancellationToken.CanBeCanceled )
                         {
                             process.BeginErrorReadLine();
                             process.BeginOutputReadLine();
@@ -327,7 +327,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                                 process.EnableRaisingEvents = true;
                                 process.Exited += ( _, _ ) => exitedEvent.Set();
 
-                                using ( cancellationToken.Value.Register( () => cancelledEvent.Set() ) )
+                                using ( cancellationToken.Register( () => cancelledEvent.Set() ) )
                                 {
                                     process.BeginErrorReadLine();
                                     process.BeginOutputReadLine();
@@ -338,7 +338,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
                                         if ( signal == 1 )
                                         {
-                                            cancellationToken.Value.ThrowIfCancellationRequested();
+                                            cancellationToken.ThrowIfCancellationRequested();
                                         }
                                     }
                                 }
@@ -346,7 +346,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         }
 
                         // We will wait for a while for all output to be processed.
-                        if ( !cancellationToken.HasValue )
+                        if ( !cancellationToken.CanBeCanceled )
                         {
                             WaitHandle.WaitAll( new WaitHandle[] { stdErrorClosed, stdOutClosed }, 10000 );
                         }
@@ -357,7 +357,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                             while ( !WaitHandle.WaitAll( new WaitHandle[] { stdErrorClosed, stdOutClosed }, 100 ) &&
                                     i++ < 100 )
                             {
-                                cancellationToken.Value.ThrowIfCancellationRequested();
+                                cancellationToken.ThrowIfCancellationRequested();
                             }
                         }
 
