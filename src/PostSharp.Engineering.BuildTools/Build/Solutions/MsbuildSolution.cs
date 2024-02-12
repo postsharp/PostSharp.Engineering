@@ -29,15 +29,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
 
         public override bool Restore( BuildContext context, BuildSettings settings )
         {
-            if ( Path.GetExtension( this.SolutionPath ) != ".sln" )
+            if ( !this.RunMsbuild( context, settings, this.SolutionPath, "Restore" ) )
             {
-                return this.RunMsbuild( context, settings, this.SolutionPath, "Restore" );
+                return false;
             }
-            else
-            {
-                // "msbuild -t Restore" doesn't call the Restore target for projects referencing NuGet packages using packages.config in a solution.
-                // We call the Restore target ourselves on each project in the solution.
 
+            // "msbuild -t Restore" doesn't call the Restore target for projects referencing NuGet packages using packages.config in a solution.
+            // We call the Restore target ourselves on each such project in the solution.
+            if ( Path.GetExtension( this.SolutionPath ) == ".sln" )
+            {
                 var exe = "dotnet";
                 var args = $"sln \"{this.SolutionPath}\" list";
 
@@ -50,25 +50,24 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 }
 
                 // The "dotnet sln list" command output contains a header, so we need to filter the rows.
-                var projectList = slnListOutput.Split( '\r', '\n' ).Where( l => l.EndsWith( "proj", StringComparison.OrdinalIgnoreCase ) ).ToArray();
-
-                if ( projectList.Length == 0 )
-                {
-                    throw new InvalidOperationException();
-                }
+                var projectList = slnListOutput
+                    .Split( '\r', '\n' )
+                    .Where( l => l.EndsWith( "proj", StringComparison.OrdinalIgnoreCase ) )
+                    .Where( p => File.Exists( Path.Combine( Path.GetDirectoryName( p )!, "packages.config" ) ) )
+                    .ToArray();
 
                 foreach ( var project in projectList )
                 {
-                    context.Console.WriteMessage( $"Restoring {project}" );
+                    context.Console.WriteMessage( $"Restoring packages.config of '{project}' project" );
 
                     if ( !this.RunMsbuild( context, settings, project, "Restore" ) )
                     {
                         return false;
                     }
                 }
-
-                return true;
             }
+            
+            return true;
         }
 
         private bool RunMsbuild( BuildContext context, BuildSettings settings, string project, string target, string arguments = "" )
