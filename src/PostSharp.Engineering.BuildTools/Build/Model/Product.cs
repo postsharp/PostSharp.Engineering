@@ -1337,6 +1337,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         <{this.ProductNameWithoutDot}VersionFilePath>{this.VersionsFilePath}</{this.ProductNameWithoutDot}VersionFilePath>
         <{this.ProductNameWithoutDot}BuildNumber>{buildSettings.BuildNumber}</{this.ProductNameWithoutDot}BuildNumber>
         <{this.ProductNameWithoutDot}BuildType>{buildSettings.BuildType}</{this.ProductNameWithoutDot}BuildType>
+        <{this.ProductNameWithoutDot}ArtifactsDirectory>$(MSBuildThisFileDirectory)</{this.ProductNameWithoutDot}ArtifactsDirectory>
         <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);$(MSBuildThisFileDirectory)</RestoreAdditionalProjectSources>
     </PropertyGroup>
     <ItemGroup>";
