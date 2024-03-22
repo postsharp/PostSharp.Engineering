@@ -33,10 +33,10 @@ internal sealed class ProcessInspectOutputCommand : BaseCommand<ProcessInspectOu
             var issueTypeId = issue.Attribute( "TypeId" )!.Value;
             var issueType = issueTypes[issueTypeId];
 
-            var rootPath = settings.SolutionRoot != null
-                ? Path.IsPathRooted( settings.SolutionRoot )
-                    ? settings.SolutionRoot
-                    : Path.Combine( context.RepoDirectory, settings.SolutionRoot )
+            var rootPath = settings.SolutionDirectory != null
+                ? Path.IsPathRooted( settings.SolutionDirectory )
+                    ? settings.SolutionDirectory
+                    : Path.Combine( context.RepoDirectory, settings.SolutionDirectory )
                 : context.RepoDirectory;
 
             var line = int.Parse( issue.Attribute( "Line" )!.Value, CultureInfo.InvariantCulture );

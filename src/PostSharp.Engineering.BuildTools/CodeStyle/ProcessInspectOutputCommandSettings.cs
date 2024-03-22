@@ -1,6 +1,5 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using PostSharp.Engineering.BuildTools.Build.Model;
 using Spectre.Console.Cli;
 using System.ComponentModel;
 
@@ -12,8 +11,8 @@ internal class ProcessInspectOutputCommandSettings : CommonCommandSettings
     [CommandArgument( 0, "<file>" )]
     public string Path { get; init; } = null!;
 
-    [Description( "The root" )]
-    [CommandOption( "-r|--solutionRoot" )]
+    [Description( "The directory that contains the solution that was inspected (paths in the output file are relative to this directory)." )]
+    [CommandOption( "-d|--solutionDirectory" )]
     [DefaultValue( null )]
-    public string? SolutionRoot { get; init; }
+    public string? SolutionDirectory { get; init; }
 }

@@ -26,6 +26,6 @@ internal class InspectCommand : ResharperCommand
 
         var solutionDirectory = Path.GetDirectoryName( solution.SolutionPath );
 
-        ProcessInspectOutputCommand.ExecuteImpl( context, new ProcessInspectOutputCommandSettings() { SolutionRoot = solutionDirectory, Path = outputPath } );
+        ProcessInspectOutputCommand.ExecuteImpl( context, new ProcessInspectOutputCommandSettings() { Path = outputPath, SolutionDirectory = solutionDirectory } );
     }
 }
