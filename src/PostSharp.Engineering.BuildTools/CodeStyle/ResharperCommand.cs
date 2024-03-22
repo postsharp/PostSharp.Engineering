@@ -1,8 +1,11 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using NuGet.Versioning;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.CodeStyle;
 
@@ -31,6 +34,15 @@ internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
                     return false;
                 }
 
+                // Determine the current SDK.
+                ToolInvocationHelper.InvokeTool( context.Console, "dotnet", "--version", Path.GetDirectoryName( solution.SolutionPath ), out _, out var sdkVersionString );
+
+                if (!NuGetVersion.TryParse(sdkVersionString, out var sdkVersion))
+                {
+                    context.Console.WriteError( $"Cannot parse Sdk version '{sdkVersionString}'." );
+                    return false;
+                }
+
                 var command = this.GetCommand( context, solution ).Trim();
 
                 // Exclude user- and machine-specific layers.
@@ -48,7 +60,7 @@ internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
                 
                 // This is to force the tool to use a specific version of the .NET SDK. It does not work without that.
                 // ReSharper disable once StringLiteralTypo
-                command += " --dotnetcoresdk=7.0.100";
+                command += $" --dotnetcoresdk={sdkVersion.ToFullString()}";
 
                 command += " --verbosity=WARN";
 
