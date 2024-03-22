@@ -15,7 +15,7 @@ internal class InspectCommand : ResharperCommand
     {
         var outputPath = Path.Combine( context.RepoDirectory, "artifacts", "logs", "CodeIssues.xml" );
 
-        context.Console.WriteImportantMessage( $"Writing resul to '{outputPath}'." );
+        context.Console.WriteImportantMessage( $"Writing result to '{outputPath}'." );
 
         return $"inspectcode \"{Path.Combine( context.RepoDirectory, solution.SolutionFilterPathForInspectCode ?? solution.SolutionPath )}\" --build -o={outputPath} --severity=WARNING -f=Xml";
     }
