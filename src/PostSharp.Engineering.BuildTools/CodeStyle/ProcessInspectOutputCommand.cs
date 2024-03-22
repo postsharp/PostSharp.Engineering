@@ -33,9 +33,15 @@ internal sealed class ProcessInspectOutputCommand : BaseCommand<ProcessInspectOu
             var issueTypeId = issue.Attribute( "TypeId" )!.Value;
             var issueType = issueTypes[issueTypeId];
 
+            var rootPath = settings.SolutionRoot != null
+                ? Path.IsPathRooted( settings.SolutionRoot )
+                    ? settings.SolutionRoot
+                    : Path.Combine( context.RepoDirectory, settings.SolutionRoot )
+                : context.RepoDirectory;
+
             var line = int.Parse( issue.Attribute( "Line" )!.Value, CultureInfo.InvariantCulture );
             var offsets = issue.Attribute( "Offset" )!.Value.Split( '-' );
-            var file = Path.GetFullPath( Path.Combine( context.RepoDirectory, issue.Attribute( "File" )!.Value ) );
+            var file = Path.GetFullPath( Path.Combine( rootPath, issue.Attribute( "File" )!.Value ) );
             var offset = int.Parse( offsets[0], CultureInfo.InvariantCulture );
             var column = GetColumn( file, line, offset );
 
