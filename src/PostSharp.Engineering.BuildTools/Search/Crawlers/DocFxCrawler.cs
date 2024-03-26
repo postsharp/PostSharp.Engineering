@@ -61,7 +61,7 @@ public abstract class DocFxCrawler
 
         var breadcrumbLinks = document.DocumentNode
             .SelectSingleNode( "//div[@id=\"breadcrum\"]" )
-            .SelectNodes( ".//a|.//span[@class=\"current\"]" )
+            .SelectNodes( "./a|./span[@class=\"current\"]" )
             .ToArray();
 
         var breadcrumb = this.GetBreadcrumbData( breadcrumbLinks );
