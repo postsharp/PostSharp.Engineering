@@ -24,6 +24,8 @@ internal class InspectCommand : ResharperCommand
     {
         var outputPath = Path.Combine( context.RepoDirectory, "artifacts", "logs", "CodeIssues.xml" );
 
-        ProcessInspectOutputCommand.ExecuteImpl( context, new ProcessInspectOutputCommandSettings() { Path = outputPath } );
+        var solutionDirectory = Path.GetDirectoryName( solution.SolutionPath );
+
+        ProcessInspectOutputCommand.ExecuteImpl( context, new ProcessInspectOutputCommandSettings() { Path = outputPath, SolutionDirectory = solutionDirectory } );
     }
 }

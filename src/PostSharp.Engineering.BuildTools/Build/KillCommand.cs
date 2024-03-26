@@ -2,6 +2,7 @@
 
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Management;
 
@@ -16,7 +17,7 @@ namespace PostSharp.Engineering.BuildTools.Build
     {
         protected override bool ExecuteCore( BuildContext context, KillCommandSettings settings )
         {
-            context.Console.WriteHeading( "Killing compiler processes" );
+            context.Console.WriteHeading( "Killing processes" );
 
             var currentSessionId = Process.GetCurrentProcess().SessionId;
 
@@ -25,6 +26,11 @@ namespace PostSharp.Engineering.BuildTools.Build
                 .Where(
                     p =>
                     {
+                        if ( p.ProcessName.StartsWith( "redis", StringComparison.OrdinalIgnoreCase ) )
+                        {
+                            return true;
+                        }
+
                         if ( p.ProcessName.Equals( "VBCSCompiler", StringComparison.OrdinalIgnoreCase )
                              || p.ProcessName.Equals( "MSBuild", StringComparison.OrdinalIgnoreCase )
                              || p.ProcessName.Contains( "PostSharp", StringComparison.OrdinalIgnoreCase ) )
@@ -32,18 +38,10 @@ namespace PostSharp.Engineering.BuildTools.Build
                             return true;
                         }
 
-                        if ( p.ProcessName.Equals( "dotnet", StringComparison.OrdinalIgnoreCase ) )
+                        if ( p.ProcessName.Equals( "dotnet", StringComparison.OrdinalIgnoreCase ) &&
+                             this.ReferencesAny( context, p,  new[] {"Metalama", "VBCSCompiler", "MSBuild"} ) )
                         {
-                            var commandLine = GetCommandLine( p );
-
-                            if ( commandLine != null
-                                 && (commandLine.Contains( "VBCSCompiler", StringComparison.OrdinalIgnoreCase )
-                                     || commandLine.Contains( "MSBuild", StringComparison.OrdinalIgnoreCase )
-                                     || commandLine.Contains( "tool", StringComparison.OrdinalIgnoreCase )
-                                     || commandLine.Contains( "PostSharp", StringComparison.OrdinalIgnoreCase )) )
-                            {
-                                return true;
-                            }
+                            return true;
                         }
 
                         if ( p.ProcessName.Equals( "testhost", StringComparison.OrdinalIgnoreCase )
@@ -64,7 +62,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             {
                 foreach ( var process in processesToKill )
                 {
-                    context.Console.WriteMessage( $"Killing process {process.Id}: {GetCommandLine( process )}" );
+                    context.Console.WriteMessage( $"Killing process {process.Id} ({process.ProcessName}): {GetCommandLine( process )}" );
 
                     if ( !settings.Dry )
                     {
@@ -88,7 +86,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             try
             {
                 using ManagementObjectSearcher searcher =
-                    new( "SELECT CommandLine FROM Win32_Process WHERE ProcessId = " + process.Id );
+                    new( $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {process.Id}" );
 
                 using ( var objects = searcher.Get() )
                 {
@@ -99,6 +97,36 @@ namespace PostSharp.Engineering.BuildTools.Build
             {
                 return null;
             }
+        }
+
+        private bool ReferencesAny( BuildContext context, Process process, string[] substrings )
+        {
+            try
+            {
+                foreach ( ProcessModule module in process.Modules )
+                {
+                    if ( module.FileName != null! )
+                    {
+                        if ( substrings.Any( s => Path.GetFileNameWithoutExtension( module.FileName ).Contains( s, StringComparison.OrdinalIgnoreCase) ) )
+                        {
+                            return true;
+                        }
+                    }
+                }
+
+                return true;
+            }
+            catch ( Exception e )
+            {
+                if ( !process.HasExited )
+                {
+                    context.Console.WriteWarning( $"Cannot enumerate the modules of '{process.Id}': {e.Message}." );
+                }
+
+                return false;
+            }
+
+            return false;
         }
     }
 }
