@@ -172,7 +172,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                 }
                 finally
                 {
-                    throttler!.Release();
+                    throttler.Release();
                     progress.StopTask();
                 }
             }
@@ -191,6 +191,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                     var targetFilePath = Path.Combine( targetDirectory, file.Name );
                     var targetFileRelativePath = Path.GetRelativePath( artifactsDirectory, targetFilePath );
                     var fileProgress = totalProgress.AddTask( targetFileRelativePath, false, file.Length );
+
+                    // ReSharper disable once RedundantSuppressNullableWarningExpression
                     await throttler!.WaitAsync( cancellationToken );
                     fileDownloads.Add( Task.Run( () => DownloadFileAsync( fileProgress, file.Path, targetFilePath ), cancellationToken ) );
                 }
@@ -333,33 +335,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
             if ( builds.Attribute( "count" )!.Value.Equals( "0", StringComparison.Ordinal ) )
             {
-                return false;
-            }
-
-            var build = builds.Elements().ToArray().FirstOrDefault( e => e.Attribute( "id" )!.Value.Equals( buildId, StringComparison.Ordinal ) );
-
-            if ( build == null )
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        public bool IsBuildRunning( ConsoleHelper console, string buildId )
-        {
-            if ( !this.TryGet( TeamCityHelper.TeamCityApiRunningBuildsPath, console, out var response ) )
-            {
-                return false;
-            }
-
-            var document = response.Content.ReadAsXDocument();
-            var builds = document.Root!;
-
-            if ( builds.Attribute( "count" )!.Value.Equals( "0", StringComparison.Ordinal ) )
-            {
-                console.WriteError( "No running TeamCity builds found. This might be a TeamCity API problem." );
-
                 return false;
             }
 
@@ -666,20 +641,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
         public bool TryGetProjectVersionedSettingsConfiguration( ConsoleHelper console, string projectId )
             => this.TryGetDetails( console, $"/app/rest/projects/id:{projectId}/versionedSettings/config" );
 
-        public bool TrySetProjectVersionedSettingsConfiguration( ConsoleHelper console, string projectId, string vcsRootId )
-            => this.TryPost(
-                $"/app/rest/projects/id:{projectId}/versionedSettings/config",
-                $"<versionedSettingsConfig allowUIEditing=\"false\" buildSettingsMode=\"useFromVCS\" format=\"kotlin\" showSettingsChanges=\"true\" synchronizationMode=\"enabled\" vcsRootId=\"{vcsRootId}\" />",
-                console,
-                out _ );
-
-        public bool TryLoadProjectVersionedSettings( ConsoleHelper console, string projectId )
-            => this.TryPost(
-                $"/app/rest/projects/id:{projectId}/versionedSettings/loadSettings",
-                "",
-                console,
-                out _ );
-
         public bool TryGetVcsRootDetails( ConsoleHelper console, string id ) => this.TryGetDetails( console, $"/app/rest/vcs-roots/id:{id}" );
 
         public bool TryGetVcsRoots( ConsoleHelper console, string projectId, [NotNullWhen( true )] out ImmutableArray<(string Id, string Url)>? vcsRoots )
@@ -808,20 +769,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 </vcs-root>";
 
             return this.TryPost( "/app/rest/vcs-roots", payload, console, out _ );
-        }
-
-        public bool TryGetBuildTypeConfiguration( ConsoleHelper console, string buildTypeId, [NotNullWhen( true )] out XDocument? configuration )
-        {
-            if ( !this.TryGet( $"/app/rest/buildTypes/id:{buildTypeId}", console, out var response ) )
-            {
-                configuration = null;
-
-                return false;
-            }
-
-            configuration = response.Content.ReadAsXDocument();
-
-            return true;
         }
 
         public void Dispose()

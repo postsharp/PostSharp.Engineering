@@ -15,7 +15,7 @@ public class TypesenseImportFailedException : Exception
     public TypesenseImportFailedException( IEnumerable<ImportResponse> failedResponses ) : base( "Import failed." )
     {
         var i = 0;
-        this._data = failedResponses.ToDictionary( r => i++, r => r );
+        this._data = failedResponses.ToDictionary( _ => i++, r => r );
     }
 
     public override IDictionary Data => this._data;

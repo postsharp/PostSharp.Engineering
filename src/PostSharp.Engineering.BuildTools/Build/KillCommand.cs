@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -13,6 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Build
     /// <summary>
     /// Kills all processes that may lock build artefacts.
     /// </summary>
+    [UsedImplicitly]
     public class KillCommand : BaseCommand<KillCommandSettings>
     {
         protected override bool ExecuteCore( BuildContext context, KillCommandSettings settings )
@@ -39,7 +41,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                         }
 
                         if ( p.ProcessName.Equals( "dotnet", StringComparison.OrdinalIgnoreCase ) &&
-                             this.ReferencesAny( context, p,  new[] {"Metalama", "VBCSCompiler", "MSBuild"} ) )
+                             ReferencesAny( context, p, new[] { "Metalama", "VBCSCompiler", "MSBuild" } ) )
                         {
                             return true;
                         }
@@ -99,7 +101,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             }
         }
 
-        private bool ReferencesAny( BuildContext context, Process process, string[] substrings )
+        private static bool ReferencesAny( BuildContext context, Process process, string[] substrings )
         {
             try
             {
@@ -107,7 +109,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                 {
                     if ( module.FileName != null! )
                     {
-                        if ( substrings.Any( s => Path.GetFileNameWithoutExtension( module.FileName ).Contains( s, StringComparison.OrdinalIgnoreCase) ) )
+                        if ( substrings.Any( s => Path.GetFileNameWithoutExtension( module.FileName ).Contains( s, StringComparison.OrdinalIgnoreCase ) ) )
                         {
                             return true;
                         }
@@ -125,8 +127,6 @@ namespace PostSharp.Engineering.BuildTools.Build
 
                 return false;
             }
-
-            return false;
         }
     }
 }

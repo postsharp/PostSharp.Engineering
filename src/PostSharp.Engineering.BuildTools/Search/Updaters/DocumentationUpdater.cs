@@ -5,7 +5,6 @@ using PostSharp.Engineering.BuildTools.Search.Backends;
 using PostSharp.Engineering.BuildTools.Search.Backends.Typesense;
 using PostSharp.Engineering.BuildTools.Search.Crawlers;
 using PostSharp.Engineering.BuildTools.Search.Indexers;
-using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Typesense;

@@ -14,9 +14,9 @@ using System.Threading;
 
 namespace PostSharp.Engineering.BuildTools.Utilities
 {
+    [PublicAPI]
     public static class ToolInvocationHelper
     {
-        [PublicAPI] // Used by Metalama.Compiler
         public static bool InvokePowershell(
             ConsoleHelper console,
             string fileName,

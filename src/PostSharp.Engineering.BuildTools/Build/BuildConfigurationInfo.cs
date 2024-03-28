@@ -8,7 +8,6 @@ namespace PostSharp.Engineering.BuildTools.Build;
 /// <summary>
 /// Characteristics of a <see cref="BuildConfiguration"/>.
 /// </summary>
-/// <param name="MSBuildName">Name of the corresponding MSBuild configuration. For <see cref="BuildConfiguration.Public"/>, this value is <c>Release</c>.</param>
 /// <param name="RequiresSigning">Determines whether artifacts in this build configuration must be signed.</param>
 /// <param name="BuildTriggers">List of build triggers to be configured in the build server.</param>
 /// <param name="PublicPublishers">List of publishers of public artefacts.</param>

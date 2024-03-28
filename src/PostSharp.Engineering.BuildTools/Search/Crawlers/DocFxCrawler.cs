@@ -1,6 +1,7 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using HtmlAgilityPack;
+using JetBrains.Annotations;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -12,6 +13,7 @@ using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.BuildTools.Search.Crawlers;
 
+[PublicAPI]
 public abstract class DocFxCrawler
 {
     private static readonly char _newLineCharacter = Environment.NewLine[^1];
@@ -60,7 +62,9 @@ public abstract class DocFxCrawler
         }
 
         var breadcrumbLinks = document.DocumentNode
-            .SelectSingleNode( "//div[@id=\"breadcrum\"]" )
+
+            // ReSharper disable once StringLiteralTypo
+            .SelectSingleNode( "//div[@id=\"breadcrum\"]" ) // Typo in the HelpServer
             .SelectNodes( "./a|./span[@class=\"current\"]" )
             .ToArray();
 

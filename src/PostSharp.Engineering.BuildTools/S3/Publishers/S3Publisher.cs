@@ -11,7 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 
-namespace PostSharp.Engineering.BuildTools.AWS.S3.Publishers
+namespace PostSharp.Engineering.BuildTools.S3.Publishers
 {
     public class S3Publisher : ArtifactPublisher
     {

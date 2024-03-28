@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 
 namespace PostSharp.Engineering.BuildTools;
 
+// ReSharper disable once InconsistentNaming
 internal static class MSBuildInitializer
 {
     private static bool _isInitialized;

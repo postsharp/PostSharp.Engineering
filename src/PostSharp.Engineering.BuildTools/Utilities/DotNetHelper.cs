@@ -99,6 +99,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             {
                 // The command `dotnet run SomeProject.csproj` does not work, it requires explicit argument name.
                 projectPrefix = "--project ";
+
                 // dotnet run does not support --nologo.
                 nologo = string.Empty;
             }

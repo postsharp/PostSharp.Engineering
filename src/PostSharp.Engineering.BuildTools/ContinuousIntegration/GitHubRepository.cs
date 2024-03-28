@@ -3,8 +3,6 @@
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.Diagnostics.CodeAnalysis;
-using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;

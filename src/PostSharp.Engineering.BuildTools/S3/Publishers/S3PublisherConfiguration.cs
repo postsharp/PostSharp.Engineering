@@ -1,10 +1,12 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using Amazon;
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
 
-namespace PostSharp.Engineering.BuildTools.AWS.S3.Publishers
+namespace PostSharp.Engineering.BuildTools.S3.Publishers
 {
+    [PublicAPI]
     public class S3PublisherConfiguration
     {
         public ParametricString PackageFileName { get; init; }

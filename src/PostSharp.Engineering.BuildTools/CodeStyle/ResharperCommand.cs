@@ -3,7 +3,6 @@
 using NuGet.Versioning;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
-using PostSharp.Engineering.BuildTools.Build.Solutions;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System.IO;
 
@@ -37,9 +36,10 @@ internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
                 // Determine the current SDK.
                 ToolInvocationHelper.InvokeTool( context.Console, "dotnet", "--version", Path.GetDirectoryName( solution.SolutionPath ), out _, out var sdkVersionString );
 
-                if (!NuGetVersion.TryParse(sdkVersionString, out var sdkVersion))
+                if ( !NuGetVersion.TryParse( sdkVersionString, out var sdkVersion ) )
                 {
                     context.Console.WriteError( $"Cannot parse Sdk version '{sdkVersionString}'." );
+
                     return false;
                 }
 

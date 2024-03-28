@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
@@ -13,6 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
     /// Represents the definition of a dependency. Dependencies are typically defined in PostSharp.Engineering. Dependency definitions
     /// must not define any property that depends on the referencing product. Any such property must be defined in <see cref="ParametrizedDependency"/>.
     /// </summary>
+    [PublicAPI]
     public class DependencyDefinition
     {
         [return: NotNullIfNotNull( "dependency" )]
@@ -43,7 +45,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public CiProjectConfiguration CiConfiguration { get; }
 
-        public bool IsVersioned { get; init; } = true;
+        public bool IsVersioned { get; }
 
         public bool GenerateSnapshotDependency { get; init; } = true;
 
@@ -59,6 +61,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             => this.PrivateArtifactsDirectory.ToString(
                 new BuildInfo( null, configuration.ToString().ToLowerInvariant(), this.MSBuildConfiguration[configuration], null ) );
 
+        // ReSharper disable once InconsistentNaming
         public ConfigurationSpecific<string> MSBuildConfiguration { get; init; } = new( "Debug", "Release", "Release" );
 
         /// <summary>
