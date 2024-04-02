@@ -648,7 +648,12 @@ public static class TeamCityHelper
                 projectDependenciesByProjectId.Add( publicBuildConfiguration.ProjectId, projectDependencies );
             }
 
-            projectDependencies.AddRange( publicBuildConfiguration.SnapshotDependencies.Select( d => buildConfigurationsById[d].ProjectId ) );
+            // We check for presence, because some dependencies can come from other project families.
+            // E.g. PostSharp for Metalama.Vsx.
+            projectDependencies.AddRange(
+                publicBuildConfiguration.SnapshotDependencies.Select( d => buildConfigurationsById.TryGetValue( d, out var c ) ? c.ProjectId : null )
+                    .Where( c => c != null )
+                    .Select( c => c! ) );
         }
 
         const string versionBumpObjectName = "VersionBump";
