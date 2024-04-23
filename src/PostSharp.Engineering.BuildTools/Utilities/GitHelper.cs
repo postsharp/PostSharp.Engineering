@@ -546,4 +546,26 @@ public static class GitHelper
 
         return true;
     }
+
+    public static bool TryGetLatestCommitDate( BuildContext context, [NotNullWhen( true )] out string? buildDate )
+    {
+        if ( !ToolInvocationHelper.InvokeTool(
+                 context.Console,
+                 "git",
+                 $"log -1 --format=%cd --date=iso-strict",
+                 context.RepoDirectory,
+                 out var exitCode,
+                 out var output )
+             || exitCode != 0 )
+        {
+            context.Console.WriteError( output );
+            buildDate = null;
+
+            return false;
+        }
+
+        buildDate = output.Trim();
+
+        return true;
+    }
 }

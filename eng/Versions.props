@@ -23,6 +23,7 @@
     <PropertyGroup>
         <AssemblyVersion>$(PostSharpEngineeringAssemblyVersion)</AssemblyVersion>
         <Version>$(PostSharpEngineeringVersion)</Version>
+        <BuildDate>$(PostSharpEngineeringBuildDate)</BuildDate>
     </PropertyGroup>
 
 </Project>
