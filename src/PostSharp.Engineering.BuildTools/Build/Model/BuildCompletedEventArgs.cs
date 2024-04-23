@@ -23,6 +23,11 @@ public class BuildCompletedEventArgs : EventArgs
     /// Gets the full path to the directory containing private artefacts.
     /// </summary>
     public string PrivateArtifactsDirectory { get; }
+    
+    /// <summary>
+    /// Gets the full path to the directory containing public artefacts.
+    /// </summary>
+    public string PublicArtifactsDirectory { get; }
 
     /// <summary>
     /// Gets or sets a value indicating whether the processing of the event failed. If an event handler
@@ -30,10 +35,11 @@ public class BuildCompletedEventArgs : EventArgs
     /// </summary>
     public bool IsFailed { get; set; }
 
-    internal BuildCompletedEventArgs( BuildContext context, BuildSettings settings, string privateArtifactsDirectory )
+    internal BuildCompletedEventArgs( BuildContext context, BuildSettings settings, string privateArtifactsDirectory, string publicArtifactsDirectory )
     {
         this.Context = context;
         this.Settings = settings;
         this.PrivateArtifactsDirectory = privateArtifactsDirectory;
+        this.PublicArtifactsDirectory = publicArtifactsDirectory;
     }
 }
