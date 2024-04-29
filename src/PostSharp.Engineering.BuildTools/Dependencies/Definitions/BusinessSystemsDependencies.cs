@@ -11,14 +11,14 @@ public static class BusinessSystemsDependencies
 {
     private class BusinessSystemsDependencyDefinition : DependencyDefinition
     {
-        public BusinessSystemsDependencyDefinition( string dependencyName )
+        public BusinessSystemsDependencyDefinition( string dependencyName, bool isGitHub = false )
             : base(
                 Family,
                 dependencyName,
                 "master",
                 null,
-                new AzureDevOpsRepository( Family.Name, dependencyName ),
-                TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "Websites And Business Systems" ), "webdeploy" ),
+                isGitHub ? new GitHubRepository( dependencyName ) : new AzureDevOpsRepository( Family.Name, dependencyName ),
+                TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "Websites And Business Systems" ), "webdeployCloud" ),
                 false ) { }
     }
 
@@ -29,4 +29,6 @@ public static class BusinessSystemsDependencies
     public static DependencyDefinition HelpBrowser { get; } = new BusinessSystemsDependencyDefinition( "HelpBrowser" );
 
     public static DependencyDefinition PostSharpWeb { get; } = new BusinessSystemsDependencyDefinition( "PostSharpWeb" );
+    
+    public static DependencyDefinition MetalamaMarketplace { get; } = new BusinessSystemsDependencyDefinition( "MetalamaMarketplace", true );
 }
