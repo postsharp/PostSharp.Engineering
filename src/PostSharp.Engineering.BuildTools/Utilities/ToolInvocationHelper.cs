@@ -376,7 +376,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 }
             }
 
-            return true;
+            return false;
         }
     }
 }
