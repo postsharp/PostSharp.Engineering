@@ -334,11 +334,15 @@ public static class TeamCityHelper
             pullRequestStatusCheckBuildType );
     }
 
-    private static string ReplaceDots( string input, string substitute ) => input.Replace( ".", substitute, StringComparison.Ordinal );
+    private static string ReplaceDots( string input, string substitute = "" ) => input.Replace( ".", substitute, StringComparison.Ordinal );
+    
+    private static string ReplaceSpaces( string input, string substitute = "" ) => input.Replace( " ", substitute, StringComparison.Ordinal );
+
+    private static string GetProjectIdFromName( string projectName ) => ReplaceDots( ReplaceSpaces( projectName ) );
 
     public static TeamCityProjectId GetProjectIdWithParentProjectId( string projectName, string? parentProjectId )
     {
-        var subProjectId = ReplaceDots( projectName, "" ).Replace( " ", "", StringComparison.Ordinal );
+        var subProjectId = GetProjectIdFromName( projectName );
 
         var projectId = parentProjectId == null ? subProjectId : $"{parentProjectId}_{subProjectId}";
 
@@ -355,11 +359,11 @@ public static class TeamCityHelper
         }
         else
         {
-            parentProjectId = ReplaceDots( parentProjectName, "" );
+            parentProjectId = GetProjectIdFromName( parentProjectName );
 
             if ( productFamilyVersion != null )
             {
-                parentProjectId = $"{parentProjectId}_{parentProjectId}{ReplaceDots( productFamilyVersion, "" )}";
+                parentProjectId = $"{parentProjectId}_{parentProjectId}{ReplaceDots( productFamilyVersion )}";
             }
         }
 
