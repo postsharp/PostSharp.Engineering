@@ -38,14 +38,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// </summary>
         /// <param name="context"></param>
         /// <param name="settings"></param>
-        /// <param name="configuration"></param>
         /// <returns></returns>
         private bool TryLoadDefaultDependencies(
             BuildContext context,
-            CommonCommandSettings settings,
-            BuildConfiguration configuration )
+            CommonCommandSettings settings )
         {
-            if ( !VersionFile.TryRead( context, settings, configuration, out var versionFile ) )
+            if ( !VersionFile.TryRead( context, settings, out var versionFile ) )
             {
                 return false;
             }
@@ -68,7 +66,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             file = new DependenciesOverrideFile( configurationSpecificVersionFilePath, configuration );
 
-            if ( !file.TryLoadDefaultDependencies( context, settings, configuration ) )
+            if ( !file.TryLoadDefaultDependencies( context, settings ) )
             {
                 file = null;
 
