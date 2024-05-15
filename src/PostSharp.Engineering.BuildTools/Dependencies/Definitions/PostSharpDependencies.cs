@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharpPackageDependencies = PostSharp.Engineering.BuildTools.Dependencies.Definitions.PostSharpDependencies.V2024_1;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 
@@ -25,13 +26,16 @@ public static partial class PostSharpDependencies
                 new GitHubRepository( dependencyName ),
                 TeamCityHelper.CreateConfiguration(
                     TeamCityHelper.GetProjectId( dependencyName, _projectName ),
-                    "caravela04",
-                    false,
-                    isCloudInstance: false ),
+                    "caravela04cloud",
+                    false ),
                 false ) { }
     }
 
-    public static ProductFamily DocumentationFamily { get; } = new( "PostSharp.Documentation", "1.0", DevelopmentDependencies.Family );
+    public static ProductFamily DocumentationFamily { get; } = new(
+        "PostSharp.Documentation",
+        "1.0",
+        DevelopmentDependencies.Family,
+        PostSharpPackageDependencies.Family );
 
     public static DependencyDefinition PostSharpDocumentation { get; } = new PostSharpDocumentationDependencyDefinition(
         "PostSharp.Documentation",
