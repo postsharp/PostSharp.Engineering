@@ -26,8 +26,12 @@
     <!-- Stylecop -->
     <ItemGroup Condition="'$(DisableCodeQuality)'!='True' AND '$(DisableStyleCop)'!='True'">
         <PackageReference Include="StyleCop.Analyzers"
+                          VersionOverride="$(StyleCopVersion)"
+                          Condition="'$(ManagePackageVersionsCentrally)'=='true' AND '$(EnforceCodeStyleInBuild)'=='True'"
+                          PrivateAssets="All" />
+        <PackageReference Include="StyleCop.Analyzers"
                           Version="$(StyleCopVersion)"
-                          Condition="'$(EnforceCodeStyleInBuild)'=='True'"
+                          Condition="'$(ManagePackageVersionsCentrally)'!='true' AND '$(EnforceCodeStyleInBuild)'=='True'"
                           PrivateAssets="All" />
         <AdditionalFiles Include="$(MSBuildThisFileDirectory)\assets\stylecop.json"
                          Condition="'$(EnforceCodeStyleInBuild)'=='True'"
