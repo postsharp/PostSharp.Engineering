@@ -1,6 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using PostSharp.Engineering.BuildTools.Build.Model;
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.S3.Publishers;
 using System;
 using System.Collections.Generic;
@@ -9,58 +9,51 @@ using System.Net.Http;
 
 namespace PostSharp.Engineering.BuildTools.Build.Publishers;
 
+[PublicAPI]
 public class InvalidatingS3Publisher : S3Publisher
 {
-    private readonly string _invalidationApiKeyEnvironmentVariableName;
-    private readonly string _invalidatedUrlFormat;
-
     public InvalidatingS3Publisher(
         IReadOnlyCollection<S3PublisherConfiguration> configurations,
         string invalidationApiKeyEnvironmentVariableName,
         string invalidatedUrlFormat ) : base( configurations )
     {
-        this._invalidationApiKeyEnvironmentVariableName = invalidationApiKeyEnvironmentVariableName;
-        this._invalidatedUrlFormat = invalidatedUrlFormat;
-    }
-
-    public override SuccessCode PublishFile(
-        BuildContext context,
-        PublishSettings settings,
-        string file,
-        BuildInfo buildInfo,
-        BuildConfigurationInfo configuration )
-    {
-        var docApiKey = Environment.GetEnvironmentVariable( this._invalidationApiKeyEnvironmentVariableName );
-
-        if ( string.IsNullOrEmpty( docApiKey ) )
+        this.PublishingStarted += args =>
         {
-            context.Console.WriteError( $"The {this._invalidationApiKeyEnvironmentVariableName} environment variable is not defined." );
+            var docApiKey = Environment.GetEnvironmentVariable( invalidationApiKeyEnvironmentVariableName );
 
-            return SuccessCode.Fatal;
-        }
+            if ( string.IsNullOrEmpty( docApiKey ) )
+            {
+                args.Context.Console.WriteError( $"The {invalidationApiKeyEnvironmentVariableName} environment variable is not defined." );
 
-        var successCode = base.PublishFile( context, settings, file, buildInfo, configuration );
+                args.Success = false;
+            }
+        };
 
-        if ( successCode != SuccessCode.Success )
+        this.PublishingCompleted += args =>
         {
-            return successCode;
-        }
+            if ( !args.Success )
+            {
+                return;
+            }
 
-        string GetUrl( string apiKey ) => string.Format( CultureInfo.InvariantCulture, this._invalidatedUrlFormat, apiKey );
+            var docApiKey = Environment.GetEnvironmentVariable( invalidationApiKeyEnvironmentVariableName )!;
 
-        context.Console.WriteImportantMessage( $"Invalidating {GetUrl( "***" )}" );
+            string GetUrl( string apiKey ) => string.Format( CultureInfo.InvariantCulture, invalidatedUrlFormat, apiKey );
 
-        var url = GetUrl( docApiKey );
-        using var httpClient = new HttpClient();
-        var invalidationResponse = httpClient.GetAsync( url ).GetAwaiter().GetResult();
+            var loggedUrl = GetUrl( "***" );
 
-        if ( invalidationResponse.StatusCode != System.Net.HttpStatusCode.OK )
-        {
-            context.Console.WriteError( "Failed to invalidate documentation cache." );
+            args.Context.Console.WriteImportantMessage( $"Invalidating {loggedUrl}" );
 
-            return SuccessCode.Fatal;
-        }
+            var url = GetUrl( docApiKey );
+            using var httpClient = new HttpClient();
+            var invalidationResponse = httpClient.GetAsync( url ).GetAwaiter().GetResult();
 
-        return SuccessCode.Success;
+            if ( invalidationResponse.StatusCode != System.Net.HttpStatusCode.OK )
+            {
+                args.Context.Console.WriteError( $"Failed to invalidate {loggedUrl}." );
+
+                args.Success = false;
+            }
+        };
     }
 }
