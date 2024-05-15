@@ -26,7 +26,19 @@ public class ManyDotNetSolutions : Solution
         this.IsTestOnly = true;
         this.BuildMethod = Model.BuildMethod.Build;
     }
-    
+
+    public override IEnumerable<Solution> GetFormattableSolutions(BuildContext context)
+    {
+        if ( !this.TryGetSolutions( context, out var solutions ) )
+        {
+            return Enumerable.Empty<Solution>();
+        }
+        else
+        {
+            return solutions;
+        }
+    }
+
     private bool BuildOrTest( BuildContext context, BuildSettings settings, bool test, string verb )
     {
         var failedProjects = new List<DotNetSolution>();

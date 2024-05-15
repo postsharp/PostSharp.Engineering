@@ -25,16 +25,27 @@ internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
 
         foreach ( var solution in context.Product.Solutions )
         {
-            if ( solution.CanFormatCode )
+            if ( !solution.CanFormatCode )
             {
-                // Before formatting, the solution must be built.
-                if ( !solution.Build( context, buildSettings ) )
-                {
-                    return false;
-                }
+                continue;
+            }
 
+            // Before formatting, the solution must be built.
+            if ( !solution.Build( context, buildSettings ) )
+            {
+                return false;
+            }
+
+            foreach ( var formattableSolution in solution.GetFormattableSolutions( context ) )
+            {
                 // Determine the current SDK.
-                ToolInvocationHelper.InvokeTool( context.Console, "dotnet", "--version", Path.GetDirectoryName( solution.SolutionPath ), out _, out var sdkVersionString );
+                ToolInvocationHelper.InvokeTool(
+                    context.Console,
+                    "dotnet",
+                    "--version",
+                    Path.GetDirectoryName( formattableSolution.SolutionPath ),
+                    out _,
+                    out var sdkVersionString );
 
                 if ( !NuGetVersion.TryParse( sdkVersionString, out var sdkVersion ) )
                 {
@@ -43,7 +54,7 @@ internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
                     return false;
                 }
 
-                var command = this.GetCommand( context, solution ).Trim();
+                var command = this.GetCommand( context, formattableSolution ).Trim();
 
                 // Exclude user- and machine-specific layers.
                 command += " --disable-settings-layers:\"GlobalAll;GlobalPerProduct;SolutionPersonal;ProjectPersonal\"";
@@ -51,13 +62,13 @@ internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
                 // Exclude .nuget directory to prevent formatting the code inside NuGet packages.
                 command += " --exclude:\"**\\.nuget\\**\\*";
 
-                if ( solution.FormatExclusions is { Length: > 0 } )
+                if ( formattableSolution.FormatExclusions is { Length: > 0 } )
                 {
-                    command += $";{string.Join( ';', solution.FormatExclusions )}";
+                    command += $";{string.Join( ';', formattableSolution.FormatExclusions )}";
                 }
 
                 command += "\"";
-                
+
                 // This is to force the tool to use a specific version of the .NET SDK. It does not work without that.
                 // ReSharper disable once StringLiteralTypo
                 command += $" --dotnetcoresdk={sdkVersion.ToFullString()}";
@@ -69,7 +80,7 @@ internal abstract class ResharperCommand : BaseCommand<CommonCommandSettings>
                     return false;
                 }
 
-                this.OnSuccessfulExecution( context, solution );
+                this.OnSuccessfulExecution( context, formattableSolution );
             }
         }
 

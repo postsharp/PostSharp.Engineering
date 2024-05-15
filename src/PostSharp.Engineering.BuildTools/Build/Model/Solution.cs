@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 
@@ -92,6 +93,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// </summary>
         public abstract bool Restore( BuildContext context, BuildSettings settings );
 
+        public virtual IEnumerable<Solution> GetFormattableSolutions(BuildContext context) => new[] {this};
         protected Solution( string solutionPath )
         {
             this.SolutionPath = solutionPath;
