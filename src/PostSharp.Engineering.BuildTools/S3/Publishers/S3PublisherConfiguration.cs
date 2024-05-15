@@ -15,7 +15,7 @@ namespace PostSharp.Engineering.BuildTools.S3.Publishers
 
         public string BucketName { get; init; }
 
-        public string KeyName { get; init; }
+        public ParametricString KeyName { get; init; }
 
         public S3PublisherConfiguration(
             ParametricString packageFileName,

@@ -225,15 +225,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool IsBundle { get; init; }
 
-        private string GetPrivateArtifactsDirectory( BuildContext context, BuildInfo versionInfo )
+        private string GetPrivateArtifactsDirectory( BuildContext context, BuildInfo buildInfo )
             => Path.Combine(
                 context.RepoDirectory,
-                this.PrivateArtifactsDirectory.ToString( versionInfo ) );
+                this.PrivateArtifactsDirectory.ToString( buildInfo ) );
         
-        private string GetPublicArtifactsDirectory( BuildContext context, BuildInfo versionInfo )
+        private string GetPublicArtifactsDirectory( BuildContext context, BuildInfo buildInfo )
             => Path.Combine(
                 context.RepoDirectory,
-                this.PublicArtifactsDirectory.ToString( versionInfo ) );
+                this.PublicArtifactsDirectory.ToString( buildInfo ) );
 
         public bool Build( BuildContext context, BuildSettings settings )
         {
@@ -323,9 +323,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.DeleteImportFile( context );
 
             // We have to read the version from the file we have generated - using MSBuild, because it contains properties.
-            var versionInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) );
+            var buildInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) );
 
-            var privateArtifactsDirectory = this.GetPrivateArtifactsDirectory( context, versionInfo );
+            var privateArtifactsDirectory = this.GetPrivateArtifactsDirectory( context, buildInfo );
 
             // Build.
             if ( !this.BuildCore( context, settings ) )
@@ -333,10 +333,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            var publicArtifactsDirectory = this.GetPublicArtifactsDirectory( context, versionInfo );
+            var publicArtifactsDirectory = this.GetPublicArtifactsDirectory( context, buildInfo );
 
             // Allow for some customization before we create the zip file and copy to the public directory.
-            var eventArgs = new BuildCompletedEventArgs( context, settings, privateArtifactsDirectory, publicArtifactsDirectory );
+            var eventArgs = new BuildCompletedEventArgs( context, settings, buildInfo, privateArtifactsDirectory, publicArtifactsDirectory );
             this.BuildCompleted?.Invoke( eventArgs );
 
             if ( eventArgs.IsFailed )
@@ -345,9 +345,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Check that the build produced the expected artifacts.
-            var allFilesPattern = this.PublicArtifacts.Appends( this.PrivateArtifacts );
+            var allFilesPattern = this.PublicArtifacts.Append( this.PrivateArtifacts );
 
-            if ( !allFilesPattern.Verify( context, privateArtifactsDirectory, versionInfo ) )
+            if ( !allFilesPattern.Verify( context, privateArtifactsDirectory, buildInfo ) )
             {
                 return false;
             }
@@ -357,7 +357,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 if ( settings.CreateZip )
                 {
-                    var zipFile = Path.Combine( directory, $"{this.ProductName}-{versionInfo.PackageVersion}.zip" );
+                    var zipFile = Path.Combine( directory, $"{this.ProductName}-{buildInfo.PackageVersion}.zip" );
 
                     context.Console.WriteMessage( $"Creating '{zipFile}'." );
                     var tempFile = Path.Combine( Path.GetTempPath(), Guid.NewGuid() + ".zip" );
@@ -405,7 +405,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteHeading( "Copying public artifacts" );
                 var filePatternMatches = new List<FilePatternMatch>();
 
-                this.PublicArtifacts.TryGetFiles( privateArtifactsDirectory, versionInfo, filePatternMatches );
+                this.PublicArtifacts.TryGetFiles( privateArtifactsDirectory, buildInfo, filePatternMatches );
                 IEnumerable<string> files = filePatternMatches.Select( m => m.Path ).ToArray();
 
                 // Automatically include respective symbol NuGet packages.
@@ -524,7 +524,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             
             this.ArtifactsPrepared?.Invoke( eventArgs );
 
-            context.Console.WriteSuccess( $"Building the whole {this.ProductName} product was successful. Package version: {versionInfo.PackageVersion}." );
+            context.Console.WriteSuccess( $"Building the whole {this.ProductName} product was successful. Package version: {buildInfo.PackageVersion}." );
 
             return true;
         }
@@ -857,11 +857,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // Raise the post-test event.
             if ( this.TestCompleted != null )
             {
-                var versionInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
-                var privateArtifactsDirectory = this.GetPrivateArtifactsDirectory( context, versionInfo );
-                var publicArtifactsDirectory = this.GetPublicArtifactsDirectory( context, versionInfo );
+                var buildInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
+                var privateArtifactsDirectory = this.GetPrivateArtifactsDirectory( context, buildInfo );
+                var publicArtifactsDirectory = this.GetPublicArtifactsDirectory( context, buildInfo );
 
-                var eventArgs = new BuildCompletedEventArgs( context, settings, privateArtifactsDirectory, publicArtifactsDirectory );
+                var eventArgs = new BuildCompletedEventArgs( context, settings, buildInfo, privateArtifactsDirectory, publicArtifactsDirectory );
                 this.TestCompleted?.Invoke( eventArgs );
             }
 
