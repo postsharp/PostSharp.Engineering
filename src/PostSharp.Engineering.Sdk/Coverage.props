@@ -25,7 +25,11 @@
 
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Condition="'$(ManagePackageVersionsCentrally)'=='true'">
+        <PackageReference Include="coverlet.collector" VersionOverride="$(CoverletVersion)" />
+        <PackageReference Include="coverlet.msbuild" VersionOverride="$(CoverletVersion)" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(ManagePackageVersionsCentrally)'!='true'">
         <PackageReference Include="coverlet.collector" Version="$(CoverletVersion)" />
         <PackageReference Include="coverlet.msbuild" Version="$(CoverletVersion)" />
     </ItemGroup>
