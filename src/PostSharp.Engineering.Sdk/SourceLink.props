@@ -20,7 +20,13 @@
 
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Condition="'$(ManagePackageVersionsCentrally)'=='true'">
+        <PackageReference Include="Microsoft.SourceLink.AzureRepos.Git" VersionOverride="8.0.0" PrivateAssets="All"
+                          Condition="'$(RepoKind)'=='AzureRepos'" />
+        <PackageReference Include="Microsoft.SourceLink.GitHub" VersionOverride="8.0.0" PrivateAssets="All"
+                          Condition="'$(RepoKind)'=='GitHub'" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(ManagePackageVersionsCentrally)'!='true'">
         <PackageReference Include="Microsoft.SourceLink.AzureRepos.Git" Version="8.0.0" PrivateAssets="All"
                           Condition="'$(RepoKind)'=='AzureRepos'" />
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"
