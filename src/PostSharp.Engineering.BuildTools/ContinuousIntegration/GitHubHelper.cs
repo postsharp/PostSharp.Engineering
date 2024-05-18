@@ -2,6 +2,7 @@
 
 using Octokit;
 using Octokit.GraphQL;
+using Octokit.GraphQL.Core;
 using Octokit.GraphQL.Model;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -10,7 +11,9 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Threading.Tasks;
+using Connection = Octokit.GraphQL.Connection;
 using Environment = System.Environment;
+using ProductHeaderValue = Octokit.ProductHeaderValue;
 using PullRequestMergeMethod = Octokit.GraphQL.Model.PullRequestMergeMethod;
 using PullRequestReviewEvent = Octokit.PullRequestReviewEvent;
 
@@ -42,7 +45,7 @@ public static class GitHubHelper
     }
 
     private static GitHubClient ConnectRestApi( string token )
-        => new( new Octokit.ProductHeaderValue( _productHeaderName, _productHeaderVersion ) ) { Credentials = new Credentials( token ) };
+        => new( new ProductHeaderValue( _productHeaderName, _productHeaderVersion ) ) { Credentials = new Credentials( token ) };
 
     private static bool TryConnectRestApi(
         ConsoleHelper console,
@@ -61,7 +64,7 @@ public static class GitHubHelper
         return true;
     }
 
-    private static bool TryConnectGraphQl( ConsoleHelper console, [NotNullWhen( true )] out Octokit.GraphQL.Connection? connection )
+    private static bool TryConnectGraphQl( ConsoleHelper console, [NotNullWhen( true )] out Connection? connection )
     {
         if ( !TryGetToken( console, out var token ) )
         {
@@ -70,7 +73,7 @@ public static class GitHubHelper
             return false;
         }
 
-        connection = new( new Octokit.GraphQL.ProductHeaderValue( _productHeaderName, _productHeaderVersion ), token );
+        connection = new Connection( new Octokit.GraphQL.ProductHeaderValue( _productHeaderName, _productHeaderVersion ), token );
 
         return true;
     }
@@ -159,7 +162,11 @@ public static class GitHubHelper
 
         var enableAutoMergeMutation = new Mutation()
             .EnablePullRequestAutoMerge(
-                new( new() { AuthorEmail = authorEmail, CommitHeadline = title, MergeMethod = PullRequestMergeMethod.Merge, PullRequestId = pullRequestId } ) )
+                new Arg<EnablePullRequestAutoMergeInput>(
+                    new EnablePullRequestAutoMergeInput
+                    {
+                        AuthorEmail = authorEmail, CommitHeadline = title, MergeMethod = PullRequestMergeMethod.Merge, PullRequestId = pullRequestId
+                    } ) )
             .Select( am => am.ClientMutationId ) // We need to select something to avoid ResponseDeserializerException
             .Compile();
 
@@ -196,22 +203,22 @@ public static class GitHubHelper
 
         var ruleMutation = new Mutation()
             .CreateBranchProtectionRule(
-                new(
-                    new()
+                new Arg<CreateBranchProtectionRuleInput>(
+                    new CreateBranchProtectionRuleInput
                     {
                         RepositoryId = repositoryId,
                         Pattern = branch,
                         RequiresApprovingReviews = true,
                         RequiredApprovingReviewCount = 1,
                         RequiresStatusChecks = buildStatusName != null,
-                        
+
                         // Don't require the branch to be up to date.
                         RequiresStrictStatusChecks = false,
                         RequiredStatusChecks =
                             buildStatusName == null
-                                ? Array.Empty<RequiredStatusCheckInput>()
+                                ? []
                                 : new[] { new RequiredStatusCheckInput { Context = $"{buildStatusGenre}/{buildStatusName}" } },
-                        RequiresConversationResolution = true,
+                        RequiresConversationResolution = true
                     } ) )
             .Select( r => r.BranchProtectionRule ) // We need to select something to avoid ResponseDeserializerException
             .Select( r => r.Pattern )
@@ -230,14 +237,14 @@ public static class GitHubHelper
 
             ruleMutation = new Mutation()
                 .CreateBranchProtectionRule(
-                    new(
-                        new()
+                    new Arg<CreateBranchProtectionRuleInput>(
+                        new CreateBranchProtectionRuleInput
                         {
                             RepositoryId = repositoryId,
                             Pattern = branch,
                             RequiresApprovingReviews = true,
                             RequiredApprovingReviewCount = 1,
-                            RequiresConversationResolution = true,
+                            RequiresConversationResolution = true
                         } ) )
                 .Select( r => r.BranchProtectionRule ) // We need to select something to avoid ResponseDeserializerException
                 .Select( r => r.Pattern )
@@ -251,7 +258,7 @@ public static class GitHubHelper
 
         return true;
     }
-    
+
     public static async Task<bool> TryPrintBranchPoliciesAsync(
         BuildContext context,
         GitHubRepository gitHubRepository )
@@ -269,10 +276,10 @@ public static class GitHubHelper
             {
                 continue;
             }
-            
+
             context.Console.WriteMessage( $"r.{property.Name}," );
         }
-        
+
         context.Console.WriteMessage( $"" );
 
         context.Console.WriteMessage( $"Getting protection rules." );
@@ -300,16 +307,16 @@ public static class GitHubHelper
                     r.RequiresStatusChecks,
                     r.RequiresStrictStatusChecks,
                     r.RestrictsPushes,
-                    r.RestrictsReviewDismissals,
+                    r.RestrictsReviewDismissals
                 } )
             .Compile();
-        
+
         var rules = await graphQl.Run( branchProtectionRulesQuery );
 
         context.Console.WriteMessage( "" );
-        
+
         var i = 0;
-        
+
         foreach ( var rule in rules )
         {
             context.Console.WriteMessage( $"{i++}:" );
@@ -318,13 +325,13 @@ public static class GitHubHelper
             {
                 context.Console.WriteMessage( $"{property.Name}: {property.GetValue( rule )}" );
             }
-            
+
             context.Console.WriteMessage( "" );
         }
-        
+
         return true;
     }
-    
+
     public static async Task<bool> TrySetDefaultBranchAsync(
         ConsoleHelper console,
         GitHubRepository gitHubRepository,
@@ -332,14 +339,14 @@ public static class GitHubHelper
         bool dry )
     {
         console.WriteMessage( $"Setting repository default branch to '{defaultBranch}'." );
-        
+
         if ( !TryConnectRestApi( console, out var gitHub ) )
         {
             return false;
         }
 
         var repositoryUpdate = new RepositoryUpdate() { DefaultBranch = defaultBranch };
-        
+
         if ( !dry )
         {
             _ = await gitHub.Repository.Edit( gitHubRepository.Owner, gitHubRepository.Name, repositoryUpdate );

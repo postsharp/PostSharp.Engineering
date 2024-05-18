@@ -18,7 +18,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Testers
 
         public string TestAssemblyName { get; init; }
 
-        public (string Name, string Value)[] EnvironmentVariables { get; init; } = Array.Empty<(string, string)>();
+        public (string Name, string Value)[] EnvironmentVariables { get; init; } = [];
 
         public VsTestTester( ParametricString testPackageName, string testAssemblyName )
         {

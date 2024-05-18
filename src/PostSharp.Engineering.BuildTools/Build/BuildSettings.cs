@@ -4,6 +4,9 @@ using PostSharp.Engineering.BuildTools.Build.Model;
 using Spectre.Console.Cli;
 using System.Collections.Immutable;
 using System.ComponentModel;
+using System.Text;
+
+#pragma warning disable CA1305
 
 namespace PostSharp.Engineering.BuildTools.Build
 {
@@ -13,6 +16,76 @@ namespace PostSharp.Engineering.BuildTools.Build
     public class BuildSettings : BaseBuildSettings
     {
         private int? _solutionId;
+
+        protected override void AppendSettings( StringBuilder stringBuilder )
+        {
+            base.AppendSettings( stringBuilder );
+
+            if ( this.BuildNumber != null )
+            {
+                stringBuilder.Append( $"--buildNumber {this.BuildNumber} " );
+            }
+
+            if ( this.BuildType != null )
+            {
+                stringBuilder.Append( $"--buildType {this.BuildType} " );
+            }
+
+            if ( this.Verbosity != Verbosity.Minimal )
+            {
+                stringBuilder.Append( $"-v {this.Verbosity} " );
+            }
+
+            if ( this.NoDependencies )
+            {
+                stringBuilder.Append( "--no-dependencies " );
+            }
+
+            if ( this.IncludeTests )
+            {
+                stringBuilder.Append( "--include-tests " );
+            }
+
+            if ( this.NoConcurrency )
+            {
+                stringBuilder.Append( "--no-concurrency " );
+            }
+
+            if ( this.SolutionId != null )
+            {
+                stringBuilder.Append( $"--solution {this.SolutionId} " );
+            }
+
+            if ( this.Recursive )
+            {
+                stringBuilder.Append( "--recursive " );
+            }
+
+            if ( this.DateTag != null )
+            {
+                stringBuilder.Append( $"--if-older {this.DateTag} " );
+            }
+
+            if ( this.NoSign )
+            {
+                stringBuilder.Append( "--no-sign " );
+            }
+
+            if ( this.CreateZip )
+            {
+                stringBuilder.Append( "--zip " );
+            }
+
+            if ( this.CreateConsolidatedDirectory )
+            {
+                stringBuilder.Append( "--consolidated " );
+            }
+
+            if ( this.AnalyzeCoverage )
+            {
+                stringBuilder.Append( "--analyze-coverage " );
+            }
+        }
 
         [Description( "Creates a numbered build (typically for an internal CI build). This option is ignored when the build configuration is 'Public'." )]
         [CommandOption( "--buildNumber" )]
@@ -81,7 +154,8 @@ namespace PostSharp.Engineering.BuildTools.Build
         [CommandOption( "--consolidated" )]
         public bool CreateConsolidatedDirectory { get; set; }
 
-        [Description( "An expression to filter the executed tests as specified at https://learn.microsoft.com/en-us/dotnet/core/testing/selective-unit-tests." )]
+        [Description(
+            "An expression to filter the executed tests as specified at https://learn.microsoft.com/en-us/dotnet/core/testing/selective-unit-tests." )]
         [CommandOption( "--tests-filter" )]
         public string? TestsFilter { get; set; }
 
@@ -101,6 +175,14 @@ namespace PostSharp.Engineering.BuildTools.Build
         {
             var clone = (BuildSettings) this.MemberwiseClone();
             clone.NoConcurrency = true;
+
+            return clone;
+        }
+
+        public BuildSettings WithoutLogo()
+        {
+            var clone = (BuildSettings) this.MemberwiseClone();
+            clone.NoLogo = true;
 
             return clone;
         }

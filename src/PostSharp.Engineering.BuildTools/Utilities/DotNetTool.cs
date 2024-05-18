@@ -23,7 +23,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         public static DotNetTool Resharper { get; } = new( "jb", "JetBrains.Resharper.GlobalTools", "2023.3.4", "jb" );
 
-        public static ImmutableArray<DotNetTool> DefaultTools { get; } = ImmutableArray.Create( SignClient, Resharper );
+        public static ImmutableArray<DotNetTool> DefaultTools { get; } = [SignClient, Resharper];
 
         [PublicAPI]
         public DotNetTool( string alias, string packageId, string version, string command )
@@ -89,7 +89,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     return false;
                 }
             }
-            
+
             // 3. Restore the tools from the manifest
             // The manifest might contain tools, that have been removed from the machine, or not yet installed.
             // The tools are stored in NuGet package cache, that can be cleaned.
@@ -132,7 +132,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             {
                 return false;
             }
-            
+
             var resourceDirectory = Path.Combine( context.RepoDirectory, ".tools" );
 
             command = command.Replace( "$(ToolsDirectory)", resourceDirectory, StringComparison.Ordinal );

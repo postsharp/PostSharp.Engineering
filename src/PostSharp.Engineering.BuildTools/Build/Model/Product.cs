@@ -11,6 +11,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 using PostSharp.Engineering.BuildTools.Coverage;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.NuGet;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -35,8 +36,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private readonly string? _mainVersionFile;
         private readonly string? _autoUpdatedVersionsFile;
         private readonly string? _bumpInfoFile;
-        private readonly ParametrizedDependency[] _parametrizedDependencies = Array.Empty<ParametrizedDependency>();
-        private readonly DependencyDefinition[] _dependencyDefinitions = Array.Empty<DependencyDefinition>();
+        private readonly ParametrizedDependency[] _parametrizedDependencies = [];
+        private readonly DependencyDefinition[] _dependencyDefinitions = [];
 
         public Product( DependencyDefinition dependencyDefinition )
         {
@@ -97,9 +98,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool GenerateArcadeProperties { get; init; }
 
-        public string[] AdditionalDirectoriesToClean { get; init; } = Array.Empty<string>();
+        public string[] AdditionalDirectoriesToClean { get; init; } = [];
 
-        public Solution[] Solutions { get; init; } = Array.Empty<Solution>();
+        public Solution[] Solutions { get; init; } = [];
 
         public Pattern PrivateArtifacts { get; init; } = Pattern.Empty;
 
@@ -120,14 +121,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public TimeSpan DownstreamMergeTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
 
         public static ImmutableArray<Publisher> DefaultPublicPublishers { get; }
-            = ImmutableArray.Create(
-                new Publisher[]
+            =
+            [
+                ..new Publisher[]
                 {
                     // .snupkg packages are published along with .nupkg packages automatically by the "dotnet nuget push" tool.
                     new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
                     new VsixPublisher( Pattern.Create( "*.vsix" ) ),
                     new MergePublisher()
-                } );
+                }
+            ];
 
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
@@ -140,13 +143,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     ExportsToTeamCityDeploy: true,
                     RequiresUpstreamCheck: true ) );
 
-        public ImmutableArray<string> DefaultArtifactRules { get; } =
-            ImmutableArray.Create(
-                $@"+:artifacts/logs/**/*=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/CompileTimeTroubleshooting/**/*=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/CrashReports/**/*=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/ExtractExceptions/**/*=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/Logs/**/*=>logs" );
+        public ImmutableArray<string> DefaultArtifactRules { get; } = ImmutableArray<string>.Empty;
 
         /// <summary>
         /// List of properties that must be exported into the *.version.props. These properties must be defined in *.props files specified as the dictionary keys.
@@ -183,11 +180,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Gets the set of source code dependencies of this product. 
         /// </summary>
-        public DependencyDefinition[] SourceDependencies { get; init; } = Array.Empty<DependencyDefinition>();
+        public DependencyDefinition[] SourceDependencies { get; init; } = [];
 
         public IBumpStrategy BumpStrategy { get; init; } = new DefaultBumpStrategy();
 
         public string? DockerBaseImage { get; init; }
+
+        public DockerImageComponent[] AdditionalDockerImageComponents { get; init; } = [];
 
         public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )
         {
@@ -224,7 +223,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public string? DefaultTestsFilter { get; init; }
 
-        public ProductExtension[] Extensions { get; init; } = Array.Empty<ProductExtension>();
+        public ProductExtension[] Extensions { get; init; } = [];
 
         public bool IsBundle { get; init; }
 

@@ -14,7 +14,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     {
         public Pattern Files { get; }
 
-        public Tester[] Testers { get; init; } = Array.Empty<Tester>();
+        public Tester[] Testers { get; init; } = [];
 
         protected ArtifactPublisher( Pattern files )
         {

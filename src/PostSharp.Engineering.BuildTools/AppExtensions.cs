@@ -77,7 +77,19 @@ namespace PostSharp.Engineering.BuildTools
                             {
                                 docker.AddCommand<DockerPrepareCommand>( "prepare" )
                                     .WithData( product )
-                                    .WithDescription( "Prepares an image ready to run the build." );
+                                    .WithDescription( "Builds an image ready to run the product build." );
+
+                                docker.AddCommand<DockerBuildCommand>( "build" )
+                                    .WithData( product )
+                                    .WithDescription( "Builds the product inside docker." );
+
+                                docker.AddCommand<DockerTestCommand>( "test" )
+                                    .WithData( product )
+                                    .WithDescription( "Runs the product tests inside docker." );
+
+                                docker.AddCommand<DockerInteractiveCommand>( "interactive" )
+                                    .WithData( product )
+                                    .WithDescription( "Opens an interactive PowerShell session inside the docker container." );
                             } );
 
                         root.AddBranch(

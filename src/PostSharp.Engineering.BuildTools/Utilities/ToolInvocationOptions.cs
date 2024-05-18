@@ -15,19 +15,21 @@ public record ToolInvocationOptions(
 
     // Some environment variables are set by the Microsoft.Build package and must not be passed to the child process.
     public ImmutableArray<string> BlockedEnvironmentVariables { get; init; } =
-        BlockedEnvironmentVariables.IsDefault ? ImmutableArray.Create( "DOTNET_ROOT_X64", "MSBUILD_EXE_PATH", "MSBuildSDKsPath" ) : BlockedEnvironmentVariables;
+        BlockedEnvironmentVariables.IsDefault ? ["DOTNET_ROOT_X64", "MSBUILD_EXE_PATH", "MSBuildSDKsPath"] : BlockedEnvironmentVariables;
 
-    public ImmutableArray<Regex> ErrorPatterns { get; init; } = ImmutableArray.Create( new Regex( @"\: error\b" ) );
+    public ImmutableArray<Regex> ErrorPatterns { get; init; } = [new Regex( @"\: error\b" )];
 
-    public ImmutableArray<Regex> WarningPatterns { get; init; } = ImmutableArray.Create( new Regex( @"\: warning\b" ) );
+    public ImmutableArray<Regex> WarningPatterns { get; init; } = [new Regex( @"\: warning\b" )];
 
-    public ImmutableArray<Regex> SuccessPatterns { get; init; } = ImmutableArray.Create( new Regex( "Passed! " ) );
+    public ImmutableArray<Regex> SuccessPatterns { get; init; } = [new Regex( "Passed! " )];
 
-    public ImmutableArray<Regex> ImportantMessagePatterns { get; init; } = ImmutableArray.Create( new Regex( "Test run for " ) );
+    public ImmutableArray<Regex> ImportantMessagePatterns { get; init; } = [new Regex( "Test run for " )];
 
     public ImmutableArray<Regex> SilentPatterns { get; init; } = ImmutableArray<Regex>.Empty;
 
     public ImmutableArray<ReplacePattern> ReplacePatterns { get; init; } = ImmutableArray<ReplacePattern>.Empty;
+
+    public bool FilterOutput { get; init; } = true;
 
     public ToolInvocationOptions WithEnvironmentVariables( ImmutableDictionary<string, string?> additionalEnvironmentVariables )
         => this with

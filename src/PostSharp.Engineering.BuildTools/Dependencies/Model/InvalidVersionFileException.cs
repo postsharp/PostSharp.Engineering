@@ -13,9 +13,5 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public InvalidVersionFileException( string message ) : base( message ) { }
 
         public InvalidVersionFileException( string message, Exception inner ) : base( message, inner ) { }
-
-        protected InvalidVersionFileException(
-            SerializationInfo info,
-            StreamingContext context ) : base( info, context ) { }
     }
 }

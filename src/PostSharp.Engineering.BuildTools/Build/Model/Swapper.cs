@@ -12,7 +12,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Gets or sets the list of testers that should be successfully executed before the swap is initiated.
         /// </summary>
-        public Tester[] Testers { get; init; } = Array.Empty<Tester>();
+        public Tester[] Testers { get; init; } = [];
 
         /// <summary>
         /// Executes the swap operation.

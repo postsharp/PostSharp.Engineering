@@ -46,7 +46,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Gets or sets the list of exclusions from the <c>codestyle format</c> command. It can contain globbing patterns like <c>**</c> and <c>*</c>.
         /// </summary>
-        public string[] FormatExclusions { get; init; } = Array.Empty<string>();
+        public string[] FormatExclusions { get; init; } = [];
 
         /// <summary>
         /// Gets or sets the method (<see cref="Build"/>, <see cref="Test"/> or <see cref="Pack"/>) that must be invoked when executing the <c>build</c> command.
@@ -93,7 +93,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// </summary>
         public abstract bool Restore( BuildContext context, BuildSettings settings );
 
-        public virtual IEnumerable<Solution> GetFormattableSolutions(BuildContext context) => new[] {this};
+        public virtual IEnumerable<Solution> GetFormattableSolutions( BuildContext context ) => new[] { this };
+
         protected Solution( string solutionPath )
         {
             this.SolutionPath = solutionPath;

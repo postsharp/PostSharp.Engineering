@@ -3,7 +3,9 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using PostSharp.Engineering.BuildTools.Utilities;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -17,7 +19,13 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
 {
     protected override bool ExecuteCore( BuildContext context, BuildSettings settings )
     {
+        return TryPrepare( context, settings, out _ );
+    }
+
+    public static bool TryPrepare( BuildContext context, BuildSettings settings, [NotNullWhen( true )] out string? imageName )
+    {
         var product = context.Product;
+        imageName = $"{product.ProductName}-{settings.BuildConfiguration}".ToLowerInvariant();
 
         if ( string.IsNullOrEmpty( product.DockerBaseImage ) )
         {
@@ -26,12 +34,12 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
             return false;
         }
 
+        context.Console.WriteHeading( $"Building docker image to build {product.ProductName}." );
+
         if ( !DependenciesOverrideFile.TryLoad( context, settings, settings.BuildConfiguration, out var dependencies ) )
         {
             return false;
         }
-
-        var imageName = $"{product.ProductName}-{settings.BuildConfiguration}".ToLowerInvariant();
 
         var dockerDirectory = Path.Combine( context.RepoDirectory, product.EngineeringDirectory, "obj" );
 
@@ -44,6 +52,7 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
         using var dockerfile = File.CreateText( dockerFilePath );
 
         var commandLine = new StringBuilder( $"buildx build -t {imageName} --file {dockerFilePath}" );
+        var configure = new StringBuilder();
 
         dockerfile.WriteLine( $"FROM {product.DockerBaseImage} AS build-env" );
 
@@ -52,15 +61,25 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
             dockerfile.WriteLine( "ENV IS_POSTSHARP_OWNED true" );
         }
 
-        dockerfile.WriteLine(
-            """
-            RUN apt-get update && \
-            apt-get install -y wget apt-transport-https software-properties-common && \
-            wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb && \
-            dpkg -i packages-microsoft-prod.deb && \
-            apt-get update && \
-            apt-get install -y dotnet-sdk-6.0
-            """ );
+        // Configure package caches.
+        dockerfile.WriteLine( "ENV NUGET_PACKAGES=/root/.nuget/packages" );
+        dockerfile.WriteLine( "VOLUME /root/.nuget/packages" );
+        dockerfile.WriteLine( "VOLUME /tmp/.build-artifacts" );
+        var cacheMounts = "--mount=type=cache,target=/root/.nuget/packages --mount=type=cache,target=/tmp/.build-artifacts";
+
+        // Add Docker image components.
+        var imageComponents = new Dictionary<string, DockerImageComponent>();
+
+        foreach ( var component in product.AdditionalDockerImageComponents.Concat( product.ProductFamily.DockerImageComponents ) )
+        {
+            imageComponents[component.Name] = component;
+            component.AddPrerequisites( imageComponents );
+        }
+
+        foreach ( var component in imageComponents.OrderBy( x => x.Value.Order ) )
+        {
+            component.Value.AppendToDockerfile( dockerfile );
+        }
 
         // Add source dependencies.
         foreach ( var sourceDependency in product.SourceDependencies )
@@ -75,10 +94,10 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
 
         foreach ( var localDependency in localDependencies )
         {
-            // TODO: Depth-first order.
+            // TODO: Depth-first order. However this is not possible because we only have the knowledge of direct dependencies.
             AddSource( localDependency.Key, true );
             dockerfile.WriteLine( $"WORKDIR /src/{localDependency.Key}" );
-            dockerfile.WriteLine( "RUN pwsh ./Build.ps1 build" ); // TODO: Only Engineering must be built upfront.
+            dockerfile.WriteLine( $"RUN {cacheMounts} pwsh ./Build.ps1 build --nologo" ); // TODO: Only Engineering must be built upfront.
         }
 
         AddSource( product.ProductName, false );
@@ -87,15 +106,22 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
 
         foreach ( var localDependency in localDependencies )
         {
-            dockerfile.WriteLine( $"RUN pwsh ./Build.ps1 dependencies set local {localDependency.Key}" );
+            configure.AppendLine( $"./Build.ps1 dependencies set local {localDependency.Key}  --nologo" );
         }
 
-        dockerfile.WriteLine( "RUN pwsh ./Build.ps1 prepare" );
-        dockerfile.WriteLine( "RUN dotnet restore" );
+        dockerfile.WriteLine( "COPY <<EOF Configure.ps1" );
+        dockerfile.WriteLine( configure.ToString() );
+        dockerfile.WriteLine( "EOF" );
 
         dockerfile.Close();
 
-        return ToolInvocationHelper.InvokeTool( context.Console, "docker", commandLine.ToString(), null );
+        // We bypass our ToolInvocationHelper because we need ANSI output.
+        var process = Process.Start( new ProcessStartInfo( "docker", commandLine.ToString() ) { UseShellExecute = false } );
+        process!.WaitForExit();
+
+        return process.ExitCode == 0;
+
+        //return ToolInvocationHelper.InvokeTool( context.Console, "docker", commandLine.ToString(), null, new ToolInvocationOptions() { FilterOutput = false } );
 
         void AddSource( string productName, bool isDependency )
         {

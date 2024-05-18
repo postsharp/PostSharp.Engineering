@@ -3,6 +3,9 @@
 using Spectre.Console.Cli;
 using System;
 using System.ComponentModel;
+using System.Text;
+
+#pragma warning disable CA1305
 
 namespace PostSharp.Engineering.BuildTools.Build;
 
@@ -24,13 +27,23 @@ public class BaseBuildSettings : CommonCommandSettings
         set => this._resolvedConfiguration = value;
     }
 
+    protected override void AppendSettings( StringBuilder stringBuilder )
+    {
+        base.AppendSettings( stringBuilder );
+
+        if ( this._resolvedConfiguration != null )
+        {
+            stringBuilder.Append( $"-c {this._resolvedConfiguration} " );
+        }
+    }
+
     public override void Initialize( BuildContext context )
     {
         if ( this._resolvedConfiguration != null )
         {
             return;
         }
-        
+
         var defaultConfiguration = context.Product.ReadDefaultConfiguration( context );
 
         if ( defaultConfiguration == null )
