@@ -5,7 +5,7 @@
         <TargetFramework>net6.0</TargetFramework>
         <AssemblyName>PostSharp.Engineering.BuildTools</AssemblyName>
         <GenerateDocumentationFile>false</GenerateDocumentationFile>
-        <LangVersion>latest</LangVersion>
+        <LangVersion>preview</LangVersion>
         <Nullable>enable</Nullable>
         <IsPackable>True</IsPackable>
         <!--  SA0001: XML comment analysis is disabled due to project configuration -->

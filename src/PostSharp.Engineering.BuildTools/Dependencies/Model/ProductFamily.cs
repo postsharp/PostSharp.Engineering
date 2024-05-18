@@ -27,6 +27,8 @@ public class ProductFamily
 
     public ProductFamily? DownstreamProductFamily { get; init; }
 
+    public string? DockerBaseImage { get; init; }
+
     public ProductFamily( string name, string version, params ProductFamily[] relativeFamilies )
     {
         if ( this.DownstreamProductFamily != null && this.DownstreamProductFamily.UpstreamProductFamily != this )

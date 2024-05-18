@@ -43,6 +43,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.DependencyDefinition = dependencyDefinition;
             this.ProductName = dependencyDefinition.Name;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
+            this.DockerBaseImage = dependencyDefinition.ProductFamily.DockerBaseImage;
         }
 
         public ProductFamily ProductFamily => this.DependencyDefinition.ProductFamily;
@@ -186,6 +187,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public IBumpStrategy BumpStrategy { get; init; } = new DefaultBumpStrategy();
 
+        public string? DockerBaseImage { get; init; }
+
         public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )
         {
             dependency = this.ParametrizedDependencies.SingleOrDefault( d => d.Name == name );
@@ -218,8 +221,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public ImmutableArray<DotNetTool> DotNetTools { get; init; } = DotNetTool.DefaultTools;
 
         public bool TestOnBuild { get; init; }
-        
-        public string? DefaultTestsFilter { get; init; } 
+
+        public string? DefaultTestsFilter { get; init; }
 
         public ProductExtension[] Extensions { get; init; } = Array.Empty<ProductExtension>();
 
@@ -229,7 +232,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             => Path.Combine(
                 context.RepoDirectory,
                 this.PrivateArtifactsDirectory.ToString( versionInfo ) );
-        
+
         private string GetPublicArtifactsDirectory( BuildContext context, BuildInfo versionInfo )
             => Path.Combine(
                 context.RepoDirectory,
@@ -521,7 +524,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             // Writing the import file at the end of the build so it gets only written if the build was successful.
             this.WriteImportFile( context, configuration );
-            
+
             this.ArtifactsPrepared?.Invoke( eventArgs );
 
             context.Console.WriteSuccess( $"Building the whole {this.ProductName} product was successful. Package version: {versionInfo.PackageVersion}." );
@@ -602,7 +605,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 .Properties
                 .Single( p => p.Name == this.ProductNameWithoutDot + "BuildConfiguration" )
                 .EvaluatedValue;
-            
+
             var packagePreviewVersion = versionFile
                 .Properties
                 .Single( p => p.Name == this.ProductNameWithoutDot + "PreviewVersion" )
@@ -676,7 +679,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// An event raised when the build is completed, before creating ZIP files and preparing public artifacts.
         /// </summary>
         public event Action<BuildCompletedEventArgs>? BuildCompleted;
-        
+
         /// <summary>
         /// An event raised when the build is completed, after creating ZIP files and preparing public artifacts.
         /// </summary>
@@ -1109,7 +1112,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
-            
+
             if ( !GitHelper.TryGetLatestCommitDate( context, out var buildDate ) )
             {
                 return false;
@@ -1206,7 +1209,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                         // On Alpine Linux, the ApplicationData directory (~/.config) might not exist, so it needs to be created.
                         var localVersionDirectory =
-                            Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create ), "Metalama.Engineering" );
+                            Path.Combine(
+                                Environment.GetFolderPath( Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create ),
+                                "Metalama.Engineering" );
 
                         var localVersionFile = Path.Combine( localVersionDirectory, $"{this.ProductName}.version" );
                         int localVersion;
@@ -1412,7 +1417,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             foreach ( var kvp in this.ExportedProperties )
             {
                 var propsFilePath = Path.Combine( context.RepoDirectory, kvp.Key );
-                var propsFile = Project.FromFile( propsFilePath, new() );
+                var propsFile = Project.FromFile( propsFilePath, new ProjectOptions() );
 
                 foreach ( var exportedPropertyName in kvp.Value )
                 {
@@ -1795,7 +1800,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool BumpVersion( BuildContext context, BumpSettings settings )
         {
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
-            
+
             var developmentBranch = context.Product.DependencyDefinition.Branch;
 
             if ( context.Branch != developmentBranch )
@@ -1816,7 +1821,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( releaseBranch == null )
             {
-                context.Console.WriteMessage( $"Skipping check for pending changes from the release branch, as the release branch is not set for this product." );
+                context.Console.WriteMessage(
+                    $"Skipping check for pending changes from the release branch, as the release branch is not set for this product." );
             }
             else
             {
@@ -1826,7 +1832,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     return false;
                 }
-                
+
                 if ( !GitHelper.TryCheckoutAndPull( context, context.Branch ) )
                 {
                     return false;
@@ -1921,12 +1927,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 if ( hasChangesSinceLastDeployment && !hasChangesInDependencies )
                 {
                     const string message =
-                        "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning."; 
-                    
+                        "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning.";
+
                     if ( settings.Force )
                     {
                         context.Console.WriteImportantMessage( $"{message} This is being ignored using --force." );
-                        
+
                         return true;
                     }
 
@@ -2000,7 +2006,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
             var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
-            var isRepoRemoteSsh = this.DependencyDefinition.VcsRepository.IsSshAgentRequired;            
+            var isRepoRemoteSsh = this.DependencyDefinition.VcsRepository.IsSshAgentRequired;
 
             foreach ( var configuration in configurations )
             {
@@ -2122,7 +2128,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     TeamCityBuildStep CreatePublishBuildStep()
                         => new TeamCityEngineeringCommandBuildStep( "Publish", "Publish", "publish", $"--configuration {configuration}", true );
-                    
+
                     if ( configurationInfo.ExportsToTeamCityDeploy )
                     {
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(

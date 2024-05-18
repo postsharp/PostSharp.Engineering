@@ -7,6 +7,7 @@ using PostSharp.Engineering.BuildTools.CodeStyle;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Csproj;
 using PostSharp.Engineering.BuildTools.Dependencies;
+using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.Git;
 using PostSharp.Engineering.BuildTools.NuGet;
 using PostSharp.Engineering.BuildTools.Tools;
@@ -69,6 +70,15 @@ namespace PostSharp.Engineering.BuildTools
                                 .WithData( product )
                                 .WithDescription( "Bumps the version of this product" );
                         }
+
+                        root.AddBranch(
+                            "docker",
+                            docker =>
+                            {
+                                docker.AddCommand<DockerPrepareCommand>( "prepare" )
+                                    .WithData( product )
+                                    .WithDescription( "Prepares an image ready to run the build." );
+                            } );
 
                         root.AddBranch(
                             "dependencies",
@@ -174,7 +184,7 @@ namespace PostSharp.Engineering.BuildTools
                                         git.AddCommand<GitBulkRenameCommand>( "rename" )
                                             .WithDescription( "Renames all files and directories recursively preserving GIT history." )
                                             .WithExample( new[] { @"""C:\src\Caravela.Compiler""", @"""Caravela""", @"""Metalama""" } );
-                                        
+
                                         git.AddCommand<DownstreamMergeCommand>( "merge-downstream" )
                                             .WithData( product )
                                             .WithDescription( "Merges the code to the subsequent development branch." );
@@ -187,11 +197,10 @@ namespace PostSharp.Engineering.BuildTools
                                             .WithData( product )
                                             .WithDescription(
                                                 "Sets the branch policies of the development and release branch of the current product version." );
-                                        
+
                                         git.AddCommand<PrintBranchPoliciesCommand>( "print-branch-policies" )
                                             .WithData( product )
-                                            .WithDescription(
-                                                "Prints the branch policies currently set for the repository." );
+                                            .WithDescription( "Prints the branch policies currently set for the repository." );
 
                                         git.AddCommand<SetDefaultBranchCommand>( "set-default-branch" )
                                             .WithData( product )
