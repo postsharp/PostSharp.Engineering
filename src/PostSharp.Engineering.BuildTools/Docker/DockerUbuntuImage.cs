@@ -1,3 +1,5 @@
+// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
@@ -8,8 +10,7 @@ public class DockerUbuntuImage : DockerImage
 
     public override DockerfileWriter CreateDockfileWriter( StreamWriter writer ) => new Writer( writer );
 
-
-    class Writer( StreamWriter writer ) : DockerfileWriter(writer)
+    private class Writer( StreamWriter writer ) : DockerfileWriter( writer )
     {
         public override void WritePrologue()
         {
@@ -29,7 +30,8 @@ public class DockerUbuntuImage : DockerImage
             this.WriteLine( $"RUN mkdir {s} -p" );
         }
 
-        public override void ReplaceLink( string target, string alias ) {
+        public override void ReplaceLink( string target, string alias )
+        {
             this.WriteLine(
                 $"""
                  RUN rm {alias} && \
