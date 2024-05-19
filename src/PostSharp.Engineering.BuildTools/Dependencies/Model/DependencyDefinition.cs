@@ -57,6 +57,12 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
         public ParametricString PrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "private" );
 
+        /// <summary>
+        /// Gets or sets the order in which products in the same family should be built. This is a poorman version of a recursive build
+        /// taking dependencies into account, because PostSharp.Engineering does not know detailed dependencies.
+        /// </summary>
+        public int? BuildOrder { get; set; }
+
         public string GetResolvedPrivateArtifactsDirectory( BuildConfiguration configuration )
             => this.PrivateArtifactsDirectory.ToString(
                 new BuildInfo( null, configuration.ToString().ToLowerInvariant(), this.MSBuildConfiguration[configuration], null ) );

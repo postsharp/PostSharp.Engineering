@@ -32,6 +32,7 @@ public static class DevelopmentDependencies
         DefaultConfigurationMapping = new ConfigurationSpecific<BuildConfiguration>(
             BuildConfiguration.Debug,
             BuildConfiguration.Debug,
-            BuildConfiguration.Debug )
+            BuildConfiguration.Debug ),
+        BuildOrder = int.MinValue
     };
 }

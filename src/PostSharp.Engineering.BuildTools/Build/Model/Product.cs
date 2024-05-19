@@ -202,6 +202,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return dependency != null;
         }
 
+        public DependencyDefinition GetDependencyDefinition( string name )
+        {
+            if ( !this.TryGetDependencyDefinition( name, out var definition ) )
+            {
+                throw new KeyNotFoundException( $"Dependency not found: {name}." );
+            }
+
+            return definition;
+        }
+
         public bool TryGetDependencyDefinition( string name, [NotNullWhen( true )] out DependencyDefinition? dependencyDefinition )
         {
             dependencyDefinition = this.ParametrizedDependencies.SingleOrDefault( d => d.Name == name )?.Definition;

@@ -34,9 +34,11 @@ public abstract class DockerRunCommand : BaseCommand<BuildSettings>
             var process = Process.Start( new ProcessStartInfo( "docker", Environment.ExpandEnvironmentVariables( arguments ) ) { UseShellExecute = false } );
             process!.WaitForExit();
 
+            ToolInvocationHelper.InvokeTool( context.Console, "docker", $"stop {containerName}" );
+            
             return process.ExitCode == 0;
         }
-
+        
         void KillDocker()
         {
             ToolInvocationHelper.InvokeTool( context.Console, "docker", $"kill {containerName}" );

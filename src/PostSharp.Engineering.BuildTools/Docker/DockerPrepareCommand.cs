@@ -88,14 +88,15 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
         // Add local dependencies.
         var localDependencies = dependencies.Dependencies
             .Where( x => x.Value.SourceKind == DependencySourceKind.Local )
+            .Select( x => product.GetDependencyDefinition( x.Key ) )
+            .OrderBy( x => x.BuildOrder.GetValueOrDefault( int.MaxValue ) )
             .ToList();
 
         foreach ( var localDependency in localDependencies )
         {
-            // TODO: Depth-first order. However this is not possible because we only have the knowledge of direct dependencies.
-            AddSource( localDependency.Key, true );
-            configure.AppendLine( $"cd /src/{localDependency.Key}" );
-            configure.AppendLine( $"./Build.ps1 build --nologo" ); // TODO: Only Engineering must be built upfront.
+            AddSource( localDependency.Name, true );
+            configure.AppendLine( $"cd /src/{localDependency.Name}" );
+            configure.AppendLine( $"./Build.ps1 build {settings}" );
         }
 
         AddSource( product.ProductName, false );
@@ -106,7 +107,7 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
 
         foreach ( var localDependency in localDependencies )
         {
-            configure.AppendLine( $"./Build.ps1 dependencies set local {localDependency.Key}  --nologo" );
+            configure.AppendLine( $"./Build.ps1 dependencies set local {localDependency.Name}  --nologo" );
         }
 
         dockerfile.WriteLine( "COPY <<EOF Configure.ps1" );
