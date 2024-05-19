@@ -126,7 +126,6 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
         {
             var hostSourceDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", productName ) );
             var containerSourceDirectory = dockerfile.GetPath( "src", productName );
-            dockerfile.MakeDirectory( containerSourceDirectory );
 
             if ( isDependency )
             {
@@ -139,10 +138,13 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
                 commandLine.Append( $" {hostSourceDirectory}" );
             }
 
-            // the following should not be required on Windows. 
-            dockerfile.ReplaceLink(
-                dockerfile.GetPath( "src", productName, "eng", "style", ".editorconfig" ),
-                dockerfile.GetPath( "src", productName, ".editorconfig" ) );
+            // the following should not be required on Windows.
+            if ( product.DockerBaseImage is not DockerWindowsImage )
+            {
+                dockerfile.ReplaceLink(
+                    dockerfile.GetPath( "src", productName, "eng", "style", ".editorconfig" ),
+                    dockerfile.GetPath( "src", productName, ".editorconfig" ) );
+            }
         }
     }
 }

@@ -7,4 +7,6 @@ public static class DockerImageComponents
     internal static MicrosoftAptPackageSource MicrosoftAptPackageSource => new();
 
     public static DockerImageComponent DotNetSdk60 => new AptPackageImageComponent( "dotnet-sdk-6.0", 100 );
+
+    public static DockerImageComponent MonoRuntime => new MonoRuntimeImageComponent();
 }

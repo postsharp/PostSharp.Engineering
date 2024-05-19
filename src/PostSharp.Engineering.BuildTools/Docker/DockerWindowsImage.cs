@@ -26,7 +26,7 @@ public class DockerWindowsImage : DockerImage
             */
         }
 
-        public override string GetPath( params string[] components ) => "C:\\" + string.Join( "\\", components );
+        public override string GetPath( params string[] components ) => "C:\\\\" + string.Join( "\\\\", components );
 
         public override void MakeDirectory( string s )
         {
