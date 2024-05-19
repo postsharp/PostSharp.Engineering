@@ -10,7 +10,7 @@ internal class MicrosoftAptPackageSource : DockerImageComponent
 
     public override int Order => 0;
 
-    public override void AppendToDockerfile( StreamWriter writer )
+    public override void AppendToDockerfile( DockerfileWriter writer )
     {
         writer.WriteLine(
             """

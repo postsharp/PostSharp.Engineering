@@ -14,7 +14,7 @@ internal class AptPackageImageComponent : DockerImageComponent
 
     public override int Order { get; }
 
-    public override void AppendToDockerfile( StreamWriter writer )
+    public override void AppendToDockerfile( DockerfileWriter writer )
     {
         writer.WriteLine( $"RUN apt-get install -y {this.Name}" );
     }

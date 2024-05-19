@@ -28,7 +28,7 @@ public class ProductFamily
 
     public ProductFamily? DownstreamProductFamily { get; init; }
 
-    public string? DockerBaseImage { get; init; }
+    public DockerImage? DockerBaseImage { get; init; }
 
     public DockerImageComponent[] DockerImageComponents { get; init; } = [];
 

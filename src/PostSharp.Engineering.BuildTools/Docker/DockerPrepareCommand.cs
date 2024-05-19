@@ -27,7 +27,7 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
         var product = context.Product;
         imageName = $"{product.ProductName}-{settings.BuildConfiguration}".ToLowerInvariant();
 
-        if ( string.IsNullOrEmpty( product.DockerBaseImage ) )
+        if ( product.DockerBaseImage == null )
         {
             context.Console.WriteError( "The DockerBaseImage property is not set." );
 
@@ -49,21 +49,19 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
         }
 
         var dockerFilePath = Path.Combine( dockerDirectory, $"{imageName}.Dockerfile" );
-        using var dockerfile = File.CreateText( dockerFilePath );
+        using var dockerfile = product.DockerBaseImage.CreateDockfileWriter( File.CreateText( dockerFilePath ) );
 
         var commandLine = new StringBuilder( $"buildx build -t {imageName} --file {dockerFilePath}" );
         var configure = new StringBuilder();
 
-        dockerfile.WriteLine( $"FROM {product.DockerBaseImage} AS build-env" );
+        dockerfile.WriteLine( $"FROM {product.DockerBaseImage.Name} AS build-env" );
 
-        // Configure package caches.
+        dockerfile.WritePrologue();
         dockerfile.WriteLine( "ENV NUGET_PACKAGES=/root/.nuget/packages" );
-        dockerfile.WriteLine( "VOLUME /root/.nuget/packages" );
-        dockerfile.WriteLine( "VOLUME /tmp/.build-artifacts" );
 
         // Configuring bind mounts.
-        dockerfile.WriteLine( "VOLUME /root/.local/PostSharp.Engineering" );
-        dockerfile.WriteLine( $"VOLUME /src/{product.ProductName}/artifacts" );
+        var artifactsDirectory = dockerfile.GetPath( "src", product.ProductName, "artifacts" );
+        dockerfile.WriteLine( $"VOLUME {artifactsDirectory}" );
 
         // Add Docker image components.
         var imageComponents = new Dictionary<string, DockerImageComponent>();
@@ -94,16 +92,18 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
 
         foreach ( var localDependency in localDependencies )
         {
+            var dependencyDirectory = dockerfile.GetPath( "src", localDependency.Name );
             AddSource( localDependency.Name, true );
-            configure.AppendLine( $"cd /src/{localDependency.Name}" );
+            configure.AppendLine( $"cd {dependencyDirectory}" );
             configure.AppendLine( $"./Build.ps1 build {settings}" );
         }
 
         AddSource( product.ProductName, false );
 
-        dockerfile.WriteLine( $"WORKDIR /src/{product.ProductName}" );
+        var productDirectory = dockerfile.GetPath( "src", product.ProductName );
+        dockerfile.WriteLine( $"WORKDIR {productDirectory}" );
 
-        configure.AppendLine( $"cd /src/{product.ProductName}" );
+        configure.AppendLine( $"cd {productDirectory}" );
 
         foreach ( var localDependency in localDependencies )
         {
@@ -124,26 +124,25 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
 
         void AddSource( string productName, bool isDependency )
         {
-            var sourceDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", productName ) );
-
-            dockerfile.WriteLine( $"RUN mkdir /src/{productName} -p" );
+            var hostSourceDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", productName ) );
+            var containerSourceDirectory = dockerfile.GetPath( "src", productName );
+            dockerfile.MakeDirectory( containerSourceDirectory );
 
             if ( isDependency )
             {
-                dockerfile.WriteLine( $"COPY --from={productName.ToLowerInvariant()} . /src/{productName}" );
-                commandLine.Append( $" --build-context {productName.ToLowerInvariant()}={sourceDirectory}" );
+                dockerfile.WriteLine( $"COPY --from={productName.ToLowerInvariant()} . {containerSourceDirectory}" );
+                commandLine.Append( $" --build-context {productName.ToLowerInvariant()}={hostSourceDirectory}" );
             }
             else
             {
-                dockerfile.WriteLine( $"COPY . /src/{productName}" );
-                commandLine.Append( $" {sourceDirectory}" );
+                dockerfile.WriteLine( $"COPY . {containerSourceDirectory}" );
+                commandLine.Append( $" {hostSourceDirectory}" );
             }
 
-            dockerfile.WriteLine(
-                $"""
-                 RUN rm /src/{productName}/.editorconfig && \
-                 ln -s /src/{productName}/eng/style/.editorconfig  /src/{productName}/.editorconfig
-                 """ );
+            // the following should not be required on Windows. 
+            dockerfile.ReplaceLink(
+                dockerfile.GetPath( "src", productName, "eng", "style", ".editorconfig" ),
+                dockerfile.GetPath( "src", productName, ".editorconfig" ) );
         }
     }
 }

@@ -17,7 +17,7 @@ public abstract class DockerImageComponent
 
     public abstract int Order { get; }
 
-    public abstract void AppendToDockerfile( StreamWriter writer );
+    public abstract void AppendToDockerfile( DockerfileWriter writer );
 
     protected virtual IEnumerable<DockerImageComponent> GetPrerequisites() => Enumerable.Empty<DockerImageComponent>();
 
