@@ -56,16 +56,14 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
 
         dockerfile.WriteLine( $"FROM {product.DockerBaseImage} AS build-env" );
 
-        if ( !BuildContext.IsGuestDevice )
-        {
-            dockerfile.WriteLine( "ENV IS_POSTSHARP_OWNED true" );
-        }
-
         // Configure package caches.
         dockerfile.WriteLine( "ENV NUGET_PACKAGES=/root/.nuget/packages" );
         dockerfile.WriteLine( "VOLUME /root/.nuget/packages" );
         dockerfile.WriteLine( "VOLUME /tmp/.build-artifacts" );
-        var cacheMounts = "--mount=type=cache,target=/root/.nuget/packages --mount=type=cache,target=/tmp/.build-artifacts";
+
+        // Configuring bind mounts.
+        dockerfile.WriteLine( "VOLUME /root/.local/PostSharp.Engineering" );
+        dockerfile.WriteLine( $"VOLUME /src/{product.ProductName}/artifacts" );
 
         // Add Docker image components.
         var imageComponents = new Dictionary<string, DockerImageComponent>();
@@ -96,13 +94,15 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
         {
             // TODO: Depth-first order. However this is not possible because we only have the knowledge of direct dependencies.
             AddSource( localDependency.Key, true );
-            dockerfile.WriteLine( $"WORKDIR /src/{localDependency.Key}" );
-            dockerfile.WriteLine( $"RUN {cacheMounts} pwsh ./Build.ps1 build --nologo" ); // TODO: Only Engineering must be built upfront.
+            configure.AppendLine( $"cd /src/{localDependency.Key}" );
+            configure.AppendLine( $"./Build.ps1 build --nologo" ); // TODO: Only Engineering must be built upfront.
         }
 
         AddSource( product.ProductName, false );
 
         dockerfile.WriteLine( $"WORKDIR /src/{product.ProductName}" );
+
+        configure.AppendLine( $"cd /src/{product.ProductName}" );
 
         foreach ( var localDependency in localDependencies )
         {
@@ -120,8 +120,6 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
         process!.WaitForExit();
 
         return process.ExitCode == 0;
-
-        //return ToolInvocationHelper.InvokeTool( context.Console, "docker", commandLine.ToString(), null, new ToolInvocationOptions() { FilterOutput = false } );
 
         void AddSource( string productName, bool isDependency )
         {

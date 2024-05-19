@@ -28,6 +28,7 @@ using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
+    [PublicAPI]
     public class Product
     {
         public DependencyDefinition DependencyDefinition { get; }
@@ -187,6 +188,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public string? DockerBaseImage { get; init; }
 
         public DockerImageComponent[] AdditionalDockerImageComponents { get; init; } = [];
+
+        public bool UseDockerInTeamcity { get; init; }
 
         public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )
         {
@@ -1206,11 +1209,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     {
                         // Local build with timestamp-based version and randomized package number. For the assembly version we use a local incremental file stored in the user profile.
 
-                        // On Alpine Linux, the ApplicationData directory (~/.config) might not exist, so it needs to be created.
-                        var localVersionDirectory =
-                            Path.Combine(
-                                Environment.GetFolderPath( Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create ),
-                                "Metalama.Engineering" );
+                        var localVersionDirectory = PathHelper.GetEngineeringDataDirectory();
 
                         var localVersionFile = Path.Combine( localVersionDirectory, $"{this.ProductName}.version" );
                         int localVersion;
@@ -1238,7 +1237,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                         File.WriteAllText( localVersionFile, localVersion.ToString( CultureInfo.InvariantCulture ) );
 
-                        versionSuffix = $"local-{Environment.UserName}-{configurationLowerCase}";
+                        var userName = settings.UserName ?? Environment.UserName;
+                        versionSuffix = $"local-{userName}-{configurationLowerCase}";
 
                         patchNumber = localVersion;
 
@@ -1355,6 +1355,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         <{this.ProductNameWithoutDot}PublicArtifactsDirectory>{this.PublicArtifactsDirectory}</{this.ProductNameWithoutDot}PublicArtifactsDirectory>
         <{this.ProductNameWithoutDot}PrivateArtifactsDirectory>{this.PrivateArtifactsDirectory}</{this.ProductNameWithoutDot}PrivateArtifactsDirectory>
         <{this.ProductNameWithoutDot}EngineeringVersion>{VersionHelper.EngineeringVersion}</{this.ProductNameWithoutDot}EngineeringVersion>
+        <{this.ProductNameWithoutDot}EngineeringDataDirectory>{PathHelper.GetEngineeringDataDirectory()}</{this.ProductNameWithoutDot}EngineeringDataDirectory>
         <{this.ProductNameWithoutDot}VersionFilePath>{this.VersionsFilePath}</{this.ProductNameWithoutDot}VersionFilePath>
         <{this.ProductNameWithoutDot}BuildNumber>{buildSettings.BuildNumber}</{this.ProductNameWithoutDot}BuildNumber>
         <{this.ProductNameWithoutDot}BuildType>{buildSettings.BuildType}</{this.ProductNameWithoutDot}BuildType>
@@ -2101,7 +2102,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         "Build",
                         "test",
                         $"--configuration {configuration} --buildNumber %build.number% --buildType %system.teamcity.buildType.id%",
-                        true ) );
+                        true,
+                        this.UseDockerInTeamcity ) );
 
                 var teamCityBuildConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}Build",

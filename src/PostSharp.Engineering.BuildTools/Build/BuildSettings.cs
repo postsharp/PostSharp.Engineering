@@ -85,6 +85,11 @@ namespace PostSharp.Engineering.BuildTools.Build
             {
                 stringBuilder.Append( "--analyze-coverage " );
             }
+
+            if ( !string.IsNullOrEmpty( this.UserName ) )
+            {
+                stringBuilder.Append( $"--user {this.UserName}" );
+            }
         }
 
         [Description( "Creates a numbered build (typically for an internal CI build). This option is ignored when the build configuration is 'Public'." )]
@@ -163,6 +168,10 @@ namespace PostSharp.Engineering.BuildTools.Build
         [CommandOption( "--no-nuget-cache-cleanup" )]
         public bool NoNuGetCacheCleanup { get; set; }
 
+        [Description( "Overrides the user name." )]
+        [CommandOption( "--user" )]
+        public string? UserName { get; set; }
+
         public BuildSettings WithIncludeTests( bool value )
         {
             var clone = (BuildSettings) this.MemberwiseClone();
@@ -183,6 +192,14 @@ namespace PostSharp.Engineering.BuildTools.Build
         {
             var clone = (BuildSettings) this.MemberwiseClone();
             clone.NoLogo = true;
+
+            return clone;
+        }
+
+        public BuildSettings WithUserName( string userName )
+        {
+            var clone = (BuildSettings) this.MemberwiseClone();
+            clone.UserName = userName;
 
             return clone;
         }

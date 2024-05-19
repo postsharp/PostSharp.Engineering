@@ -7,22 +7,28 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildStep
 public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
 {
     private static string GetCustomArgumentsParameterName( string objectName ) => $"{objectName}Arguments";
-    
-    public TeamCityEngineeringCommandBuildStep( string objectName, string name, string command, string? arguments = null, bool areCustomArgumentsAllowed = false ) : base(
+
+    public TeamCityEngineeringCommandBuildStep(
+        string objectName,
+        string name,
+        string command,
+        string? arguments = null,
+        bool areCustomArgumentsAllowed = false,
+        bool useDocker = false ) : base(
         name,
         "Build.ps1",
-        $"{command}{(arguments == null ? "" : $" {arguments}")}{(!areCustomArgumentsAllowed ? "" : $" %{GetCustomArgumentsParameterName( objectName )}%")}" )
+        $"{(useDocker ? "docker " : "")}{command}{(arguments == null ? "" : $" {arguments}")}{(!areCustomArgumentsAllowed ? "" : $" %{GetCustomArgumentsParameterName( objectName )}%")}" )
     {
         if ( areCustomArgumentsAllowed )
         {
-            this.BuildConfigurationParameters = new TeamCityBuildConfigurationParameter[]
-            {
+            this.BuildConfigurationParameters =
+            [
                 new TeamCityTextBuildConfigurationParameter(
                     GetCustomArgumentsParameterName( objectName ),
                     $"{name} Arguments",
                     $"Arguments to append to the '{name}' build step.",
                     allowEmpty: true )
-            };
+            ];
         }
     }
 }

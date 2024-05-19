@@ -27,7 +27,7 @@ public class ManyDotNetSolutions : Solution
         this.BuildMethod = Model.BuildMethod.Build;
     }
 
-    public override IEnumerable<Solution> GetFormattableSolutions(BuildContext context)
+    public override IEnumerable<Solution> GetFormattableSolutions( BuildContext context )
     {
         if ( !this.TryGetSolutions( context, out var solutions ) )
         {
@@ -111,16 +111,14 @@ public class ManyDotNetSolutions : Solution
         return true;
     }
 
-    public override bool Build( BuildContext context, BuildSettings settings )
-        => this.BuildOrTest( context, settings, false, "Building" );
+    public override bool Build( BuildContext context, BuildSettings settings ) => this.BuildOrTest( context, settings, false, "Building" );
 
     public override bool Pack( BuildContext context, BuildSettings settings )
     {
         throw new NotSupportedException();
     }
 
-    public override bool Test( BuildContext context, BuildSettings settings ) 
-        => this.BuildOrTest( context, settings, true, "Testing" );
+    public override bool Test( BuildContext context, BuildSettings settings ) => this.BuildOrTest( context, settings, true, "Testing" );
 
     public override bool Restore( BuildContext context, BuildSettings settings )
     {

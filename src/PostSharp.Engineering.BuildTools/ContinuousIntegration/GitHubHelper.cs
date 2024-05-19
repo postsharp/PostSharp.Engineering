@@ -6,7 +6,6 @@ using Octokit.GraphQL.Core;
 using Octokit.GraphQL.Model;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Utilities;
-using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;

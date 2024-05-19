@@ -45,7 +45,7 @@ public static partial class MetalamaDependencies
 
         public static ProductFamily Family { get; } = new( _projectName, "2024.2", DevelopmentDependencies.Family, PostSharpDependencies.V2024_1.Family )
         {
-            DockerBaseImage = "mcr.microsoft.com/dotnet/sdk:8.0.203-jammy", UpstreamProductFamily = V2024_1.Family
+            DockerBaseImage = "mcr.microsoft.com/dotnet/sdk:8.0.204-jammy", UpstreamProductFamily = V2024_1.Family
 
             // DownstreamProductFamily = V2024_3.Family
         };

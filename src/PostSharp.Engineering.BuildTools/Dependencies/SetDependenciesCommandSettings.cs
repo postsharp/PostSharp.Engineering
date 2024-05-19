@@ -2,7 +2,6 @@
 
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using Spectre.Console.Cli;
-using System;
 using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies

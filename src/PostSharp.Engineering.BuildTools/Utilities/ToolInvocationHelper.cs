@@ -21,7 +21,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             ConsoleHelper console,
             string fileName,
             string commandLine,
-            string workingDirectory,
+            string? workingDirectory = null,
             ToolInvocationOptions? options = null )
             => InvokeTool(
                 console,
@@ -34,7 +34,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             ConsoleHelper console,
             string fileName,
             string commandLine,
-            string? workingDirectory,
+            string? workingDirectory = null,
             ToolInvocationOptions? options = null )
         {
             if ( !InvokeTool(
@@ -272,7 +272,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                             {
                                 FilterProcessOutput( args.Data );
 
-                                handleErrorData!( args.Data );
+                                handleErrorData( args.Data );
                             }
                         }
                         catch ( Exception e )
@@ -293,7 +293,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                             {
                                 FilterProcessOutput( args.Data );
 
-                                handleOutputData!( args.Data );
+                                handleOutputData( args.Data );
                             }
                         }
                         catch ( Exception e )
