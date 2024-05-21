@@ -2,7 +2,6 @@
 
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -18,7 +17,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Testers
 
         public string TestAssemblyName { get; init; }
 
-        public (string Name, string Value)[] EnvironmentVariables { get; init; } = Array.Empty<(string, string)>();
+        public (string Name, string Value)[] EnvironmentVariables { get; init; } = [];
 
         public VsTestTester( ParametricString testPackageName, string testAssemblyName )
         {

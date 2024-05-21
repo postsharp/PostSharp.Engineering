@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Linq;
+using System.Text;
 
 namespace PostSharp.Engineering.BuildTools
 {
@@ -15,7 +16,38 @@ namespace PostSharp.Engineering.BuildTools
     /// </summary>
     public class CommonCommandSettings : CommandSettings
     {
-        private string[] _unparsedProperties = Array.Empty<string>();
+        private string[] _unparsedProperties = [];
+
+        protected virtual void AppendSettings( StringBuilder stringBuilder )
+        {
+            if ( this.NoLogo )
+            {
+                stringBuilder.Append( "--nologo " );
+            }
+
+            if ( this.Verbose )
+            {
+                stringBuilder.Append( "--verbose " );
+            }
+
+            if ( this.Force )
+            {
+                stringBuilder.Append( "--force " );
+            }
+
+            if ( this.SimulateContinuousIntegration )
+            {
+                stringBuilder.Append( "--ci " );
+            }
+        }
+
+        public override string ToString()
+        {
+            var stringBuilder = new StringBuilder();
+            this.AppendSettings( stringBuilder );
+
+            return stringBuilder.ToString().Trim();
+        }
 
         [Description( "Do not display the logo" )]
         [CommandOption( "--nologo" )]

@@ -2,35 +2,36 @@
 
 using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.Build.Model;
 using System;
 using System.Collections.Generic;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Utilities;
 
-public static class TestLicensesCache
+[PublicAPI]
+public static class TestLicenseKeyDownloader
 {
-    public static void FetchOnPrepareCompleted( PrepareCompletedEventArgs arg )
+    public static void Download( BuildContext context )
     {
         const string visualStudioTenantId = "171276b2-7a8c-4c9b-bc49-57889e2e4f42";
         const string keyVaultUri = "https://testserviceskeyvault.vault.azure.net/";
 
         if ( BuildContext.IsGuestDevice )
         {
-            arg.Context.Console.WriteWarning( "Skipping fetching of test license keys. Some licensing tests are going to fail." );
+            context.Console.WriteWarning( "Skipping fetching of test license keys. Some licensing tests are going to fail." );
 
             return;
         }
 
         // Should the content of the file change, change the file name, to keep older builds consistent.
-        var testLicensesCacheDirectory = Path.Combine( PathHelper.GetMetalamaApplicationDataDirectory(), "TestLicenseKeysCache" );
+        var testLicensesCacheDirectory = PathHelper.GetEngineeringDataDirectory();
         var licensesFile = Path.Combine( testLicensesCacheDirectory, "TestLicenseKeys1.g.props" );
 
         if ( File.Exists( licensesFile ) )
         {
-            arg.Context.Console.WriteMessage( "Test license keys are fetched already." );
+            context.Console.WriteMessage( "Test license keys are fetched already." );
 
             return;
         }
@@ -40,8 +41,8 @@ public static class TestLicensesCache
             Directory.CreateDirectory( testLicensesCacheDirectory );
         }
 
-        arg.Context.Console.WriteHeading( "Fetching test license keys." );
-        arg.Context.Console.WriteMessage( "This operation can be lengthy, but its result is cached, and next time it won't need to be performed." );
+        context.Console.WriteHeading( "Fetching test license keys." );
+        context.Console.WriteMessage( "This operation can be lengthy, but its result is cached, and next time it won't need to be performed." );
 
         var o = new DefaultAzureCredentialOptions()
         {
@@ -88,8 +89,8 @@ public static class TestLicensesCache
             }
             catch ( Exception ex )
             {
-                arg.Context.Console.WriteWarning( $"Could not get license key {licenseKeyName}, some licensing tests are going to fail." );
-                arg.Context.Console.WriteMessage( ex.Message );
+                context.Console.WriteWarning( $"Could not get license key {licenseKeyName}, some licensing tests are going to fail." );
+                context.Console.WriteMessage( ex.Message );
 
                 return;
             }
@@ -101,7 +102,7 @@ public static class TestLicensesCache
         lines.Add( "</Project>" );
 
         File.WriteAllLines( licensesFile, lines );
-        
-        arg.Context.Console.WriteMessage( "Test license keys fetched successfully." );
+
+        context.Console.WriteMessage( "Test license keys fetched successfully." );
     }
 }

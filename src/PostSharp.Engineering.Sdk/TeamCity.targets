@@ -5,7 +5,15 @@
             <IsTestSdkReferenced Include="@(PackageReference)" Condition="'%(Identity)'=='Microsoft.NET.Test.Sdk'" />
         </ItemGroup>
 
-        <ItemGroup>
+        <ItemGroup Condition="'$(ManagePackageVersionsCentrally)'=='true'">
+            <PackageReference Include="TeamCity.Dotnet.Integration" VersionOverride="1.0.30">
+                <PrivateAssets>all</PrivateAssets>
+                <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+            </PackageReference>
+            <PackageReference Include="TeamCity.VSTest.TestAdapter" VersionOverride="1.0.38"
+                              Condition="'@(IsTestSdkReferenced)'!=''" />
+        </ItemGroup>
+        <ItemGroup Condition="'$(ManagePackageVersionsCentrally)'!='true'">
             <PackageReference Include="TeamCity.Dotnet.Integration" Version="1.0.30">
                 <PrivateAssets>all</PrivateAssets>
                 <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>

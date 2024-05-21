@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Docker;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -27,6 +28,10 @@ public class ProductFamily
     public ProductFamily? UpstreamProductFamily { get; init; }
 
     public ProductFamily? DownstreamProductFamily { get; init; }
+
+    public DockerImage? DockerBaseImage { get; init; }
+
+    public DockerImageComponent[] DockerImageComponents { get; init; } = [];
 
     public ProductFamily( string name, string version, params ProductFamily[] relativeFamilies )
     {

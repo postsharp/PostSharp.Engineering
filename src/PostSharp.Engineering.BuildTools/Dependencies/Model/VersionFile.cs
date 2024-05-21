@@ -30,7 +30,6 @@ public class VersionFile
     public static bool TryRead(
         BuildContext context,
         CommonCommandSettings settings,
-        BuildConfiguration configuration,
         [NotNullWhen( true )] out VersionFile? versionFile )
     {
         versionFile = null;

@@ -21,7 +21,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             ConsoleHelper console,
             string fileName,
             string commandLine,
-            string workingDirectory,
+            string? workingDirectory = null,
             ToolInvocationOptions? options = null )
             => InvokeTool(
                 console,
@@ -34,7 +34,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             ConsoleHelper console,
             string fileName,
             string commandLine,
-            string? workingDirectory,
+            string? workingDirectory = null,
             ToolInvocationOptions? options = null )
         {
             if ( !InvokeTool(
@@ -76,14 +76,28 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 workingDirectory,
                 ConsoleHelper.CancellationToken,
                 out exitCode,
-                s =>
+                HandleErrorData,
+                HandleOutputData,
+                options );
+
+            void HandleErrorData( string s )
+            {
+                if ( options.FilterOutput )
                 {
                     if ( !string.IsNullOrWhiteSpace( s ) )
                     {
                         console.WriteMessage( s );
                     }
-                },
-                s =>
+                }
+                else
+                {
+                    Console.Error.WriteLine( s );
+                }
+            }
+
+            void HandleOutputData( string s )
+            {
+                if ( options.FilterOutput )
                 {
                     if ( !string.IsNullOrWhiteSpace( s ) )
                     {
@@ -122,8 +136,12 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                             console.WriteMessage( s );
                         }
                     }
-                },
-                options );
+                }
+                else
+                {
+                    Console.Out.WriteLine( s );
+                }
+            }
         }
 
         // #16205 We don't allow cancellation here because there's no other working way to wait for a process exit
@@ -228,21 +246,20 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     startInfo.Environment[blockedEnvironmentVariable] = null;
                 }
 
-                // Filters process output where matching RegEx value indicates process failure.
-                void FilterProcessOutput( string output )
-                {
-                    if ( options.Retry is { Regex: { } } && options.Retry.Regex.IsMatch( output ) )
-                    {
-                        processShouldRetry = true;
-                    }
-                }
-
-                Path.GetFileName( fileName );
                 Process process = new() { StartInfo = startInfo };
 
                 using ( ManualResetEvent stdErrorClosed = new( false ) )
                 using ( ManualResetEvent stdOutClosed = new( false ) )
                 {
+                    // Filters process output where matching RegEx value indicates process failure.
+                    void FilterProcessOutput( string output )
+                    {
+                        if ( options.Retry is { Regex: { } } && options.Retry.Regex.IsMatch( output ) )
+                        {
+                            processShouldRetry = true;
+                        }
+                    }
+
                     process.ErrorDataReceived += ( _, args ) =>
                     {
                         try
@@ -317,6 +334,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         {
                             process.BeginErrorReadLine();
                             process.BeginOutputReadLine();
+
                             process.WaitForExit();
                         }
                         else

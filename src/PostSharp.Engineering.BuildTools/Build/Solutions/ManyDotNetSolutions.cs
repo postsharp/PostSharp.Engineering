@@ -22,20 +22,24 @@ public class ManyDotNetSolutions : Solution
     /// <param name="directory">A directory.</param>
     public ManyDotNetSolutions( string directory ) : base( directory )
     {
+        // Default settings.
         this.IsTestOnly = true;
+        this.BuildMethod = Model.BuildMethod.Build;
     }
 
-    public override bool Build( BuildContext context, BuildSettings settings )
+    public override IEnumerable<Solution> GetFormattableSolutions( BuildContext context )
     {
-        throw new NotSupportedException();
+        if ( !this.TryGetSolutions( context, out var solutions ) )
+        {
+            return Enumerable.Empty<Solution>();
+        }
+        else
+        {
+            return solutions;
+        }
     }
 
-    public override bool Pack( BuildContext context, BuildSettings settings )
-    {
-        throw new NotSupportedException();
-    }
-
-    public override bool Test( BuildContext context, BuildSettings settings )
+    private bool BuildOrTest( BuildContext context, BuildSettings settings, bool test, string verb )
     {
         var failedProjects = new List<DotNetSolution>();
 
@@ -66,7 +70,7 @@ public class ManyDotNetSolutions : Solution
                     {
                         if ( solution.Build( localContext, settings ) )
                         {
-                            if ( solution.TestMethod == Model.BuildMethod.Test )
+                            if ( test && solution.TestMethod == Model.BuildMethod.Test )
                             {
                                 if ( !solution.Test( localContext, settings ) )
                                 {
@@ -86,7 +90,7 @@ public class ManyDotNetSolutions : Solution
                         // Write the output, but within a lock to avoid mixes.
                         lock ( consoleSync )
                         {
-                            context.Console.WriteHeading( $"Testing {solution.SolutionPath}" );
+                            context.Console.WriteHeading( $"{verb} {solution.SolutionPath}" );
                             bufferingConsole.Replay();
                         }
                     }
@@ -106,6 +110,15 @@ public class ManyDotNetSolutions : Solution
 
         return true;
     }
+
+    public override bool Build( BuildContext context, BuildSettings settings ) => this.BuildOrTest( context, settings, false, "Building" );
+
+    public override bool Pack( BuildContext context, BuildSettings settings )
+    {
+        throw new NotSupportedException();
+    }
+
+    public override bool Test( BuildContext context, BuildSettings settings ) => this.BuildOrTest( context, settings, true, "Testing" );
 
     public override bool Restore( BuildContext context, BuildSettings settings )
     {

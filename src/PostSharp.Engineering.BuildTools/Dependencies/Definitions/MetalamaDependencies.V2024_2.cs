@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Docker;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
@@ -45,13 +46,14 @@ public static partial class MetalamaDependencies
 
         public static ProductFamily Family { get; } = new( _projectName, "2024.2", DevelopmentDependencies.Family, PostSharpDependencies.V2024_1.Family )
         {
+            DockerBaseImage = DockerImages.DotNetSdk_8_0_204_Jammy,
             UpstreamProductFamily = V2024_1.Family
 
             // DownstreamProductFamily = V2024_3.Family
         };
 
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.GitHub );
-        
+
         public static DependencyDefinition Consolidated { get; } = new MetalamaDependencyDefinition(
             "Consolidated",
             VcsProvider.AzureDevOps,
@@ -66,7 +68,8 @@ public static partial class MetalamaDependencies
             EngineeringDirectory = "eng-Metalama", PrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSSBuildConfiguration)", "Shipping" )
         };
 
-        public static DependencyDefinition MetalamaFrameworkRunTime { get; } = new MetalamaDependencyDefinition( "Metalama.Framework.RunTime", VcsProvider.GitHub );
+        public static DependencyDefinition MetalamaFrameworkRunTime { get; } =
+            new MetalamaDependencyDefinition( "Metalama.Framework.RunTime", VcsProvider.GitHub );
 
         public static DependencyDefinition MetalamaFrameworkPrivate { get; } = new MetalamaDependencyDefinition(
             "Metalama.Framework.Private",
@@ -85,6 +88,9 @@ public static partial class MetalamaDependencies
 
         public static DependencyDefinition MetalamaSamples { get; } =
             new MetalamaDependencyDefinition( "Metalama.Samples", VcsProvider.GitHub ) { CodeStyle = "Metalama.Samples" };
+
+        public static DependencyDefinition TimelessDotNetEngineer { get; } =
+            new MetalamaDependencyDefinition( "TimelessDotNetEngineer", VcsProvider.GitHub ) { CodeStyle = "Metalama.Samples" };
 
         public static DependencyDefinition MetalamaMigration { get; } = new MetalamaDependencyDefinition( "Metalama.Migration", VcsProvider.GitHub );
 

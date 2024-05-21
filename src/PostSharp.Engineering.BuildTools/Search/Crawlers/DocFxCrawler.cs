@@ -30,7 +30,7 @@ public abstract class DocFxCrawler
     private readonly List<string> _h5 = new();
     private readonly List<string> _h6 = new();
     private readonly IReadOnlyDictionary<int, List<string>> _headings;
-    private readonly StringBuilder _textBuilder = new StringBuilder();
+    private readonly StringBuilder _textBuilder = new();
     private readonly List<string> _text = new();
     private bool _isTextPreformatted;
     private bool _isParagraphIgnored;
@@ -116,7 +116,7 @@ public abstract class DocFxCrawler
 
         var complexityLevelRank = 1000 - complexityLevel - 1;
 
-        this._contentInfo = new(
+        this._contentInfo = new ContentInfo(
             breadcrumb.Breadcrumb,
             breadcrumb.Kinds,
             breadcrumb.KindRank,
@@ -156,7 +156,7 @@ public abstract class DocFxCrawler
         {
             var level = node.Name[1] - '0';
             var text = this.GetNodeText( node );
-            
+
             if ( this._contentInfo!.IsApiDoc )
             {
                 var strategy = DocFxApiArticleHelper.GetNextParagraphStrategy( node );
@@ -221,7 +221,7 @@ public abstract class DocFxCrawler
 
                              // Ignore diff code in examples
                              || cssClass.Contains( "compare", StringComparison.OrdinalIgnoreCase )
-                            
+
                              // Ignore graphs.
                              || cssClass.Contains( "mermaid", StringComparison.OrdinalIgnoreCase ) )
                         {
@@ -304,7 +304,7 @@ public abstract class DocFxCrawler
 
         this._textBuilder.Clear();
     }
-    
+
     private void CreateSnippet()
     {
         if ( this._contentInfo == null )
@@ -331,7 +331,7 @@ public abstract class DocFxCrawler
         {
             summary = this._summary;
         }
-        
+
         var snippet = new Snippet()
         {
             Breadcrumb = this._contentInfo.Breadcrumb,
@@ -350,13 +350,13 @@ public abstract class DocFxCrawler
             Kinds = this._contentInfo.Kinds,
             KindRank = this._contentInfo.KindRank,
             Categories = this._contentInfo.Categories,
-            ComplexityLevels = this._contentInfo.ComplexityLevel < 100 ? Array.Empty<int>() : new[] { this._contentInfo.ComplexityLevel },
+            ComplexityLevels = this._contentInfo.ComplexityLevel < 100 ? [] : new[] { this._contentInfo.ComplexityLevel },
             ComplexityLevelRank = this._contentInfo.ComplexityLevelRank,
             NavigationLevel = this._contentInfo.NavigationLevel
         };
-        
+
         this.FinishParagraph();
-        
+
         this._h2.Clear();
         this._h3.Clear();
         this._h4.Clear();
@@ -391,7 +391,7 @@ public abstract class DocFxCrawler
             this.FinishParagraph();
         }
     }
-    
+
     // Make each first letter upper-case
     protected static string NormalizeCategoryName( string category )
     {

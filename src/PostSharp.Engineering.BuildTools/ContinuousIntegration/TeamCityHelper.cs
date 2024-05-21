@@ -762,7 +762,9 @@ public static class TeamCityHelper
 
         var publicBuildArtifactRules = $"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
         var consolidatedPublicBuildBuildTriggers = new IBuildTrigger[] { new NightlyBuildTrigger( 2, true ) };
-        var consolidatedPublicBuildSteps = new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( publicConfiguration, false ) };
+
+        var consolidatedPublicBuildSteps =
+            new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( publicConfiguration, false, context.Product.UseDockerInTeamcity ) };
 
         tcConfigurations.Add(
             new TeamCityBuildConfiguration( publicBuildObjectName, "2. Build [Public]", buildAgentType )

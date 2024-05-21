@@ -2,7 +2,6 @@
 
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using Spectre.Console.Cli;
-using System;
 using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies
@@ -18,7 +17,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
         [Description( "The list of dependencies (given by name by or position in the dependency list) to configure" )]
         [CommandArgument( 1, "[dependencies]" )]
-        public string[] Dependencies { get; protected set; } = Array.Empty<string>();
+        public string[] Dependencies { get; protected set; } = [];
 
         [Description( "Specifies that all dependencies must be configured" )]
         [CommandOption( "--all" )]

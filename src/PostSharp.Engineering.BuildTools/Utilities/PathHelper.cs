@@ -7,9 +7,19 @@ namespace PostSharp.Engineering.BuildTools.Utilities;
 
 public static class PathHelper
 {
-    public static string GetMetalamaApplicationDataDirectory() => Path.Combine( GetApplicationDataParentDirectory(), ".metalama" );
-    
-    public static string GetApplicationDataParentDirectory()
+    public static string GetEngineeringDataDirectory()
+    {
+        var directory = Path.Combine( GetApplicationDataParentDirectory(), "PostSharp.Engineering" );
+
+        if ( !Directory.Exists( directory ) )
+        {
+            Directory.CreateDirectory( directory );
+        }
+
+        return directory;
+    }
+
+    private static string GetApplicationDataParentDirectory()
     {
         var applicationDataParentDirectory = Environment.GetFolderPath( Environment.SpecialFolder.ApplicationData );
 
@@ -17,14 +27,16 @@ public static class PathHelper
         {
             // This is a fallback for Ubuntu on WSL and other platforms that don't provide
             // the SpecialFolder.ApplicationData folder path.
-            applicationDataParentDirectory = Environment.GetFolderPath( Environment.SpecialFolder.UserProfile );
-        }
+            var userProfile = Environment.GetFolderPath( Environment.SpecialFolder.UserProfile );
 
-        if ( string.IsNullOrEmpty( applicationDataParentDirectory ) )
-        {
-            // This will always fail on platforms which don't provide the special folders being discovered above.
-            // We need to find another locations on such platforms.
-            throw new InvalidOperationException( "Failed to find application data parent directory." );
+            if ( string.IsNullOrEmpty( userProfile ) )
+            {
+                // This will always fail on platforms which don't provide the special folders being discovered above.
+                // We need to find another locations on such platforms.
+                throw new InvalidOperationException( "Failed to find application data parent directory." );
+            }
+
+            applicationDataParentDirectory = Path.Combine( userProfile, ".local" );
         }
 
         return applicationDataParentDirectory;

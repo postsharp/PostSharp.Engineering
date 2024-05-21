@@ -1,6 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 
@@ -45,7 +45,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Gets or sets the list of exclusions from the <c>codestyle format</c> command. It can contain globbing patterns like <c>**</c> and <c>*</c>.
         /// </summary>
-        public string[] FormatExclusions { get; init; } = Array.Empty<string>();
+        public string[] FormatExclusions { get; init; } = [];
 
         /// <summary>
         /// Gets or sets the method (<see cref="Build"/>, <see cref="Test"/> or <see cref="Pack"/>) that must be invoked when executing the <c>build</c> command.
@@ -91,6 +91,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// Restores the packages and artifacts needed by the current solution.
         /// </summary>
         public abstract bool Restore( BuildContext context, BuildSettings settings );
+
+        public virtual IEnumerable<Solution> GetFormattableSolutions( BuildContext context ) => new[] { this };
 
         protected Solution( string solutionPath )
         {

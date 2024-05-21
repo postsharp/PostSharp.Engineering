@@ -11,6 +11,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 using PostSharp.Engineering.BuildTools.Coverage;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.NuGet;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -27,6 +28,7 @@ using System.Xml.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
+    [PublicAPI]
     public class Product
     {
         public DependencyDefinition DependencyDefinition { get; }
@@ -35,14 +37,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private readonly string? _mainVersionFile;
         private readonly string? _autoUpdatedVersionsFile;
         private readonly string? _bumpInfoFile;
-        private readonly ParametrizedDependency[] _parametrizedDependencies = Array.Empty<ParametrizedDependency>();
-        private readonly DependencyDefinition[] _dependencyDefinitions = Array.Empty<DependencyDefinition>();
+        private readonly ParametrizedDependency[] _parametrizedDependencies = [];
+        private readonly DependencyDefinition[] _dependencyDefinitions = [];
 
         public Product( DependencyDefinition dependencyDefinition )
         {
             this.DependencyDefinition = dependencyDefinition;
             this.ProductName = dependencyDefinition.Name;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
+            this.DockerBaseImage = dependencyDefinition.ProductFamily.DockerBaseImage;
         }
 
         public ProductFamily ProductFamily => this.DependencyDefinition.ProductFamily;
@@ -96,9 +99,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool GenerateArcadeProperties { get; init; }
 
-        public string[] AdditionalDirectoriesToClean { get; init; } = Array.Empty<string>();
+        public string[] AdditionalDirectoriesToClean { get; init; } = [];
 
-        public Solution[] Solutions { get; init; } = Array.Empty<Solution>();
+        public Solution[] Solutions { get; init; } = [];
 
         public Pattern PrivateArtifacts { get; init; } = Pattern.Empty;
 
@@ -119,14 +122,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public TimeSpan DownstreamMergeTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
 
         public static ImmutableArray<Publisher> DefaultPublicPublishers { get; }
-            = ImmutableArray.Create(
-                new Publisher[]
+            =
+            [
+                ..new Publisher[]
                 {
                     // .snupkg packages are published along with .nupkg packages automatically by the "dotnet nuget push" tool.
                     new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
                     new VsixPublisher( Pattern.Create( "*.vsix" ) ),
                     new MergePublisher()
-                } );
+                }
+            ];
 
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
@@ -139,13 +144,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     ExportsToTeamCityDeploy: true,
                     RequiresUpstreamCheck: true ) );
 
-        public ImmutableArray<string> DefaultArtifactRules { get; } =
-            ImmutableArray.Create(
-                $@"+:artifacts/logs/**/*=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/CompileTimeTroubleshooting/**/*=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/CrashReports/**/*=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/ExtractExceptions/**/*=>logs",
-                $@"+:%system.teamcity.build.tempDir%/Metalama/Logs/**/*=>logs" );
+        public ImmutableArray<string> DefaultArtifactRules { get; } = ImmutableArray<string>.Empty;
 
         /// <summary>
         /// List of properties that must be exported into the *.version.props. These properties must be defined in *.props files specified as the dictionary keys.
@@ -182,9 +181,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Gets the set of source code dependencies of this product. 
         /// </summary>
-        public DependencyDefinition[] SourceDependencies { get; init; } = Array.Empty<DependencyDefinition>();
+        public DependencyDefinition[] SourceDependencies { get; init; } = [];
 
         public IBumpStrategy BumpStrategy { get; init; } = new DefaultBumpStrategy();
+
+        public DockerImage? DockerBaseImage { get; init; }
+
+        public DockerImageComponent[] AdditionalDockerImageComponents { get; init; } = [];
+
+        public bool UseDockerInTeamcity { get; init; }
 
         public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )
         {
@@ -195,6 +200,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // issue is visible.
 
             return dependency != null;
+        }
+
+        public DependencyDefinition GetDependencyDefinition( string name )
+        {
+            if ( !this.TryGetDependencyDefinition( name, out var definition ) )
+            {
+                throw new KeyNotFoundException( $"Dependency not found: {name}." );
+            }
+
+            return definition;
         }
 
         public bool TryGetDependencyDefinition( string name, [NotNullWhen( true )] out DependencyDefinition? dependencyDefinition )
@@ -218,10 +233,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public ImmutableArray<DotNetTool> DotNetTools { get; init; } = DotNetTool.DefaultTools;
 
         public bool TestOnBuild { get; init; }
-        
-        public string? DefaultTestsFilter { get; init; } 
 
-        public ProductExtension[] Extensions { get; init; } = Array.Empty<ProductExtension>();
+        public string? DefaultTestsFilter { get; init; }
+
+        public ProductExtension[] Extensions { get; init; } = [];
 
         public bool IsBundle { get; init; }
 
@@ -229,7 +244,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             => Path.Combine(
                 context.RepoDirectory,
                 this.PrivateArtifactsDirectory.ToString( buildInfo ) );
-        
+
         private string GetPublicArtifactsDirectory( BuildContext context, BuildInfo buildInfo )
             => Path.Combine(
                 context.RepoDirectory,
@@ -521,7 +536,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             // Writing the import file at the end of the build so it gets only written if the build was successful.
             this.WriteImportFile( context, configuration );
-            
+
             this.ArtifactsPrepared?.Invoke( eventArgs );
 
             context.Console.WriteSuccess( $"Building the whole {this.ProductName} product was successful. Package version: {buildInfo.PackageVersion}." );
@@ -550,7 +565,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var relativePath = Path.GetRelativePath( Path.GetDirectoryName( importFilePath )!, manifestFilePath );
 
             var importFileContent = $@"
-<!-- File generated by PostSharp.Engineering {VersionHelper.EngineeringVersion}. -->
+<!-- File generated by PostSharp.Engineering {VersionHelper.EngineeringVersion}, method {nameof(Product)}.{nameof(this.WriteImportFile)} -->
 <Project>
     <!-- This file must not be added to source control and must not be uploaded as a build artifact.
          It must be imported by other repos as a dependency. 
@@ -602,7 +617,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 .Properties
                 .Single( p => p.Name == this.ProductNameWithoutDot + "BuildConfiguration" )
                 .EvaluatedValue;
-            
+
             var packagePreviewVersion = versionFile
                 .Properties
                 .Single( p => p.Name == this.ProductNameWithoutDot + "PreviewVersion" )
@@ -676,7 +691,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// An event raised when the build is completed, before creating ZIP files and preparing public artifacts.
         /// </summary>
         public event Action<BuildCompletedEventArgs>? BuildCompleted;
-        
+
         /// <summary>
         /// An event raised when the build is completed, after creating ZIP files and preparing public artifacts.
         /// </summary>
@@ -1043,7 +1058,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             File.WriteAllText(
                 configurationNeutralVersionsFilePath,
                 $@"
-<!-- File generated by PostSharp.Engineering {VersionHelper.EngineeringVersion}. -->
+<!-- File generated by PostSharp.Engineering {VersionHelper.EngineeringVersion}, method {nameof(Product)}.{nameof(this.PrepareConfigurationNeutralVersionsFile)}. -->
 <Project>
     <PropertyGroup>
         <EngineeringConfiguration>{buildConfiguration}</EngineeringConfiguration>
@@ -1109,7 +1124,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 return false;
             }
-            
+
             if ( !GitHelper.TryGetLatestCommitDate( context, out var buildDate ) )
             {
                 return false;
@@ -1204,9 +1219,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     {
                         // Local build with timestamp-based version and randomized package number. For the assembly version we use a local incremental file stored in the user profile.
 
-                        // On Alpine Linux, the ApplicationData directory (~/.config) might not exist, so it needs to be created.
-                        var localVersionDirectory =
-                            Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create ), "Metalama.Engineering" );
+                        var localVersionDirectory = PathHelper.GetEngineeringDataDirectory();
 
                         var localVersionFile = Path.Combine( localVersionDirectory, $"{this.ProductName}.version" );
                         int localVersion;
@@ -1234,7 +1247,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                         File.WriteAllText( localVersionFile, localVersion.ToString( CultureInfo.InvariantCulture ) );
 
-                        versionSuffix = $"local-{Environment.UserName}-{configurationLowerCase}";
+                        var userName = settings.UserName ?? Environment.UserName;
+                        versionSuffix = $"local-{userName}-{configurationLowerCase}";
 
                         patchNumber = localVersion;
 
@@ -1281,7 +1295,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             string buildDate )
         {
             var props = $@"
-<!-- File generated by PostSharp.Engineering {VersionHelper.EngineeringVersion}. -->
+<!-- File generated by PostSharp.Engineering {VersionHelper.EngineeringVersion}, method {nameof(Product)}.{nameof(this.GenerateManifestFile)}. -->
 <Project>
     <PropertyGroup>
         <{this.ProductNameWithoutDot}MainVersion>{version.MainVersion}</{this.ProductNameWithoutDot}MainVersion>";
@@ -1412,7 +1426,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             foreach ( var kvp in this.ExportedProperties )
             {
                 var propsFilePath = Path.Combine( context.RepoDirectory, kvp.Key );
-                var propsFile = Project.FromFile( propsFilePath, new() );
+                var propsFile = Project.FromFile( propsFilePath, new ProjectOptions() );
 
                 foreach ( var exportedPropertyName in kvp.Value )
                 {
@@ -1795,7 +1809,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool BumpVersion( BuildContext context, BumpSettings settings )
         {
             context.Console.WriteHeading( $"Bumping the '{context.Product.ProductName}' version." );
-            
+
             var developmentBranch = context.Product.DependencyDefinition.Branch;
 
             if ( context.Branch != developmentBranch )
@@ -1816,7 +1830,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( releaseBranch == null )
             {
-                context.Console.WriteMessage( $"Skipping check for pending changes from the release branch, as the release branch is not set for this product." );
+                context.Console.WriteMessage(
+                    $"Skipping check for pending changes from the release branch, as the release branch is not set for this product." );
             }
             else
             {
@@ -1826,7 +1841,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     return false;
                 }
-                
+
                 if ( !GitHelper.TryCheckoutAndPull( context, context.Branch ) )
                 {
                     return false;
@@ -1921,12 +1936,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 if ( hasChangesSinceLastDeployment && !hasChangesInDependencies )
                 {
                     const string message =
-                        "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning."; 
-                    
+                        "There are changes in the current repo but no changes in dependencies. However, the current repo does not have its own versioning.";
+
                     if ( settings.Force )
                     {
                         context.Console.WriteImportantMessage( $"{message} This is being ignored using --force." );
-                        
+
                         return true;
                     }
 
@@ -2000,7 +2015,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
             var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
-            var isRepoRemoteSsh = this.DependencyDefinition.VcsRepository.IsSshAgentRequired;            
+            var isRepoRemoteSsh = this.DependencyDefinition.VcsRepository.IsSshAgentRequired;
 
             foreach ( var configuration in configurations )
             {
@@ -2090,7 +2105,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             areCustomArgumentsAllowed: true ) );
                 }
 
-                teamCityBuildSteps.Add( new TeamCityEngineeringBuildBuildStep( configuration ) );
+                teamCityBuildSteps.Add( new TeamCityEngineeringBuildBuildStep( configuration, true, this.UseDockerInTeamcity ) );
 
                 var teamCityBuildConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}Build",
