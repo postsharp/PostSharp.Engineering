@@ -56,6 +56,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public VcsRepository VcsRepository { get; }
 
         public ParametricString PrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "private" );
+        
+        public ParametricString PublicArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "public" );
 
         public string GetResolvedPrivateArtifactsDirectory( BuildConfiguration configuration )
             => this.PrivateArtifactsDirectory.ToString(

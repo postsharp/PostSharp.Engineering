@@ -86,7 +86,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public ParametricString PrivateArtifactsDirectory => this.DependencyDefinition.PrivateArtifactsDirectory;
 
-        public ParametricString PublicArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "public" );
+        public ParametricString PublicArtifactsDirectory => this.DependencyDefinition.PublicArtifactsDirectory;
 
         public ParametricString TestResultsDirectory { get; init; } = Path.Combine( "artifacts", "testResults" );
 
@@ -2090,13 +2090,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             areCustomArgumentsAllowed: true ) );
                 }
 
-                teamCityBuildSteps.Add(
-                    new TeamCityEngineeringCommandBuildStep(
-                        "Build",
-                        "Build",
-                        "test",
-                        $"--configuration {configuration} --buildNumber %build.number% --buildType %system.teamcity.buildType.id%",
-                        true ) );
+                teamCityBuildSteps.Add( new TeamCityEngineeringBuildBuildStep( configuration ) );
 
                 var teamCityBuildConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}Build",
@@ -2120,9 +2114,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // Create a TeamCity configuration for Deploy.
                 if ( configurationInfo.PrivatePublishers != null || configurationInfo.PublicPublishers != null )
                 {
-                    TeamCityBuildStep CreatePublishBuildStep()
-                        => new TeamCityEngineeringCommandBuildStep( "Publish", "Publish", "publish", $"--configuration {configuration}", true );
-                    
                     if ( configurationInfo.ExportsToTeamCityDeploy )
                     {
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
@@ -2130,7 +2121,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
                             this.DependencyDefinition.CiConfiguration.BuildAgentType )
                         {
-                            BuildSteps = new[] { CreatePublishBuildStep() },
+                            BuildSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( configuration ) },
                             IsDeployment = true,
                             SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
                                 .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, publishedArtifactRules ) } )
@@ -2155,7 +2146,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             name: "Standalone " + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
                             buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
                         {
-                            BuildSteps = new[] { CreatePublishBuildStep() },
+                            BuildSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( configuration ) },
                             IsDeployment = true,
                             SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
                                 .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, publishedArtifactRules ) } )

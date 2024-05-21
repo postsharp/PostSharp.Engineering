@@ -136,7 +136,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             {
                 if ( this.IsComposite )
                 {
-                    throw new InvalidOperationException( "Composite build cannot have build steps." );
+                    throw new InvalidOperationException( "Composite build cannot have build steps. Check if the build agent type is set." );
                 }
                 
                 writer.WriteLine(
