@@ -37,7 +37,7 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
             return false;
         }
 
-        imageName = $"{product.ProductName}-{product.ProductFamily.Version}-{image.Name}.{settings.BuildConfiguration}".ToLowerInvariant();
+        imageName = $"{product.ProductName}-{product.ProductFamily.Version}-{image.Name}-{settings.BuildConfiguration}".ToLowerInvariant();
 
         context.Console.WriteHeading( $"Building docker image to build {product.ProductName}." );
 
