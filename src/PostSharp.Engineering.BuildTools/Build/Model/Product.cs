@@ -1247,7 +1247,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                         File.WriteAllText( localVersionFile, localVersion.ToString( CultureInfo.InvariantCulture ) );
 
-                        var userName = settings.UserName ?? Environment.UserName;
+                        var userName = settings.UserName;
                         versionSuffix = $"local-{userName}-{configurationLowerCase}";
 
                         patchNumber = localVersion;

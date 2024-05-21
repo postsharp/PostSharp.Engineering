@@ -1,6 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using System;
+using PostSharp.Engineering.BuildTools.Build;
 using System.Collections.Generic;
 using System.IO;
 
@@ -26,10 +26,10 @@ public class DockerWindowsImage : DockerImage
 
     private class Writer( TextWriter textWriter, DockerWindowsImage image ) : DockerfileWriter( textWriter, image )
     {
-        public override void WritePrologue()
+        public override void WritePrologue( BuildSettings settings )
         {
-            base.WritePrologue();
-
+            // First write our own installation components so they as as independent as possible from
+            // the rest of the prolog, to improve caching.
             this.WriteLine(
                 """
                 # Install Chocolatey
@@ -44,6 +44,9 @@ public class DockerWindowsImage : DockerImage
                 # Install Git using Chocolatey
                 RUN choco install git -y
                 """ );
+            
+            base.WritePrologue( settings );
+
         }
 
         public override void MakeDirectory( string s )

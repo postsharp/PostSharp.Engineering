@@ -17,7 +17,7 @@ public static class FileSystemHelper
 
     public static void CopyFilesRecursively( ConsoleHelper console, string sourcePath, string targetPath, Predicate<string>? predicate = null )
     {
-        HashSet<string> targetFiles = new();
+        HashSet<string> expectedTargetFiles = new();
 
         Directory.CreateDirectory( targetPath );
 
@@ -32,10 +32,10 @@ public static class FileSystemHelper
         {
             var targetFile = sourceFile.Replace( sourcePath, targetPath, StringComparison.Ordinal );
 
-            targetFiles.Add( targetFile );
-
             if ( predicate == null || predicate( sourceFile ) )
             {
+                expectedTargetFiles.Add( targetFile );
+
                 if ( !File.Exists( sourceFile ) || File.GetLastWriteTime( sourceFile ) > File.GetLastWriteTime( targetFile ) )
                 {
                     console.WriteMessage( $"Copying '{targetFile}'." );
@@ -45,9 +45,9 @@ public static class FileSystemHelper
         }
 
         // Delete files that should not be there.
-        foreach ( var targetFile in Directory.GetFiles( sourcePath, "*", SearchOption.AllDirectories ) )
+        foreach ( var targetFile in Directory.GetFiles( targetPath, "*", SearchOption.AllDirectories ) )
         {
-            if ( targetFiles.Contains( targetFile ) )
+            if ( !expectedTargetFiles.Contains( targetFile ) )
             {
                 console.WriteMessage( $"Deleting '{targetFile}'." );
                 File.Delete( targetFile );

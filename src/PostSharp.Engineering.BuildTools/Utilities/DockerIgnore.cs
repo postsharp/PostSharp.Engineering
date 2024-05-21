@@ -8,16 +8,23 @@ using System.Text.RegularExpressions;
 
 namespace PostSharp.Engineering.BuildTools.Utilities;
 
-public class GitIgnore
+public class DockerIgnore
 {
     private readonly List<Regex> _regexPatterns;
 
-    public GitIgnore( string gitIgnorePath )
+    public DockerIgnore( string path )
     {
         this._regexPatterns =
-            File.ReadAllLines( gitIgnorePath )
+            File.ReadAllLines( path )
                 .Where( line => !string.IsNullOrWhiteSpace( line ) && !line.TrimStart().StartsWith( "#", StringComparison.Ordinal ) )
-                .Select( pattern => new Regex( ConvertGitIgnorePatternToRegex( pattern ), RegexOptions.Compiled | RegexOptions.IgnoreCase ) )
+                .SelectMany(
+                    line =>
+                    {
+                        var pattern = ConvertStarPatternToRegex( line );
+
+                        return new[] { pattern, pattern + "/.+" };
+                    } )
+                .Select( pattern => new Regex( pattern, RegexOptions.Compiled | RegexOptions.IgnoreCase ) )
                 .ToList();
     }
 
@@ -28,12 +35,12 @@ public class GitIgnore
         return this._regexPatterns.Any( pattern => pattern.IsMatch( relativePath ) );
     }
 
-    private static string ConvertGitIgnorePatternToRegex( string pattern )
+    private static string ConvertStarPatternToRegex( string sourcePattern )
     {
-        pattern = pattern.Trim();
+        var pattern = sourcePattern.Trim();
 
         // Handle negation
-        var isNegated = pattern.StartsWith( "!" );
+        var isNegated = pattern.StartsWith( "!", StringComparison.Ordinal );
 
         if ( isNegated )
         {
@@ -51,27 +58,6 @@ public class GitIgnore
 
         // Convert ? to .
         pattern = pattern.Replace( @"\?", ".", StringComparison.Ordinal );
-
-        // Handle trailing slash for directories
-        if ( pattern.EndsWith( "/", StringComparison.Ordinal ) )
-        {
-            pattern = pattern.TrimEnd( '/' );
-            pattern += "(/.*)?";
-        }
-        else
-        {
-            pattern += "(/.*)?";
-        }
-
-        // Handle starting slash
-        if ( pattern.StartsWith( "/", StringComparison.Ordinal ) )
-        {
-            pattern = "^" + pattern.Substring( 1 );
-        }
-        else
-        {
-            pattern = "^(.*?/)?(" + pattern + ")";
-        }
 
         if ( isNegated )
         {

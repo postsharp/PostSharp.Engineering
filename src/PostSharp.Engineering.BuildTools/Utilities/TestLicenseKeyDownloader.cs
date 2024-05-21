@@ -31,7 +31,7 @@ public static class TestLicenseKeyDownloader
 
         if ( File.Exists( licensesFile ) )
         {
-            context.Console.WriteMessage( "Test license keys are fetched already." );
+            context.Console.WriteMessage( "Test license keys are already fetched." );
 
             return;
         }

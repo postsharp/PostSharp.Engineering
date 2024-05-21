@@ -1,7 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
@@ -11,9 +10,9 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
-public abstract class DockerRunCommand : BaseCommand<BuildSettings>
+public abstract class DockerRunCommand : BaseCommand<DockerSettings>
 {
-    protected override bool ExecuteCore( BuildContext context, BuildSettings settings )
+    protected override bool ExecuteCore( BuildContext context, DockerSettings settings )
     {
         if ( !DockerPrepareCommand.TryPrepare( context, settings, out var imageName ) )
         {
@@ -26,29 +25,36 @@ public abstract class DockerRunCommand : BaseCommand<BuildSettings>
         var containerName = imageName + "-" + Random.Shared.NextInt64().ToString( "x", CultureInfo.InvariantCulture );
 
         var product = context.Product;
-        context.Console.WriteHeading( $"Building {product.ProductName} from docker." );
+        context.Console.WriteHeading( $"Building {product.ProductName} inside the '{containerName}' container." );
 
-        var arguments = this.GetArguments( settings, context, containerName, imageName );
-        context.Console.WriteImportantMessage( "docker " + arguments );
-
-        // Run Docker.
-        using ( ConsoleHelper.CancellationToken.Register( KillDocker ) )
+        // Run the configuration script.
+        try
         {
-            var process = Process.Start( new ProcessStartInfo( "docker", Environment.ExpandEnvironmentVariables( arguments ) ) { UseShellExecute = false } );
-            process!.WaitForExit();
+            var arguments = this.GetArguments( settings, context, containerName, imageName );
+            context.Console.WriteImportantMessage( "docker " + arguments );
 
-            ToolInvocationHelper.InvokeTool( context.Console, "docker", $"stop {containerName}" );
+            using ( ConsoleHelper.CancellationToken.Register( KillDocker ) )
+            {
+                var process = Process.Start(
+                    new ProcessStartInfo( "docker", Environment.ExpandEnvironmentVariables( arguments ) ) { UseShellExecute = false } );
 
-            return process.ExitCode == 0;
+                process!.WaitForExit();
+
+                return process.ExitCode == 0;
+            }
+
+            void KillDocker()
+            {
+                ToolInvocationHelper.InvokeTool( context.Console, "docker", $"kill {containerName}" );
+            }
         }
-
-        void KillDocker()
+        finally
         {
-            ToolInvocationHelper.InvokeTool( context.Console, "docker", $"kill {containerName}" );
+            ToolInvocationHelper.InvokeTool( context.Console, "docker", $"stop {containerName}" );
         }
     }
 
-    private string GetArguments( BuildSettings settings, BuildContext context, string containerName, string imageName )
+    private string GetArguments( DockerSettings settings, BuildContext context, string containerName, string imageName )
     {
         var product = context.Product;
         var image = product.DockerBaseImage!;
@@ -116,7 +122,7 @@ public abstract class DockerRunCommand : BaseCommand<BuildSettings>
         return arguments;
     }
 
-    protected abstract string GetCommand( BuildSettings settings, DockerImage image );
+    protected abstract string GetCommand( DockerSettings settings, DockerImage image );
 
     protected virtual string[] Options => [];
 }

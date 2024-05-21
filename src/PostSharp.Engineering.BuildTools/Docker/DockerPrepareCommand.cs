@@ -9,7 +9,6 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
@@ -47,7 +46,9 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
             return false;
         }
 
+        var dependenciesDirectory = Path.Combine( context.RepoDirectory, "dependencies" );
         var dockerDirectory = Path.Combine( context.RepoDirectory, product.EngineeringDirectory, "obj" );
+        var productDirectory = image.GetAbsolutePath( "src", product.ProductName );
 
         if ( !Directory.Exists( dockerDirectory ) )
         {
@@ -58,9 +59,11 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
         using var dockerfile = image.CreateDockfileWriter( File.CreateText( dockerFilePath ) );
 
         var configureCommands = new List<string>();
+        configureCommands.Add( "echo Running ./dependencies/ConfigureContainer.ps1" );
+        configureCommands.Add( $"cd {productDirectory}" );
 
         dockerfile.WriteLine( $"FROM {image.Uri} AS build-env" );
-        dockerfile.WritePrologue();
+        dockerfile.WritePrologue( settings );
 
         // Add Docker image components.
         var imageComponents = new Dictionary<string, DockerImageComponent>();
@@ -94,20 +97,17 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
             AddLocalDependency( localDependency.Name );
         }
 
-        var productDirectory = image.GetAbsolutePath( "src", product.ProductName );
         dockerfile.WriteLine( $"WORKDIR {dockerfile.EscapePath( productDirectory )}" );
         dockerfile.WriteLine( $"COPY . ." );
         configureCommands.Add( "ren docker-source-dependencies source-dependencies" );
 
         configureCommands.Add(
-            $"New-Item -ItemType SymbolicLink -Path .editorconfig -Target {(image.GetRelativePath( "eng", "style", ".editorconfig" ))} | Out-Null" );
+            $"New-Item -ItemType SymbolicLink -Path .editorconfig -Target {image.GetRelativePath( "eng", "style", ".editorconfig" )} | Out-Null" );
 
-        foreach ( var localDependency in localDependencies )
-        {
-            configureCommands.Add( $"./Build.ps1 dependencies set local {localDependency.Name}  --nologo" );
-        }
-
-        dockerfile.RunPowerShellScript( configureCommands );
+        // We don't run the Configure commands in the build container step (but during container execution)
+        // because we don't benefit from caches during the build step.
+        Directory.CreateDirectory( dependenciesDirectory );
+        File.WriteAllLines( Path.Combine( dependenciesDirectory, "ConfigureContainer.ps1" ), configureCommands );
 
         dockerfile.Close();
 
@@ -124,7 +124,7 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
             var sourceDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", productName ) );
             var targetDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "docker-source-dependencies", productName ) );
 
-            var ignore = new GitIgnore( Path.Combine( sourceDirectory, ".gitignore" ) );
+            var ignore = new DockerIgnore( Path.Combine( sourceDirectory, ".dockerignore" ) );
 
             FileSystemHelper.CopyFilesRecursively( context.Console, sourceDirectory, targetDirectory, f => !ignore.ShouldIgnore( f ) );
         }

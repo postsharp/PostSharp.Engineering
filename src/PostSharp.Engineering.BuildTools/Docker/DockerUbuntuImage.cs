@@ -29,15 +29,9 @@ public class DockerUbuntuImage : DockerImage
 
     private class Writer( TextWriter textWriter, DockerUbuntuImage image ) : DockerfileWriter( textWriter, image )
     {
-        public override void MakeDirectory( string s )
-        {
-            this.WriteLine( $"RUN mkdir {s} -p" );
-        }
+        public override void MakeDirectory( string s ) => this.WriteLine( $"RUN mkdir {s} -p" );
 
-        public override void ReplaceLink( string target, string alias )
-        {
-            this.WriteLine( $"RUN ln -s {target}  {alias}" );
-        }
+        public override void ReplaceLink( string target, string alias ) => this.WriteLine( $"RUN ln -s {target}  {alias}" );
 
         public override void RunPowerShellScript( List<string> commands )
             => this.WriteLine( "RUN pwsh -NoProfile -ExecutionPolicy Bypass -Command " + string.Join( ";\\\r\n", commands ) );
