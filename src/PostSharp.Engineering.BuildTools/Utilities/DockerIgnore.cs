@@ -22,7 +22,15 @@ public class DockerIgnore
                     {
                         var pattern = ConvertStarPatternToRegex( line );
 
-                        return new[] { pattern, pattern + "/.+" };
+                        if ( pattern.Negation )
+                        {
+                            // Negations are not implemented yet.
+                            return [];
+                        }
+                        else
+                        {
+                            return new[] { pattern.Pattern, pattern.Pattern + "/.+" };
+                        }
                     } )
                 .Select( pattern => new Regex( pattern, RegexOptions.Compiled | RegexOptions.IgnoreCase ) )
                 .ToList();
@@ -32,10 +40,13 @@ public class DockerIgnore
     {
         var relativePath = filePath.Replace( '\\', '/' );
 
-        return this._regexPatterns.Any( pattern => pattern.IsMatch( relativePath ) );
+        // It's convenient for debugging to store the match.exit
+        var match = this._regexPatterns.FirstOrDefault( pattern => pattern.IsMatch( relativePath ) );
+
+        return match != null;
     }
 
-    private static string ConvertStarPatternToRegex( string sourcePattern )
+    private static (string Pattern, bool Negation) ConvertStarPatternToRegex( string sourcePattern )
     {
         var pattern = sourcePattern.Trim();
 
@@ -59,11 +70,6 @@ public class DockerIgnore
         // Convert ? to .
         pattern = pattern.Replace( @"\?", ".", StringComparison.Ordinal );
 
-        if ( isNegated )
-        {
-            pattern = "^((?!" + pattern + ").)*$";
-        }
-
-        return pattern;
+        return (pattern, isNegated);
     }
 }

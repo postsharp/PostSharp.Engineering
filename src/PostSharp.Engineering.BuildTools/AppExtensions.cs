@@ -90,6 +90,10 @@ namespace PostSharp.Engineering.BuildTools
                                 docker.AddCommand<DockerInteractiveCommand>( "interactive" )
                                     .WithData( product )
                                     .WithDescription( "Opens an interactive PowerShell session inside the docker container." );
+
+                                docker.AddCommand<DockerListImagesCommand>( "list-images" )
+                                    .WithData( product )
+                                    .WithDescription( "Prints the list of configured images." );
                             } );
 
                         root.AddBranch(

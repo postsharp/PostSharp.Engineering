@@ -1,8 +1,5 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using PostSharp.Engineering.BuildTools.Build;
-using Spectre.Console.Cli;
-
 namespace PostSharp.Engineering.BuildTools.Docker;
 
 public class DockerBuildCommand : DockerRunCommand
@@ -17,14 +14,7 @@ public class DockerBuildCommand : DockerRunCommand
         }
         else
         {
-            return $"{image.PowerShellCommand} -c \" ./dependencies/ConfigureContainer.ps1; ./Build.ps1 build {dockerSettings};\"";    
+            return $"{image.PowerShellCommand} -c \" ./dependencies/ConfigureContainer.ps1; ./Build.ps1 build {dockerSettings};\"";
         }
-        
     }
-}
-
-public class DockerSettings : BuildSettings
-{
-    [CommandOption( "--docker-skip-configure" )]
-    public bool SkipConfigure { get; set; }
 }

@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -15,29 +16,49 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 #pragma warning disable CA1305
 
 [UsedImplicitly]
-public class DockerPrepareCommand : BaseCommand<BuildSettings>
+public class DockerPrepareCommand : BaseCommand<DockerSettings>
 {
-    protected override bool ExecuteCore( BuildContext context, BuildSettings settings )
+    protected override bool ExecuteCore( BuildContext context, DockerSettings settings )
     {
-        return TryPrepare( context, settings, out _ );
+        return TryPrepare( context, settings, out _, out _ );
     }
 
-    public static bool TryPrepare( BuildContext context, BuildSettings settings, [NotNullWhen( true )] out string? imageName )
+    public static bool TryPrepare(
+        BuildContext context,
+        DockerSettings settings,
+        [NotNullWhen( true )] out string? imageName,
+        [NotNullWhen( true )] out DockerImage? baseImage )
     {
         var product = context.Product;
 
-        var image = product.DockerBaseImage;
-
-        if ( image == null )
+        if ( settings.ImageName != null )
         {
-            context.Console.WriteError( "The DockerBaseImage property is not set." );
+            baseImage = DockerImages.All.SingleOrDefault( x => x.Name.Equals( settings.ImageName, StringComparison.OrdinalIgnoreCase ) );
 
-            imageName = null;
+            if ( baseImage == null )
+            {
+                context.Console.WriteError( $"There is no docker base image named '{settings.ImageName}'. Use the `docker list-images` command." );
 
-            return false;
+                imageName = null;
+
+                return false;
+            }
+        }
+        else
+        {
+            baseImage = product.DockerBaseImage;
+
+            if ( baseImage == null )
+            {
+                context.Console.WriteError( "The DockerBaseImage property is not set." );
+
+                imageName = null;
+
+                return false;
+            }
         }
 
-        imageName = $"{product.ProductName}-{product.ProductFamily.Version}-{image.Name}-{settings.BuildConfiguration}".ToLowerInvariant();
+        imageName = $"{product.ProductName}-{product.ProductFamily.Version}-{baseImage.Name}-{settings.BuildConfiguration}".ToLowerInvariant();
 
         context.Console.WriteHeading( $"Building docker image to build {product.ProductName}." );
 
@@ -48,7 +69,7 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
 
         var dependenciesDirectory = Path.Combine( context.RepoDirectory, "dependencies" );
         var dockerDirectory = Path.Combine( context.RepoDirectory, product.EngineeringDirectory, "obj" );
-        var productDirectory = image.GetAbsolutePath( "src", product.ProductName );
+        var productDirectory = baseImage.GetAbsolutePath( "src", product.ProductName );
 
         if ( !Directory.Exists( dockerDirectory ) )
         {
@@ -56,13 +77,13 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
         }
 
         var dockerFilePath = Path.Combine( dockerDirectory, $"{imageName}.Dockerfile" );
-        using var dockerfile = image.CreateDockfileWriter( File.CreateText( dockerFilePath ) );
+        using var dockerfile = baseImage.CreateDockfileWriter( File.CreateText( dockerFilePath ) );
 
         var configureCommands = new List<string>();
         configureCommands.Add( "echo Running ./dependencies/ConfigureContainer.ps1" );
         configureCommands.Add( $"cd {productDirectory}" );
 
-        dockerfile.WriteLine( $"FROM {image.Uri} AS build-env" );
+        dockerfile.WriteLine( $"FROM {baseImage.Uri} AS build-env" );
         dockerfile.WritePrologue( settings );
 
         // Add Docker image components.
@@ -99,10 +120,10 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
 
         dockerfile.WriteLine( $"WORKDIR {dockerfile.EscapePath( productDirectory )}" );
         dockerfile.WriteLine( $"COPY . ." );
-        configureCommands.Add( "ren docker-source-dependencies source-dependencies" );
+        configureCommands.Add( "mv docker-source-dependencies source-dependencies" );
 
         configureCommands.Add(
-            $"New-Item -ItemType SymbolicLink -Path .editorconfig -Target {image.GetRelativePath( "eng", "style", ".editorconfig" )} | Out-Null" );
+            $"New-Item -ItemType SymbolicLink -Path .editorconfig -Target {baseImage.GetRelativePath( "eng", "style", ".editorconfig" )} | Out-Null" );
 
         // We don't run the Configure commands in the build container step (but during container execution)
         // because we don't benefit from caches during the build step.

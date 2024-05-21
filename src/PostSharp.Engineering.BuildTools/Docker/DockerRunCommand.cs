@@ -14,7 +14,7 @@ public abstract class DockerRunCommand : BaseCommand<DockerSettings>
 {
     protected override bool ExecuteCore( BuildContext context, DockerSettings settings )
     {
-        if ( !DockerPrepareCommand.TryPrepare( context, settings, out var imageName ) )
+        if ( !DockerPrepareCommand.TryPrepare( context, settings, out var imageName, out var baseImage ) )
         {
             return false;
         }
@@ -30,7 +30,7 @@ public abstract class DockerRunCommand : BaseCommand<DockerSettings>
         // Run the configuration script.
         try
         {
-            var arguments = this.GetArguments( settings, context, containerName, imageName );
+            var arguments = this.GetArguments( settings, context, containerName, imageName, baseImage );
             context.Console.WriteImportantMessage( "docker " + arguments );
 
             using ( ConsoleHelper.CancellationToken.Register( KillDocker ) )
@@ -54,10 +54,9 @@ public abstract class DockerRunCommand : BaseCommand<DockerSettings>
         }
     }
 
-    private string GetArguments( DockerSettings settings, BuildContext context, string containerName, string imageName )
+    private string GetArguments( DockerSettings settings, BuildContext context, string containerName, string imageName, DockerImage image )
     {
         var product = context.Product;
-        var image = product.DockerBaseImage!;
         var artifactsDirectory = Path.Combine( context.RepoDirectory, "artifacts" );
         var containerArtifactsDirectory = image.GetAbsolutePath( "src", product.ProductName, "artifacts" );
 

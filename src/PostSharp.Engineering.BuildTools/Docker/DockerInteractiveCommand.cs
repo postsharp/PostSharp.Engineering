@@ -1,7 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
-using PostSharp.Engineering.BuildTools.Build;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
@@ -16,7 +15,7 @@ public class DockerInteractiveCommand : DockerRunCommand
         }
         else
         {
-            return $"{image.PowerShellCommand} -NoExit -c \" ./dependencies/ConfigureContainer.ps1; \"";    
+            return $"{image.PowerShellCommand} -NoExit -c \" ./dependencies/ConfigureContainer.ps1; \"";
         }
     }
 
