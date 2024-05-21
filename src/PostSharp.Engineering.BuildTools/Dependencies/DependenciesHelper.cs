@@ -185,7 +185,7 @@ public static class DependenciesHelper
 
                 // If we build locally, we need to consider transitive restored dependencies as build server dependencies,
                 // as dependencies are restored by CI on build agents only. Locally, all dependencies are downloaded by PostSharp.Engineering.
-                if ( sourceKind == DependencySourceKind.RestoredDependency && directDependency.Source.SourceKind != DependencySourceKind.RestoredDependency )
+                if ( sourceKind == DependencySourceKind.Restored && directDependency.Source.SourceKind != DependencySourceKind.Restored )
                 {
                     sourceKind = DependencySourceKind.BuildServer;
                 }
@@ -211,7 +211,7 @@ public static class DependenciesHelper
 
                         break;
 
-                    case DependencySourceKind.RestoredDependency:
+                    case DependencySourceKind.Restored:
                         {
                             if ( !TryGetBuildId( out var buildId ) )
                             {
@@ -312,18 +312,19 @@ public static class DependenciesHelper
                 if ( buildSpec is CiLatestBuildOfBranch branch )
                 {
                     BuildConfiguration dependencyConfiguration;
-                    
+
                     if ( context.Product.TryGetDependency( dependency.Dependency.Name, out var parametrizedDependency ) )
                     {
                         dependencyConfiguration = parametrizedDependency.ConfigurationMapping[configuration];
                     }
                     else
                     {
-                        context.Console.WriteError( $"The source of the transitive dependency '{dependency.Dependency.Name}' is set to CiLatestBuildOfBranch. This is allowed only for direct dependencies." );
+                        context.Console.WriteError(
+                            $"The source of the transitive dependency '{dependency.Dependency.Name}' is set to CiLatestBuildOfBranch. This is allowed only for direct dependencies." );
 
                         return false;
                     }
-                    
+
                     ciBuildType = dependency.Dependency.CiConfiguration.BuildTypes[dependencyConfiguration];
                     branchName = branch.Name;
                 }
@@ -452,9 +453,9 @@ public static class DependenciesHelper
 
     private static bool ResolveRestoredDependencies( BuildContext context, ImmutableDictionary<string, ResolvedDependency> dependencies )
     {
-        foreach ( var dependency in dependencies.Values.Where( d => d.Source.SourceKind is DependencySourceKind.RestoredDependency ) )
+        foreach ( var dependency in dependencies.Values.Where( d => d.Source.SourceKind is DependencySourceKind.Restored ) )
         {
-            if ( dependency.Source.SourceKind != DependencySourceKind.RestoredDependency )
+            if ( dependency.Source.SourceKind != DependencySourceKind.Restored )
             {
                 continue;
             }
@@ -477,25 +478,12 @@ public static class DependenciesHelper
             var buildNumber = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependency.Dependency.NameWithoutDot}BuildNumber" )
                 ?.Value;
 
-            if ( buildNumber == null )
-            {
-                context.Console.WriteError(
-                    $"The file '{dependency.Source.VersionFile}' does not have a property {dependency.Dependency.NameWithoutDot}BuildNumber" );
-
-                return false;
-            }
-
             var buildType = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependency.Dependency.NameWithoutDot}BuildType" )?.Value;
 
-            if ( buildType == null )
+            if ( !string.IsNullOrEmpty( buildNumber ) && !string.IsNullOrEmpty( buildType ) )
             {
-                context.Console.WriteError(
-                    $"The file '{dependency.Source.VersionFile}' does not have a property {dependency.Dependency.NameWithoutDot}BuildType" );
-
-                return false;
+                dependency.Source.BuildServerSource = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), buildType );
             }
-
-            dependency.Source.BuildServerSource = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), buildType );
         }
 
         return true;

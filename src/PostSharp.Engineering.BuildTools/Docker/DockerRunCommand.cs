@@ -20,6 +20,9 @@ public abstract class DockerRunCommand : BaseCommand<BuildSettings>
             return false;
         }
 
+        ToolInvocationHelper.InvokeTool( context.Console, "docker", $"volume create cache.nuget" );
+        ToolInvocationHelper.InvokeTool( context.Console, "docker", $"volume create cache.build-artifacts" );
+
         var containerName = imageName + "-" + Random.Shared.NextInt64().ToString( "x", CultureInfo.InvariantCulture );
 
         var product = context.Product;
@@ -35,10 +38,10 @@ public abstract class DockerRunCommand : BaseCommand<BuildSettings>
             process!.WaitForExit();
 
             ToolInvocationHelper.InvokeTool( context.Console, "docker", $"stop {containerName}" );
-            
+
             return process.ExitCode == 0;
         }
-        
+
         void KillDocker()
         {
             ToolInvocationHelper.InvokeTool( context.Console, "docker", $"kill {containerName}" );
@@ -48,17 +51,19 @@ public abstract class DockerRunCommand : BaseCommand<BuildSettings>
     private string GetArguments( BuildSettings settings, BuildContext context, string containerName, string imageName )
     {
         var product = context.Product;
+        var image = product.DockerBaseImage!;
         var artifactsDirectory = Path.Combine( context.RepoDirectory, "artifacts" );
+        var containerArtifactsDirectory = image.GetAbsolutePath( "src", product.ProductName, "artifacts" );
 
         // Add basic options.
         var argumentList = new List<string>()
         {
             "run",
             "-t",
-            "-v cache.nuget:/root/.nuget/packages",
-            "-v cache.build-artifacts:/tmp/.build-artifacts/",
-            $"--mount type=bind,source={artifactsDirectory},target=/src/{product.ProductName}/artifacts",
-            $"--mount type=bind,source={PathHelper.GetEngineeringDataDirectory()},target=/root/.local/PostSharp.Engineering",
+            $"-v cache.nuget:{image.NuGetPackagesDirectory}",
+            $"-v cache.build-artifacts:{image.DownloadedBuildArtifactsDirectory}",
+            $"--mount type=bind,source={artifactsDirectory},target={containerArtifactsDirectory}",
+            $"--mount type=bind,source={PathHelper.GetEngineeringDataDirectory()},target={image.EngineeringDataDirectory}",
             $"--name {containerName}"
         };
 
@@ -104,14 +109,14 @@ public abstract class DockerRunCommand : BaseCommand<BuildSettings>
 
         // Add final arguments.
         argumentList.Add( imageName );
-        argumentList.Add( this.GetCommand( settings ) );
+        argumentList.Add( this.GetCommand( settings, image ) );
 
         var arguments = string.Join( " ", argumentList );
 
         return arguments;
     }
 
-    protected abstract string GetCommand( BuildSettings settings );
+    protected abstract string GetCommand( BuildSettings settings, DockerImage image );
 
     protected virtual string[] Options => [];
 }

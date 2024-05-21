@@ -8,7 +8,7 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 [UsedImplicitly]
 public class DockerInteractiveCommand : DockerRunCommand
 {
-    protected override string GetCommand( BuildSettings settings ) => "pwsh";
+    protected override string GetCommand( BuildSettings settings, DockerImage image ) => image.PowerShellCommand;
 
     protected override string[] Options => ["-i"];
 }

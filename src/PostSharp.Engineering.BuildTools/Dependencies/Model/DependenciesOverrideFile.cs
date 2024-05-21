@@ -147,7 +147,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         origin = DependencyConfigurationOrigin.Unknown;
                     }
 
-                    bool TryGetBuildId( out string? versionFile1, [NotNullWhen( true )] out ICiBuildSpec? ciBuildSpec )
+                    bool TryGetBuildId( out string? versionFile1, out ICiBuildSpec? ciBuildSpec )
                     {
                         var branch = item.Element( "Branch" )?.Value;
                         var buildNumber = item.Element( "BuildNumber" )?.Value;
@@ -173,11 +173,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                         }
                         else
                         {
-                            context.Console.WriteError( $"The dependency {name}  in '{filePath}' requires one of these properties: Branch or BuildNumber." );
-
                             ciBuildSpec = null;
-
-                            return false;
                         }
 
                         return true;
@@ -210,7 +206,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                 break;
                             }
 
-                        case DependencySourceKind.RestoredDependency:
+                        case DependencySourceKind.Restored:
                             {
                                 if ( !TryGetBuildId( out var versionFile, out var buildSpec ) )
                                 {
@@ -219,6 +215,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                                 if ( TeamCityHelper.IsTeamCityBuild( settings ) )
                                 {
+                                    if ( buildSpec == null )
+                                    {
+                                        throw new InvalidOperationException( "CiBuildId cannot be null when running under TeamCity." );
+                                    }
+
                                     var dependencySource = DependencySource.CreateRestoredDependency( (CiBuildId) buildSpec, origin );
 
                                     dependencySource.VersionFile = Path.GetFullPath(
@@ -232,14 +233,22 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                 }
                                 else
                                 {
-                                    // We can have a LocalDependency on a developer machine because of transitive dependencies
-                                    // of TeamCity build. In this case, we consider that the source is the CI build itself
-                                    // -- the exact build number with which the first-level dependency was built.
+                                    DependencySource dependencySource;
 
-                                    var dependencySource =
-                                        DependencySource.CreateBuildServerSource(
-                                            buildSpec,
-                                            origin );
+                                    if ( buildSpec != null )
+                                    {
+                                        // We can have a restored dependency on a developer machine because of transitive dependencies
+                                        // of TeamCity build. In this case, we consider that the source is the CI build itself
+                                        // -- the exact build number with which the first-level dependency was built.
+
+                                        dependencySource = DependencySource.CreateBuildServerSource( buildSpec, origin );
+                                    }
+                                    else
+                                    {
+                                        // On Docker, the local dependencies of the host are copied as restored dependencies in the container.
+
+                                        dependencySource = DependencySource.CreateRestoredDependency( null, origin );
+                                    }
 
                                     dependencySource.VersionFile = versionFile;
                                     file.Dependencies[name] = dependencySource;
@@ -253,6 +262,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                 if ( !TryGetBuildId( out var versionFile, out var buildSpec ) )
                                 {
                                     return false;
+                                }
+
+                                if ( buildSpec == null )
+                                {
+                                    throw new InvalidOperationException( "CiBuildId cannot be null when the source kind is BuildServer." );
                                 }
 
                                 var dependencySource =
@@ -282,7 +296,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             var project = new XElement( "Project", new XAttribute( "InitialTargets", "VerifyProductDependencies" ) );
             var document = new XDocument( project );
 
-            project.Add( new XComment( $"File generated by PostSharp.Engineering {VersionHelper.EngineeringVersion}, method {nameof(DependenciesOverrideFile)}.{nameof(this.TrySave)}." ) );
+            project.Add(
+                new XComment(
+                    $"File generated by PostSharp.Engineering {VersionHelper.EngineeringVersion}, method {nameof(DependenciesOverrideFile)}.{nameof(this.TrySave)}." ) );
 
             var requiredFiles = new List<string>();
 
@@ -354,7 +370,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 switch ( dependencySource.SourceKind )
                 {
                     case DependencySourceKind.BuildServer:
-                    case DependencySourceKind.RestoredDependency when !TeamCityHelper.IsTeamCityBuild( settings ):
+                    case DependencySourceKind.Restored when !TeamCityHelper.IsTeamCityBuild( settings ):
                         {
                             var dependencyDefinition = context.Product.ParametrizedDependencies.SingleOrDefault( p => p.Name == dependency.Key )?.Definition;
 
@@ -396,7 +412,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                         break;
 
-                    case DependencySourceKind.RestoredDependency:
+                    case DependencySourceKind.Restored:
                         {
                             var importProjectFile = Path.GetFullPath(
                                 Path.Combine(
@@ -430,7 +446,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                     itemGroup.Add( item );
                 }
             }
-            
+
             var properties = new XElement( "PropertyGroup" );
             project.Add( properties );
             properties.Add( new XElement( "PostSharpEngineeringExePath", context.Product.BuildExePath ) );

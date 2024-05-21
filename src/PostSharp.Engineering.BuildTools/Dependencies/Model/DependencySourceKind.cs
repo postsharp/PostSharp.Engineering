@@ -1,5 +1,7 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using System;
+
 namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 {
     public enum DependencySourceKind
@@ -22,6 +24,9 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         /// <summary>
         /// Means that the artefacts have been restored under the .\dependencies directory.
         /// </summary>
-        RestoredDependency
+        Restored,
+
+        [Obsolete]
+        RestoredDependency = Restored
     }
 }

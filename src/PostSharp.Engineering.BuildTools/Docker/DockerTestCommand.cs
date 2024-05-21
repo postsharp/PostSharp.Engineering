@@ -6,5 +6,6 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 
 public class DockerTestCommand : DockerRunCommand
 {
-    protected override string GetCommand( BuildSettings settings ) => $"pwsh -c \" ./Configure.ps1 && ./Build.ps1 test {settings.WithoutLogo()}\"";
+    protected override string GetCommand( BuildSettings settings, DockerImage image )
+        => $"pwsh -c \" ./Configure.ps1 && ./Build.ps1 test {settings.WithoutLogo()}\"";
 }

@@ -7,7 +7,7 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 
 public class DockerBuildCommand : DockerRunCommand
 {
-    protected override string GetCommand( BuildSettings settings )
+    protected override string GetCommand( BuildSettings settings, DockerImage image )
     {
         var dockerSettings = settings.WithoutLogo().WithUserName( Environment.UserName );
 

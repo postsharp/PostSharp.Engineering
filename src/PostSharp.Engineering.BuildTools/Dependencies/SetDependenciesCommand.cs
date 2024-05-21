@@ -28,7 +28,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies
 
                     break;
 
-                case DependencySourceKind.RestoredDependency:
+                case DependencySourceKind.Restored:
                     if ( settings.SimulateContinuousIntegration )
                     {
 #pragma warning disable CS0618
