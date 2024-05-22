@@ -142,7 +142,7 @@ public class DockerPrepareCommand : BaseCommand<DockerSettings>
 
         void AddSourceDependency( string productName )
         {
-            var sourceDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", productName ) );
+            var sourceDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "source-dependencies", productName ) );
             var targetDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "docker-source-dependencies", productName ) );
 
             var ignore = new DockerIgnore( Path.Combine( sourceDirectory, ".dockerignore" ) );
