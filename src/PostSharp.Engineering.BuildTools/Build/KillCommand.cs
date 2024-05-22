@@ -73,7 +73,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                         }
                         catch ( Exception e )
                         {
-                            context.Console.WriteWarning( e.Message );
+                            context.Console.WriteWarning( $"Cannot kill {process.Id} ({process.ProcessName}): {e.Message}" );
                         }
                     }
                 }
