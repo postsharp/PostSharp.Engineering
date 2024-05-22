@@ -46,8 +46,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                             return true;
                         }
 
-                        if ( p.ProcessName.Equals( "testhost", StringComparison.OrdinalIgnoreCase )
-                             || p.ProcessName.Equals( "testhost.x86", StringComparison.OrdinalIgnoreCase ) )
+                        if ( p.ProcessName.StartsWith( "testhost", StringComparison.OrdinalIgnoreCase ) )
                         {
                             return true;
                         }
