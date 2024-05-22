@@ -46,6 +46,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.ProductName = dependencyDefinition.Name;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
             this.DockerBaseImage = dependencyDefinition.ProductFamily.DockerBaseImage;
+            this.BuildAgentType = dependencyDefinition.ProductFamily.DefaultBuildAgentType;
         }
 
         public ProductFamily ProductFamily => this.DependencyDefinition.ProductFamily;
@@ -108,6 +109,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public Pattern PublicArtifacts { get; init; } = Pattern.Empty;
 
         public bool KeepEditorConfig { get; init; }
+        
+        public string BuildAgentType { get; init; }
 
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
 
@@ -136,7 +139,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
                 debug:
-                new BuildConfigurationInfo( BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
+                new BuildConfigurationInfo( BuildTriggers: [new SourceBuildTrigger()] ),
                 release: new BuildConfigurationInfo(),
                 @public: new BuildConfigurationInfo(
                     RequiresSigning: true,
@@ -812,7 +815,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( settings.SolutionId != null )
             {
                 var solution = this.Solutions[settings.SolutionId.Value - 1];
-                solutionsToTest = new[] { solution };
+                solutionsToTest = [solution];
             }
             else
             {
@@ -2117,7 +2120,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var teamCityBuildConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}Build",
                     configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
-                    this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                    this.BuildAgentType )
                 {
                     BuildSteps = teamCityBuildSteps.ToArray(),
                     ArtifactRules = publishedArtifactRules,
@@ -2144,9 +2147,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
                             $"{configuration}Deployment",
                             configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
-                            this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                            this.BuildAgentType )
                         {
-                            BuildSteps = new[] { CreatePublishBuildStep() },
+                            BuildSteps = [CreatePublishBuildStep()],
                             IsDeployment = true,
                             SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
                                 .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, publishedArtifactRules ) } )
@@ -2169,9 +2172,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
                             objectName: $"{configuration}DeploymentNoDependency",
                             name: "Standalone " + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
-                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                            buildAgentType: this.BuildAgentType )
                         {
-                            BuildSteps = new[] { CreatePublishBuildStep() },
+                            BuildSteps = [CreatePublishBuildStep()],
                             IsDeployment = true,
                             SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
                                 .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, publishedArtifactRules ) } )
@@ -2200,12 +2203,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         new TeamCityBuildConfiguration(
                             objectName: $"{configuration}Swap",
                             name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
-                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                            buildAgentType: this.BuildAgentType )
                         {
-                            BuildSteps = new TeamCityBuildStep[]
-                            {
+                            BuildSteps =
+                            [
                                 new TeamCityEngineeringCommandBuildStep( "Swap", "Swap", "swap", $"--configuration {configuration}", true )
-                            },
+                            ],
                             IsDeployment = true,
                             SnapshotDependencies = swapDependencies.OrderBy( d => d.ObjectId ).ToArray(),
                             BuildTimeOutThreshold = configurationInfo.SwapTimeOutThreshold ?? this.SwapTimeOutThreshold
@@ -2224,10 +2227,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         new TeamCityBuildConfiguration(
                             objectName: "VersionBump",
                             name: $"Version Bump",
-                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                            buildAgentType: this.BuildAgentType )
                         {
                             BuildSteps =
-                                new TeamCityBuildStep[] { new TeamCityEngineeringCommandBuildStep( "Bump", "Bump", "bump", areCustomArgumentsAllowed: true ) },
+                                [new TeamCityEngineeringCommandBuildStep( "Bump", "Bump", "bump", areCustomArgumentsAllowed: true )],
                             BuildTimeOutThreshold = this.VersionBumpTimeOutThreshold,
                             IsSshAgentRequired = isRepoRemoteSsh
                         } );
@@ -2245,18 +2248,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     new TeamCityBuildConfiguration(
                         "DownstreamMerge",
                         "Downstream Merge",
-                        this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                        this.BuildAgentType )
                     {
-                        BuildSteps = new TeamCityBuildStep[]
-                        {
+                        BuildSteps =
+                        [
                             new TeamCityEngineeringCommandBuildStep(
                                 "DownstreamMerge",
                                 "Merge downstream",
                                 "tools git merge-downstream",
                                 areCustomArgumentsAllowed: true )
-                        },
+                        ],
                         SnapshotDependencies = snapshotDependencies,
-                        BuildTriggers = new IBuildTrigger[] { new SourceBuildTrigger() },
+                        BuildTriggers = [new SourceBuildTrigger()],
                         BuildTimeOutThreshold = this.DownstreamMergeTimeOutThreshold,
                         IsSshAgentRequired = isRepoRemoteSsh
                     } );

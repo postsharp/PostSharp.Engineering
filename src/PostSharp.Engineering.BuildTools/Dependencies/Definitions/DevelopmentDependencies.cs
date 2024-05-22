@@ -19,8 +19,7 @@ public static class DevelopmentDependencies
         $"release/{Family.Version}",
         new GitHubRepository( "PostSharp.Engineering" ),
         TeamCityHelper.CreateConfiguration(
-            TeamCityHelper.GetProjectId( "PostSharp.Engineering", Family.Name ),
-            "caravela04cloud" ) )
+            TeamCityHelper.GetProjectId( "PostSharp.Engineering", Family.Name ) ) )
     {
         GenerateSnapshotDependency = false,
 

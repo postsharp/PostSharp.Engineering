@@ -23,11 +23,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         public string? BuildAgentType { get; }
 
         public TeamCityBuildStep[]? BuildSteps { get; init; }
-        
+
         public bool IsDeployment { get; init; }
 
         public bool IsComposite => this.BuildAgentType == null;
-        
+
         public bool IsSshAgentRequired { get; init; }
 
         public string? ArtifactRules { get; init; }
@@ -35,11 +35,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         public string[]? AdditionalArtifactRules { get; init; }
 
         public IBuildTrigger[]? BuildTriggers { get; init; }
-        
+
         public TeamCitySnapshotDependency[]? SnapshotDependencies { get; init; }
-        
+
         public TeamCitySourceDependency[]? SourceDependencies { get; init; }
-        
+
         public TimeSpan? BuildTimeOutThreshold { get; init; }
 
         public TeamCityBuildConfiguration( string objectName, string name, string? buildAgentType = null )
@@ -72,7 +72,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             {
                 if ( this.AdditionalArtifactRules != null )
                 {
-                    writer.WriteLine( $@"    artifactRules = ""{this.ArtifactRules}\n{string.Join( $@"\n", this.AdditionalArtifactRules )}""" );
+                    writer.WriteLine(
+                        $@"    artifactRules = ""{this.ArtifactRules}\n{string.Join( $@"\n", this.AdditionalArtifactRules.OrderBy( x => x, StringComparer.InvariantCulture ) )}""" );
                 }
                 else
                 {
@@ -83,7 +84,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             }
 
             var hasBuildSteps = this.BuildSteps is { Length: > 0 };
-            
+
             var buildParameters = new List<TeamCityBuildConfigurationParameter>();
 
             if ( hasBuildSteps )
@@ -99,7 +100,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                     "Time-Out Threshold",
                     "Seconds after the duration of the last successful build.",
                     $"{(int) this.BuildTimeOutThreshold.Value.TotalSeconds}" ) { Validation = (@"\d+", "The timeout has to be an integer number.") };
-                
+
                 buildParameters.Add( timeOutParameter );
             }
 
@@ -123,9 +124,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 foreach ( var sourceDependency in this.SourceDependencies! )
                 {
                     var objectName = sourceDependency.IsAbsoluteId ? @$"AbsoluteId(""{sourceDependency.ObjectId}"")" : sourceDependency.ObjectId;
-                    
-                    writer.WriteLine(
-                        $@"        root({objectName}, ""{sourceDependency.ArtifactRules}"")" );
+
+                    writer.WriteLine( $@"        root({objectName}, ""{sourceDependency.ArtifactRules}"")" );
                 }
             }
 
@@ -138,7 +138,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 {
                     throw new InvalidOperationException( "Composite build cannot have build steps." );
                 }
-                
+
                 writer.WriteLine(
                     $@"
     steps {{" );
@@ -218,8 +218,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                     trigger.GenerateTeamcityCode( writer );
                 }
 
-                writer.WriteLine(
-                    @"    }" );
+                writer.WriteLine( @"    }" );
             }
 
             // Dependencies
@@ -251,8 +250,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             }}" );
                     }
 
-                    writer.WriteLine(
-                        $@"        }}" );
+                    writer.WriteLine( $@"        }}" );
                 }
 
                 writer.WriteLine(

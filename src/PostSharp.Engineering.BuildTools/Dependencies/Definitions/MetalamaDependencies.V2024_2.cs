@@ -38,7 +38,6 @@ public static partial class MetalamaDependencies
                         parentCiProjectId == null
                             ? TeamCityHelper.GetProjectId( dependencyName, _projectName, Family.Version )
                             : TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId ),
-                        "caravela04cloud",
                         isVersioned,
                         pullRequestRequiresStatusCheck: pullRequestRequiresStatusCheck ),
                     isVersioned ) { }

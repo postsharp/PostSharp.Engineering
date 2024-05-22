@@ -44,7 +44,7 @@ public static class TeamCityHelper
                 return new Dictionary<string, string?> { { "IS_TEAMCITY_AGENT", "true" } }.ToImmutableDictionary();
             }
         }
-        
+
         return ImmutableDictionary<string, string?>.Empty;
     }
 
@@ -289,7 +289,6 @@ public static class TeamCityHelper
 
     public static CiProjectConfiguration CreateConfiguration(
         TeamCityProjectId teamCityProjectId,
-        string buildAgentType,
         bool hasVersionBump = true,
         bool isCloudInstance = true,
         bool pullRequestRequiresStatusCheck = true,
@@ -329,13 +328,12 @@ public static class TeamCityHelper
             versionBumpBuildType,
             tokenEnvironmentVariableName,
             baseUrl,
-            buildAgentType,
             pullRequestRequiresStatusCheck,
             pullRequestStatusCheckBuildType );
     }
 
     private static string ReplaceDots( string input, string substitute = "" ) => input.Replace( ".", substitute, StringComparison.Ordinal );
-    
+
     private static string ReplaceSpaces( string input, string substitute = "" ) => input.Replace( " ", substitute, StringComparison.Ordinal );
 
     private static string GetProjectIdFromName( string projectName ) => ReplaceDots( ReplaceSpaces( projectName ) );
@@ -580,7 +578,9 @@ public static class TeamCityHelper
 
                 if ( !buildConfigurationsByKind.TryGetValue( buildConfigurationKind, out var buildConfigurationsOfKind ) )
                 {
-                    buildConfigurationsOfKind = new();
+                    buildConfigurationsOfKind =
+                        new List<(string ProjectId, string ProjectName, string BuildConfigurationId, HashSet<string> SnapshotDependencies)>();
+
                     buildConfigurationsByKind.Add( buildConfigurationKind, buildConfigurationsOfKind );
                 }
 
@@ -620,10 +620,11 @@ public static class TeamCityHelper
             tcConfigurations.Add(
                 new TeamCityBuildConfiguration( downstreamMergeObjectName, "Merge Downstream" )
                 {
-                    SnapshotDependencies = consolidatedDownstreamMergeSnapshotDependencies.ToArray(), BuildTriggers = consolidatedDownstreamMergeBuildTriggers
+                    SnapshotDependencies = consolidatedDownstreamMergeSnapshotDependencies.ToArray(),
+                    BuildTriggers = consolidatedDownstreamMergeBuildTriggers
                 } );
         }
-        
+
         // Release Build
         const string releaseBuildObjectName = "ReleaseBuild";
 
@@ -644,11 +645,11 @@ public static class TeamCityHelper
 
         foreach ( var publicBuildConfiguration in buildConfigurationsByKind[publicBuildObjectName] )
         {
-            consolidatedPublicBuildSnapshotDependencies.Add( new( publicBuildConfiguration.BuildConfigurationId, true ) );
+            consolidatedPublicBuildSnapshotDependencies.Add( new TeamCitySnapshotDependency( publicBuildConfiguration.BuildConfigurationId, true ) );
 
             if ( !projectDependenciesByProjectId.TryGetValue( publicBuildConfiguration.BuildConfigurationId, out var projectDependencies ) )
             {
-                projectDependencies = new();
+                projectDependencies = new HashSet<string>();
                 projectDependenciesByProjectId.Add( publicBuildConfiguration.ProjectId, projectDependencies );
             }
 
@@ -719,7 +720,7 @@ public static class TeamCityHelper
             new TeamCityBuildConfiguration(
                 versionBumpObjectName,
                 "1. Version Bump",
-                context.Product.DependencyDefinition.CiConfiguration.BuildAgentType )
+                context.Product.BuildAgentType )
             {
                 BuildSteps = consolidatedVersionBumpSteps.ToArray(), BuildTriggers = consolidatedVersionBumpBuildTriggers
             } );

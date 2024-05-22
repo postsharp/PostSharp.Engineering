@@ -32,6 +32,8 @@ public class ProductFamily
 
     public DockerImageComponent[] DockerImageComponents { get; init; } = [];
 
+    public string DefaultBuildAgentType { get; init; } = "caravela04cloud";
+
     public ProductFamily( string name, string version, params ProductFamily[] relativeFamilies )
     {
         if ( this.DownstreamProductFamily != null && this.DownstreamProductFamily.UpstreamProductFamily != this )

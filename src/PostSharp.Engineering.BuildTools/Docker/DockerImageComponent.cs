@@ -18,7 +18,7 @@ public abstract class DockerImageComponent
 
     public abstract void AppendToDockerfile( DockerfileWriter writer );
 
-    protected virtual IEnumerable<DockerImageComponent> GetPrerequisites() => Enumerable.Empty<DockerImageComponent>();
+    protected virtual IEnumerable<DockerImageComponent> GetPrerequisites() => [];
 
     public void AddPrerequisites( Dictionary<string, DockerImageComponent> components )
     {

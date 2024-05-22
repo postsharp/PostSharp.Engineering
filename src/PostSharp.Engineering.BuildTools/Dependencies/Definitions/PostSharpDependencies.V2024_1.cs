@@ -16,10 +16,10 @@ public static partial class PostSharpDependencies
     {
         private class PostSharpDependencyDefinition : DependencyDefinition
         {
-            private static readonly TeamCityProjectId _teamCityProjectId = new TeamCityProjectId(
+            private static readonly TeamCityProjectId _teamCityProjectId = new(
                 $"{_projectName}_{_projectName}{Family.VersionWithoutDots}",
                 _projectName );
-            
+
             private static readonly string _distributionBuildId = $"{_teamCityProjectId}_BuildDistribution";
 
             public PostSharpDependencyDefinition()
@@ -35,10 +35,7 @@ public static partial class PostSharpDependencies
                         null,
                         null,
                         TeamCityHelper.TeamCityCloudTokenEnvironmentVariableName,
-                        TeamCityHelper.TeamCityCloudUrl,
-
-                        // We won't use the generated TeamCity configuration for this dependency.
-                        "unknown" ),
+                        TeamCityHelper.TeamCityCloudUrl ),
                     false )
             {
                 this.EngineeringDirectory = @"PrivateBuild\Distribution\eng";

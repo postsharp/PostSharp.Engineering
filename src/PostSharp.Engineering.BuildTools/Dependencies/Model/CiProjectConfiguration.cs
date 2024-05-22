@@ -17,10 +17,8 @@ public class CiProjectConfiguration
     public string? VersionBumpBuildType { get; }
 
     public string TokenEnvironmentVariableName { get; }
-        
-    public string BaseUrl { get; }
 
-    public string BuildAgentType { get; }
+    public string BaseUrl { get; }
 
     public CiProjectConfiguration(
         TeamCityProjectId projectProjectId,
@@ -29,7 +27,6 @@ public class CiProjectConfiguration
         string? versionBumpBuildType,
         string tokenEnvironmentVariableName,
         string baseUrl,
-        string buildAgentType,
         bool pullRequestRequiresStatusCheck = true,
         string? pullRequestStatusCheckBuildType = null )
     {
@@ -40,6 +37,5 @@ public class CiProjectConfiguration
         this.VersionBumpBuildType = versionBumpBuildType;
         this.TokenEnvironmentVariableName = tokenEnvironmentVariableName;
         this.BaseUrl = baseUrl;
-        this.BuildAgentType = buildAgentType;
     }
 }

@@ -31,7 +31,7 @@ public class ManyDotNetSolutions : Solution
     {
         if ( !this.TryGetSolutions( context, out var solutions ) )
         {
-            return Enumerable.Empty<Solution>();
+            return [];
         }
         else
         {

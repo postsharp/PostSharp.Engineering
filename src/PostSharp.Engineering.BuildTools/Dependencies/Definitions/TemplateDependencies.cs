@@ -23,12 +23,12 @@ public static class TemplateDependencies
                 $"develop/{Family.Version}",
                 $"release/{Family.Version}",
                 new GitHubRepository( dependencyName ),
-                TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "NONE" ), "none", isVersioned ),
+                TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "NONE" ), isVersioned ),
                 isVersioned ) { }
     }
 
     public static ProductFamily Family { get; } = new( "Template", "2023.0", DevelopmentDependencies.Family );
-    
+
     // This is only used from the project template.
     public static DependencyDefinition MyProduct { get; } =
         new TemplateDependencyDefinition( "PostSharp.Engineering.ProjectTemplate", VcsProvider.GitHub, "NONE" );

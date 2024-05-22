@@ -41,7 +41,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                         }
 
                         if ( p.ProcessName.Equals( "dotnet", StringComparison.OrdinalIgnoreCase ) &&
-                             ReferencesAny( context, p, new[] { "Metalama", "VBCSCompiler", "MSBuild" } ) )
+                             ReferencesAny( context, p, ["Metalama", "VBCSCompiler", "MSBuild"] ) )
                         {
                             return true;
                         }

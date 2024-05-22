@@ -12,7 +12,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
 public static partial class PostSharpDependencies
 {
     private const string _projectName = "PostSharp";
-    
+
     private class PostSharpDocumentationDependencyDefinition : DependencyDefinition
     {
         public PostSharpDocumentationDependencyDefinition(
@@ -26,7 +26,6 @@ public static partial class PostSharpDependencies
                 new GitHubRepository( dependencyName ),
                 TeamCityHelper.CreateConfiguration(
                     TeamCityHelper.GetProjectId( dependencyName, _projectName ),
-                    "caravela04cloud",
                     false ),
                 false ) { }
     }
