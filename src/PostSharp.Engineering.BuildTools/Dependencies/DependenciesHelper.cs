@@ -185,7 +185,7 @@ public static class DependenciesHelper
 
                 // If we build locally, we need to consider transitive restored dependencies as build server dependencies,
                 // as dependencies are restored by CI on build agents only. Locally, all dependencies are downloaded by PostSharp.Engineering.
-                if ( sourceKind == DependencySourceKind.Restored && directDependency.Source.SourceKind != DependencySourceKind.Restored )
+                if ( sourceKind == DependencySourceKind.RestoredDependency && directDependency.Source.SourceKind != DependencySourceKind.RestoredDependency )
                 {
                     sourceKind = DependencySourceKind.BuildServer;
                 }
@@ -211,7 +211,7 @@ public static class DependenciesHelper
 
                         break;
 
-                    case DependencySourceKind.Restored:
+                    case DependencySourceKind.RestoredDependency:
                         {
                             if ( !TryGetBuildId( out var buildId ) )
                             {
@@ -453,9 +453,9 @@ public static class DependenciesHelper
 
     private static bool ResolveRestoredDependencies( BuildContext context, ImmutableDictionary<string, ResolvedDependency> dependencies )
     {
-        foreach ( var dependency in dependencies.Values.Where( d => d.Source.SourceKind is DependencySourceKind.Restored ) )
+        foreach ( var dependency in dependencies.Values.Where( d => d.Source.SourceKind is DependencySourceKind.RestoredDependency ) )
         {
-            if ( dependency.Source.SourceKind != DependencySourceKind.Restored )
+            if ( dependency.Source.SourceKind != DependencySourceKind.RestoredDependency )
             {
                 continue;
             }

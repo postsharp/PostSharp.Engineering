@@ -155,7 +155,7 @@ public class DockerPrepareCommand : BaseCommand<DockerSettings>
             var sourceDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", productName, "artifacts", "publish", "private" ) );
             var targetDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "dependencies", productName ) );
 
-            configureCommands.Add( $"./Build.ps1 dependencies set {DependencySourceKind.Restored} {productName}" );
+            configureCommands.Add( $"./Build.ps1 dependencies set {DependencySourceKind.RestoredDependency} {productName}" );
 
             FileSystemHelper.CopyFilesRecursively( context.Console, sourceDirectory, targetDirectory );
         }

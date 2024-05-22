@@ -206,7 +206,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                                 break;
                             }
 
-                        case DependencySourceKind.Restored:
+                        case DependencySourceKind.RestoredDependency:
                             {
                                 if ( !TryGetBuildId( out var versionFile, out var buildSpec ) )
                                 {
@@ -370,7 +370,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 switch ( dependencySource.SourceKind )
                 {
                     case DependencySourceKind.BuildServer:
-                    case DependencySourceKind.Restored when !TeamCityHelper.IsTeamCityBuild( settings ):
+                    case DependencySourceKind.RestoredDependency when !TeamCityHelper.IsTeamCityBuild( settings ):
                         {
                             var dependencyDefinition = context.Product.ParametrizedDependencies.SingleOrDefault( p => p.Name == dependency.Key )?.Definition;
 
@@ -412,7 +412,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
                         break;
 
-                    case DependencySourceKind.Restored:
+                    case DependencySourceKind.RestoredDependency:
                         {
                             var importProjectFile = Path.GetFullPath(
                                 Path.Combine(

@@ -56,7 +56,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         }
 
         public static DependencySource CreateRestoredDependency( CiBuildId? buildId, DependencyConfigurationOrigin origin )
-            => new() { Origin = origin, SourceKind = DependencySourceKind.Restored, BuildServerSource = buildId };
+            => new() { Origin = origin, SourceKind = DependencySourceKind.RestoredDependency, BuildServerSource = buildId };
 
         public static DependencySource CreateFeed( string? version, DependencyConfigurationOrigin origin )
             => new() { Origin = origin, SourceKind = DependencySourceKind.Feed, Version = version };
@@ -68,7 +68,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         {
             switch ( this.SourceKind )
             {
-                case DependencySourceKind.BuildServer or DependencySourceKind.Restored:
+                case DependencySourceKind.BuildServer or DependencySourceKind.RestoredDependency:
                     return $"{this.SourceKind}, {this.BuildServerSource}, Origin={this.Origin}";
 
                 case DependencySourceKind.Local:
