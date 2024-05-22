@@ -46,7 +46,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.ProductName = dependencyDefinition.Name;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
             this.DockerBaseImage = dependencyDefinition.ProductFamily.DockerBaseImage;
-            this.BuildAgentType = dependencyDefinition.ProductFamily.DefaultBuildAgentType;
+            this.BuildAgentRequirements = dependencyDefinition.ProductFamily.DefaultBuildAgentRequirements;
         }
 
         public ProductFamily ProductFamily => this.DependencyDefinition.ProductFamily;
@@ -109,8 +109,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public Pattern PublicArtifacts { get; init; } = Pattern.Empty;
 
         public bool KeepEditorConfig { get; init; }
-        
-        public string BuildAgentType { get; init; }
+
+        public BuildAgentRequirements BuildAgentRequirements { get; init; }
 
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
 
@@ -2120,7 +2120,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var teamCityBuildConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}Build",
                     configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
-                    this.BuildAgentType )
+                    this.BuildAgentRequirements )
                 {
                     BuildSteps = teamCityBuildSteps.ToArray(),
                     ArtifactRules = publishedArtifactRules,
@@ -2147,7 +2147,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
                             $"{configuration}Deployment",
                             configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
-                            this.BuildAgentType )
+                            this.BuildAgentRequirements )
                         {
                             BuildSteps = [CreatePublishBuildStep()],
                             IsDeployment = true,
@@ -2172,7 +2172,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
                             objectName: $"{configuration}DeploymentNoDependency",
                             name: "Standalone " + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
-                            buildAgentType: this.BuildAgentType )
+                            buildAgentRequirements: this.BuildAgentRequirements )
                         {
                             BuildSteps = [CreatePublishBuildStep()],
                             IsDeployment = true,
@@ -2203,7 +2203,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         new TeamCityBuildConfiguration(
                             objectName: $"{configuration}Swap",
                             name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
-                            buildAgentType: this.BuildAgentType )
+                            buildAgentRequirements: this.BuildAgentRequirements )
                         {
                             BuildSteps =
                             [
@@ -2227,7 +2227,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         new TeamCityBuildConfiguration(
                             objectName: "VersionBump",
                             name: $"Version Bump",
-                            buildAgentType: this.BuildAgentType )
+                            buildAgentRequirements: this.BuildAgentRequirements )
                         {
                             BuildSteps =
                                 [new TeamCityEngineeringCommandBuildStep( "Bump", "Bump", "bump", areCustomArgumentsAllowed: true )],
@@ -2248,7 +2248,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     new TeamCityBuildConfiguration(
                         "DownstreamMerge",
                         "Downstream Merge",
-                        this.BuildAgentType )
+                        this.BuildAgentRequirements )
                     {
                         BuildSteps =
                         [

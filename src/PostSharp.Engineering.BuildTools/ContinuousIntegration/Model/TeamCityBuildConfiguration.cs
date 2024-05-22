@@ -10,23 +10,19 @@ using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 {
-    internal record TeamCitySnapshotDependency( string ObjectId, bool IsAbsoluteId, string? ArtifactRules = null );
-
-    internal record TeamCitySourceDependency( string ObjectId, bool IsAbsoluteId, string ArtifactRules );
-
     internal class TeamCityBuildConfiguration
     {
         public string ObjectName { get; }
 
         public string Name { get; }
 
-        public string? BuildAgentType { get; }
+        public BuildAgentRequirements? BuildAgentRequirements { get; }
 
         public TeamCityBuildStep[]? BuildSteps { get; init; }
 
         public bool IsDeployment { get; init; }
 
-        public bool IsComposite => this.BuildAgentType == null;
+        public bool IsComposite => this.BuildAgentRequirements == null;
 
         public bool IsSshAgentRequired { get; init; }
 
@@ -42,11 +38,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public TimeSpan? BuildTimeOutThreshold { get; init; }
 
-        public TeamCityBuildConfiguration( string objectName, string name, string? buildAgentType = null )
+        public TeamCityBuildConfiguration( string objectName, string name, BuildAgentRequirements? buildAgentRequirements = null )
         {
             this.ObjectName = objectName;
             this.Name = name;
-            this.BuildAgentType = buildAgentType;
+            this.BuildAgentRequirements = buildAgentRequirements;
         }
 
         public void GenerateTeamcityCode( TextWriter writer )
@@ -171,11 +167,18 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
             if ( !this.IsComposite )
             {
-                writer.WriteLine(
-                    $@"
-    requirements {{
-        equals(""env.BuildAgentType"", ""{this.BuildAgentType}"")
-    }}" );
+                if ( this.BuildAgentRequirements != null )
+                {
+                    writer.WriteLine();
+                    writer.WriteLine( "    requirements {" );
+
+                    foreach ( var environmentVariable in this.BuildAgentRequirements.Parameters )
+                    {
+                        writer.WriteLine( $"        equals (\"{environmentVariable.Key}\", \"{environmentVariable.Value}\")" );
+                    }
+
+                    writer.WriteLine( "    }" );
+                }
             }
 
             // Features.
