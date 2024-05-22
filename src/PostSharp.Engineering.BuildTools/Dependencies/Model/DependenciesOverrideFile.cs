@@ -449,11 +449,20 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
 
             var properties = new XElement( "PropertyGroup" );
             project.Add( properties );
-            properties.Add( new XElement( "PostSharpEngineeringExePath", context.Product.BuildExePath ) );
-            properties.Add( new XElement( "PostSharpEngineeringDataDirectory", PathHelper.GetEngineeringDataDirectory() ) );
             properties.Add( new XElement( "ProductFamily", context.Product.ProductFamily.Name ) );
             properties.Add( new XElement( "ProductFamilyVersion", context.Product.ProductFamily.Version ) );
             properties.Add( new XElement( "BuildDate", $"$({context.Product.ProductNameWithoutDot}BuildDate)" ) );
+
+            // The following properties are NOT related to dependencies. They are put here (instead of in a separate file) for convenience.
+            properties.Add( new XElement( "PostSharpEngineeringExePath", context.Product.BuildExePath ) );
+            properties.Add( new XElement( "PostSharpEngineeringDataDirectory", PathHelper.GetEngineeringDataDirectory() ) );
+
+            var msbuild = MSBuildHelper.FindLatestMSBuildExe();
+
+            if ( msbuild != null )
+            {
+                properties.Add( new XElement( "MSBuildExePath", "\"" + msbuild + "\"" ) );
+            }
 
             var verifyFilesTarget = new XElement(
                 "Target",

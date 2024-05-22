@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -11,6 +12,7 @@ using System.Xml;
 
 namespace PostSharp.Engineering.BuildTools.Csproj
 {
+    [UsedImplicitly]
     public class AddProjectReferenceCommand : Command<AddProjectReferenceSettings>
     {
         public override int Execute( CommandContext context, AddProjectReferenceSettings settings )

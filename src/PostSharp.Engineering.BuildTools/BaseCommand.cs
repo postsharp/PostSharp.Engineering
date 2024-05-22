@@ -37,7 +37,7 @@ namespace PostSharp.Engineering.BuildTools
                     return 1;
                 }
 
-                MSBuildInitializer.Initialize();
+                MSBuildHelper.InitializeLocator();
 
                 // Validate custom properties.
                 if ( settings.ListProperties )

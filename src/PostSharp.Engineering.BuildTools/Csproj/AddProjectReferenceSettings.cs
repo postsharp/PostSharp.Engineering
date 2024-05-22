@@ -1,10 +1,12 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using Spectre.Console.Cli;
 using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Csproj
 {
+    [UsedImplicitly]
     public class AddProjectReferenceSettings : CommandSettings
     {
         [Description( "Reference path after which the new reference should be added" )]
