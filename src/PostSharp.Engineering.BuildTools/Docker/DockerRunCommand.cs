@@ -19,6 +19,8 @@ public abstract class DockerRunCommand : BaseCommand<DockerSettings>
             return false;
         }
 
+        var nugetVolumeName = $"cache.nuget.{Environment.UserName.ToLowerInvariant()}";
+        var buildArtifactsVolumeName = $"cache.build-artifacts.{Environment.UserName.ToLowerInvariant()}";
         ToolInvocationHelper.InvokeTool( context.Console, "docker", $"volume create cache.nuget" );
         ToolInvocationHelper.InvokeTool( context.Console, "docker", $"volume create cache.build-artifacts" );
 
@@ -31,7 +33,7 @@ public abstract class DockerRunCommand : BaseCommand<DockerSettings>
 
         try
         {
-            var arguments = this.GetArguments( settings, context, containerName, imageName, baseImage );
+            var arguments = this.GetArguments( settings, context, containerName, imageName, baseImage, nugetVolumeName, buildArtifactsVolumeName );
             context.Console.WriteImportantMessage( "docker " + arguments );
 
             using ( ConsoleHelper.CancellationToken.Register( KillDocker ) )
@@ -41,7 +43,14 @@ public abstract class DockerRunCommand : BaseCommand<DockerSettings>
 
                 process!.WaitForExit();
 
-                return process.ExitCode == 0;
+                if ( process.ExitCode != 0 )
+                {
+                    context.Console.WriteError( $"`docker run` exited with code {process.ExitCode}." );
+
+                    return false;
+                }
+
+                return true;
             }
 
             void KillDocker()
@@ -55,7 +64,7 @@ public abstract class DockerRunCommand : BaseCommand<DockerSettings>
         }
     }
 
-    private string GetArguments( DockerSettings settings, BuildContext context, string containerName, string imageName, DockerImage image )
+    private string GetArguments( DockerSettings settings, BuildContext context, string containerName, string imageName, DockerImage image, string nugetVolumeName, string buildArtifactsVolumeName )
     {
         var product = context.Product;
         var artifactsDirectory = Path.Combine( context.RepoDirectory, "artifacts" );
@@ -69,10 +78,10 @@ public abstract class DockerRunCommand : BaseCommand<DockerSettings>
         var argumentList = new List<string>()
         {
             "run",
-            "-t", // Use TTY
+            "-t",   // Use TTY
             "--rm", // Remove after stop
-            $"-v cache.nuget:{image.NuGetPackagesDirectory}",
-            $"-v cache.build-artifacts:{image.DownloadedBuildArtifactsDirectory}",
+            $"-v {nugetVolumeName}:{image.NuGetPackagesDirectory}",
+            $"-v {buildArtifactsVolumeName}:{image.DownloadedBuildArtifactsDirectory}",
             $"--mount type=bind,source={artifactsDirectory},target={containerArtifactsDirectory}",
             $"--mount type=bind,source={PathHelper.GetEngineeringDataDirectory()},target={image.EngineeringDataDirectory}",
             $"--name {containerName}"

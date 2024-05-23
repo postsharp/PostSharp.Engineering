@@ -12,10 +12,7 @@ public class DockerWindowsImage : DockerImage
     public DockerWindowsImage( string uri, string name, string operatingSystemName ) : base(
         uri,
         name,
-        new BuildAgentRequirements(
-            new BuildAgentRequirement( "container.engine", "docker" ),
-            new BuildAgentRequirement( "container.engine.osType", "windows" ),
-            new BuildAgentRequirement( "teamcity.agent.jvm.os.name", operatingSystemName ) ) ) { }
+        new BuildAgentRequirements( new BuildAgentRequirement( "env.BuildAgentType", "DockerWindowsStandard" ) ) ) { }
 
     public override string EngineeringDataDirectory => @"C:\Users\ContainerAdministrator\AppData\Roaming\PostSharp.Engineering";
 
