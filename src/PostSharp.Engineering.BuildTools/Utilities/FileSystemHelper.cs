@@ -32,7 +32,7 @@ public static class FileSystemHelper
         {
             var targetFile = sourceFile.Replace( sourcePath, targetPath, StringComparison.Ordinal );
 
-            if ( predicate == null || predicate( sourceFile ) )
+            if ( predicate == null || predicate( Path.GetRelativePath( sourcePath, sourceFile ) ) )
             {
                 expectedTargetFiles.Add( targetFile );
 

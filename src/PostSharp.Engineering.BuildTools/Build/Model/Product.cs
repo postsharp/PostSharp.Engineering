@@ -2115,7 +2115,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var teamCityBuildSteps = new List<TeamCityBuildStep>();
 
-                teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "Kill", "Kill background processes before cleanup", "tools kill" ) );
+                if ( !this.UseDockerInTeamcity )
+                {
+                    teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "Kill", "Kill background processes before cleanup", "tools kill" ) );
+                }
 
                 var requiresUpstreamCheck = configurationInfo.RequiresUpstreamCheck && this.ProductFamily.UpstreamProductFamily != null;
 
