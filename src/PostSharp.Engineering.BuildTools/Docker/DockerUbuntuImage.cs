@@ -1,5 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using System.Collections.Generic;
 using System.IO;
 
@@ -11,7 +12,12 @@ public class DockerUbuntuImage : DockerImage
     private const string _buildArtifactsDirectory = "/tmp/.build-artifacts";
     private const string _engineeringDataDirectory = "/root/.local/PostSharp.Engineering";
 
-    public DockerUbuntuImage( string uri, string name ) : base( uri, name ) { }
+    public DockerUbuntuImage( string uri, string name ) : base(
+        uri,
+        name,
+        new BuildAgentRequirements(
+            new BuildAgentRequirement( "container.engine", "docker" ),
+            new BuildAgentRequirement( "container.engine.osType", "linux" ) ) ) { }
 
     public override string GetAbsolutePath( params string[] components ) => "/" + this.GetRelativePath( components );
 

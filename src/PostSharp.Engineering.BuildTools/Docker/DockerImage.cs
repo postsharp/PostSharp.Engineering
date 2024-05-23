@@ -1,15 +1,17 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
 public abstract class DockerImage
 {
-    protected DockerImage( string uri, string name )
+    protected DockerImage( string uri, string name, BuildAgentRequirements hostRequirements )
     {
         this.Uri = uri;
         this.Name = name;
+        this.HostRequirements = hostRequirements;
     }
 
     public string Uri { get; }
@@ -29,4 +31,6 @@ public abstract class DockerImage
     public abstract string PowerShellCommand { get; }
 
     public abstract DockerfileWriter CreateDockfileWriter( TextWriter writer );
+
+    public BuildAgentRequirements HostRequirements { get; }
 }

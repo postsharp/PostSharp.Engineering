@@ -50,7 +50,7 @@ public class DockerPrepareCommand : BaseCommand<DockerSettings>
 
             if ( baseImage == null )
             {
-                context.Console.WriteError( "The DockerBaseImage property is not set." );
+                context.Console.WriteError( "The Product.ockerBaseImage property is not set." );
 
                 imageName = null;
 

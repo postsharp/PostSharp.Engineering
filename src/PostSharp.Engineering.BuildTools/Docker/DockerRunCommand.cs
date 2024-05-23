@@ -28,6 +28,7 @@ public abstract class DockerRunCommand : BaseCommand<DockerSettings>
         context.Console.WriteHeading( $"Building {product.ProductName} inside the '{containerName}' container." );
 
         // Run the configuration script.
+
         try
         {
             var arguments = this.GetArguments( settings, context, containerName, imageName, baseImage );
@@ -50,7 +51,7 @@ public abstract class DockerRunCommand : BaseCommand<DockerSettings>
         }
         finally
         {
-            ToolInvocationHelper.InvokeTool( context.Console, "docker", $"stop {containerName}" );
+            ToolInvocationHelper.InvokeTool( context.Console, "docker", $"image rm {imageName}" );
         }
     }
 
@@ -58,13 +59,18 @@ public abstract class DockerRunCommand : BaseCommand<DockerSettings>
     {
         var product = context.Product;
         var artifactsDirectory = Path.Combine( context.RepoDirectory, "artifacts" );
+
         var containerArtifactsDirectory = image.GetAbsolutePath( "src", product.ProductName, "artifacts" );
+
+        Directory.CreateDirectory( artifactsDirectory );
+        Directory.CreateDirectory( PathHelper.GetEngineeringDataDirectory() );
 
         // Add basic options.
         var argumentList = new List<string>()
         {
             "run",
-            "-t",
+            "-t", // Use TTY
+            "--rm", // Remove after stop
             $"-v cache.nuget:{image.NuGetPackagesDirectory}",
             $"-v cache.build-artifacts:{image.DownloadedBuildArtifactsDirectory}",
             $"--mount type=bind,source={artifactsDirectory},target={containerArtifactsDirectory}",

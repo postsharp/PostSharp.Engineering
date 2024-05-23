@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using System.Collections.Generic;
 using System.IO;
 
@@ -8,7 +9,13 @@ namespace PostSharp.Engineering.BuildTools.Docker;
 
 public class DockerWindowsImage : DockerImage
 {
-    public DockerWindowsImage( string uri, string name ) : base( uri, name ) { }
+    public DockerWindowsImage( string uri, string name, string operatingSystemName ) : base(
+        uri,
+        name,
+        new BuildAgentRequirements(
+            new BuildAgentRequirement( "container.engine", "docker" ),
+            new BuildAgentRequirement( "container.engine.osType", "windows" ),
+            new BuildAgentRequirement( "teamcity.agent.jvm.os.name", operatingSystemName ) ) ) { }
 
     public override string EngineeringDataDirectory => @"C:\Users\ContainerAdministrator\AppData\Roaming\PostSharp.Engineering";
 
@@ -44,9 +51,8 @@ public class DockerWindowsImage : DockerImage
                 # Install Git using Chocolatey
                 RUN choco install git -y
                 """ );
-            
-            base.WritePrologue( settings );
 
+            base.WritePrologue( settings );
         }
 
         public override void MakeDirectory( string s )

@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using Microsoft.Extensions.FileSystemGlobbing;
+using Microsoft.VisualStudio.Services.Common;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
@@ -46,7 +47,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             this.ProductName = dependencyDefinition.Name;
             this.BuildExePath = Assembly.GetCallingAssembly().Location;
             this.DockerBaseImage = dependencyDefinition.ProductFamily.DockerBaseImage;
-            this.BuildAgentRequirements = dependencyDefinition.ProductFamily.DefaultBuildAgentRequirements;
         }
 
         public ProductFamily ProductFamily => this.DependencyDefinition.ProductFamily;
@@ -110,7 +110,28 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool KeepEditorConfig { get; init; }
 
-        public BuildAgentRequirements BuildAgentRequirements { get; init; }
+        public BuildAgentRequirements? OverriddenBuildAgentRequirements { get; init; }
+
+        public BuildAgentRequirements AdditionalBuildAgentRequirements = BuildAgentRequirements.Empty;
+
+        public BuildAgentRequirements ResolvedBuildAgentRequirements
+        {
+            get
+            {
+                if ( this.OverriddenBuildAgentRequirements != null )
+                {
+                    return this.OverriddenBuildAgentRequirements;
+                }
+                else if ( this.UseDockerInTeamcity )
+                {
+                    return this.DockerBaseImage!.HostRequirements.Combine( this.AdditionalBuildAgentRequirements );
+                }
+                else
+                {
+                    return this.ProductFamily.DefaultBuildAgentRequirements.Combine( this.AdditionalBuildAgentRequirements );
+                }
+            }
+        }
 
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
 
@@ -2120,7 +2141,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var teamCityBuildConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}Build",
                     configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
-                    this.BuildAgentRequirements )
+                    this.ResolvedBuildAgentRequirements )
                 {
                     BuildSteps = teamCityBuildSteps.ToArray(),
                     ArtifactRules = publishedArtifactRules,
@@ -2147,7 +2168,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
                             $"{configuration}Deployment",
                             configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
-                            this.BuildAgentRequirements )
+                            this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps = [CreatePublishBuildStep()],
                             IsDeployment = true,
@@ -2172,7 +2193,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
                             objectName: $"{configuration}DeploymentNoDependency",
                             name: "Standalone " + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
-                            buildAgentRequirements: this.BuildAgentRequirements )
+                            buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps = [CreatePublishBuildStep()],
                             IsDeployment = true,
@@ -2203,7 +2224,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         new TeamCityBuildConfiguration(
                             objectName: $"{configuration}Swap",
                             name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
-                            buildAgentRequirements: this.BuildAgentRequirements )
+                            buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps =
                             [
@@ -2227,7 +2248,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         new TeamCityBuildConfiguration(
                             objectName: "VersionBump",
                             name: $"Version Bump",
-                            buildAgentRequirements: this.BuildAgentRequirements )
+                            buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps =
                                 [new TeamCityEngineeringCommandBuildStep( "Bump", "Bump", "bump", areCustomArgumentsAllowed: true )],
@@ -2248,7 +2269,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     new TeamCityBuildConfiguration(
                         "DownstreamMerge",
                         "Downstream Merge",
-                        this.BuildAgentRequirements )
+                        this.ResolvedBuildAgentRequirements )
                     {
                         BuildSteps =
                         [

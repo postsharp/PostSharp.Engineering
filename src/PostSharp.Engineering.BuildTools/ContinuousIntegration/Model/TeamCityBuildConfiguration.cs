@@ -172,9 +172,9 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                     writer.WriteLine();
                     writer.WriteLine( "    requirements {" );
 
-                    foreach ( var environmentVariable in this.BuildAgentRequirements.Parameters )
+                    foreach ( var environmentVariable in this.BuildAgentRequirements.Items )
                     {
-                        writer.WriteLine( $"        equals (\"{environmentVariable.Key}\", \"{environmentVariable.Value}\")" );
+                        writer.WriteLine( $"        equals (\"{environmentVariable.Name}\", \"{environmentVariable.Value}\")" );
                     }
 
                     writer.WriteLine( "    }" );

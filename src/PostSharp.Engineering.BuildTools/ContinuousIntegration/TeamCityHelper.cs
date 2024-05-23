@@ -720,7 +720,7 @@ public static class TeamCityHelper
             new TeamCityBuildConfiguration(
                 versionBumpObjectName,
                 "1. Version Bump",
-                context.Product.BuildAgentRequirements )
+                context.Product.ResolvedBuildAgentRequirements )
             {
                 BuildSteps = consolidatedVersionBumpSteps.ToArray(), BuildTriggers = consolidatedVersionBumpBuildTriggers
             } );
