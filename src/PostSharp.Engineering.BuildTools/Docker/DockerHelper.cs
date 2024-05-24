@@ -10,6 +10,6 @@ internal static class DockerHelper
     {
         var s = Environment.GetEnvironmentVariable( "COMPLUS_RUNNING_IN_CONTAINER" );
 
-        return s != null && bool.TryParse( s, out var b ) && b;
+        return s != null && ((bool.TryParse( s, out var b ) && b) || (int.TryParse( s, out var i ) && i != 0));
     }
 }

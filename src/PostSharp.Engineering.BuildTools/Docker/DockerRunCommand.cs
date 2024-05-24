@@ -31,40 +31,39 @@ public abstract class DockerRunCommand : BaseCommand<DockerSettings>
 
         // Run the configuration script.
 
-        try
+        var arguments = this.GetArguments( settings, context, containerName, imageName, baseImage, nugetVolumeName, buildArtifactsVolumeName );
+        context.Console.WriteImportantMessage( "docker " + arguments );
+
+        using ( ConsoleHelper.CancellationToken.Register( KillDocker ) )
         {
-            var arguments = this.GetArguments( settings, context, containerName, imageName, baseImage, nugetVolumeName, buildArtifactsVolumeName );
-            context.Console.WriteImportantMessage( "docker " + arguments );
+            var process = Process.Start( new ProcessStartInfo( "docker", Environment.ExpandEnvironmentVariables( arguments ) ) { UseShellExecute = false } );
 
-            using ( ConsoleHelper.CancellationToken.Register( KillDocker ) )
+            process!.WaitForExit();
+
+            if ( process.ExitCode != 0 )
             {
-                var process = Process.Start(
-                    new ProcessStartInfo( "docker", Environment.ExpandEnvironmentVariables( arguments ) ) { UseShellExecute = false } );
+                context.Console.WriteError( $"`docker run` exited with code {process.ExitCode}." );
 
-                process!.WaitForExit();
-
-                if ( process.ExitCode != 0 )
-                {
-                    context.Console.WriteError( $"`docker run` exited with code {process.ExitCode}." );
-
-                    return false;
-                }
-
-                return true;
+                return false;
             }
 
-            void KillDocker()
-            {
-                ToolInvocationHelper.InvokeTool( context.Console, "docker", $"kill {containerName}" );
-            }
+            return true;
         }
-        finally
+
+        void KillDocker()
         {
-            ToolInvocationHelper.InvokeTool( context.Console, "docker", $"image rm {imageName}" );
+            ToolInvocationHelper.InvokeTool( context.Console, "docker", $"kill {containerName}" );
         }
     }
 
-    private string GetArguments( DockerSettings settings, BuildContext context, string containerName, string imageName, DockerImage image, string nugetVolumeName, string buildArtifactsVolumeName )
+    private string GetArguments(
+        DockerSettings settings,
+        BuildContext context,
+        string containerName,
+        string imageName,
+        DockerImage image,
+        string nugetVolumeName,
+        string buildArtifactsVolumeName )
     {
         var product = context.Product;
         var artifactsDirectory = Path.Combine( context.RepoDirectory, "artifacts" );

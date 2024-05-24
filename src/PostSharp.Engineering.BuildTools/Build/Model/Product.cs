@@ -4,7 +4,6 @@ using JetBrains.Annotations;
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using Microsoft.Extensions.FileSystemGlobbing;
-using Microsoft.VisualStudio.Services.Common;
 using PostSharp.Engineering.BuildTools.Build.Publishers;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;

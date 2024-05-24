@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -38,6 +39,11 @@ namespace PostSharp.Engineering.BuildTools
                 }
 
                 MSBuildHelper.InitializeLocator();
+
+                if ( DockerHelper.IsDockerBuild() )
+                {
+                    buildContext.Console.WriteMessage( "Docker detected." );
+                }
 
                 // Validate custom properties.
                 if ( settings.ListProperties )
