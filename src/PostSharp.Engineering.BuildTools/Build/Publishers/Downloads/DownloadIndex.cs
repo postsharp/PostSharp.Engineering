@@ -9,25 +9,27 @@ using System.Linq;
 namespace PostSharp.Engineering.BuildTools.Build.Publishers.Downloads;
 
 [PublicAPI]
-public static class DownloadsIndexGenerator
+public record DownloadIndex( DownloadFolder Folder, string? Name, bool IsPartialIndex )
 {
-    private static string FormatTime( DateTime time ) => time.ToString( @"yyyy-MM-ddTHH\:mm\:ss.fffffffzzz", CultureInfo.InvariantCulture );
+    public string FileName => this.Name == null ? "Index.xml" : $"Index.{this.Name}.xml";
 
-    private static string FormatString( string? value )
-        => value == null
-            ? ""
-            : $@"<![CDATA[
+    public void Write( string directory )
+    {
+        static string FormatTime( DateTime time ) => time.ToString( @"yyyy-MM-ddTHH\:mm\:ss.fffffffzzz", CultureInfo.InvariantCulture );
+
+        static string FormatString( string? value )
+            => value == null
+                ? ""
+                : $@"<![CDATA[
             {value}
           ]]>";
-    
-    public static void Generate( DownloadsIndex index, string directory )
-    {
-        var createdAt = FormatTime( index.Folder.CreatedAt );
-        var partialIndex = index.IsPartialIndex ? @" PartialIndex=""true""" : "";
+
+        var createdAt = FormatTime( this.Folder.CreatedAt );
+        var partialIndex = this.IsPartialIndex ? @" PartialIndex=""true""" : "";
 
         var files = string.Join(
             Environment.NewLine,
-            index.Folder.Files.Select(
+            this.Folder.Files.Select(
                 f => $@"<File Name=""{f.Name}"" CreatedAt=""{FormatTime( f.CreatedAt )}"">
         <Description>
           {FormatString( f.Description )}
@@ -39,15 +41,15 @@ public static class DownloadsIndexGenerator
 
         var content = @$"<?xml version=""1.0"" encoding=""utf-8"" ?>
 <Index xmlns=""http://www.postsharp.net/schemas/downloads.xsd"">
-  <Folder Name=""{index.Folder.Name}"" Order=""{index.Folder.Order}"" CreatedAt=""{createdAt}""{partialIndex}>
+  <Folder Name=""{this.Folder.Name}"" Order=""{this.Folder.Order}"" CreatedAt=""{createdAt}""{partialIndex}>
     <Description>
-      {FormatString( index.Folder.Description )}
+      {FormatString( this.Folder.Description )}
     </Description>
     <LongDescription>
-      {FormatString( index.Folder.LongDescription )}
+      {FormatString( this.Folder.LongDescription )}
     </LongDescription>
     <Instructions>
-      {FormatString( index.Folder.Instructions )}
+      {FormatString( this.Folder.Instructions )}
     </Instructions>
     <Files>
       {files}
@@ -56,9 +58,9 @@ public static class DownloadsIndexGenerator
 
 </Index>
 ";
-        
-        var indexFilePath = Path.Combine( directory, index.FileName );
-        
+
+        var indexFilePath = Path.Combine( directory, this.FileName );
+
         File.WriteAllText( indexFilePath, content );
     }
 }

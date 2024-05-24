@@ -1,7 +1,5 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
-using System;
-
 namespace PostSharp.Engineering.BuildTools.Build.Model
 {
     /// <summary>
@@ -9,10 +7,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
     /// </summary>
     public abstract class Publisher
     {
-        public event Action<PublishEventArgs>? PublishingStarted;
-        
-        public event Action<PublishEventArgs>? PublishingCompleted;
-        
         protected abstract bool Publish(
             BuildContext context,
             PublishSettings settings,
@@ -42,38 +36,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             foreach ( var publisher in publishers )
             {
-                var publishingArgs = new PublishEventArgs(
-                    context,
-                    settings,
-                    directories,
-                    configuration,
-                    buildInfo,
-                    isPublic );
-
-                publisher.PublishingStarted?.Invoke( publishingArgs );
-
-                if ( publishingArgs.Success )
-                {
-                    publishingArgs.Success = publisher.Publish(
+                if ( !publisher.Publish(
                         context,
                         settings,
                         directories,
                         configuration,
                         buildInfo,
                         isPublic,
-                        ref hasTarget );
-                }
-
-                publisher.PublishingCompleted?.Invoke(
-                    new(
-                        context,
-                        settings,
-                        directories,
-                        configuration,
-                        buildInfo,
-                        isPublic ) );
-                
-                if ( !publishingArgs.Success )
+                        ref hasTarget ) )
                 {
                     publishingSucceeded = false;
                 }

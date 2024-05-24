@@ -10,35 +10,32 @@ using System.Linq;
 namespace PostSharp.Engineering.BuildTools.Build.Publishers.Downloads;
 
 [PublicAPI]
-public record DownloadsFolder(
+public record DownloadFolder(
     string Name,
     string Order,
     DateTime CreatedAt,
     string? Description,
     string? LongDescription,
     string? Instructions,
-    IEnumerable<DownloadsFile> Files )
+    IEnumerable<DownloadFile> Files )
 {
-    public static DownloadsFolder Create(
+    public static DownloadFolder Create(
         BuildContext context,
         BuildInfo buildInfo,
         string? description = null,
         string? longDescription = null,
         string? instructions = null,
-        IEnumerable<(string Directory, ParametricString Name, string? Description, string? Instructions)>? files = null )
+        IEnumerable<DownloadFile>? files = null )
     {
         var familyName = context.Product.ProductFamily.Name;
         var packageVersion = buildInfo.PackageVersion!;
         var name = $"{familyName} {packageVersion}";
         var order = packageVersion.Split( '-' )[0];
         var createdAt = DateTime.UtcNow;
-
-        var downloadsFiles =
-            files?.Select( f => DownloadsFile.Create( Path.Combine( f.Directory, f.Name.ToString( buildInfo ) ), f.Description, f.Instructions ) )
-            ?? Enumerable.Empty<DownloadsFile>();
+        files ??= Enumerable.Empty<DownloadFile>();
         
-        return new DownloadsFolder( name, order, createdAt, description, longDescription, instructions, downloadsFiles );
+        return new DownloadFolder( name, order, createdAt, description, longDescription, instructions, files );
     }
     
-    public DownloadsFolder WithFiles( IEnumerable<DownloadsFile> files ) => this with { Files = files };
+    public DownloadFolder WithFiles( IEnumerable<DownloadFile> files ) => this with { Files = files };
 }

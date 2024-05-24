@@ -64,18 +64,18 @@ public class ConsolidatedBuildSolution : Solution
         
         context.Console.WriteMessage( "Creating index files." );
         
-        var downloadsFolder = DownloadsFolder.Create( context, buildInfo );
+        var downloadsFolder = DownloadFolder.Create( context, buildInfo );
 
-        var packageDownloadFile = DownloadsFile.Create(
+        var packageDownloadFile = DownloadFile.Create(
             zipFilePath,
             "All NuGet packages in a zip file.",
             null );
     
-        var mainIndex = new DownloadsIndex( downloadsFolder, null, true );
-        DownloadsIndexGenerator.Generate( mainIndex, publicArtifactsDirectory );
+        var mainIndex = new DownloadIndex( downloadsFolder, null, true );
+        mainIndex.Write( publicArtifactsDirectory );
 
-        var packageIndex = new DownloadsIndex( downloadsFolder.WithFiles( new[] { packageDownloadFile } ), zipFileName, false );
-        DownloadsIndexGenerator.Generate( packageIndex, publicArtifactsDirectory );
+        var packageIndex = new DownloadIndex( downloadsFolder.WithFiles( new[] { packageDownloadFile } ), zipFileName, false );
+        packageIndex.Write( publicArtifactsDirectory );
 
         return true;
     }

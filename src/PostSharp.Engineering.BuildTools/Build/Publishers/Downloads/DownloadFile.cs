@@ -7,9 +7,9 @@ using System.IO;
 namespace PostSharp.Engineering.BuildTools.Build.Publishers.Downloads;
 
 [PublicAPI]
-public record DownloadsFile( string Name, DateTime CreatedAt, string? Description, string? Instructions )
+public record DownloadFile( string Name, DateTime CreatedAt, string? Description, string? Instructions )
 {
-    public static DownloadsFile Create( string path, string? description, string? instructions )
+    public static DownloadFile Create( string path, string? description, string? instructions )
     {
         var name = Path.GetFileName( path );
         var createdAt = File.GetCreationTimeUtc( path );

@@ -7,10 +7,9 @@ using System.Collections.Generic;
 namespace PostSharp.Engineering.BuildTools.Build.Publishers.Downloads;
 
 [PublicAPI]
-public class DownloadsPublisher : InvalidatingS3Publisher
+public class DownloadPublisher : InvalidatingS3Publisher
 {
-    public DownloadsPublisher( IReadOnlyCollection<S3PublisherConfiguration> configurations ) : base(
+    public DownloadPublisher( IReadOnlyCollection<S3PublisherConfiguration> configurations ) : base(
         configurations,
-        "DOWNLOADS_API_KEY",
-        "https://www.postsharp.net/download/Refresh.ashx?p={0}" ) { }
+        "https://www.postsharp.net/download/Refresh.ashx?p=%DOWNLOADS_API_KEY%" ) { }
 }

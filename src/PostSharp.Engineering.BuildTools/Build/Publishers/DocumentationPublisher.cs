@@ -10,5 +10,5 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers;
 public class DocumentationPublisher : InvalidatingS3Publisher
 {
     public DocumentationPublisher( IReadOnlyCollection<S3PublisherConfiguration> configurations, string documentationUrl )
-        : base( configurations, "DOC_API_KEY", $"{documentationUrl}_api/invalidate?{{0}}" ) { }
+        : base( configurations, $"{documentationUrl}_api/invalidate?%DOC_API_KEY%" ) { }
 }
