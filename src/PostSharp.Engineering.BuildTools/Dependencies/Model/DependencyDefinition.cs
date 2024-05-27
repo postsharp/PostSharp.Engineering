@@ -56,6 +56,8 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
         public VcsRepository VcsRepository { get; }
 
         public ParametricString PrivateArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "private" );
+        
+        public ParametricString PublicArtifactsDirectory { get; init; } = Path.Combine( "artifacts", "publish", "public" );
 
         /// <summary>
         /// Gets or sets the order in which products in the same family should be built. This is a poorman version of a recursive build

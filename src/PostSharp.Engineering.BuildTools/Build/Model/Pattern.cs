@@ -40,9 +40,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public Pattern Remove( params ParametricString[] patterns ) => new( this.Items.AddRange( patterns.Select( p => (p, true) ) ) );
 
         /// <summary>
-        /// Appends a pattern after the current pattern and results the result.
+        /// Appends a pattern after the current pattern and returns the result.
         /// </summary>
-        public Pattern Appends( Pattern pattern ) => new( this.Items.AddRange( pattern.Items ) );
+        public Pattern Append( Pattern pattern ) => new( this.Items.AddRange( pattern.Items ) );
 
         /// <summary>
         /// Creates a new additive pattern.

@@ -31,7 +31,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             BuildInfo buildInfo,
             BuildConfigurationInfo configuration );
 
-        protected sealed override bool Publish(
+        protected override bool Publish(
             BuildContext context,
             PublishSettings settings,
             (string Private, string Public) directories,

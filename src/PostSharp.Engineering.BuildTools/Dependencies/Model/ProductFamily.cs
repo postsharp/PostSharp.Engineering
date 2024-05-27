@@ -18,6 +18,7 @@ public class ProductFamily
     private static int _areDependenciesInitialized;
     private static readonly Dictionary<string, Dictionary<string, ProductFamily>> _productFamilies = new();
     private readonly Dictionary<string, DependencyDefinition> _dependencyDefinitions = new();
+    private readonly Dictionary<string, DependencyDefinition> _dependencyDefinitionsByCiId = new();
     private readonly ProductFamily[] _relativeFamilies;
 
     public string Name { get; set; }
@@ -95,8 +96,14 @@ public class ProductFamily
     }
 
     public bool TryGetDependencyDefinition( string name, [NotNullWhen( true )] out DependencyDefinition? definition )
+        => this.TryGetDependencyDefinition( name, f => f._dependencyDefinitions, out definition );
+
+    public bool TryGetDependencyDefinitionByCiId( string name, [NotNullWhen( true )] out DependencyDefinition? definition )
+        => this.TryGetDependencyDefinition( name, f => f._dependencyDefinitionsByCiId, out definition );
+
+    private bool TryGetDependencyDefinition( string name, Func<ProductFamily, IReadOnlyDictionary<string, DependencyDefinition>> getDependencyDefinitions, [NotNullWhen( true )] out DependencyDefinition? definition )
     {
-        if ( this._dependencyDefinitions.TryGetValue( name, out definition ) )
+        if ( getDependencyDefinitions( this ).TryGetValue( name, out definition ) )
         {
             return true;
         }
@@ -104,7 +111,7 @@ public class ProductFamily
         {
             foreach ( var relatives in this._relativeFamilies )
             {
-                if ( relatives.TryGetDependencyDefinition( name, out definition ) )
+                if ( relatives.TryGetDependencyDefinition( name, getDependencyDefinitions, out definition ) )
                 {
                     return true;
                 }
@@ -122,6 +129,7 @@ public class ProductFamily
     public void Register( DependencyDefinition dependencyDefinition )
     {
         this._dependencyDefinitions.Add( dependencyDefinition.Name, dependencyDefinition );
+        this._dependencyDefinitionsByCiId.Add( dependencyDefinition.CiConfiguration.ProjectId.Id, dependencyDefinition );
     }
 
     public override string ToString() => $"{this.Name} {this.Version}";

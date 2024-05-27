@@ -132,7 +132,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
             {
                 if ( this.IsComposite )
                 {
-                    throw new InvalidOperationException( "Composite build cannot have build steps." );
+                    throw new InvalidOperationException( "Composite build cannot have build steps. Check if the build agent type is set." );
                 }
 
                 writer.WriteLine(
@@ -174,7 +174,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
                     foreach ( var environmentVariable in this.BuildAgentRequirements.Items )
                     {
-                        writer.WriteLine( $"        equals (\"{environmentVariable.Name}\", \"{environmentVariable.Value}\")" );
+                        writer.WriteLine( $"        equals(\"{environmentVariable.Name}\", \"{environmentVariable.Value}\")" );
                     }
 
                     writer.WriteLine( "    }" );

@@ -67,7 +67,10 @@ namespace PostSharp.Engineering.BuildTools.S3.Publishers
             {
                 try
                 {
-                    var putRequest = new PutObjectRequest { BucketName = packageConfiguration.BucketName, Key = packageConfiguration.KeyName, FilePath = file };
+                    var putRequest = new PutObjectRequest
+                    {
+                        BucketName = packageConfiguration.BucketName, Key = packageConfiguration.KeyName.ToString( buildInfo ), FilePath = file
+                    };
 
                     context.Console.WriteImportantMessage( message );
 
