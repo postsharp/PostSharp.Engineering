@@ -748,8 +748,6 @@ public static class TeamCityHelper
 
         var consolidatedVersionBumpBuildTriggers = new IBuildTrigger[] { new NightlyBuildTrigger( 1, consolidatedVersionBumpBuildTriggerMinute, false ) };
 
-        var buildAgentType = context.Product.DependencyDefinition.CiConfiguration.BuildAgentType;
-
         tcConfigurations.Add(
             new TeamCityBuildConfiguration(
                 versionBumpObjectName,
@@ -771,7 +769,7 @@ public static class TeamCityHelper
             new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( publicConfiguration, false, context.Product.UseDockerInTeamcity ) };
 
         tcConfigurations.Add(
-            new TeamCityBuildConfiguration( publicBuildObjectName, "2. Build [Public]", buildAgentType )
+            new TeamCityBuildConfiguration( publicBuildObjectName, "2. Build [Public]", context.Product.ResolvedBuildAgentRequirements )
             {
                 BuildSteps = consolidatedPublicBuildSteps,
                 SnapshotDependencies = consolidatedPublicBuildSnapshotDependencies.ToArray(),
@@ -801,7 +799,7 @@ public static class TeamCityHelper
         var consolidatedPublicDeploymentSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( publicConfiguration ) };
 
         tcConfigurations.Add(
-            new TeamCityBuildConfiguration( publicDeploymentObjectName, "3. Deploy [Public]", buildAgentType )
+            new TeamCityBuildConfiguration( publicDeploymentObjectName, "3. Deploy [Public]", context.Product.ResolvedBuildAgentRequirements )
             {
                 BuildSteps = consolidatedPublicDeploymentSteps,
                 SnapshotDependencies = consolidatedPublicDeploymentSnapshotDependencies.ToArray(),

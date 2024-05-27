@@ -174,7 +174,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
                     foreach ( var environmentVariable in this.BuildAgentRequirements.Items )
                     {
-                        writer.WriteLine( $"        equals (\"{environmentVariable.Name}\", \"{environmentVariable.Value}\")" );
+                        writer.WriteLine( $"        equals(\"{environmentVariable.Name}\", \"{environmentVariable.Value}\")" );
                     }
 
                     writer.WriteLine( "    }" );

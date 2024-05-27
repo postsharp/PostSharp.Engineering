@@ -2155,6 +2155,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // Create a TeamCity configuration for Deploy.
                 if ( configurationInfo.PrivatePublishers != null || configurationInfo.PublicPublishers != null )
                 {
+                    TeamCityBuildStep CreatePublishBuildStep()
+                        => new TeamCityEngineeringCommandBuildStep( "Publish", "Publish", "publish", $"--configuration {configuration}", true );
+                    
                     if ( configurationInfo.ExportsToTeamCityDeploy )
                     {
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
