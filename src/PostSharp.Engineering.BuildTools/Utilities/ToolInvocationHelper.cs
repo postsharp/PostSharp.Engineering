@@ -352,7 +352,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
                                     if ( !process.HasExited )
                                     {
-                                        var signal = WaitHandle.WaitAny( new WaitHandle[] { exitedEvent, cancelledEvent } );
+                                        var signal = WaitHandle.WaitAny( [exitedEvent, cancelledEvent] );
 
                                         if ( signal == 1 )
                                         {
@@ -366,13 +366,13 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         // We will wait for a while for all output to be processed.
                         if ( !cancellationToken.CanBeCanceled )
                         {
-                            WaitHandle.WaitAll( new WaitHandle[] { stdErrorClosed, stdOutClosed }, 10000 );
+                            WaitHandle.WaitAll( [stdErrorClosed, stdOutClosed], 10000 );
                         }
                         else
                         {
                             var i = 0;
 
-                            while ( !WaitHandle.WaitAll( new WaitHandle[] { stdErrorClosed, stdOutClosed }, 100 ) &&
+                            while ( !WaitHandle.WaitAll( [stdErrorClosed, stdOutClosed], 100 ) &&
                                     i++ < 100 )
                             {
                                 cancellationToken.ThrowIfCancellationRequested();

@@ -23,19 +23,19 @@ public abstract class DocFxCrawler
     private string? _canonicalUrl;
     private string? _anchor;
     private string _summary = "";
-    private readonly List<string> _h1 = new();
-    private readonly List<string> _h2 = new();
-    private readonly List<string> _h3 = new();
-    private readonly List<string> _h4 = new();
-    private readonly List<string> _h5 = new();
-    private readonly List<string> _h6 = new();
+    private readonly List<string> _h1 = [];
+    private readonly List<string> _h2 = [];
+    private readonly List<string> _h3 = [];
+    private readonly List<string> _h4 = [];
+    private readonly List<string> _h5 = [];
+    private readonly List<string> _h6 = [];
     private readonly IReadOnlyDictionary<int, List<string>> _headings;
     private readonly StringBuilder _textBuilder = new();
-    private readonly List<string> _text = new();
+    private readonly List<string> _text = [];
     private bool _isTextPreformatted;
     private bool _isParagraphIgnored;
     private bool _isCurrentContentIgnored;
-    private readonly List<Snippet> _snippets = new();
+    private readonly List<Snippet> _snippets = [];
 
     protected DocFxCrawler()
     {
@@ -72,7 +72,7 @@ public abstract class DocFxCrawler
 
         if ( breadcrumb.IsPageIgnored )
         {
-            return Enumerable.Empty<Snippet>();
+            return [];
         }
 
         var canonicalUrlNode = document.DocumentNode.SelectSingleNode( "//link[@rel=\"canonical\"]" );
@@ -350,7 +350,7 @@ public abstract class DocFxCrawler
             Kinds = this._contentInfo.Kinds,
             KindRank = this._contentInfo.KindRank,
             Categories = this._contentInfo.Categories,
-            ComplexityLevels = this._contentInfo.ComplexityLevel < 100 ? [] : new[] { this._contentInfo.ComplexityLevel },
+            ComplexityLevels = this._contentInfo.ComplexityLevel < 100 ? [] : [this._contentInfo.ComplexityLevel],
             ComplexityLevelRank = this._contentInfo.ComplexityLevelRank,
             NavigationLevel = this._contentInfo.NavigationLevel
         };
@@ -375,7 +375,7 @@ public abstract class DocFxCrawler
         // TODO: rowspan, colspan
         // TODO: Crawl children instead of using GetText.
 
-        var headers = table.SelectNodes( ".//th" )?.Select( h => h.GetText() ).ToList() ?? new List<string>();
+        var headers = table.SelectNodes( ".//th" )?.Select( h => h.GetText() ).ToList() ?? [];
 
         foreach ( var row in table.SelectNodes( ".//tr" ) )
         {
@@ -384,7 +384,7 @@ public abstract class DocFxCrawler
                     row
                         ?.SelectNodes( "./td" )
                         ?.Select( ( c, i ) => $"{(i < headers.Count ? headers[i] : "_")}: {c.GetText()}" )
-                    ?? Enumerable.Empty<string>() )
+                    ?? [] )
                 .Trim();
 
             this._textBuilder.AppendLine( rowText );

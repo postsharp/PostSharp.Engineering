@@ -8,9 +8,9 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Csproj;
 using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Docker;
+using PostSharp.Engineering.BuildTools.DotNetTools;
 using PostSharp.Engineering.BuildTools.Git;
 using PostSharp.Engineering.BuildTools.NuGet;
-using PostSharp.Engineering.BuildTools.Tools;
 using PostSharp.Engineering.BuildTools.XmlDoc;
 using Spectre.Console.Cli;
 using System.Linq;
@@ -90,6 +90,10 @@ namespace PostSharp.Engineering.BuildTools
                                 docker.AddCommand<DockerInteractiveCommand>( "interactive" )
                                     .WithData( product )
                                     .WithDescription( "Opens an interactive PowerShell session inside the docker container." );
+
+                                docker.AddCommand<DockerListImagesCommand>( "list-images" )
+                                    .WithData( product )
+                                    .WithDescription( "Prints the list of configured images." );
                             } );
 
                         root.AddBranch(
@@ -172,7 +176,14 @@ namespace PostSharp.Engineering.BuildTools
                                 tools.AddBranch(
                                     "csproj",
                                     csproj => csproj.AddCommand<AddProjectReferenceCommand>( "add-project-reference" )
+                                        .WithData( product )
                                         .WithDescription( "Adds a <ProjectReference> item to *.csproj in a directory" ) );
+
+                                tools.AddBranch(
+                                    "msbuild",
+                                    msbuild => msbuild.AddCommand<ListMSBuildCommand>( "list" )
+                                        .WithData( product )
+                                        .WithDescription( "List installed MSBuild instances." ) );
 
                                 tools.AddBranch(
                                     "nuget",
@@ -195,7 +206,7 @@ namespace PostSharp.Engineering.BuildTools
                                     {
                                         git.AddCommand<GitBulkRenameCommand>( "rename" )
                                             .WithDescription( "Renames all files and directories recursively preserving GIT history." )
-                                            .WithExample( new[] { @"""C:\src\Caravela.Compiler""", @"""Caravela""", @"""Metalama""" } );
+                                            .WithExample( [@"""C:\src\Caravela.Compiler""", @"""Caravela""", @"""Metalama"""] );
 
                                         git.AddCommand<DownstreamMergeCommand>( "merge-downstream" )
                                             .WithData( product )

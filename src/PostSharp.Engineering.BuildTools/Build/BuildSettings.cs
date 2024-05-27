@@ -5,6 +5,7 @@ using Spectre.Console.Cli;
 using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Text;
+using Environment = System.Environment;
 
 #pragma warning disable CA1305
 
@@ -16,6 +17,11 @@ namespace PostSharp.Engineering.BuildTools.Build
     public class BuildSettings : BaseBuildSettings
     {
         private int? _solutionId;
+
+        public BuildSettings()
+        {
+            this.UserName = Environment.GetEnvironmentVariable( "ENG_USERNAME" ) ?? Environment.UserName;
+        }
 
         protected override void AppendSettings( StringBuilder stringBuilder )
         {
@@ -170,7 +176,7 @@ namespace PostSharp.Engineering.BuildTools.Build
 
         [Description( "Overrides the user name." )]
         [CommandOption( "--user" )]
-        public string? UserName { get; set; }
+        public string UserName { get; set; }
 
         public BuildSettings WithIncludeTests( bool value )
         {
@@ -192,14 +198,6 @@ namespace PostSharp.Engineering.BuildTools.Build
         {
             var clone = (BuildSettings) this.MemberwiseClone();
             clone.NoLogo = true;
-
-            return clone;
-        }
-
-        public BuildSettings WithUserName( string userName )
-        {
-            var clone = (BuildSettings) this.MemberwiseClone();
-            clone.UserName = userName;
 
             return clone;
         }

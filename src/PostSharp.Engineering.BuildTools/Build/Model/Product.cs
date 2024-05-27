@@ -109,6 +109,29 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool KeepEditorConfig { get; init; }
 
+        public BuildAgentRequirements? OverriddenBuildAgentRequirements { get; init; }
+
+        public BuildAgentRequirements AdditionalBuildAgentRequirements = BuildAgentRequirements.Empty;
+
+        public BuildAgentRequirements ResolvedBuildAgentRequirements
+        {
+            get
+            {
+                if ( this.OverriddenBuildAgentRequirements != null )
+                {
+                    return this.OverriddenBuildAgentRequirements;
+                }
+                else if ( this.UseDockerInTeamcity )
+                {
+                    return this.DockerBaseImage!.HostRequirements.Combine( this.AdditionalBuildAgentRequirements );
+                }
+                else
+                {
+                    return this.ProductFamily.DefaultBuildAgentRequirements.Combine( this.AdditionalBuildAgentRequirements );
+                }
+            }
+        }
+
         public ConfigurationSpecific<BuildConfigurationInfo> Configurations { get; init; } = DefaultConfigurations;
 
         public TimeSpan BuildTimeOutThreshold { get; init; } = TimeSpan.FromMinutes( 5 );
@@ -136,7 +159,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public static ConfigurationSpecific<BuildConfigurationInfo> DefaultConfigurations { get; }
             = new(
                 debug:
-                new BuildConfigurationInfo( BuildTriggers: new IBuildTrigger[] { new SourceBuildTrigger() } ),
+                new BuildConfigurationInfo( BuildTriggers: [new SourceBuildTrigger()] ),
                 release: new BuildConfigurationInfo(),
                 @public: new BuildConfigurationInfo(
                     RequiresSigning: true,
@@ -812,7 +835,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( settings.SolutionId != null )
             {
                 var solution = this.Solutions[settings.SolutionId.Value - 1];
-                solutionsToTest = new[] { solution };
+                solutionsToTest = [solution];
             }
             else
             {
@@ -1247,7 +1270,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                         File.WriteAllText( localVersionFile, localVersion.ToString( CultureInfo.InvariantCulture ) );
 
-                        var userName = settings.UserName ?? Environment.UserName;
+                        var userName = settings.UserName;
                         versionSuffix = $"local-{userName}-{configurationLowerCase}";
 
                         patchNumber = localVersion;
@@ -1507,8 +1530,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            // NugetCache gets automatically deleted only on TeamCity.
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) && !settings.NoNuGetCacheCleanup )
+            // NugetCache must be automatically deleted only on TeamCity.
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) && !DockerHelper.IsDockerBuild() && !settings.NoNuGetCacheCleanup )
             {
                 context.Console.WriteHeading( "Cleaning NuGet cache." );
                 context.Console.WriteMessage( "The NuGet cache cleanup can be skipped using --no-nuget-cache-cleanup." );
@@ -2091,7 +2114,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var teamCityBuildSteps = new List<TeamCityBuildStep>();
 
-                teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "Kill", "Kill background processes before cleanup", "tools kill" ) );
+                if ( !this.UseDockerInTeamcity )
+                {
+                    teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "Kill", "Kill background processes before cleanup", "tools kill" ) );
+                }
 
                 var requiresUpstreamCheck = configurationInfo.RequiresUpstreamCheck && this.ProductFamily.UpstreamProductFamily != null;
 
@@ -2110,7 +2136,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var teamCityBuildConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}Build",
                     configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
-                    this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                    this.ResolvedBuildAgentRequirements )
                 {
                     BuildSteps = teamCityBuildSteps.ToArray(),
                     ArtifactRules = publishedArtifactRules,
@@ -2134,9 +2160,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
                             $"{configuration}Deployment",
                             configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
-                            this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                            this.ResolvedBuildAgentRequirements )
                         {
-                            BuildSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( configuration ) },
+                            BuildSteps = [CreatePublishBuildStep()],
                             IsDeployment = true,
                             SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
                                 .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, publishedArtifactRules ) } )
@@ -2159,9 +2185,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
                             objectName: $"{configuration}DeploymentNoDependency",
                             name: "Standalone " + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
-                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                            buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
-                            BuildSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( configuration ) },
+                            BuildSteps = [CreatePublishBuildStep()],
                             IsDeployment = true,
                             SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
                                 .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, publishedArtifactRules ) } )
@@ -2190,12 +2216,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         new TeamCityBuildConfiguration(
                             objectName: $"{configuration}Swap",
                             name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
-                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                            buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
-                            BuildSteps = new TeamCityBuildStep[]
-                            {
+                            BuildSteps =
+                            [
                                 new TeamCityEngineeringCommandBuildStep( "Swap", "Swap", "swap", $"--configuration {configuration}", true )
-                            },
+                            ],
                             IsDeployment = true,
                             SnapshotDependencies = swapDependencies.OrderBy( d => d.ObjectId ).ToArray(),
                             BuildTimeOutThreshold = configurationInfo.SwapTimeOutThreshold ?? this.SwapTimeOutThreshold
@@ -2214,10 +2240,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         new TeamCityBuildConfiguration(
                             objectName: "VersionBump",
                             name: $"Version Bump",
-                            buildAgentType: this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                            buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps =
-                                new TeamCityBuildStep[] { new TeamCityEngineeringCommandBuildStep( "Bump", "Bump", "bump", areCustomArgumentsAllowed: true ) },
+                                [new TeamCityEngineeringCommandBuildStep( "Bump", "Bump", "bump", areCustomArgumentsAllowed: true )],
                             BuildTimeOutThreshold = this.VersionBumpTimeOutThreshold,
                             IsSshAgentRequired = isRepoRemoteSsh
                         } );
@@ -2235,18 +2261,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     new TeamCityBuildConfiguration(
                         "DownstreamMerge",
                         "Downstream Merge",
-                        this.DependencyDefinition.CiConfiguration.BuildAgentType )
+                        this.ResolvedBuildAgentRequirements )
                     {
-                        BuildSteps = new TeamCityBuildStep[]
-                        {
+                        BuildSteps =
+                        [
                             new TeamCityEngineeringCommandBuildStep(
                                 "DownstreamMerge",
                                 "Merge downstream",
                                 "tools git merge-downstream",
                                 areCustomArgumentsAllowed: true )
-                        },
+                        ],
                         SnapshotDependencies = snapshotDependencies,
-                        BuildTriggers = new IBuildTrigger[] { new SourceBuildTrigger() },
+                        BuildTriggers = [new SourceBuildTrigger()],
                         BuildTimeOutThreshold = this.DownstreamMergeTimeOutThreshold,
                         IsSshAgentRequired = isRepoRemoteSsh
                     } );

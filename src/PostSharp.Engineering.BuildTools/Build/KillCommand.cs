@@ -41,13 +41,12 @@ namespace PostSharp.Engineering.BuildTools.Build
                         }
 
                         if ( p.ProcessName.Equals( "dotnet", StringComparison.OrdinalIgnoreCase ) &&
-                             ReferencesAny( context, p, new[] { "Metalama", "VBCSCompiler", "MSBuild" } ) )
+                             ReferencesAny( context, p, ["Metalama", "VBCSCompiler", "MSBuild"] ) )
                         {
                             return true;
                         }
 
-                        if ( p.ProcessName.Equals( "testhost", StringComparison.OrdinalIgnoreCase )
-                             || p.ProcessName.Equals( "testhost.x86", StringComparison.OrdinalIgnoreCase ) )
+                        if ( p.ProcessName.StartsWith( "testhost", StringComparison.OrdinalIgnoreCase ) )
                         {
                             return true;
                         }
@@ -74,7 +73,7 @@ namespace PostSharp.Engineering.BuildTools.Build
                         }
                         catch ( Exception e )
                         {
-                            context.Console.WriteWarning( e.Message );
+                            context.Console.WriteWarning( $"Cannot kill {process.Id} ({process.ProcessName}): {e.Message}" );
                         }
                     }
                 }

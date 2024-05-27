@@ -37,19 +37,16 @@ public static partial class MetalamaDependencies
                         parentCiProjectId == null
                             ? TeamCityHelper.GetProjectId( dependencyName, _projectName, Family.Version )
                             : TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId ),
-                        "caravela04cloud",
                         isVersioned,
                         pullRequestRequiresStatusCheck: pullRequestRequiresStatusCheck ),
                     isVersioned ) { }
         }
 
-        public static ProductFamily Family { get; } = new( _projectName, "2024.0", DevelopmentDependencies.Family )
-        {
-            DownstreamProductFamily = V2024_1.Family
-        };
+        public static ProductFamily Family { get; } =
+            new( _projectName, "2024.0", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2024_1.Family };
 
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.GitHub );
-        
+
         public static DependencyDefinition Consolidated { get; } = new MetalamaDependencyDefinition(
             "Consolidated",
             VcsProvider.AzureDevOps,
@@ -64,7 +61,8 @@ public static partial class MetalamaDependencies
             EngineeringDirectory = "eng-Metalama", PrivateArtifactsDirectory = Path.Combine( "artifacts", "packages", "$(MSSBuildConfiguration)", "Shipping" )
         };
 
-        public static DependencyDefinition MetalamaFrameworkRunTime { get; } = new MetalamaDependencyDefinition( "Metalama.Framework.RunTime", VcsProvider.GitHub );
+        public static DependencyDefinition MetalamaFrameworkRunTime { get; } =
+            new MetalamaDependencyDefinition( "Metalama.Framework.RunTime", VcsProvider.GitHub );
 
         public static DependencyDefinition MetalamaFrameworkPrivate { get; } = new MetalamaDependencyDefinition(
             "Metalama.Framework.Private",

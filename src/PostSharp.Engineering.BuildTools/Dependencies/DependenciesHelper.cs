@@ -312,18 +312,19 @@ public static class DependenciesHelper
                 if ( buildSpec is CiLatestBuildOfBranch branch )
                 {
                     BuildConfiguration dependencyConfiguration;
-                    
+
                     if ( context.Product.TryGetDependency( dependency.Dependency.Name, out var parametrizedDependency ) )
                     {
                         dependencyConfiguration = parametrizedDependency.ConfigurationMapping[configuration];
                     }
                     else
                     {
-                        context.Console.WriteError( $"The source of the transitive dependency '{dependency.Dependency.Name}' is set to CiLatestBuildOfBranch. This is allowed only for direct dependencies." );
+                        context.Console.WriteError(
+                            $"The source of the transitive dependency '{dependency.Dependency.Name}' is set to CiLatestBuildOfBranch. This is allowed only for direct dependencies." );
 
                         return false;
                     }
-                    
+
                     ciBuildType = dependency.Dependency.CiConfiguration.BuildTypes[dependencyConfiguration];
                     branchName = branch.Name;
                 }
@@ -477,25 +478,12 @@ public static class DependenciesHelper
             var buildNumber = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependency.Dependency.NameWithoutDot}BuildNumber" )
                 ?.Value;
 
-            if ( buildNumber == null )
-            {
-                context.Console.WriteError(
-                    $"The file '{dependency.Source.VersionFile}' does not have a property {dependency.Dependency.NameWithoutDot}BuildNumber" );
-
-                return false;
-            }
-
             var buildType = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependency.Dependency.NameWithoutDot}BuildType" )?.Value;
 
-            if ( buildType == null )
+            if ( !string.IsNullOrEmpty( buildNumber ) && !string.IsNullOrEmpty( buildType ) )
             {
-                context.Console.WriteError(
-                    $"The file '{dependency.Source.VersionFile}' does not have a property {dependency.Dependency.NameWithoutDot}BuildType" );
-
-                return false;
+                dependency.Source.BuildServerSource = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), buildType );
             }
-
-            dependency.Source.BuildServerSource = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), buildType );
         }
 
         return true;

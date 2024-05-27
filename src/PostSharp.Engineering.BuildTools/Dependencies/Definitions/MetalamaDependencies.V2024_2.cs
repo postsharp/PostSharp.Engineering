@@ -38,7 +38,6 @@ public static partial class MetalamaDependencies
                         parentCiProjectId == null
                             ? TeamCityHelper.GetProjectId( dependencyName, _projectName, Family.Version )
                             : TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId ),
-                        "caravela04cloud",
                         isVersioned,
                         pullRequestRequiresStatusCheck: pullRequestRequiresStatusCheck ),
                     isVersioned ) { }
@@ -46,8 +45,7 @@ public static partial class MetalamaDependencies
 
         public static ProductFamily Family { get; } = new( _projectName, "2024.2", DevelopmentDependencies.Family, PostSharpDependencies.V2024_1.Family )
         {
-            DockerBaseImage = DockerImages.DotNetSdk_8_0_204_Jammy,
-            UpstreamProductFamily = V2024_1.Family
+            DockerBaseImage = DockerImages.WindowsServerCore, UpstreamProductFamily = V2024_1.Family
 
             // DownstreamProductFamily = V2024_3.Family
         };

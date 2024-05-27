@@ -18,7 +18,7 @@ public static class BusinessSystemsDependencies
                 "master",
                 null,
                 isGitHub ? new GitHubRepository( dependencyName ) : new AzureDevOpsRepository( Family.Name, dependencyName ),
-                TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "Websites And Business Systems" ), "webdeployCloud" ),
+                TeamCityHelper.CreateConfiguration( TeamCityHelper.GetProjectId( dependencyName, "Websites And Business Systems" ) ),
                 false ) { }
     }
 
@@ -29,6 +29,6 @@ public static class BusinessSystemsDependencies
     public static DependencyDefinition HelpBrowser { get; } = new BusinessSystemsDependencyDefinition( "HelpBrowser" );
 
     public static DependencyDefinition PostSharpWeb { get; } = new BusinessSystemsDependencyDefinition( "PostSharpWeb" );
-    
+
     public static DependencyDefinition MetalamaMarketplace { get; } = new BusinessSystemsDependencyDefinition( "MetalamaMarketplace", true );
 }

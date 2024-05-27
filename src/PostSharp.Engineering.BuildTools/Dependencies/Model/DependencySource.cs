@@ -1,7 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
-using System;
 using System.Globalization;
 using System.IO;
 using System.Xml.Linq;
@@ -40,25 +39,23 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
             var document = XDocument.Load( path );
 
             var buildNumber = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependencyDefinition.NameWithoutDot}BuildNumber" )?.Value;
-
-            if ( buildNumber == null )
-            {
-                throw new InvalidOperationException( $"The file '{path}' does not have a property {dependencyDefinition.NameWithoutDot}BuildNumber" );
-            }
-
             var buildType = document.Root!.XPathSelectElement( $"/Project/PropertyGroup/{dependencyDefinition.NameWithoutDot}BuildType" )?.Value;
 
-            if ( buildType == null )
-            {
-                throw new InvalidOperationException( $"The file '{path}' does not have a property {dependencyDefinition.NameWithoutDot}BuildType" );
-            }
+            CiBuildId? buildId;
 
-            var buildId = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), buildType );
+            if ( string.IsNullOrEmpty( buildNumber ) || string.IsNullOrEmpty( buildType ) )
+            {
+                buildId = null;
+            }
+            else
+            {
+                buildId = new CiBuildId( int.Parse( buildNumber, CultureInfo.InvariantCulture ), buildType );
+            }
 
             return CreateRestoredDependency( buildId, origin );
         }
 
-        public static DependencySource CreateRestoredDependency( CiBuildId buildId, DependencyConfigurationOrigin origin )
+        public static DependencySource CreateRestoredDependency( CiBuildId? buildId, DependencyConfigurationOrigin origin )
             => new() { Origin = origin, SourceKind = DependencySourceKind.RestoredDependency, BuildServerSource = buildId };
 
         public static DependencySource CreateFeed( string? version, DependencyConfigurationOrigin origin )

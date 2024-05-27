@@ -3,36 +3,62 @@
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Utilities;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
 #pragma warning disable CA1305
 
 [UsedImplicitly]
-public class DockerPrepareCommand : BaseCommand<BuildSettings>
+public class DockerPrepareCommand : BaseCommand<DockerSettings>
 {
-    protected override bool ExecuteCore( BuildContext context, BuildSettings settings )
+    protected override bool ExecuteCore( BuildContext context, DockerSettings settings )
     {
-        return TryPrepare( context, settings, out _ );
+        return TryPrepare( context, settings, out _, out _ );
     }
 
-    public static bool TryPrepare( BuildContext context, BuildSettings settings, [NotNullWhen( true )] out string? imageName )
+    public static bool TryPrepare(
+        BuildContext context,
+        DockerSettings settings,
+        [NotNullWhen( true )] out string? imageName,
+        [NotNullWhen( true )] out DockerImage? baseImage )
     {
         var product = context.Product;
-        imageName = $"{product.ProductName}-{settings.BuildConfiguration}".ToLowerInvariant();
 
-        if ( product.DockerBaseImage == null )
+        if ( settings.ImageName != null )
         {
-            context.Console.WriteError( "The DockerBaseImage property is not set." );
+            baseImage = DockerImages.All.SingleOrDefault( x => x.Name.Equals( settings.ImageName, StringComparison.OrdinalIgnoreCase ) );
 
-            return false;
+            if ( baseImage == null )
+            {
+                context.Console.WriteError( $"There is no docker base image named '{settings.ImageName}'. Use the `docker list-images` command." );
+
+                imageName = null;
+
+                return false;
+            }
         }
+        else
+        {
+            baseImage = product.DockerBaseImage;
+
+            if ( baseImage == null )
+            {
+                context.Console.WriteError( "The Product.ockerBaseImage property is not set." );
+
+                imageName = null;
+
+                return false;
+            }
+        }
+
+        imageName = $"{product.ProductName}-{product.ProductFamily.Version}-{baseImage.Name}-{settings.BuildConfiguration}".ToLowerInvariant();
 
         context.Console.WriteHeading( $"Building docker image to build {product.ProductName}." );
 
@@ -41,7 +67,9 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
             return false;
         }
 
+        var dependenciesDirectory = Path.Combine( context.RepoDirectory, "dependencies" );
         var dockerDirectory = Path.Combine( context.RepoDirectory, product.EngineeringDirectory, "obj" );
+        var productDirectory = baseImage.GetAbsolutePath( "src", product.ProductName );
 
         if ( !Directory.Exists( dockerDirectory ) )
         {
@@ -49,19 +77,14 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
         }
 
         var dockerFilePath = Path.Combine( dockerDirectory, $"{imageName}.Dockerfile" );
-        using var dockerfile = product.DockerBaseImage.CreateDockfileWriter( File.CreateText( dockerFilePath ) );
+        using var dockerfile = baseImage.CreateDockfileWriter( File.CreateText( dockerFilePath ) );
 
-        var commandLine = new StringBuilder( $"buildx build -t {imageName} --file {dockerFilePath}" );
-        var configure = new StringBuilder();
+        var configureCommands = new List<string>();
+        configureCommands.Add( "echo Running ./dependencies/ConfigureContainer.ps1" );
+        configureCommands.Add( $"cd {productDirectory}" );
 
-        dockerfile.WriteLine( $"FROM {product.DockerBaseImage.Name} AS build-env" );
-
-        dockerfile.WritePrologue();
-        dockerfile.WriteLine( "ENV NUGET_PACKAGES=/root/.nuget/packages" );
-
-        // Configuring bind mounts.
-        var artifactsDirectory = dockerfile.GetPath( "src", product.ProductName, "artifacts" );
-        dockerfile.WriteLine( $"VOLUME {artifactsDirectory}" );
+        dockerfile.WriteLine( $"FROM {baseImage.Uri} AS build-env" );
+        dockerfile.WritePrologue( settings );
 
         // Add Docker image components.
         var imageComponents = new Dictionary<string, DockerImageComponent>();
@@ -80,7 +103,7 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
         // Add source dependencies.
         foreach ( var sourceDependency in product.SourceDependencies )
         {
-            AddSource( sourceDependency.Name, true );
+            AddSourceDependency( sourceDependency.Name );
         }
 
         // Add local dependencies.
@@ -92,59 +115,49 @@ public class DockerPrepareCommand : BaseCommand<BuildSettings>
 
         foreach ( var localDependency in localDependencies )
         {
-            var dependencyDirectory = dockerfile.GetPath( "src", localDependency.Name );
-            AddSource( localDependency.Name, true );
-            configure.AppendLine( $"cd {dependencyDirectory}" );
-            configure.AppendLine( $"./Build.ps1 build {settings}" );
+            AddLocalDependency( localDependency.Name );
         }
 
-        AddSource( product.ProductName, false );
+        dockerfile.WriteLine( $"WORKDIR {dockerfile.EscapePath( productDirectory )}" );
+        dockerfile.WriteLine( $"COPY . ." );
+        configureCommands.Add( "mv docker-source-dependencies source-dependencies" );
 
-        var productDirectory = dockerfile.GetPath( "src", product.ProductName );
-        dockerfile.WriteLine( $"WORKDIR {productDirectory}" );
+        configureCommands.Add(
+            $"New-Item -ItemType SymbolicLink -Path .editorconfig -Target {baseImage.GetRelativePath( "eng", "style", ".editorconfig" )} | Out-Null" );
 
-        configure.AppendLine( $"cd {productDirectory}" );
-
-        foreach ( var localDependency in localDependencies )
-        {
-            configure.AppendLine( $"./Build.ps1 dependencies set local {localDependency.Name}  --nologo" );
-        }
-
-        dockerfile.WriteLine( "COPY <<EOF Configure.ps1" );
-        dockerfile.WriteLine( configure.ToString() );
-        dockerfile.WriteLine( "EOF" );
+        // We don't run the Configure commands in the build container step (but during container execution)
+        // because we don't benefit from caches during the build step.
+        Directory.CreateDirectory( dependenciesDirectory );
+        File.WriteAllLines( Path.Combine( dependenciesDirectory, "ConfigureContainer.ps1" ), configureCommands );
 
         dockerfile.Close();
 
         // We bypass our ToolInvocationHelper because we need ANSI output.
-        var process = Process.Start( new ProcessStartInfo( "docker", commandLine.ToString() ) { UseShellExecute = false } );
+        var commandLine = $"build -t {imageName} --file {dockerFilePath} .";
+        context.Console.WriteImportantMessage( commandLine );
+        var process = Process.Start( new ProcessStartInfo( "docker", commandLine ) { UseShellExecute = false, WorkingDirectory = context.RepoDirectory } );
         process!.WaitForExit();
 
         return process.ExitCode == 0;
 
-        void AddSource( string productName, bool isDependency )
+        void AddSourceDependency( string productName )
         {
-            var hostSourceDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", productName ) );
-            var containerSourceDirectory = dockerfile.GetPath( "src", productName );
+            var sourceDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "source-dependencies", productName ) );
+            var targetDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "docker-source-dependencies", productName ) );
 
-            if ( isDependency )
-            {
-                dockerfile.WriteLine( $"COPY --from={productName.ToLowerInvariant()} . {containerSourceDirectory}" );
-                commandLine.Append( $" --build-context {productName.ToLowerInvariant()}={hostSourceDirectory}" );
-            }
-            else
-            {
-                dockerfile.WriteLine( $"COPY . {containerSourceDirectory}" );
-                commandLine.Append( $" {hostSourceDirectory}" );
-            }
+            var ignore = new DockerIgnore( Path.Combine( sourceDirectory, ".dockerignore" ) );
 
-            // the following should not be required on Windows.
-            if ( product.DockerBaseImage is not DockerWindowsImage )
-            {
-                dockerfile.ReplaceLink(
-                    dockerfile.GetPath( "src", productName, "eng", "style", ".editorconfig" ),
-                    dockerfile.GetPath( "src", productName, ".editorconfig" ) );
-            }
+            FileSystemHelper.CopyFilesRecursively( context.Console, sourceDirectory, targetDirectory, f => !ignore.ShouldIgnore( f ) );
+        }
+
+        void AddLocalDependency( string productName )
+        {
+            var sourceDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "..", productName, "artifacts", "publish", "private" ) );
+            var targetDirectory = Path.GetFullPath( Path.Combine( context.RepoDirectory, "dependencies", productName ) );
+
+            configureCommands.Add( $"./Build.ps1 dependencies set {DependencySourceKind.RestoredDependency} {productName}" );
+
+            FileSystemHelper.CopyFilesRecursively( context.Console, sourceDirectory, targetDirectory );
         }
     }
 }

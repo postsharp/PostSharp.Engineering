@@ -1,45 +1,62 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using System;
-using System.Globalization;
+using System.Collections.Generic;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
 public abstract class DockerfileWriter : IDisposable
 {
-    private readonly StreamWriter _streamWriter;
+    public TextWriter TextWriter { get; }
 
-    protected DockerfileWriter( StreamWriter streamWriter )
+    public DockerImage Image { get; }
+
+    protected DockerfileWriter( TextWriter streamTextWriter, DockerImage image )
     {
-        this._streamWriter = streamWriter;
+        this.TextWriter = streamTextWriter;
+        this.Image = image;
     }
 
-    public abstract void WritePrologue();
+    public virtual string EscapePath( string s ) => "\"" + s.Replace( "\\", "\\\\", StringComparison.Ordinal ) + "\"";
+
+    public virtual void WritePrologue( BuildSettings settings )
+    {
+        this.WriteLine( $"ENV NUGET_PACKAGES={this.EscapePath( this.Image.NuGetPackagesDirectory )}" );
+        this.WriteLine( $"ENV ENG_USERNAME={settings.UserName}" );
+
+        ConfigureVolume( this.Image.NuGetPackagesDirectory );
+        ConfigureVolume( this.Image.DownloadedBuildArtifactsDirectory );
+
+        void ConfigureVolume( string directory )
+        {
+            this.WriteLine( $"VOLUME {this.EscapePath( directory )}" );
+        }
+    }
 
     public void WriteLine( string s )
     {
-        this._streamWriter.WriteLine( s );
+        this.TextWriter.WriteLine( s );
     }
-
-    public void WriteLine( FormattableString s )
-    {
-        this._streamWriter.WriteLine( s.ToString( CultureInfo.InvariantCulture ) );
-    }
-
-    public abstract string GetPath( params string[] components );
 
     public void Dispose()
     {
-        this._streamWriter.Dispose();
+        this.TextWriter.Dispose();
     }
 
     public void Close()
     {
-        this._streamWriter.Close();
+        this.TextWriter.Close();
     }
 
     public abstract void MakeDirectory( string s );
 
     public abstract void ReplaceLink( string target, string alias );
+
+    public abstract void RunPowerShellFile( string fileAndArguments );
+
+    public abstract void Rename( string oldName, string newName );
+
+    public abstract void RunPowerShellScript( List<string> commands );
 }

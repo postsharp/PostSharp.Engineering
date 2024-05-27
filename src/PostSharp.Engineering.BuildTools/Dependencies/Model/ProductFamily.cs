@@ -1,8 +1,10 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Docker;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
@@ -32,6 +34,8 @@ public class ProductFamily
     public DockerImage? DockerBaseImage { get; init; }
 
     public DockerImageComponent[] DockerImageComponents { get; init; } = [];
+
+    public BuildAgentRequirements DefaultBuildAgentRequirements { get; init; } = BuildAgentRequirements.SelfHosted( "caravela04cloud" );
 
     public ProductFamily( string name, string version, params ProductFamily[] relativeFamilies )
     {

@@ -1,7 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build;
-using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
 using System.Collections.Generic;
@@ -11,54 +10,79 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
-public abstract class DockerRunCommand : BaseCommand<BuildSettings>
+public abstract class DockerRunCommand : BaseCommand<DockerSettings>
 {
-    protected override bool ExecuteCore( BuildContext context, BuildSettings settings )
+    protected override bool ExecuteCore( BuildContext context, DockerSettings settings )
     {
-        if ( !DockerPrepareCommand.TryPrepare( context, settings, out var imageName ) )
+        if ( !DockerPrepareCommand.TryPrepare( context, settings, out var imageName, out var baseImage ) )
         {
             return false;
         }
 
+        var nugetVolumeName = $"cache.nuget.{Environment.UserName.ToLowerInvariant()}";
+        var buildArtifactsVolumeName = $"cache.build-artifacts.{Environment.UserName.ToLowerInvariant()}";
+        ToolInvocationHelper.InvokeTool( context.Console, "docker", $"volume create cache.nuget" );
+        ToolInvocationHelper.InvokeTool( context.Console, "docker", $"volume create cache.build-artifacts" );
+
         var containerName = imageName + "-" + Random.Shared.NextInt64().ToString( "x", CultureInfo.InvariantCulture );
 
         var product = context.Product;
-        context.Console.WriteHeading( $"Building {product.ProductName} from docker." );
+        context.Console.WriteHeading( $"Building {product.ProductName} inside the '{containerName}' container." );
 
-        var arguments = this.GetArguments( settings, context, containerName, imageName );
+        // Run the configuration script.
+
+        var arguments = this.GetArguments( settings, context, containerName, imageName, baseImage, nugetVolumeName, buildArtifactsVolumeName );
         context.Console.WriteImportantMessage( "docker " + arguments );
 
-        // Run Docker.
         using ( ConsoleHelper.CancellationToken.Register( KillDocker ) )
         {
             var process = Process.Start( new ProcessStartInfo( "docker", Environment.ExpandEnvironmentVariables( arguments ) ) { UseShellExecute = false } );
+
             process!.WaitForExit();
 
-            ToolInvocationHelper.InvokeTool( context.Console, "docker", $"stop {containerName}" );
-            
-            return process.ExitCode == 0;
+            if ( process.ExitCode != 0 )
+            {
+                context.Console.WriteError( $"`docker run` exited with code {process.ExitCode}." );
+
+                return false;
+            }
+
+            return true;
         }
-        
+
         void KillDocker()
         {
             ToolInvocationHelper.InvokeTool( context.Console, "docker", $"kill {containerName}" );
         }
     }
 
-    private string GetArguments( BuildSettings settings, BuildContext context, string containerName, string imageName )
+    private string GetArguments(
+        DockerSettings settings,
+        BuildContext context,
+        string containerName,
+        string imageName,
+        DockerImage image,
+        string nugetVolumeName,
+        string buildArtifactsVolumeName )
     {
         var product = context.Product;
         var artifactsDirectory = Path.Combine( context.RepoDirectory, "artifacts" );
+
+        var containerArtifactsDirectory = image.GetAbsolutePath( "src", product.ProductName, "artifacts" );
+
+        Directory.CreateDirectory( artifactsDirectory );
+        Directory.CreateDirectory( PathHelper.GetEngineeringDataDirectory() );
 
         // Add basic options.
         var argumentList = new List<string>()
         {
             "run",
-            "-t",
-            "-v cache.nuget:/root/.nuget/packages",
-            "-v cache.build-artifacts:/tmp/.build-artifacts/",
-            $"--mount type=bind,source={artifactsDirectory},target=/src/{product.ProductName}/artifacts",
-            $"--mount type=bind,source={PathHelper.GetEngineeringDataDirectory()},target=/root/.local/PostSharp.Engineering",
+            "-t",   // Use TTY
+            "--rm", // Remove after stop
+            $"-v {nugetVolumeName}:{image.NuGetPackagesDirectory}",
+            $"-v {buildArtifactsVolumeName}:{image.DownloadedBuildArtifactsDirectory}",
+            $"--mount type=bind,source={artifactsDirectory},target={containerArtifactsDirectory}",
+            $"--mount type=bind,source={PathHelper.GetEngineeringDataDirectory()},target={image.EngineeringDataDirectory}",
             $"--name {containerName}"
         };
 
@@ -104,14 +128,14 @@ public abstract class DockerRunCommand : BaseCommand<BuildSettings>
 
         // Add final arguments.
         argumentList.Add( imageName );
-        argumentList.Add( this.GetCommand( settings ) );
+        argumentList.Add( this.GetCommand( settings, image ) );
 
         var arguments = string.Join( " ", argumentList );
 
         return arguments;
     }
 
-    protected abstract string GetCommand( BuildSettings settings );
+    protected abstract string GetCommand( DockerSettings settings, DockerImage image );
 
     protected virtual string[] Options => [];
 }

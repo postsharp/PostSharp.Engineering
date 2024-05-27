@@ -24,7 +24,7 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
     public BuildConfiguration[] BuildConfigurations { get; }
 
     public TimeSpan TimeOutThreshold { get; }
-    
+
     public string? CustomBuildConfigurationName { get; }
 
     public ConfigurationSpecific<IBuildTrigger[]?>? BuildTriggers { get; }
@@ -43,7 +43,7 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
         this.Source = source;
         this.SourceUrl = sourceUrl;
         this.IgnoreTls = ignoreTls;
-        this.BuildConfigurations = buildConfigurations ?? new[] { BuildConfiguration.Public };
+        this.BuildConfigurations = buildConfigurations ?? [BuildConfiguration.Public];
         this.TimeOutThreshold = timeOutThreshold ?? TimeSpan.FromMinutes( 5 );
         this.CustomBuildConfigurationName = customBuildConfigurationName;
         this.BuildTriggers = buildTriggers;
@@ -65,7 +65,7 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
 
             return new TeamCityEngineeringCommandBuildStep( "UpdateSearch", "Update search", "tools search update", string.Join( " ", arguments ), true );
         }
-        
+
         foreach ( var configuration in this.BuildConfigurations )
         {
             var configurationInfo = context.Product.Configurations[configuration];
@@ -78,12 +78,14 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
 
             var buildTriggers = this.BuildTriggers?[configuration];
 
+            var buildAgentRequirements = context.Product.ResolvedBuildAgentRequirements;
+
             var teamCityUpdateSearchConfiguration = new TeamCityBuildConfiguration(
                 $"{configuration}UpdateSearch",
                 name,
-                context.Product.DependencyDefinition.CiConfiguration.BuildAgentType )
+                buildAgentRequirements )
             {
-                BuildSteps = new[] { CreateBuildStep() },
+                BuildSteps = [CreateBuildStep()],
                 IsDeployment = true,
                 SnapshotDependencies = dependencies,
                 BuildTimeOutThreshold = this.TimeOutThreshold,
@@ -97,10 +99,7 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
                 var teamCityUpdateSearchWithoutDependenciesConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}UpdateSearchNoDependency",
                     $"Standalone {name}",
-                    context.Product.DependencyDefinition.CiConfiguration.BuildAgentType )
-                {
-                    BuildSteps = new[] { CreateBuildStep() }, IsDeployment = true, BuildTimeOutThreshold = this.TimeOutThreshold
-                };
+                    buildAgentRequirements ) { BuildSteps = [CreateBuildStep()], IsDeployment = true, BuildTimeOutThreshold = this.TimeOutThreshold };
 
                 teamCityBuildConfigurations.Add( teamCityUpdateSearchWithoutDependenciesConfiguration );
             }
@@ -117,8 +116,11 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
             {
                 search.AddCommand<TUpdateSearchCommand>( "update" )
                     .WithDescription( "Updates a search collection from the given source or writes data to the console when --dry option is used." )
-                    .WithExample( new[] { "tools", "search", "update", "http://localhost:8108", "metalamadoc", "https://doc.example.com/sitemap.xml" } )
-                    .WithExample( new[] { "tools", "search", "update", "http://localhost:8108", "metalamadoc", "https://doc.example.com/conceptual/tryme", "--single", "--dry" } );
+                    .WithExample( ["tools", "search", "update", "http://localhost:8108", "metalamadoc", "https://doc.example.com/sitemap.xml"] )
+                    .WithExample(
+                    [
+                        "tools", "search", "update", "http://localhost:8108", "metalamadoc", "https://doc.example.com/conceptual/tryme", "--single", "--dry"
+                    ] );
             } );
 
         return true;

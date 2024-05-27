@@ -30,7 +30,6 @@ public static partial class TestDependencies
                         TeamCityHelper.GetProjectIdWithParentProjectId(
                             dependencyName,
                             $"Test_Test{Family.VersionWithoutDots}" ),
-                        "caravela04cloud",
                         isVersioned ),
                     isVersioned ) { }
         }

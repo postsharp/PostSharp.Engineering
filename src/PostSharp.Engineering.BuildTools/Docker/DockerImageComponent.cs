@@ -1,7 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
@@ -19,7 +18,7 @@ public abstract class DockerImageComponent
 
     public abstract void AppendToDockerfile( DockerfileWriter writer );
 
-    protected virtual IEnumerable<DockerImageComponent> GetPrerequisites() => Enumerable.Empty<DockerImageComponent>();
+    protected virtual IEnumerable<DockerImageComponent> GetPrerequisites() => [];
 
     public void AddPrerequisites( Dictionary<string, DockerImageComponent> components )
     {

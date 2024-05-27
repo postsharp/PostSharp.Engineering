@@ -73,10 +73,7 @@ public class VersionFile
             // The property value can be either empty either a semantic version, but empty values are not allowed on guest devices,
             // i.e. for build outside of our VPN.
 
-            if ( dependencyVersion != "" &&
-                 !Regex.IsMatch(
-                     dependencyVersion,
-                     @"^\d+.*$" ) )
+            if ( dependencyVersion != "" && !Regex.IsMatch( dependencyVersion, @"^\d+.*$" ) )
             {
                 context.Console.WriteError(
                     $"{versionsPath}: invalid value '{dependencyVersion}' for property '{dependencyDefinition.Name}Version': the value is neither empty nor a valid version number." );
