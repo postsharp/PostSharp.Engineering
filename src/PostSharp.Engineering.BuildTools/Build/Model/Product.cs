@@ -2157,7 +2157,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     TeamCityBuildStep CreatePublishBuildStep()
                         => new TeamCityEngineeringCommandBuildStep( "Publish", "Publish", "publish", $"--configuration {configuration}", true );
-                    
+
                     if ( configurationInfo.ExportsToTeamCityDeploy )
                     {
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
