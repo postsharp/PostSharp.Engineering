@@ -57,9 +57,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             foreach ( var file in files )
             {
-                if ( file.Stem.Contains( "-local-", StringComparison.OrdinalIgnoreCase ) )
+                if ( (file.Stem ?? file.Path).Contains( "-local-", StringComparison.OrdinalIgnoreCase ) )
                 {
-                    context.Console.WriteError( "Cannot publish a local build." );
+                    context.Console.WriteError( $"'{file.Path}': Cannot publish a local build." );
 
                     return false;
                 }

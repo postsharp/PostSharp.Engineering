@@ -133,6 +133,14 @@ namespace PostSharp.Engineering.BuildTools.NuGet
                     continue;
                 }
 
+                if ( versionRange.MinVersion == null )
+                {
+                    console.WriteError( $"{inputShortPath}: Version range '{versionRangeString}' doesn't contain minimal version." );
+                    success = false;
+                    
+                    continue;
+                }
+
                 // Check if it's present in the directory.
                 var localFile = Path.Combine(
                     directory,
