@@ -646,6 +646,10 @@ public static class TeamCityHelper
         var consolidatedPublicBuildSnapshotDependencies = new List<TeamCitySnapshotDependency>();
         var projectDependenciesByProjectId = new Dictionary<string, HashSet<string>>();
 
+        // TeamCity doesn't allow to have artifact dependencies that match no artifacts.
+        // TODO: Make this configurable.
+        string[] projectsWithNoNuGetArtifacts = [".Vsx", ".Documentation", ".Try", ".Tests."];
+
         foreach ( var publicBuildConfiguration in buildConfigurationsByKind[publicBuildObjectName] )
         {
             var dependencyProjectId = publicBuildConfiguration.ProjectId;
@@ -659,7 +663,8 @@ public static class TeamCityHelper
 
             string? artifactRules = null;
 
-            if ( dependencyDefinition.ProductFamily == context.Product.ProductFamily )
+            if ( dependencyDefinition.ProductFamily == context.Product.ProductFamily
+                 && !projectsWithNoNuGetArtifacts.Any( p => dependencyDefinition.Name.Contains( p, StringComparison.Ordinal ) ) )
             {
                 var dependencyMsBuildConfiguration = dependencyDefinition.MSBuildConfiguration[publicConfiguration];
                 var dependencyBuildInfo = new BuildInfo( null, publicConfiguration.ToString(), dependencyMsBuildConfiguration, null );

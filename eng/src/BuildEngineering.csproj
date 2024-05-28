@@ -12,8 +12,4 @@
         <ProjectReference Include="..\..\src\PostSharp.Engineering.BuildTools\PostSharp.Engineering.BuildTools.csproj"/>
     </ItemGroup>
 
-    <ItemGroup>
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.1"/>
-    </ItemGroup>
-
 </Project>
