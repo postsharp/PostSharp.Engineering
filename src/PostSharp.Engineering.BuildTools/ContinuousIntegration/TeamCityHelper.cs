@@ -668,14 +668,18 @@ public static class TeamCityHelper
             {
                 var dependencyMsBuildConfiguration = dependencyDefinition.MSBuildConfiguration[publicConfiguration];
                 var dependencyBuildInfo = new BuildInfo( null, publicConfiguration.ToString(), dependencyMsBuildConfiguration, null );
-                var dependencyPublicArtifactsDirectory = dependencyDefinition.PublicArtifactsDirectory.ToString( dependencyBuildInfo );
-                var dependencyName = dependencyDefinition.Name;
 
-                var artifactRulesFormat =
-                    $"+:{dependencyPublicArtifactsDirectory.Replace( Path.DirectorySeparatorChar, '/' )}/**/*.{{0}}=>dependencies/{dependencyName}";
+                var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory.ToString( dependencyBuildInfo )
+                    .Replace( Path.DirectorySeparatorChar, '/' );
+
+                var dependencyPublicArtifactsDirectory = dependencyDefinition.PublicArtifactsDirectory.ToString( dependencyBuildInfo )
+                    .Replace( Path.DirectorySeparatorChar, '/' );
+                
+                var dependencyName = dependencyDefinition.Name;
+                var artifactRulesFormat = $"+:{{0}}/**/*.{{1}}=>dependencies/{dependencyName}";
 
                 artifactRules =
-                    $@"{string.Format( CultureInfo.InvariantCulture, artifactRulesFormat, "nupkg" )}\n{string.Format( CultureInfo.InvariantCulture, artifactRulesFormat, "snupkg" )}";
+                    $@"{string.Format( CultureInfo.InvariantCulture, artifactRulesFormat, dependencyPrivateArtifactsDirectory, "version.props" )}\n{string.Format( CultureInfo.InvariantCulture, artifactRulesFormat, dependencyPublicArtifactsDirectory, "nupkg" )}\n{string.Format( CultureInfo.InvariantCulture, artifactRulesFormat, dependencyPublicArtifactsDirectory, "snupkg" )}";
             }
 
             consolidatedPublicBuildSnapshotDependencies.Add(
