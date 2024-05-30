@@ -764,10 +764,13 @@ public static class TeamCityHelper
 
         var publicBuildInfo = new BuildInfo( null, publicConfiguration, context.Product, null );
 
+        var privateArtifactsDirectory =
+            context.Product.PrivateArtifactsDirectory.ToString( publicBuildInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+
         var publicArtifactsDirectory =
             context.Product.PublicArtifactsDirectory.ToString( publicBuildInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
-        var publicBuildArtifactRules = $"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
+        var publicBuildArtifactRules = $@"+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}\n+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
         var consolidatedPublicBuildBuildTriggers = new IBuildTrigger[] { new NightlyBuildTrigger( 2, true ) };
 
         var consolidatedPublicBuildSteps =

@@ -55,6 +55,7 @@ public static partial class MetalamaDependencies
         public static DependencyDefinition Consolidated { get; } = new MetalamaDependencyDefinition(
             "Consolidated",
             VcsProvider.AzureDevOps,
+            false,
             customRepositoryName: "Metalama.Consolidated" );
 
         // The release build is intentionally used for the debug configuration because we want dependencies to consume the release
