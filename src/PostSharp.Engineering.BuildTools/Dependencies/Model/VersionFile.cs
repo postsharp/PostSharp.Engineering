@@ -35,6 +35,7 @@ public class VersionFile
         versionFile = null;
         var dependenciesBuilder = ImmutableDictionary.CreateBuilder<string, DependencySource>();
         var versionsPath = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
+        var centralPackageManangementVersionsPath = Path.Combine( context.RepoDirectory, "Directory.Packages.props" );
 
         if ( !File.Exists( versionsPath ) )
         {
@@ -45,12 +46,19 @@ public class VersionFile
 
         var projectOptions = new ProjectOptions { GlobalProperties = new Dictionary<string, string>() { ["DoNotLoadGeneratedVersionFiles"] = "True" } };
 
-        var projectFile = Project.FromFile( versionsPath, projectOptions );
+        var versionsProject = Project.FromFile( versionsPath, projectOptions );
+        Project? centralPackageManangementVersionsProject = null;
+
+        if ( File.Exists( centralPackageManangementVersionsPath ) )
+        {
+            centralPackageManangementVersionsProject = Project.FromFile( centralPackageManangementVersionsPath, projectOptions );
+        }
 
         var defaultDependencyProperties = context.Product.ParametrizedDependencies
             .ToDictionary(
                 d => d.Name,
-                d => projectFile.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" )?.EvaluatedValue );
+                d => versionsProject.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" )?.EvaluatedValue
+                     ?? centralPackageManangementVersionsProject?.Properties.SingleOrDefault( p => p.Name == d.NameWithoutDot + "Version" )?.EvaluatedValue );
 
         ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 

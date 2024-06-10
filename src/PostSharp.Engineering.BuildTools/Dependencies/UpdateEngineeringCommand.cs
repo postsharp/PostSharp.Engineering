@@ -83,8 +83,13 @@ public class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
             }
         }
 
-        // Update Versions.props
-        var versionsFilePath = Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
+        // Update Directory.Packages.props or Versions.props
+        var centralPackageManangementVersionsPath = Path.Combine( context.RepoDirectory, "Directory.Packages.props" );
+
+        var versionsFilePath = File.Exists( centralPackageManangementVersionsPath )
+            ? centralPackageManangementVersionsPath
+            : Path.Combine( context.RepoDirectory, context.Product.VersionsFilePath );
+
         context.Console.WriteMessage( $"Writing '{versionsFilePath}'." );
         var versionsFile = XDocument.Load( versionsFilePath, LoadOptions.PreserveWhitespace );
         var versionProperties = versionsFile.XPathSelectElements( "/Project/PropertyGroup/PostSharpEngineeringVersion" ).ToList();
@@ -96,7 +101,7 @@ public class UpdateEngineeringCommand : BaseCommand<CommonCommandSettings>
         else
         {
             context.Console.WriteWarning(
-                $"File '{versionsFilePath}' not updated because there is was {versionProperties} properties named PostSharpEngineeringVersion." );
+                $"File '{versionsFilePath}' not updated because there are {versionProperties.Count} properties named PostSharpEngineeringVersion." );
         }
 
         versionsFile.Save( versionsFilePath );
