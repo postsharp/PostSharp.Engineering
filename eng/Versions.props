@@ -9,14 +9,6 @@
         <PostSharpEngineeringAssemblyVersion>$(MainVersion)</PostSharpEngineeringAssemblyVersion>
     </PropertyGroup>
 
-    <!-- Versions of dependencies -->
-    <PropertyGroup>
-        <RoslynVersion>4.0.1</RoslynVersion>
-
-        <!-- The property MSBuildVersion is reserved. -->
-        <MSBuildPackagesVersion>17.0.0</MSBuildPackagesVersion>
-    </PropertyGroup>
-
     <!-- Import overrides for the local build -->
     <Import Project="Versions.g.props" Condition="Exists('Versions.g.props')" />
 
@@ -24,5 +16,8 @@
         <AssemblyVersion>$(PostSharpEngineeringAssemblyVersion)</AssemblyVersion>
         <Version>$(PostSharpEngineeringVersion)</Version>
     </PropertyGroup>
+
+    <!-- Versions of other dependencies are set in Directory.Packages.props. -->
+    <!-- See https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management. -->
 
 </Project>
