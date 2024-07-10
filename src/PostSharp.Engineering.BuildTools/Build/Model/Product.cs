@@ -2292,8 +2292,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     return false;
                 }
             }
-
+            
             var teamCityProject = new TeamCityProject( teamCityBuildConfigurations.ToArray() );
+
+            TeamCityHelper.GeneratePom( context, this.DependencyDefinition.CiConfiguration.ProjectId.Id, this.DependencyDefinition.CiConfiguration.BaseUrl );
             TeamCityHelper.GenerateTeamCityConfiguration( context, teamCityProject );
 
             return true;
