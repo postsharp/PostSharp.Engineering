@@ -2135,6 +2135,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
 
                 teamCityBuildSteps.Add( new TeamCityEngineeringBuildBuildStep( configuration, true, this.UseDockerInTeamcity ) );
+                
+                if ( !this.UseDockerInTeamcity )
+                {
+                    teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "Kill", "Kill background processes before next build", "tools kill" ) );
+                }
 
                 var teamCityBuildConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}Build",
