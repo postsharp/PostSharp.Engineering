@@ -737,13 +737,15 @@ public static class TeamCityHelper
             [NotNullWhen( true )] out TeamCityBuildConfiguration? consolidatedBuildConfiguration,
             [NotNullWhen( true )] out TeamCityBuildConfiguration? nuGetBuildConfiguration,
             out Dictionary<string, HashSet<string>> dependenciesByProjectId,
-            out List<TeamCitySnapshotDependency> nuGetDependencies )
+            out List<TeamCitySnapshotDependency> nuGetDependencies,
+            [NotNullWhen( true )] out string? buildArtifactRules )
         {
             List<TeamCitySnapshotDependency> dependencies = new();
             consolidatedBuildConfiguration = null;
             nuGetBuildConfiguration = null;
             dependenciesByProjectId = new();
             nuGetDependencies = new();
+            buildArtifactRules = null;
             
             foreach ( var buildConfiguration in buildConfigurationsByKind[consolidatedBuildObjectName] )
             {
@@ -820,7 +822,7 @@ public static class TeamCityHelper
             var publicArtifactsDirectory =
                 context.Product.PublicArtifactsDirectory.ToString( buildInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
-            var buildArtifactRules = $@"+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}\n+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
+            buildArtifactRules = $@"+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}\n+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
             var nuGetBuildCiId = $"{consolidatedProjectIdPrefix}{nuGetBuildObjectName}";
 
             dependencies.Add( new( nuGetBuildCiId, true ) );
@@ -857,6 +859,7 @@ public static class TeamCityHelper
                 debugBuildName,
                 out var consolidatedDebugBuildConfiguration,
                 out var nuGetDebugBuildConfiguration,
+                out _,
                 out _,
                 out _ ) )
         {
@@ -902,6 +905,7 @@ public static class TeamCityHelper
                 out var consolidatedReleaseBuildConfiguration,
                 out var nuGetReleaseBuildConfiguration,
                 out _,
+                out _,
                 out _ ) )
         {
             return false;
@@ -925,7 +929,8 @@ public static class TeamCityHelper
                 out var consolidatedPublicBuildConfiguration,
                 out var nuGetPublicBuildConfiguration,
                 out var consolidatedPublicBuildSnapshotDependenciesByProjectId,
-                out var nuGetPublicBuildDependencies ) )
+                out var nuGetPublicBuildDependencies,
+                out var nuGetBuildArtifactRules ) )
         {
             return false;
         }
@@ -1000,16 +1005,19 @@ public static class TeamCityHelper
         // Public deployment
         const string publicDeploymentObjectName = "PublicDeployment";
         const string publicDeploymentName = "Deploy [Public]";
-        var publicBuildCiId = $"{consolidatedProjectIdPrefix}{publicBuildObjectName}";
-
+        var publicConsolidatedBuildCiId = $"{consolidatedProjectIdPrefix}{publicBuildObjectName}";
+        var publicNuGetBuildCiId = $"{consolidatedProjectIdPrefix}{MarkNuGetObjectId( publicBuildObjectName )}";
         var publicNuGetDeploymentCiId = $"{consolidatedProjectIdPrefix}{MarkNuGetObjectId( publicDeploymentObjectName )}";
         
         var nuGetPublicDeploymentSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( publicConfiguration ) };
 
-        var nuGetPublicDeploymentDependencies = nuGetPublicBuildDependencies.Select(
-            d => new TeamCitySnapshotDependency(
-                d.ObjectId.Replace( $"_{publicBuildObjectName}", $"_{publicDeploymentObjectName}", StringComparison.Ordinal ),
-                true ) );
+        var nuGetPublicDeploymentDependencies =
+            nuGetPublicBuildDependencies
+                .Select(
+                    d => new TeamCitySnapshotDependency(
+                        d.ObjectId.Replace( $"_{publicBuildObjectName}", $"_{publicDeploymentObjectName}", StringComparison.Ordinal ),
+                        true ) )
+                .Append( new( publicNuGetBuildCiId, true, nuGetBuildArtifactRules ) );
 
         nuGetConfigurations.Add(
             new( MarkNuGetObjectId( publicDeploymentObjectName ), publicDeploymentName, context.Product.ResolvedBuildAgentRequirements )
@@ -1034,7 +1042,7 @@ public static class TeamCityHelper
             publicDeploymentBuildConfigurationIds
                 .Concat( publicDeploymentDependants )
                 .Select( c => new TeamCitySnapshotDependency( c, true ) )
-                .Append( new( publicBuildCiId, true ) )
+                .Append( new( publicConsolidatedBuildCiId, true ) )
                 .Append( new( publicNuGetDeploymentCiId, true ) );
 
         tcConfigurations.Add(
