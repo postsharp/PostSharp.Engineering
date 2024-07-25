@@ -513,20 +513,146 @@ public static class TeamCityHelper
         return true;
     }
 
+    internal static void GeneratePom( BuildContext context, string projectObjectName, string tcUrl )
+        => WriteIfDiffers(
+            context,
+            w => w.Write(
+                @$"<?xml version=""1.0""?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <name>{projectObjectName} Config DSL Script</name>
+  <groupId>{projectObjectName}</groupId>
+  <artifactId>{projectObjectName}_dsl</artifactId>
+  <version>1.0-SNAPSHOT</version>
+
+  <parent>
+    <groupId>org.jetbrains.teamcity</groupId>
+    <artifactId>configs-dsl-kotlin-parent</artifactId>
+    <version>1.0-SNAPSHOT</version>
+  </parent>
+
+  <repositories>
+    <repository>
+      <id>jetbrains-all</id>
+      <url>https://download.jetbrains.com/teamcity-repository</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>teamcity-server</id>
+      <url>{tcUrl}/app/dsl-plugins-repository</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>JetBrains</id>
+      <url>https://download.jetbrains.com/teamcity-repository</url>
+    </pluginRepository>
+  </pluginRepositories>
+
+  <build>
+    <sourceDirectory>${{basedir}}</sourceDirectory>
+    <plugins>
+      <plugin>
+        <artifactId>kotlin-maven-plugin</artifactId>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <version>${{kotlin.version}}</version>
+
+        <configuration/>
+        <executions>
+          <execution>
+            <id>compile</id>
+            <phase>process-sources</phase>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>test-compile</id>
+            <phase>process-test-sources</phase>
+            <goals>
+              <goal>test-compile</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.jetbrains.teamcity</groupId>
+        <artifactId>teamcity-configs-maven-plugin</artifactId>
+        <version>${{teamcity.dsl.version}}</version>
+        <configuration>
+          <format>kotlin</format>
+          <dstDir>target/generated-configs</dstDir>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.jetbrains.teamcity</groupId>
+      <artifactId>configs-dsl-kotlin-latest</artifactId>
+      <version>${{teamcity.dsl.version}}</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jetbrains.teamcity</groupId>
+      <artifactId>configs-dsl-kotlin-plugins-latest</artifactId>
+      <version>1.0-SNAPSHOT</version>
+      <type>pom</type>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jetbrains.kotlin</groupId>
+      <artifactId>kotlin-stdlib-jdk8</artifactId>
+      <version>${{kotlin.version}}</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jetbrains.kotlin</groupId>
+      <artifactId>kotlin-script-runtime</artifactId>
+      <version>${{kotlin.version}}</version>
+      <scope>compile</scope>
+    </dependency>
+  </dependencies>
+</project>" ),
+            "Project object model",
+            Path.Combine( context.RepoDirectory, ".teamcity", "pom.xml" ) );
+
     internal static void GenerateTeamCityConfiguration( BuildContext context, TeamCityProject project )
     {
         var content = new StringWriter();
         project.GenerateTeamcityCode( content );
 
         var filePath = Path.Combine( context.RepoDirectory, ".teamcity", "settings.kts" );
+        
+        WriteIfDiffers( context, project.GenerateTeamcityCode, "Continuous integration script", filePath );
+    }
 
+    private static void WriteIfDiffers( BuildContext context, Action<TextWriter> writer, string name, string filePath )
+    {
+        var content = new StringWriter();
+        writer( content );
+
+        string resultMessage;
+        
         if ( !File.Exists( filePath ) || File.ReadAllText( filePath ) != content.ToString() )
         {
             context.Console.WriteWarning( $"Replacing '{filePath}'." );
             File.WriteAllText( filePath, content.ToString() );
+            resultMessage = $"File '{filePath}' was written.";
+        }
+        else
+        {
+            resultMessage = $"File '{filePath}' was up to date.";
         }
 
-        context.Console.WriteSuccess( "Continuous integration scripts generated." );
+        context.Console.WriteSuccess( $"{name} generated. {resultMessage}" );
     }
 
     internal static bool TryGenerateConsolidatedTeamcityConfiguration( BuildContext context )
@@ -538,11 +664,14 @@ public static class TeamCityHelper
             return false;
         }
 
+        var consolidatedProjectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId;
+        var consolidatedProjectIdPrefix = $"{consolidatedProjectId}_";
         var tcConfigurations = new List<TeamCityBuildConfiguration>();
+        var nuGetConfigurations = new List<TeamCityBuildConfiguration>();
 
         if ( !tc.TryGetOrderedSubprojectsRecursively(
                 context.Console,
-                context.Product.DependencyDefinition.CiConfiguration.ProjectId.ParentId,
+                consolidatedProjectId.ParentId,
                 out var subprojects ) )
         {
             return false;
@@ -591,18 +720,154 @@ public static class TeamCityHelper
                 buildConfigurationsById.Add( buildConfigurationId, buildConfiguration );
             }
         }
+        
+        // TeamCity doesn't allow to have artifact dependencies that match no artifacts.
+        // TODO: Make this configurable.
+        string[] projectsWithNoNuGetArtifacts = [".Vsx", ".Documentation", ".Try", ".Tests."];
 
+        static string MarkNuGetObjectId( string objectId ) => $"NuGet{objectId}";
+        
+        bool TryPopulateBuildConfgurations(
+            BuildConfiguration configuration,
+            string consolidatedBuildObjectName,
+            string consolidatedBuildConfigurationName,
+            IBuildTrigger[] consolidatedBuildTriggers,
+            string nuGetBuildObjectName,
+            string nuGetBuildConfigurationName,
+            [NotNullWhen( true )] out TeamCityBuildConfiguration? consolidatedBuildConfiguration,
+            [NotNullWhen( true )] out TeamCityBuildConfiguration? nuGetBuildConfiguration,
+            out Dictionary<string, HashSet<string>> dependenciesByProjectId,
+            out List<TeamCitySnapshotDependency> nuGetDependencies,
+            [NotNullWhen( true )] out string? buildArtifactRules )
+        {
+            List<TeamCitySnapshotDependency> dependencies = new();
+            consolidatedBuildConfiguration = null;
+            nuGetBuildConfiguration = null;
+            dependenciesByProjectId = new();
+            nuGetDependencies = new();
+            buildArtifactRules = null;
+            
+            foreach ( var buildConfiguration in buildConfigurationsByKind[consolidatedBuildObjectName] )
+            {
+                var dependencyProjectId = buildConfiguration.ProjectId;
+
+                if ( !context.Product.DependencyDefinition.ProductFamily.TryGetDependencyDefinitionByCiId( dependencyProjectId, out var dependencyDefinition ) )
+                {
+                    context.Console.WriteError( $"Dependency definition for project '{dependencyProjectId}' not found." );
+
+                    return false;
+                }
+
+                if ( dependencyDefinition.ProductFamily == context.Product.ProductFamily
+                     && !projectsWithNoNuGetArtifacts.Any( p => dependencyDefinition.Name.Contains( p, StringComparison.Ordinal ) ) )
+                {
+                    var dependencyMsBuildConfiguration = dependencyDefinition.MSBuildConfiguration[configuration];
+                    var dependencyBuildInfo = new BuildInfo( null, configuration.ToString(), dependencyMsBuildConfiguration, null );
+
+                    var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory.ToString( dependencyBuildInfo )
+                        .Replace( Path.DirectorySeparatorChar, '/' );
+
+                    var dependencyPublicArtifactsDirectory = dependencyDefinition.PublicArtifactsDirectory.ToString( dependencyBuildInfo )
+                        .Replace( Path.DirectorySeparatorChar, '/' );
+                
+                    var dependencyName = dependencyDefinition.Name;
+                    var artifactRulesFormat = $"+:{{0}}/**/*.{{1}}=>dependencies/{dependencyName}";
+
+                    var packagesArtifactsDirectory = configuration switch
+                    {
+                        BuildConfiguration.Public => dependencyPublicArtifactsDirectory,
+                        _ => dependencyPrivateArtifactsDirectory
+                    };
+
+                    string[] rules =
+                    [
+                        string.Format( CultureInfo.InvariantCulture, artifactRulesFormat, dependencyPrivateArtifactsDirectory, "version.props" ),
+                        string.Format( CultureInfo.InvariantCulture, artifactRulesFormat, packagesArtifactsDirectory, "nupkg" ),
+                        string.Format( CultureInfo.InvariantCulture, artifactRulesFormat, packagesArtifactsDirectory, "snupkg" )
+                    ];
+
+                    var artifactRules = string.Join( "\\n", rules );
+
+                    nuGetDependencies.Add(
+                        new(
+                            buildConfiguration.BuildConfigurationId,
+                            true,
+                            artifactRules ) );
+                }
+
+                dependencies.Add(
+                    new(
+                        buildConfiguration.BuildConfigurationId,
+                        true ) );
+
+                if ( !dependenciesByProjectId.TryGetValue( buildConfiguration.BuildConfigurationId, out var projectDependencies ) )
+                {
+                    projectDependencies = new HashSet<string>();
+                    dependenciesByProjectId.Add( buildConfiguration.ProjectId, projectDependencies );
+                }
+
+                // We check for presence, because some dependencies can come from other project families.
+                // E.g. PostSharp for Metalama.Vsx.
+                projectDependencies.AddRange(
+                    buildConfiguration.SnapshotDependencies.Select( d => buildConfigurationsById.TryGetValue( d, out var c ) ? c.ProjectId : null )
+                        .Where( c => c != null )
+                        .Select( c => c! ) );
+            }
+            
+            var buildInfo = new BuildInfo( null, configuration, context.Product, null );
+
+            var privateArtifactsDirectory =
+                context.Product.PrivateArtifactsDirectory.ToString( buildInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+
+            var publicArtifactsDirectory =
+                context.Product.PublicArtifactsDirectory.ToString( buildInfo ).Replace( "\\", "/", StringComparison.Ordinal );
+
+            buildArtifactRules = $@"+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}\n+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
+            var nuGetBuildCiId = $"{consolidatedProjectIdPrefix}{nuGetBuildObjectName}";
+
+            dependencies.Add( new( nuGetBuildCiId, true ) );
+
+            consolidatedBuildConfiguration = new( consolidatedBuildObjectName, consolidatedBuildConfigurationName )
+            {
+                SnapshotDependencies = dependencies.ToArray(), BuildTriggers = consolidatedBuildTriggers
+            };
+
+            var nuGetBuildSteps =
+                new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( configuration, false, context.Product.UseDockerInTeamcity ) };
+
+            nuGetBuildConfiguration = new( nuGetBuildObjectName, nuGetBuildConfigurationName, context.Product.ResolvedBuildAgentRequirements )
+            {
+                BuildSteps = nuGetBuildSteps,
+                SnapshotDependencies = nuGetDependencies.ToArray(),
+                ArtifactRules = buildArtifactRules,
+                BuildTimeOutThreshold = context.Product.BuildTimeOutThreshold
+            };
+
+            return true;
+        }
+        
         // Debug Build
         const string debugBuildObjectName = "DebugBuild";
+        const string debugBuildName = "Build [Debug]";
 
-        var consolidatedDebugBuildSnapshotDependencies =
-            buildConfigurationsByKind[debugBuildObjectName].Select( c => new TeamCitySnapshotDependency( c.BuildConfigurationId, true ) );
-
-        tcConfigurations.Add(
-            new TeamCityBuildConfiguration( debugBuildObjectName, "Build [Debug]" )
-            {
-                SnapshotDependencies = consolidatedDebugBuildSnapshotDependencies.ToArray()
-            } );
+        if ( !TryPopulateBuildConfgurations(
+                BuildConfiguration.Debug,
+                debugBuildObjectName,
+                debugBuildName,
+                [],
+                MarkNuGetObjectId( debugBuildObjectName ),
+                debugBuildName,
+                out var consolidatedDebugBuildConfiguration,
+                out var nuGetDebugBuildConfiguration,
+                out _,
+                out _,
+                out _ ) )
+        {
+            return false;
+        }
+        
+        tcConfigurations.Add( consolidatedDebugBuildConfiguration );
+        nuGetConfigurations.Add( nuGetDebugBuildConfiguration );
 
         // Downstream Merge
 
@@ -628,78 +893,46 @@ public static class TeamCityHelper
 
         // Release Build
         const string releaseBuildObjectName = "ReleaseBuild";
+        const string releaseBuildName = "Build [Release]";
 
-        var consolidatedReleaseBuildSnapshotDependencies =
-            buildConfigurationsByKind[releaseBuildObjectName].Select( c => new TeamCitySnapshotDependency( c.BuildConfigurationId, true ) );
-
-        tcConfigurations.Add(
-            new TeamCityBuildConfiguration( releaseBuildObjectName, "Build [Release]" )
-            {
-                SnapshotDependencies = consolidatedReleaseBuildSnapshotDependencies.ToArray()
-            } );
+        if ( !TryPopulateBuildConfgurations(
+                BuildConfiguration.Release,
+                releaseBuildObjectName,
+                releaseBuildName,
+                [],
+                MarkNuGetObjectId( releaseBuildObjectName ),
+                releaseBuildName,
+                out var consolidatedReleaseBuildConfiguration,
+                out var nuGetReleaseBuildConfiguration,
+                out _,
+                out _,
+                out _ ) )
+        {
+            return false;
+        }
+        
+        tcConfigurations.Add( consolidatedReleaseBuildConfiguration );
+        nuGetConfigurations.Add( nuGetReleaseBuildConfiguration );
 
         // Version bump and public build
         const string publicBuildObjectName = "PublicBuild";
+        const string publicBuildName = "Build [Public]";
         var publicConfiguration = BuildConfiguration.Public;
-        var publicBuildCiId = $"{context.Product.DependencyDefinition.CiConfiguration.ProjectId}_{publicBuildObjectName}";
 
-        var consolidatedPublicBuildSnapshotDependencies = new List<TeamCitySnapshotDependency>();
-        var projectDependenciesByProjectId = new Dictionary<string, HashSet<string>>();
-
-        // TeamCity doesn't allow to have artifact dependencies that match no artifacts.
-        // TODO: Make this configurable.
-        string[] projectsWithNoNuGetArtifacts = [".Vsx", ".Documentation", ".Try", ".Tests."];
-
-        foreach ( var publicBuildConfiguration in buildConfigurationsByKind[publicBuildObjectName] )
+        if ( !TryPopulateBuildConfgurations(
+                BuildConfiguration.Public,
+                publicBuildObjectName,
+                $"2. {publicBuildName}",
+                [new NightlyBuildTrigger( 2, true )],
+                MarkNuGetObjectId( publicBuildObjectName ),
+                publicBuildName,
+                out var consolidatedPublicBuildConfiguration,
+                out var nuGetPublicBuildConfiguration,
+                out var consolidatedPublicBuildSnapshotDependenciesByProjectId,
+                out var nuGetPublicBuildDependencies,
+                out var nuGetBuildArtifactRules ) )
         {
-            var dependencyProjectId = publicBuildConfiguration.ProjectId;
-
-            if ( !context.Product.DependencyDefinition.ProductFamily.TryGetDependencyDefinitionByCiId( dependencyProjectId, out var dependencyDefinition ) )
-            {
-                context.Console.WriteError( $"Dependency definition for project '{dependencyProjectId}' not found." );
-
-                return false;
-            }
-
-            string? artifactRules = null;
-
-            if ( dependencyDefinition.ProductFamily == context.Product.ProductFamily
-                 && !projectsWithNoNuGetArtifacts.Any( p => dependencyDefinition.Name.Contains( p, StringComparison.Ordinal ) ) )
-            {
-                var dependencyMsBuildConfiguration = dependencyDefinition.MSBuildConfiguration[publicConfiguration];
-                var dependencyBuildInfo = new BuildInfo( null, publicConfiguration.ToString(), dependencyMsBuildConfiguration, null );
-
-                var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory.ToString( dependencyBuildInfo )
-                    .Replace( Path.DirectorySeparatorChar, '/' );
-
-                var dependencyPublicArtifactsDirectory = dependencyDefinition.PublicArtifactsDirectory.ToString( dependencyBuildInfo )
-                    .Replace( Path.DirectorySeparatorChar, '/' );
-                
-                var dependencyName = dependencyDefinition.Name;
-                var artifactRulesFormat = $"+:{{0}}/**/*.{{1}}=>dependencies/{dependencyName}";
-
-                artifactRules =
-                    $@"{string.Format( CultureInfo.InvariantCulture, artifactRulesFormat, dependencyPrivateArtifactsDirectory, "version.props" )}\n{string.Format( CultureInfo.InvariantCulture, artifactRulesFormat, dependencyPublicArtifactsDirectory, "nupkg" )}\n{string.Format( CultureInfo.InvariantCulture, artifactRulesFormat, dependencyPublicArtifactsDirectory, "snupkg" )}";
-            }
-
-            consolidatedPublicBuildSnapshotDependencies.Add(
-                new(
-                    publicBuildConfiguration.BuildConfigurationId,
-                    true,
-                    artifactRules ) );
-
-            if ( !projectDependenciesByProjectId.TryGetValue( publicBuildConfiguration.BuildConfigurationId, out var projectDependencies ) )
-            {
-                projectDependencies = new HashSet<string>();
-                projectDependenciesByProjectId.Add( publicBuildConfiguration.ProjectId, projectDependencies );
-            }
-
-            // We check for presence, because some dependencies can come from other project families.
-            // E.g. PostSharp for Metalama.Vsx.
-            projectDependencies.AddRange(
-                publicBuildConfiguration.SnapshotDependencies.Select( d => buildConfigurationsById.TryGetValue( d, out var c ) ? c.ProjectId : null )
-                    .Where( c => c != null )
-                    .Select( c => c! ) );
+            return false;
         }
 
         const string versionBumpObjectName = "VersionBump";
@@ -717,7 +950,7 @@ public static class TeamCityHelper
             var bumpedProjectId = versionBumpBuildConfiguration.ProjectId;
             var bumpedProjectName = versionBumpBuildConfiguration.ProjectName;
 
-            foreach ( var projectDependencyId in projectDependenciesByProjectId[bumpedProjectId] )
+            foreach ( var projectDependencyId in consolidatedPublicBuildSnapshotDependenciesByProjectId[bumpedProjectId] )
             {
                 if ( !bumpedProjects.Contains( projectDependencyId ) )
                 {
@@ -765,33 +998,35 @@ public static class TeamCityHelper
             {
                 BuildSteps = consolidatedVersionBumpSteps.ToArray(), BuildTriggers = consolidatedVersionBumpBuildTriggers
             } );
-
-        var publicBuildInfo = new BuildInfo( null, publicConfiguration, context.Product, null );
-
-        var privateArtifactsDirectory =
-            context.Product.PrivateArtifactsDirectory.ToString( publicBuildInfo ).Replace( "\\", "/", StringComparison.Ordinal );
-
-        var publicArtifactsDirectory =
-            context.Product.PublicArtifactsDirectory.ToString( publicBuildInfo ).Replace( "\\", "/", StringComparison.Ordinal );
-
-        var publicBuildArtifactRules = $@"+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}\n+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
-        var consolidatedPublicBuildBuildTriggers = new IBuildTrigger[] { new NightlyBuildTrigger( 2, true ) };
-
-        var consolidatedPublicBuildSteps =
-            new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( publicConfiguration, false, context.Product.UseDockerInTeamcity ) };
-
-        tcConfigurations.Add(
-            new TeamCityBuildConfiguration( publicBuildObjectName, "2. Build [Public]", context.Product.ResolvedBuildAgentRequirements )
-            {
-                BuildSteps = consolidatedPublicBuildSteps,
-                SnapshotDependencies = consolidatedPublicBuildSnapshotDependencies.ToArray(),
-                ArtifactRules = publicBuildArtifactRules,
-                BuildTriggers = consolidatedPublicBuildBuildTriggers,
-                BuildTimeOutThreshold = context.Product.BuildTimeOutThreshold
-            } );
+        
+        tcConfigurations.Add( consolidatedPublicBuildConfiguration );
+        nuGetConfigurations.Add( nuGetPublicBuildConfiguration );
 
         // Public deployment
         const string publicDeploymentObjectName = "PublicDeployment";
+        const string publicDeploymentName = "Deploy [Public]";
+        var publicConsolidatedBuildCiId = $"{consolidatedProjectIdPrefix}{publicBuildObjectName}";
+        var publicNuGetBuildCiId = $"{consolidatedProjectIdPrefix}{MarkNuGetObjectId( publicBuildObjectName )}";
+        var publicNuGetDeploymentCiId = $"{consolidatedProjectIdPrefix}{MarkNuGetObjectId( publicDeploymentObjectName )}";
+        
+        var nuGetPublicDeploymentSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( publicConfiguration ) };
+
+        var nuGetPublicDeploymentDependencies =
+            nuGetPublicBuildDependencies
+                .Select(
+                    d => new TeamCitySnapshotDependency(
+                        d.ObjectId.Replace( $"_{publicBuildObjectName}", $"_{publicDeploymentObjectName}", StringComparison.Ordinal ),
+                        true ) )
+                .Append( new( publicNuGetBuildCiId, true, nuGetBuildArtifactRules ) );
+
+        nuGetConfigurations.Add(
+            new( MarkNuGetObjectId( publicDeploymentObjectName ), publicDeploymentName, context.Product.ResolvedBuildAgentRequirements )
+            {
+                BuildSteps = nuGetPublicDeploymentSteps,
+                SnapshotDependencies = nuGetPublicDeploymentDependencies.ToArray(),
+                BuildTimeOutThreshold = context.Product.DeploymentTimeOutThreshold,
+                IsDeployment = true
+            } );
 
         var publicDeploymentBuildConfigurations = buildConfigurationsByKind[publicDeploymentObjectName];
         var publicDeploymentBuildConfigurationIds = publicDeploymentBuildConfigurations.Select( c => c.BuildConfigurationId ).ToArray();
@@ -799,6 +1034,7 @@ public static class TeamCityHelper
         // Include dependants of the public deployment build configurations, like search update.
         var publicDeploymentDependants = buildConfigurations.Where( c => c.SnapshotDependencies.Intersect( publicDeploymentBuildConfigurationIds ).Any() )
             .Select( c => c.BuildConfigurationId )
+            .Where( c => !c.StartsWith( consolidatedProjectIdPrefix, StringComparison.Ordinal ) )
             .Except( publicDeploymentBuildConfigurationIds )
             .ToArray();
 
@@ -806,20 +1042,21 @@ public static class TeamCityHelper
             publicDeploymentBuildConfigurationIds
                 .Concat( publicDeploymentDependants )
                 .Select( c => new TeamCitySnapshotDependency( c, true ) )
-                .Append( new( publicBuildCiId, true, publicBuildArtifactRules ) );
-        
-        var consolidatedPublicDeploymentSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( publicConfiguration ) };
+                .Append( new( publicConsolidatedBuildCiId, true ) )
+                .Append( new( publicNuGetDeploymentCiId, true ) );
 
         tcConfigurations.Add(
-            new TeamCityBuildConfiguration( publicDeploymentObjectName, "3. Deploy [Public]", context.Product.ResolvedBuildAgentRequirements )
+            new TeamCityBuildConfiguration( publicDeploymentObjectName, $"3. {publicDeploymentName}" )
             {
-                BuildSteps = consolidatedPublicDeploymentSteps,
                 SnapshotDependencies = consolidatedPublicDeploymentSnapshotDependencies.ToArray(),
-                BuildTimeOutThreshold = context.Product.BuildTimeOutThreshold,
                 IsDeployment = true
             } );
+        
+        var nuGetProject = new TeamCityProject( "NuGet", "NuGet", nuGetConfigurations.ToArray() );
 
-        var tcProject = new TeamCityProject( tcConfigurations.ToArray() );
+        var tcProject = new TeamCityProject( tcConfigurations.ToArray(), [nuGetProject] );
+
+        GeneratePom( context, consolidatedProjectId.Id, context.Product.DependencyDefinition.CiConfiguration.BaseUrl );
         GenerateTeamCityConfiguration( context, tcProject );
 
         return true;

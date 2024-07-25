@@ -1622,8 +1622,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool Publish( BuildContext context, PublishSettings settings )
         {
             var configuration = settings.BuildConfiguration;
-            var versionFile = this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) );
-            var directories = this.GetArtifactsDirectories( context, versionFile );
+            var buildInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) );
+            var directories = this.GetArtifactsDirectories( context, buildInfo );
 
             var hasTarget = false;
             var configurationInfo = this.Configurations.GetValue( configuration );
@@ -1697,7 +1697,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     settings,
                     directories,
                     configurationInfo,
-                    versionFile,
+                    buildInfo,
                     false,
                     ref hasTarget ) )
             {
@@ -1709,7 +1709,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     settings,
                     directories,
                     configurationInfo,
-                    versionFile,
+                    buildInfo,
                     true,
                     ref hasTarget ) )
             {
@@ -1762,8 +1762,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool Swap( BuildContext context, SwapSettings settings )
         {
             var configuration = this.Configurations.GetValue( settings.BuildConfiguration );
-            var versionFile = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
-            var directories = this.GetArtifactsDirectories( context, versionFile );
+            var buildInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( settings.BuildConfiguration ) );
+            var directories = this.GetArtifactsDirectories( context, buildInfo );
 
             var success = true;
 
@@ -1771,12 +1771,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 foreach ( var swapper in configuration.Swappers )
                 {
-                    switch ( swapper.Execute( context, settings, configuration ) )
+                    switch ( swapper.Execute( context, settings, configuration, buildInfo ) )
                     {
                         case SuccessCode.Success:
                             foreach ( var tester in swapper.Testers )
                             {
-                                switch ( tester.Execute( context, directories.Private, versionFile, configuration, settings.Dry ) )
+                                switch ( tester.Execute( context, directories.Private, buildInfo, configuration, settings.Dry ) )
                                 {
                                     case SuccessCode.Success:
                                         break;
@@ -1786,7 +1786,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                                         context.Console.WriteError(
                                             $"Tester failed after swapping staging and production slots. Attempting to revert the swap." );
 
-                                        switch ( swapper.Execute( context, settings, configuration ) )
+                                        switch ( swapper.Execute( context, settings, configuration, buildInfo ) )
                                         {
                                             case SuccessCode.Success:
                                                 context.Console.WriteMessage( "Successfully reverted swap." );
@@ -2136,6 +2136,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
 
                 teamCityBuildSteps.Add( new TeamCityEngineeringBuildBuildStep( configuration, true, this.UseDockerInTeamcity ) );
+                
+                if ( !this.UseDockerInTeamcity )
+                {
+                    teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "Kill", "Kill background processes before next build", "tools kill" ) );
+                }
 
                 var teamCityBuildConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}Build",
@@ -2293,8 +2298,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     return false;
                 }
             }
-
+            
             var teamCityProject = new TeamCityProject( teamCityBuildConfigurations.ToArray() );
+
+            TeamCityHelper.GeneratePom( context, this.DependencyDefinition.CiConfiguration.ProjectId.Id, this.DependencyDefinition.CiConfiguration.BaseUrl );
             TeamCityHelper.GenerateTeamCityConfiguration( context, teamCityProject );
 
             return true;

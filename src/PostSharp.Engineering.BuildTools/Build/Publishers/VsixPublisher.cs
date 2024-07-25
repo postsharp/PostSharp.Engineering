@@ -11,9 +11,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
     /// </summary>
     public class VsixPublisher : ArtifactPublisher
     {
-        public VsixPublisher( Pattern files ) : base( files ) { }
-        
-        public bool PublishPrerelease { get; init; }
+        public VsixPublisher( Pattern files ) : base( files )
+        {
+            // We don't publish pre-release VSIX by default because Visual Studio Marketplace supports only a single
+            // version and we don't want to replace a release with a pre-release.
+            this.PublishPrerelease = false;
+        }
 
         public override SuccessCode PublishFile(
             BuildContext context,
@@ -24,15 +27,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishers
         {
             var hasEnvironmentError = false;
 
-            if ( buildInfo.IsPrerelease && !this.PublishPrerelease )
-            {
-                // We don't publish pre-release VSIX by default because Visual Studio Marketplace supports only a single
-                // version and we don't want to replace a release with a pre-release.
-                context.Console.WriteWarning( $"Skip publishing '{file}' because '{buildInfo.PackageVersion}' is a pre-release." );
-
-                return SuccessCode.Success;
-            }
-            
             if ( string.IsNullOrEmpty( Environment.GetEnvironmentVariable( "VSSDKINSTALL" ) ) )
             {
                 context.Console.WriteError( $"The VSSDKINSTALL environment variable is not defined." );

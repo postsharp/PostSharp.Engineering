@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
 
@@ -8,6 +9,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Swappers
     /// <summary>
     /// An implementation of <see cref="Swapper"/> for Azure AppService slots.
     /// </summary>
+    [PublicAPI]
     public class AppServiceSwapper : Swapper
     {
         public string SubscriptionId { get; init; }
@@ -37,7 +39,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Swappers
             }
         }
 
-        public override SuccessCode Execute( BuildContext context, SwapSettings settings, BuildConfigurationInfo configuration )
+        protected override SuccessCode ExecuteCore( BuildContext context, SwapSettings settings, BuildConfigurationInfo configuration, BuildInfo buildInfo )
         {
             context.Console.WriteMessage( $"Swapping {this.SourceSlot} slot with {this.TargetSlot} slot of {this.AppServiceName} app service." );
 
