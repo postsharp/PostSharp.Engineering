@@ -49,7 +49,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             ToolInvocationOptions? options = null )
         {
             var argsBuilder = CreateCommandLine( context, settings, projectOrSolution, command, arguments, addConfigurationFlag );
-            
+
             options = AddSimulatedContinuousIntegrationEnvironmentVariables( settings, options );
 
             return ToolInvocationHelper.InvokeTool(
@@ -128,6 +128,11 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             if ( TeamCityHelper.IsTeamCityBuild( settings ) )
             {
                 argsBuilder.Append( " -p:ContinuousIntegrationBuild=True" );
+            }
+
+            if ( settings.DisableBuildServers )
+            {
+                argsBuilder.Append( " --disable-build-servers" );
             }
 
             if ( !isRunCommand )

@@ -1506,7 +1506,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 // Kill the processes to release the locks on the NuGet cache.
                 ProcessKiller.Kill( context.Console );
-                
+
                 // Use dotnet command to locate nuget cache directory.
                 ToolInvocationHelper.InvokeTool(
                     context.Console,
@@ -1572,6 +1572,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     case "source-dependencies":
                     case "dependencies":
+                    case ".sonarqube":
                     case { } s when s == this.EngineeringDirectory:
                         continue;
 

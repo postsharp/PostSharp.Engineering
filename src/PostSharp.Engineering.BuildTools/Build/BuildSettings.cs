@@ -18,11 +18,6 @@ namespace PostSharp.Engineering.BuildTools.Build
     {
         private int? _solutionId;
 
-        public BuildSettings()
-        {
-            this.UserName = Environment.GetEnvironmentVariable( "ENG_USERNAME" ) ?? Environment.UserName;
-        }
-
         protected override void AppendSettings( StringBuilder stringBuilder )
         {
             base.AppendSettings( stringBuilder );
@@ -123,6 +118,10 @@ namespace PostSharp.Engineering.BuildTools.Build
         [CommandOption( "--no-concurrency" )]
         public bool NoConcurrency { get; set; }
 
+        [Description( "Passed the --disable-build-servers option to dotnet build." )]
+        [CommandOption( "--disable-build-servers" )]
+        public bool DisableBuildServers { get; set; }
+
         [Description(
             "Specifies the solution that should be built. The list of solutions and their id is given by the `list-solutions` command." +
             "Setting this property automatically adds the --no-dependencies option." )]
@@ -176,7 +175,7 @@ namespace PostSharp.Engineering.BuildTools.Build
 
         [Description( "Overrides the user name." )]
         [CommandOption( "--user" )]
-        public string UserName { get; set; }
+        public string UserName { get; set; } = Environment.GetEnvironmentVariable( "ENG_USERNAME" ) ?? Environment.UserName;
 
         public BuildSettings WithIncludeTests( bool value )
         {
