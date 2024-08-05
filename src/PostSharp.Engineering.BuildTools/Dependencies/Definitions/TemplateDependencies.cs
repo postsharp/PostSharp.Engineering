@@ -27,9 +27,9 @@ public static class TemplateDependencies
                 isVersioned ) { }
     }
 
-    public static ProductFamily Family { get; } = new( "Template", "2023.0", DevelopmentDependencies.Family );
+    public static ProductFamily Family { get; } = new( "Template", "2023.0", DevelopmentDependencies.Family, MetalamaDependencies.V2024_2.Family );
 
     // This is only used from the project template.
     public static DependencyDefinition MyProduct { get; } =
-        new TemplateDependencyDefinition( "PostSharp.Engineering.ProjectTemplate", VcsProvider.GitHub, "NONE" );
+        new TemplateDependencyDefinition( "MyProduct", VcsProvider.GitHub, "NONE" );
 }
