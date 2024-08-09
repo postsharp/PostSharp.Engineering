@@ -236,14 +236,21 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 {
                     foreach ( var pair in options.EnvironmentVariables )
                     {
-                        startInfo.Environment[pair.Key] = pair.Value;
+                        if ( pair.Value == null )
+                        {
+                            startInfo.Environment.Remove( pair.Key );
+                        }
+                        else
+                        {
+                            startInfo.Environment[pair.Key] = pair.Value;
+                        }
                     }
                 }
 
                 // Some environment variables must not be passed from the current process to the child process.
                 foreach ( var blockedEnvironmentVariable in options.BlockedEnvironmentVariables )
                 {
-                    startInfo.Environment[blockedEnvironmentVariable] = null;
+                    startInfo.Environment.Remove( blockedEnvironmentVariable );
                 }
 
                 Process process = new() { StartInfo = startInfo };
