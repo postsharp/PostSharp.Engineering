@@ -17,7 +17,7 @@ var product = new Product( DevelopmentDependencies.PostSharpEngineering )
         "PostSharp.Engineering.BuildTools.$(PackageVersion).nupkg",
         "PostSharp.Engineering.DocFx.$(PackageVersion).nupkg" ),
     RequiresEngineeringSdk = false,
-    ExportedProperties = { { @"eng\Versions.props", ["DocFxVersion"] } }
+    ExportedProperties = { { "Directory.Packages.props", ["DocFxVersion"] } }
 };
 
 var app = new EngineeringApp( product );

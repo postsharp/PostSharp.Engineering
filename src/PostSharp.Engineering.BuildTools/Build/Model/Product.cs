@@ -1458,6 +1458,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         .SingleOrDefault( p => string.Equals( p.Name, exportedPropertyName, StringComparison.OrdinalIgnoreCase ) )
                         ?.EvaluatedValue;
 
+                    if ( string.IsNullOrWhiteSpace( exportedPropertyValue ) )
+                    {
+                        context.Console.WriteError( $"The exported property '{exportedPropertyName}' in '{propsFilePath}' is not defined." );
+                    }
+
                     props += $@"
         <{exportedPropertyName} Condition=""'$({exportedPropertyName})'==''"">{exportedPropertyValue}</{exportedPropertyName}>";
                 }
