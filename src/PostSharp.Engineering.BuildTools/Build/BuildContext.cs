@@ -25,10 +25,12 @@ namespace PostSharp.Engineering.BuildTools.Build
         /// </summary>
         public string RepoDirectory { get; }
 
+        public BaseCommandData CommandData { get; }
+
         /// <summary>
         /// Gets the current <see cref="Model.Product"/> definition.
         /// </summary>
-        public Product Product { get; }
+        public Product Product => this.CommandData.Product;
 
         /// <summary>
         /// Gets the name of the current git branch. Can be for instance a topic branch.
@@ -66,14 +68,14 @@ namespace PostSharp.Engineering.BuildTools.Build
         private BuildContext(
             ConsoleHelper console,
             string repoDirectory,
-            Product product,
+            BaseCommandData commandData,
             string branch,
             CommandContext commandContext,
             bool useProjectDirectoryAsWorkingDirectory )
         {
             this.Console = console;
             this.RepoDirectory = repoDirectory;
-            this.Product = product;
+            this.CommandData = commandData;
             this.Branch = branch;
             this.CommandContext = commandContext;
             this.UseProjectDirectoryAsWorkingDirectory = useProjectDirectoryAsWorkingDirectory;
@@ -107,7 +109,7 @@ namespace PostSharp.Engineering.BuildTools.Build
             buildContext = new BuildContext(
                 console,
                 repoDirectory,
-                (Product) commandContext.Data!,
+                (BaseCommandData) commandContext.Data!,
                 currentBranch,
                 commandContext,
                 useProjectDirectoryAsWorkingDirectory: false );
@@ -147,9 +149,9 @@ namespace PostSharp.Engineering.BuildTools.Build
         }
 
         public BuildContext WithConsoleHelper( ConsoleHelper consoleHelper )
-            => new( consoleHelper, this.RepoDirectory, this.Product, this.Branch, this.CommandContext, this.UseProjectDirectoryAsWorkingDirectory );
+            => new( consoleHelper, this.RepoDirectory, this.CommandData, this.Branch, this.CommandContext, this.UseProjectDirectoryAsWorkingDirectory );
 
         public BuildContext WithUseProjectDirectoryAsWorkingDirectory( bool useProjectDirectoryAsWorkingDirectory )
-            => new( this.Console, this.RepoDirectory, this.Product, this.Branch, this.CommandContext, useProjectDirectoryAsWorkingDirectory );
+            => new( this.Console, this.RepoDirectory, this.CommandData, this.Branch, this.CommandContext, useProjectDirectoryAsWorkingDirectory );
     }
 }

@@ -11,12 +11,11 @@ var product = new Product( DevelopmentDependencies.PostSharpEngineering )
     Solutions = new Solution[] { new DotNetSolution( "PostSharp.Engineering.sln" ) { SupportsTestCoverage = true, CanFormatCode = true } },
     PublicArtifacts = Pattern.Create(
         "PostSharp.Engineering.Sdk.$(PackageVersion).nupkg",
-        "PostSharp.Engineering.BuildTools.$(PackageVersion).nupkg" ),
+        "PostSharp.Engineering.BuildTools.$(PackageVersion).nupkg",
+        "PostSharp.Engineering.DocFx.$(PackageVersion).nupkg" ),
     RequiresEngineeringSdk = false
 };
 
-var commandApp = new CommandApp();
+var app = new EngineeringApp( product );
 
-commandApp.AddProductCommands( product );
-
-return commandApp.Run( args );
+return app.Run( args );

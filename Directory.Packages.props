@@ -10,6 +10,11 @@
     <MSBuildPackagesVersion>17.0.0</MSBuildPackagesVersion>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="Docfx.App" Version="2.77.0" />
+    <PackageVersion Include="Docfx.Common" Version="2.77.0" />
+    <PackageVersion Include="Docfx.MarkdigEngine.Extensions" Version="2.77.0" />
+    <PackageVersion Include="PKT.LZStringCSharp" Version="2.1.0" />
+
     <PackageVersion Include="AWSSDK.S3" Version="3.7.308.4" />
     <PackageVersion Include="Azure.Identity" Version="1.12.0" />
     <PackageVersion Include="Azure.Security.KeyVault.Secrets" Version="4.6.0" />

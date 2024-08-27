@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>True</IsPackable>
+    </PropertyGroup>
+    
+    <ItemGroup>
+        <PackageReference Include="Docfx.App" />
+        <PackageReference Include="JetBrains.Annotations" />
+        <PackageReference Include="Spectre.Console.Cli" />
+        <PackageReference Include="Docfx.MarkdigEngine.Extensions" />
+        <PackageReference Include="HtmlAgilityPack" />
+        <PackageReference Include="PKT.LZStringCSharp" />
+    </ItemGroup>
+    
+    <ItemGroup>
+      <ProjectReference Include="..\PostSharp.Engineering.BuildTools\PostSharp.Engineering.BuildTools.csproj" />
+    </ItemGroup>
+</Project>
