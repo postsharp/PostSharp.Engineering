@@ -26,7 +26,7 @@ public class ListMSBuildCommand : BaseCommand<CommonCommandSettings>
             table.AddRow( instance.Name, instance.Version.ToString(), instance.Path, "VS" );
         }
 
-        context.Console.Out.Write( table );
+        context.Console.Write( table );
 
         context.Console.WriteMessage( $"MSBuildHelper.FindLatestMSBuildExe returns: {MSBuildHelper.FindLatestMSBuildExe() ?? "<null>"}" );
 

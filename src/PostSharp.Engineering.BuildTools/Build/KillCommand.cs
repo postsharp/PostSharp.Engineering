@@ -2,11 +2,6 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Utilities;
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Management;
 
 #pragma warning disable CA1416 // Available on Windows only.
 

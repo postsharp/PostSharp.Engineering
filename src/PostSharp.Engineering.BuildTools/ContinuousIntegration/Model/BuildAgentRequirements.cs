@@ -2,7 +2,6 @@
 
 using JetBrains.Annotations;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;

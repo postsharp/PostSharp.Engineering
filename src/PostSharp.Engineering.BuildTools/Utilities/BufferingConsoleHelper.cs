@@ -18,7 +18,7 @@ internal class BufferingConsoleHelper : ConsoleHelper
         }
     }
 
-    private BufferingConsoleHelper( IAnsiConsole outConsole, IAnsiConsole errorConsole, ConcurrentQueue<Action> queue ) : base( outConsole, errorConsole )
+    private BufferingConsoleHelper( IAnsiConsole? outConsole, IAnsiConsole? errorConsole, ConcurrentQueue<Action> queue ) : base( outConsole, errorConsole )
     {
         this._queue = queue;
     }
@@ -27,6 +27,9 @@ internal class BufferingConsoleHelper : ConsoleHelper
     {
         var queue = new ConcurrentQueue<Action>();
 
-        return new BufferingConsoleHelper( new BufferingAnsiConsole( underlying.Out, queue ), new BufferingAnsiConsole( underlying.Error, queue ), queue );
+        return new BufferingConsoleHelper(
+            underlying.Out == null ? null : new BufferingAnsiConsole( underlying.Out, queue ),
+            underlying.Error == null ? null : new BufferingAnsiConsole( underlying.Error, queue ),
+            queue );
     }
 }

@@ -2,7 +2,6 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
-using Spectre.Console;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies;
@@ -115,7 +114,7 @@ public abstract class ConfigureDependenciesCommand<T> : BaseCommand<T>
         // Writing the configurations neutral file.
         context.Product.PrepareConfigurationNeutralVersionsFile( context, settings, configuration );
 
-        context.Console.Out.WriteLine();
+        context.Console.WriteLine();
 
         dependenciesOverrideFile.Print( context );
 

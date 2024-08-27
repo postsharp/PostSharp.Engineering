@@ -166,7 +166,7 @@ public static class TeamCityHelper
         void ClearLine( int length )
         {
             // TeamCity doesn't allow moving cursor up to rewrite the line as its build log is only a console output.
-            if ( !IsTeamCityBuild( settings ) )
+            if ( !IsTeamCityBuild( settings ) && context.Console.Out != null )
             {
                 context.Console.Out.Cursor.MoveUp();
                 context.Console.Out.WriteLine( new string( ' ', length ) );

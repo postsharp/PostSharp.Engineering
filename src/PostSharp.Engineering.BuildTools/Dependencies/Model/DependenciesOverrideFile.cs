@@ -522,7 +522,7 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model
                 table.AddRow( "*", dependency.Key, dependency.Value.ToString(), dependency.Value.VersionFile ?? "" );
             }
 
-            context.Console.Out.Write( table );
+            context.Console.Write( table );
         }
 
         public bool Fetch( BuildContext context )

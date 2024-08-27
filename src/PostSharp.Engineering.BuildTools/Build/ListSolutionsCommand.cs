@@ -24,7 +24,7 @@ internal sealed class ListSolutionsCommand : BaseCommand<CommonCommandSettings>
             table.AddRow( i.ToString( CultureInfo.InvariantCulture ), solution.SolutionPath, solution.GetType().Name );
         }
 
-        context.Console.Out.Write( table );
+        context.Console.Write( table );
 
         return true;
     }

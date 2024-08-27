@@ -1,5 +1,6 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using System.Collections.Generic;
@@ -7,6 +8,7 @@ using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Docker;
 
+[PublicAPI]
 public class DockerWindowsImage : DockerImage
 {
     public DockerWindowsImage( string uri, string name, string operatingSystemName ) : base(

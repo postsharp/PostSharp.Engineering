@@ -284,7 +284,14 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         }
                         catch ( Exception e )
                         {
-                            console.Error.WriteException( e );
+                            if ( console.Error == null )
+                            {
+                                Console.Error.WriteLine( e.ToString() );
+                            }
+                            else
+                            {
+                                console.Error.WriteException( e );
+                            }
                         }
                     };
 
@@ -305,7 +312,14 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                         }
                         catch ( Exception e )
                         {
-                            console.Error.WriteException( e );
+                            if ( console.Error == null )
+                            {
+                                Console.Error.WriteLine( e.ToString() );
+                            }
+                            else
+                            {
+                                console.Error.WriteException( e );
+                            }
                         }
                     };
 
