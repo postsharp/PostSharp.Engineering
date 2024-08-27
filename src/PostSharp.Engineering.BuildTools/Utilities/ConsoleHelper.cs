@@ -49,9 +49,24 @@ namespace PostSharp.Engineering.BuildTools.Utilities
 
         public ConsoleHelper()
         {
+            T GetSetting<T>( string name, T defaultValue ) where T : struct
+            {
+                var value = Environment.GetEnvironmentVariable( name );
+                
+                return value == null ? defaultValue : Enum.Parse<T>( value );
+            }
+
+            var ansi = GetSetting<AnsiSupport>( "ConsoleAnsi", AnsiSupport.Detect );
+            var colorSystem = GetSetting<ColorSystemSupport>( "ConsoleColorSystem", ColorSystemSupport.Detect );
+            var interactive = GetSetting<InteractionSupport>( "ConsoleInteractive", InteractionSupport.Detect );
+            
             IAnsiConsole CreateConsole( TextWriter writer )
             {
-                return AnsiConsole.Create( new AnsiConsoleSettings { Out = new AnsiConsoleOutputWrapper( writer ) } );
+                return AnsiConsole.Create(
+                    new AnsiConsoleSettings
+                    {
+                        Out = new AnsiConsoleOutputWrapper( writer ), Ansi = ansi, ColorSystem = colorSystem, Interactive = interactive
+                    } );
             }
 
             this.Out = CreateConsole( Console.Out );
