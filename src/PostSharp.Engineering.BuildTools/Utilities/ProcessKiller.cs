@@ -8,6 +8,8 @@ using System.Management;
 
 namespace PostSharp.Engineering.BuildTools.Utilities;
 
+#pragma warning disable CA1416 // Non-portable API.
+
 public static class ProcessKiller
 {
     public static bool Kill( ConsoleHelper console, bool dry = false )
