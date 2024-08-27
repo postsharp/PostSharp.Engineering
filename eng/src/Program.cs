@@ -8,12 +8,16 @@ using Spectre.Console.Cli;
 
 var product = new Product( DevelopmentDependencies.PostSharpEngineering )
 {
-    Solutions = new Solution[] { new DotNetSolution( "PostSharp.Engineering.sln" ) { SupportsTestCoverage = true, CanFormatCode = true } },
+    Solutions =
+    [
+        new DotNetSolution( "PostSharp.Engineering.sln" ) { SupportsTestCoverage = true, CanFormatCode = true }
+    ],
     PublicArtifacts = Pattern.Create(
         "PostSharp.Engineering.Sdk.$(PackageVersion).nupkg",
         "PostSharp.Engineering.BuildTools.$(PackageVersion).nupkg",
         "PostSharp.Engineering.DocFx.$(PackageVersion).nupkg" ),
-    RequiresEngineeringSdk = false
+    RequiresEngineeringSdk = false,
+    ExportedProperties = { { @"eng\Versions.props", ["DocFxVersion"] } }
 };
 
 var app = new EngineeringApp( product );
