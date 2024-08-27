@@ -7,7 +7,7 @@
         <RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
         <RunAnalyzersDuringLiveAnalysis>true</RunAnalyzersDuringLiveAnalysis>
         <WarningLevel>4</WarningLevel>
-        <StyleCopVersion Condition="'$(StyleCopVersion)'==''">1.2.0-beta.507</StyleCopVersion>
+        <StyleCopVersion Condition="'$(StyleCopVersion)'==''">1.2.0-beta.556</StyleCopVersion>
     </PropertyGroup>
 
     <!-- Documentation -->
