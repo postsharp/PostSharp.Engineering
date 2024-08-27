@@ -18,7 +18,7 @@ public class DockerListImagesCommand : BaseCommand<CommonCommandSettings>
             table.AddRow( image.Name, image.Uri );
         }
 
-        context.Console.Out.Write( table );
+        context.Console.Write( table );
 
         return true;
     }

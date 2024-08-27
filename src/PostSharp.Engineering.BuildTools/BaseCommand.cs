@@ -86,7 +86,7 @@ namespace PostSharp.Engineering.BuildTools
                 var myVersion = VersionHelper.EngineeringVersion;
 
                 // Display the logo.
-                if ( !settings.NoLogo )
+                if ( !settings.NoLogo && buildContext.Console.Out != null )
                 {
                     buildContext.Console.Out.Write(
                         new FigletText( buildContext.Product.ProductName )
@@ -106,7 +106,7 @@ namespace PostSharp.Engineering.BuildTools
                     if ( !File.Exists( globalJsonPath ) )
                     {
                         buildContext.Console.WriteWarning( "global.json does not exist." );
-                        buildContext.Console.Out.WriteLine();
+                        buildContext.Console.WriteLine();
                     }
 
                     var globalJson = JsonDocument.Parse( File.ReadAllText( globalJsonPath ) );
@@ -116,7 +116,7 @@ namespace PostSharp.Engineering.BuildTools
                          sdk.GetString() == null )
                     {
                         buildContext.Console.WriteWarning( "global.json does not import the PostSharp.Engineering.Sdk." );
-                        buildContext.Console.Out.WriteLine();
+                        buildContext.Console.WriteLine();
                     }
                     else
                     {
@@ -125,7 +125,7 @@ namespace PostSharp.Engineering.BuildTools
                             buildContext.Console.WriteWarning(
                                 $"global.json imports PostSharp.Engineering.Sdk version {sdk.GetString()}, but the BuildTools version is {myVersion}." );
 
-                            buildContext.Console.Out.WriteLine();
+                            buildContext.Console.WriteLine();
                         }
                     }
                 }

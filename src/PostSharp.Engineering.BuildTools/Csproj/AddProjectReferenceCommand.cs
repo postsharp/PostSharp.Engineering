@@ -2,7 +2,6 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Utilities;
-using Spectre.Console;
 using Spectre.Console.Cli;
 using System;
 using System.IO;
@@ -36,8 +35,7 @@ namespace PostSharp.Engineering.BuildTools.Csproj
             string existingReference,
             string newReference )
         {
-            console.Out.Write( Path.GetFileName( project ) );
-            console.Out.Write( ": " );
+            console.WriteImportantMessage( Path.GetFileName( project ) + ": " );
 
             var xml = new XmlDocument();
             xml.Load( project );
@@ -49,7 +47,7 @@ namespace PostSharp.Engineering.BuildTools.Csproj
 
             if ( newReferenceItem != null )
             {
-                console.Out.WriteLine( "skipped - contains new reference" );
+                console.WriteImportantMessage( "skipped - contains new reference" );
 
                 return;
             }
@@ -59,7 +57,7 @@ namespace PostSharp.Engineering.BuildTools.Csproj
 
             if ( existingReferenceItem == null )
             {
-                console.Out.WriteLine( $"skipped - doesn't reference {existingReference}" );
+                console.WriteImportantMessage( $"skipped - doesn't reference {existingReference}" );
 
                 return;
             }
@@ -82,7 +80,7 @@ namespace PostSharp.Engineering.BuildTools.Csproj
             existingReferenceItem.ParentNode!.InsertAfter( newReferenceItem, existingReferenceItem );
             xml.Save( project );
 
-            console.Out.WriteLine( "modified" );
+            console.WriteImportantMessage( "modified" );
         }
     }
 }

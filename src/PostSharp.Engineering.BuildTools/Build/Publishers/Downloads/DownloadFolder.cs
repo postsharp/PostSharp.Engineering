@@ -4,7 +4,6 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.Build.Publishers.Downloads;
