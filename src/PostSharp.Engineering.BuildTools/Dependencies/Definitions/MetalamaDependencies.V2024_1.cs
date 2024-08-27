@@ -123,6 +123,12 @@ public static partial class MetalamaDependencies
             VcsProvider.AzureDevOps,
             false,
             parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests" );
+        
+        public static DependencyDefinition DotNetSdkTests { get; } = new MetalamaDependencyDefinition(
+            "Metalama.Tests.DotNetSdk",
+            VcsProvider.GitHub,
+            false,
+            parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests" );
 
         public static DependencyDefinition MetalamaPerformance { get; } = new MetalamaDependencyDefinition(
             "Metalama.Performance",

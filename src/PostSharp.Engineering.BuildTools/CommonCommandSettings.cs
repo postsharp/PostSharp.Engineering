@@ -72,6 +72,10 @@ namespace PostSharp.Engineering.BuildTools
         [Description( "Simulate a continuous integration build by setting the build ContinuousIntegrationBuild property to TRUE." )]
         [CommandOption( "--ci" )]
         public bool SimulateContinuousIntegration { get; set; }
+        
+        [Description( "Use the project or solution directory as a working directory." )]
+        [CommandOption( "--project-dir-as-working-dir" )]
+        public bool UseProjectDirectoryAsWorkingDirectory { get; protected set; }
 
         [Description( "Properties in form Name=Value" )]
         [CommandOption( "-p|--property" )]

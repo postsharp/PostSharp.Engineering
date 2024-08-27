@@ -38,6 +38,11 @@ namespace PostSharp.Engineering.BuildTools
                     return 1;
                 }
 
+                if ( settings.UseProjectDirectoryAsWorkingDirectory )
+                {
+                    buildContext = buildContext.WithUseProjectDirectoryAsWorkingDirectory( true );
+                }
+
                 MSBuildHelper.InitializeLocator();
 
                 if ( DockerHelper.IsDockerBuild() )
