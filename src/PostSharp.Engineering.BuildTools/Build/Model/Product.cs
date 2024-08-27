@@ -2055,6 +2055,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var versionInfo = new BuildInfo( null, configuration, this, null );
 
+                // Set artifact rules.
                 var publicArtifactsDirectory =
                     context.Product.PublicArtifactsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
@@ -2064,11 +2065,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 var testResultsDirectory =
                     context.Product.TestResultsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
-                var publishedArtifactRules =
-                    $@"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
+                var logsDirectory = context.Product.LogsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
-                // Add testResults to artifacts
+                var publishedArtifactRules =
+                    $"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
+                
+                publishedArtifactRules += $@"\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
                 publishedArtifactRules += $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}";
+                publishedArtifactRules += $@"\n+:{logsDirectory}/**/*=>logs";
 
                 var additionalArtifactRules = this.DefaultArtifactRules;
 
