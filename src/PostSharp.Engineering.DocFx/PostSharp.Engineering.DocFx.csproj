@@ -19,4 +19,8 @@
     <ItemGroup>
       <ProjectReference Include="..\PostSharp.Engineering.BuildTools\PostSharp.Engineering.BuildTools.csproj" />
     </ItemGroup>
+    
+    <ItemGroup>
+        <Content Include="templates/**" CopyToOutputDirectory="Always" PackageCopyToOutput="true" PackagePath="contentFiles/any/any/templates/overrides" />
+    </ItemGroup>
 </Project>

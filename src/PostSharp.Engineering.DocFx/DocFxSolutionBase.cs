@@ -18,6 +18,8 @@ public abstract class DocFxSolutionBase : Solution
         this._command = command;
     }
 
+    public override string Name => Path.GetFileName( this.SolutionPath ) + ":" + this._command;
+
     public sealed override bool Build( BuildContext context, BuildSettings settings )
     {
         var options = new ToolInvocationOptions()
