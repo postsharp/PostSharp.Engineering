@@ -19,13 +19,14 @@ public static partial class TestDependencies
             public TestDependencyDefinition(
                 string dependencyName,
                 VcsProvider vcsProvider,
-                bool isVersioned = true )
+                bool isVersioned = true,
+                string? customRepositoryName = null )
                 : base(
                     Family,
                     dependencyName,
                     $"develop/{Family.Version}",
                     $"release/{Family.Version}",
-                    CreateEngineeringVcsRepository( dependencyName, vcsProvider ),
+                    CreateEngineeringVcsRepository( customRepositoryName ?? dependencyName, vcsProvider ),
                     TeamCityHelper.CreateConfiguration(
                         TeamCityHelper.GetProjectIdWithParentProjectId(
                             dependencyName,
@@ -36,6 +37,12 @@ public static partial class TestDependencies
 
         public static ProductFamily Family { get; } =
             new( _projectName, "2023.1", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_2.Family };
+        
+        public static DependencyDefinition Consolidated { get; } = new TestDependencyDefinition(
+            "Consolidated",
+            VcsProvider.AzureDevOps,
+            false,
+            customRepositoryName: "PostSharp.Engineering.Test.Consolidated" );
 
         public static DependencyDefinition TestProduct { get; } = new TestDependencyDefinition(
             "PostSharp.Engineering.Test.TestProduct",
