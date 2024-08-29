@@ -2072,10 +2072,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 var logsDirectory = context.Product.LogsDirectory.ToString( versionInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
-                var publishedArtifactRules =
-                    $"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
-                
-                publishedArtifactRules += $@"\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
+                var deployedArtifactRules = $"+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
+                deployedArtifactRules += $@"\n+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}";
+
+                var publishedArtifactRules = deployedArtifactRules;
                 publishedArtifactRules += $@"\n+:{testResultsDirectory}/**/*=>{testResultsDirectory}";
                 publishedArtifactRules += $@"\n+:{logsDirectory}/**/*=>logs";
 
@@ -2186,7 +2186,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             BuildSteps = [CreatePublishBuildStep()],
                             IsDeployment = true,
                             SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
-                                .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, publishedArtifactRules ) } )
+                                .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules ) } )
                                 .Concat(
                                     this.ParametrizedDependencies.Select( d => d.Definition )
                                         .Union( this.SourceDependencies )
@@ -2211,7 +2211,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             BuildSteps = [CreatePublishBuildStep()],
                             IsDeployment = true,
                             SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
-                                .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, publishedArtifactRules ) } )
+                                .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules ) } )
                                 .OrderBy( d => d.ObjectId )
                                 .ToArray(),
                             BuildTimeOutThreshold = configurationInfo.DeploymentTimeOutThreshold ?? this.DeploymentTimeOutThreshold,
@@ -2230,7 +2230,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     if ( teamCityDeploymentConfiguration != null )
                     {
                         swapDependencies.Add( new TeamCitySnapshotDependency( teamCityDeploymentConfiguration.ObjectName, false ) );
-                        swapDependencies.Add( new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, publishedArtifactRules ) );
+                        swapDependencies.Add( new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false ) );
                     }
 
                     teamCityBuildConfigurations.Add(
