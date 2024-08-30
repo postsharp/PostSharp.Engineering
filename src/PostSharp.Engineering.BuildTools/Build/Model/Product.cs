@@ -213,6 +213,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public DockerImageComponent[] AdditionalDockerImageComponents { get; init; } = [];
 
         public bool UseDockerInTeamcity { get; init; }
+        
+        public bool IsPublishingNonReleaseBranchesAllowed { get; init; }
 
         public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )
         {
@@ -1756,18 +1758,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool Publish( BuildContext context, PublishSettings settings )
         {
             context.Console.WriteHeading( "Publishing files" );
-            
-            var releaseBranch = context.Product.DependencyDefinition.ReleaseBranch;
 
-            // If the release branch is not specified, the pre and post publishing is not required, and the publishing can be performed from any branch. 
-            if ( releaseBranch != null && context.Branch != releaseBranch )
+            if ( !context.Product.IsPublishingNonReleaseBranchesAllowed )
             {
-                context.Console.WriteError(
-                    $"Publishing can only be executed on the release branch ('{releaseBranch}'). The current branch is '{context.Branch}'." );
+                var releaseBranch = context.Product.DependencyDefinition.ReleaseBranch;
 
-                return false;
+                // If the release branch is not specified, the pre and post publishing is not required, and the publishing can be performed from any branch. 
+                if ( releaseBranch != null && context.Branch != releaseBranch )
+                {
+                    context.Console.WriteError(
+                        $"Publishing can only be executed on the release branch ('{releaseBranch}'). The current branch is '{context.Branch}'." );
+
+                    return false;
+                }
             }
-            
+
             if ( !this.TryGetPublishingPrerequisities( context, settings, out _ ) )
             {
                 return false;
