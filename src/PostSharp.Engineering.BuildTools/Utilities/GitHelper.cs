@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -11,6 +12,7 @@ using System.Text.RegularExpressions;
 
 namespace PostSharp.Engineering.BuildTools.Utilities;
 
+[PublicAPI]
 public static class GitHelper
 {
     private static bool TryAddOrigin( BuildContext context, string branch )

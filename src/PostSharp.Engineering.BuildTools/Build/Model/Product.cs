@@ -10,6 +10,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 using PostSharp.Engineering.BuildTools.Coverage;
+using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.NuGet;
@@ -151,8 +152,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     // .snupkg packages are published along with .nupkg packages automatically by the "dotnet nuget push" tool.
                     new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
-                    new VsixPublisher( Pattern.Create( "*.vsix" ) ),
-                    new MergePublisher()
+                    new VsixPublisher( Pattern.Create( "*.vsix" ) )
                 }
             ];
 
@@ -1098,7 +1098,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             var configuration = settings.BuildConfiguration;
 
-            context.Console.WriteHeading( "Preparing the version file" );
+            context.Console.WriteMessage( "Preparing the version file" );
 
             var propsFilePath = this.GetVersionPropertiesFilePath( context, settings );
             Directory.CreateDirectory( Path.GetDirectoryName( propsFilePath )! );
@@ -1624,15 +1624,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
         }
 
-        public bool Publish( BuildContext context, PublishSettings settings )
+        private bool TryGetPublishingPrerequisities( BuildContext context, PublishSettings settings, [NotNullWhen( true )] out PreparedVersionInfo? preparedVersionInfo )
         {
-            var configuration = settings.BuildConfiguration;
-            var buildInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) );
-            var directories = this.GetArtifactsDirectories( context, buildInfo );
-
-            var hasTarget = false;
-            var configurationInfo = this.Configurations.GetValue( configuration );
-
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,
                 this.MainVersionFilePath );
@@ -1640,6 +1633,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !File.Exists( mainVersionFile ) )
             {
                 context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
+                
+                preparedVersionInfo = null;
 
                 return false;
             }
@@ -1651,7 +1646,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !this.TryGetPreparedVersionInfo(
                     context,
                     mainVersionFileInfo,
-                    out var preparedVersionInfo ) )
+                    out preparedVersionInfo ) )
             {
                 return false;
             }
@@ -1690,13 +1685,89 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            if ( configuration == BuildConfiguration.Public )
+            if ( settings.BuildConfiguration == BuildConfiguration.Public )
             {
                 this.Verify( context, settings );
             }
 
-            context.Console.WriteHeading( "Publishing files" );
+            return true;
+        }
 
+        public bool PrePublish( BuildContext context, PublishSettings settings )
+        {
+            if ( !this.TryGetPublishingPrerequisities( context, settings, out _ ) )
+            {
+                return false;
+            }
+
+            // When on TeamCity, Git user credentials are set to TeamCity.
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
+                {
+                    return false;
+                }
+            }
+
+            var sourceBranch = context.Product.DependencyDefinition.Branch;
+
+            if ( context.Branch != sourceBranch )
+            {
+                context.Console.WriteError(
+                    $"Pre-publishing can only be executed on the development branch ('{sourceBranch}'). The current branch is '{context.Branch}'." );
+
+                return false;
+            }
+
+            var targetBranch = context.Product.DependencyDefinition.ReleaseBranch;
+
+            if ( targetBranch == null )
+            {
+                context.Console.WriteError( $"Pre-publishing failed. The release branch is not set for '{context.Product.ProductName}' product." );
+
+                return false;
+            }
+
+            context.Console.WriteHeading( $"Merging branch '{sourceBranch}' to '{targetBranch}' before publishing artifacts." );
+
+            // Checkout to target branch branch and pull to update the local repository.
+            if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
+            {
+                return false;
+            }
+
+            // Attempts merging from the source branch, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
+            if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--strategy-option theirs" ) )
+            {
+                return false;
+            }
+
+            // Push the target branch.
+            if ( !GitHelper.TryPush( context, settings ) )
+            {
+                return false;
+            }
+
+            context.Console.WriteSuccess( $"Merging '{sourceBranch}' branch into '{targetBranch}' branch was successful." );
+
+            return true;
+        }
+
+        public bool Publish( BuildContext context, PublishSettings settings )
+        {
+            context.Console.WriteHeading( "Publishing files" );
+            
+            if ( !this.TryGetPublishingPrerequisities( context, settings, out _ ) )
+            {
+                return false;
+            }
+
+            var configuration = settings.BuildConfiguration;
+            var buildInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) );
+            var directories = this.GetArtifactsDirectories( context, buildInfo );
+            var configurationInfo = this.Configurations.GetValue( configuration );
+            var hasTarget = false;
+            
             if ( !Publisher.PublishDirectory(
                     context,
                     settings,
@@ -1745,7 +1816,97 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteSuccess( "Swap after publishing has succeeded." );
             }
 
-            // After successful artifact publishing the last commit is tagged with current version tag.
+            return true;
+        }
+
+        public bool PostPublish( BuildContext context, PublishSettings settings )
+        {
+            context.Console.WriteHeading( "Finishing publishig." );
+            
+            if ( !this.TryGetPublishingPrerequisities( context, settings, out var preparedVersionInfo ) )
+            {
+                return false;
+            }
+            
+            var sourceBranch = context.Product.DependencyDefinition.ReleaseBranch;
+
+            if ( sourceBranch == null )
+            {
+                context.Console.WriteError( $"Post-publishing failed. The release branch is not set for '{context.Product.ProductName}' product." );
+
+                return false;
+            }
+            
+            if ( context.Branch != sourceBranch )
+            {
+                context.Console.WriteError(
+                    $"Post-publishing can only be executed on the release branch ('{sourceBranch}'). The current branch is '{context.Branch}'." );
+
+                return false;
+            }
+            
+            var targetBranch = context.Product.DependencyDefinition.Branch;
+            
+            // When on TeamCity, Git user credentials are set to TeamCity.
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
+                {
+                    return false;
+                }
+            }
+
+            // Go through all dependencies and update their fixed version in AutoUpdatedVersions.props file.
+            if ( !AutoUpdatedDependenciesHelper.TryParseAndVerifyDependencies( context, settings, out var dependenciesUpdated ) )
+            {
+                return false;
+            }
+
+            // Commit and push if dependencies versions were updated in previous step.
+            if ( dependenciesUpdated )
+            {
+                // Adds AutoUpdatedVersions.props with updated dependencies versions to Git staging area.
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        $"add {context.Product.AutoUpdatedVersionsFilePath}",
+                        context.RepoDirectory ) )
+                {
+                    return false;
+                }
+
+                // Returns the remote origin.
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        "remote get-url origin",
+                        context.RepoDirectory,
+                        out _,
+                        out var gitOrigin ) )
+                {
+                    return false;
+                }
+
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        "commit -m \"<<DEPENDENCIES_UPDATED>>\"",
+                        context.RepoDirectory ) )
+                {
+                    return false;
+                }
+
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        $"push {gitOrigin.Trim()}",
+                        context.RepoDirectory ) )
+                {
+                    return false;
+                }
+            }
+            
+            // Tag the last commit with current version tag.
             if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
             {
                 context.Console.WriteError(
@@ -1753,6 +1914,31 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 return false;
             }
+            
+            // Merge the release branch back to develop branch.
+            context.Console.WriteMessage( $"Merging branch '{sourceBranch}' to '{targetBranch}' after publishing artifacts." );
+
+            // Checkout to target branch branch and pull to update the local repository.
+            if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
+            {
+                return false;
+            }
+
+            // Attempts merging from the source branch, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
+            if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--strategy-option theirs" ) )
+            {
+                return false;
+            }
+
+            // Push the target branch.
+            if ( !GitHelper.TryPush( context, settings ) )
+            {
+                return false;
+            }
+
+            context.Console.WriteMessage( $"Merging '{sourceBranch}' branch into '{targetBranch}' branch was successful." );
+            
+            context.Console.WriteSuccess( "Publishing finished successfuly." );
 
             return true;
         }
