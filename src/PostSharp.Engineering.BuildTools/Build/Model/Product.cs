@@ -1757,6 +1757,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             context.Console.WriteHeading( "Publishing files" );
             
+            var releaseBranch = context.Product.DependencyDefinition.ReleaseBranch;
+
+            // If the release branch is not specified, the pre and post publishing is not required, and the publishing can be performed from any branch. 
+            if ( releaseBranch != null && context.Branch != releaseBranch )
+            {
+                context.Console.WriteError(
+                    $"Publishing can only be executed on the release branch ('{releaseBranch}'). The current branch is '{context.Branch}'." );
+
+                return false;
+            }
+            
             if ( !this.TryGetPublishingPrerequisities( context, settings, out _ ) )
             {
                 return false;
