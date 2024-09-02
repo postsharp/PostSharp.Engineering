@@ -27,7 +27,7 @@ object DebugBuild : BuildType({
 
     name = "Build [Debug]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n+:artifacts/logs/**/*=>logs\n"
 
     params {
         text("BuildArguments", "", label = "Build Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
@@ -44,7 +44,7 @@ object DebugBuild : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "tools kill")
+            param("jetbrains_powershell_scriptArguments", "tools kill --ci-branch %teamcity.build.branch% ")
         }
         powerShell {
             name = "Build"
@@ -52,7 +52,7 @@ object DebugBuild : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "test --configuration Debug --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%")
+            param("jetbrains_powershell_scriptArguments", "test --configuration Debug --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --ci-branch %teamcity.build.branch%  %BuildArguments%")
         }
         powerShell {
             name = "Kill background processes before next build"
@@ -60,7 +60,7 @@ object DebugBuild : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "tools kill")
+            param("jetbrains_powershell_scriptArguments", "tools kill --ci-branch %teamcity.build.branch% ")
         }
     }
 
@@ -103,7 +103,7 @@ object ReleaseBuild : BuildType({
 
     name = "Build [Release]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n+:artifacts/logs/**/*=>logs\n"
 
     params {
         text("BuildArguments", "", label = "Build Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
@@ -120,7 +120,7 @@ object ReleaseBuild : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "tools kill")
+            param("jetbrains_powershell_scriptArguments", "tools kill --ci-branch %teamcity.build.branch% ")
         }
         powerShell {
             name = "Build"
@@ -128,7 +128,7 @@ object ReleaseBuild : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "test --configuration Release --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%")
+            param("jetbrains_powershell_scriptArguments", "test --configuration Release --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --ci-branch %teamcity.build.branch%  %BuildArguments%")
         }
         powerShell {
             name = "Kill background processes before next build"
@@ -136,7 +136,7 @@ object ReleaseBuild : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "tools kill")
+            param("jetbrains_powershell_scriptArguments", "tools kill --ci-branch %teamcity.build.branch% ")
         }
     }
 
@@ -170,7 +170,7 @@ object PublicBuild : BuildType({
 
     name = "Build [Public]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n+:artifacts/logs/**/*=>logs\n"
 
     params {
         text("BuildArguments", "", label = "Build Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
@@ -187,7 +187,7 @@ object PublicBuild : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "tools kill")
+            param("jetbrains_powershell_scriptArguments", "tools kill --ci-branch %teamcity.build.branch% ")
         }
         powerShell {
             name = "Build"
@@ -195,7 +195,7 @@ object PublicBuild : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "test --configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%")
+            param("jetbrains_powershell_scriptArguments", "test --configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --ci-branch %teamcity.build.branch%  %BuildArguments%")
         }
         powerShell {
             name = "Kill background processes before next build"
@@ -203,7 +203,7 @@ object PublicBuild : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "tools kill")
+            param("jetbrains_powershell_scriptArguments", "tools kill --ci-branch %teamcity.build.branch% ")
         }
     }
 
@@ -254,7 +254,7 @@ object PublicDeployment : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "publish --configuration Public %PublishArguments%")
+            param("jetbrains_powershell_scriptArguments", "publish --configuration Public --ci-branch %teamcity.build.branch%  %PublishArguments%")
         }
     }
 
@@ -294,7 +294,7 @@ object PublicDeployment : BuildType({
 
             artifacts {
                 cleanDestination = true
-                artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults"
+                artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private"
             }
         }
 
@@ -321,7 +321,7 @@ object VersionBump : BuildType({
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "bump %BumpArguments%")
+            param("jetbrains_powershell_scriptArguments", "bump --ci-branch %teamcity.build.branch%  %BumpArguments%")
         }
     }
 
