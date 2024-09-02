@@ -1628,6 +1628,17 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private bool TryGetPublishingPrerequisities( BuildContext context, PublishSettings settings, [NotNullWhen( true )] out PreparedVersionInfo? preparedVersionInfo )
         {
+            preparedVersionInfo = null;
+            
+            // When on TeamCity, Git user credentials are set to TeamCity.
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
+                {
+                    return false;
+                }
+            }
+            
             var mainVersionFile = Path.Combine(
                 context.RepoDirectory,
                 this.MainVersionFilePath );
@@ -1636,8 +1647,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             {
                 context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
                 
-                preparedVersionInfo = null;
-
                 return false;
             }
 
@@ -1700,15 +1709,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !this.TryGetPublishingPrerequisities( context, settings, out _ ) )
             {
                 return false;
-            }
-
-            // When on TeamCity, Git user credentials are set to TeamCity.
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
-            {
-                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
-                {
-                    return false;
-                }
             }
 
             var sourceBranch = context.Product.DependencyDefinition.Branch;
@@ -1862,15 +1862,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
             
             var targetBranch = context.Product.DependencyDefinition.Branch;
-            
-            // When on TeamCity, Git user credentials are set to TeamCity.
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
-            {
-                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
-                {
-                    return false;
-                }
-            }
 
             // Go through all dependencies and update their fixed version in AutoUpdatedVersions.props file.
             if ( !AutoUpdatedDependenciesHelper.TryParseAndVerifyDependencies( context, settings, out var dependenciesUpdated ) )
