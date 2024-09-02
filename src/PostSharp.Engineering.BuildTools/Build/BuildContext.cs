@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console.Cli;
 using System;
@@ -86,24 +87,69 @@ namespace PostSharp.Engineering.BuildTools.Build
         /// </summary>
         public static bool TryCreate(
             CommandContext commandContext,
+            CommonCommandSettings settings,
             [NotNullWhen( true )] out BuildContext? buildContext )
         {
+            buildContext = null;
             var repoDirectory = FindRepoDirectory( Environment.CurrentDirectory );
             var console = new ConsoleHelper();
 
             if ( repoDirectory == null )
             {
                 console.WriteError( "This tool must be called from a git repository." );
-                buildContext = null;
 
                 return false;
             }
 
             if ( !GitHelper.TryGetCurrentBranch( console, repoDirectory, out var currentBranch ) )
             {
-                buildContext = null;
-
                 return false;
+            }
+            
+            // TeamCity may not check out the selected branch,
+            // if the current commit is the same as the one on the head of the selected branch.
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                if ( settings.CiBranch == null )
+                {
+                    console.WriteError( "The --ci-branch argument was not specified. Make sure that the TeamCity script is up to date." );
+
+                    return false;
+                }
+            
+                if ( currentBranch != settings.CiBranch )
+                {
+                    console.WriteImportantMessage(
+                        $"The current branch '{currentBranch}' is different from the CI selected branch '{settings.CiBranch}'. Checking out '{settings.CiBranch}' branch." );
+
+                    if ( !GitHelper.TryGetCurrentCommitHash( console, repoDirectory, out var initialCommitHash ) )
+                    {
+                        return false;
+                    }
+
+                    if ( !ToolInvocationHelper.InvokeTool(
+                            console,
+                            "git",
+                            $"checkout {settings.CiBranch}",
+                            repoDirectory ) )
+                    {
+                        return false;
+                    }
+
+                    if ( !GitHelper.TryGetCurrentCommitHash( console, repoDirectory, out var currentCommitHash ) )
+                    {
+                        return false;
+                    }
+
+                    if ( initialCommitHash != currentCommitHash )
+                    {
+                        console.WriteError( $"Failed to checkout to the branch '{settings.CiBranch}'." );
+
+                        return false;
+                    }
+
+                    console.WriteImportantMessage( $"'{settings.CiBranch}' branch checked out sucessfully." );
+                }
             }
 
             buildContext = new BuildContext(

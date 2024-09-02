@@ -1626,13 +1626,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
         }
 
-        private bool TryGetPublishingPrerequisities( BuildContext context, PublishSettings settings, [NotNullWhen( true )] out PreparedVersionInfo? preparedVersionInfo )
+        private bool TryPreparePublishing( BuildContext context, PublishSettings settings, [NotNullWhen( true )] out PreparedVersionInfo? preparedVersionInfo )
         {
             preparedVersionInfo = null;
             
-            // When on TeamCity, Git user credentials are set to TeamCity.
             if ( TeamCityHelper.IsTeamCityBuild( settings ) )
             {
+                // When on TeamCity, Git user credentials are set to TeamCity.
                 if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
                 {
                     return false;
@@ -1706,7 +1706,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool PrePublish( BuildContext context, PublishSettings settings )
         {
-            if ( !this.TryGetPublishingPrerequisities( context, settings, out _ ) )
+            if ( !this.TryPreparePublishing( context, settings, out _ ) )
             {
                 return false;
             }
@@ -1773,7 +1773,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            if ( !this.TryGetPublishingPrerequisities( context, settings, out _ ) )
+            if ( !this.TryPreparePublishing( context, settings, out _ ) )
             {
                 return false;
             }
@@ -1839,7 +1839,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             context.Console.WriteHeading( "Finishing publishig." );
             
-            if ( !this.TryGetPublishingPrerequisities( context, settings, out var preparedVersionInfo ) )
+            if ( !this.TryPreparePublishing( context, settings, out var preparedVersionInfo ) )
             {
                 return false;
             }

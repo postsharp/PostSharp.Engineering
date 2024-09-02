@@ -75,7 +75,11 @@ namespace PostSharp.Engineering.BuildTools
         
         [Description( "Use the project or solution directory as a working directory." )]
         [CommandOption( "--project-dir-as-working-dir" )]
-        public bool UseProjectDirectoryAsWorkingDirectory { get; protected set; }
+        public bool UseProjectDirectoryAsWorkingDirectory { get; set; }
+        
+        [Description( "The branch name of the CI build." )]
+        [CommandOption( "--ci-branch" )]
+        public string? CiBranch { get; set; }
 
         [Description( "Properties in form Name=Value" )]
         [CommandOption( "-p|--property" )]

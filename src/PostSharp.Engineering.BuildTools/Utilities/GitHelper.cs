@@ -125,29 +125,35 @@ public static class GitHelper
     }
 
     public static bool TryGetCurrentCommitHash( BuildContext context, [NotNullWhen( true )] out string? currentCommitHash )
+        => TryGetCurrentCommitHash( context.Console, context.RepoDirectory, out currentCommitHash );
+
+    public static bool TryGetCurrentCommitHash( ConsoleHelper console, string repoDirectory, [NotNullWhen( true )] out string? currentCommitHash )
     {
-        if ( !TryGetCurrentCommitHash( context, "HEAD", out currentCommitHash ) )
+        if ( !TryGetCurrentCommitHash( console, repoDirectory, "HEAD", out currentCommitHash ) )
         {
             return false;
         }
 
         if ( currentCommitHash == null )
         {
-            context.Console.WriteError( "Failed to get current commit hash." );
+            console.WriteError( "Failed to get current commit hash." );
 
             return false;
         }
 
         return true;
     }
-    
+
     public static bool TryGetCurrentCommitHash( BuildContext context, string reference, out string? currentCommitHash )
+        => TryGetCurrentCommitHash( context.Console, context.RepoDirectory, reference, out currentCommitHash );
+    
+    public static bool TryGetCurrentCommitHash( ConsoleHelper console, string repoDirectory, string reference, out string? currentCommitHash )
     {
         ToolInvocationHelper.InvokeTool(
-            context.Console,
+            console,
             "git",
             $"rev-parse --verify --quiet {reference}",
-            context.RepoDirectory,
+            repoDirectory,
             out var gitExitCode,
             out var gitOutput );
 
@@ -158,7 +164,7 @@ public static class GitHelper
             // If the reference doesn't exist, the command returns non-zero exit code and no output.
             if ( !string.IsNullOrEmpty( gitOutput ) )
             {
-                context.Console.WriteError( gitOutput );
+                console.WriteError( gitOutput );
 
                 return false;
             }

@@ -5,13 +5,9 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Search;
 
-public class TypesenseCommandSettings : CommandSettings
+public class TypesenseCommandSettings : CommonCommandSettings
 {
     [Description( "Typesense protocol, host and port, e.g. http://localhost:8108" )]
     [CommandArgument( 0, "<typesense-url>" )]
     public string TypesenseUri { get; init; } = null!;
-    
-    [Description( "Attach the debugger to the process before executing the command" )]
-    [CommandOption( "--debug" )]
-    public bool Debug { get; init; } = false;
 }
