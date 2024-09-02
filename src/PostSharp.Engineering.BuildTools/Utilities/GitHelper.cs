@@ -15,14 +15,14 @@ namespace PostSharp.Engineering.BuildTools.Utilities;
 [PublicAPI]
 public static class GitHelper
 {
-    private static bool TryAddOrigin( BuildContext context, string branch )
+    private static bool TryAddOrigin( ConsoleHelper console, string repoDirectory, string branch )
     {
         // Add origin/<branch> branch to the list of currently tracked branches because local repository may be initialized with only the default branch.
         if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
+                console,
                 "git",
                 $"remote set-branches --add origin {branch}",
-                context.RepoDirectory ) )
+                repoDirectory ) )
         {
             return false;
         }
@@ -30,18 +30,20 @@ public static class GitHelper
         return true;
     }
 
-    public static bool TryFetch( BuildContext context, string? branch )
+    public static bool TryFetch( BuildContext context, string? branch ) => TryFetch( context.Console, context.RepoDirectory, branch );
+    
+    public static bool TryFetch( ConsoleHelper console, string repoDirectory, string? branch )
     {
-        if ( branch != null && !TryAddOrigin( context, branch ) )
+        if ( branch != null && !TryAddOrigin( console, repoDirectory, branch ) )
         {
             return false;
         }
 
         if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
+                console,
                 "git",
                 $"fetch",
-                context.RepoDirectory ) )
+                repoDirectory ) )
         {
             return false;
         }
@@ -56,7 +58,6 @@ public static class GitHelper
             return false;
         }
 
-        // Switch to the <branch> branch before we do merge.
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
@@ -66,7 +67,6 @@ public static class GitHelper
             return false;
         }
 
-        // Pull remote changes
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
@@ -90,7 +90,7 @@ public static class GitHelper
             return false;
         }
 
-        if ( !TryAddOrigin( context, branch ) )
+        if ( !TryAddOrigin( context.Console, context.RepoDirectory, branch ) )
         {
             return false;
         }

@@ -126,6 +126,11 @@ namespace PostSharp.Engineering.BuildTools.Build
                     {
                         return false;
                     }
+                    
+                    if ( !GitHelper.TryFetch( console, repoDirectory, settings.CiBranch ) )
+                    {
+                        return false;
+                    }
 
                     if ( !ToolInvocationHelper.InvokeTool(
                             console,
