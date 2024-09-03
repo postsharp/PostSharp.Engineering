@@ -5,7 +5,7 @@ using System.ComponentModel;
 
 namespace PostSharp.Engineering.BuildTools.Build
 {
-    public class PublishSettings : BaseBuildSettings
+    public class PublishSettings : BuildSettings
     {
         [Description( "Prints the command line, but does not execute it" )]
         [CommandOption( "--dry" )]
