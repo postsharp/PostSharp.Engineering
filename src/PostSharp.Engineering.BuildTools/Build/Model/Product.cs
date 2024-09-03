@@ -1696,11 +1696,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            if ( settings.BuildConfiguration == BuildConfiguration.Public )
-            {
-                this.Verify( context, settings );
-            }
-
             return true;
         }
 
@@ -1783,6 +1778,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !this.TryPreparePublishing( context, settings, out _ ) )
             {
                 return false;
+            }
+            
+            if ( settings.BuildConfiguration == BuildConfiguration.Public )
+            {
+                if ( !this.Verify( context, settings ) )
+                {
+                    return false;
+                }
             }
 
             var configuration = settings.BuildConfiguration;
