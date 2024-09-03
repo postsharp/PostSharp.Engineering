@@ -15,6 +15,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         public string ObjectName { get; }
 
         public string Name { get; }
+        
+        public string DefaultBranch { get; }
 
         public BuildAgentRequirements? BuildAgentRequirements { get; }
 
@@ -38,10 +40,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public TimeSpan? BuildTimeOutThreshold { get; init; }
 
-        public TeamCityBuildConfiguration( string objectName, string name, BuildAgentRequirements? buildAgentRequirements = null )
+        public TeamCityBuildConfiguration( string objectName, string name, string defaultBranch, BuildAgentRequirements? buildAgentRequirements = null )
         {
             this.ObjectName = objectName;
             this.Name = name;
+            this.DefaultBranch = defaultBranch;
             this.BuildAgentRequirements = buildAgentRequirements;
         }
 
@@ -88,6 +91,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 buildParameters.AddRange(
                     this.BuildSteps!.SelectMany( s => s.BuildConfigurationParameters ?? Enumerable.Empty<TeamCityBuildConfigurationParameter>() ) );
             }
+
+            buildParameters.Add(
+                new TeamCityTextBuildConfigurationParameter(
+                    "DefaultBranch",
+                    "Default Branch",
+                    "The default branch of this build configuration.",
+                    this.DefaultBranch ) );
 
             if ( this.BuildTimeOutThreshold.HasValue )
             {

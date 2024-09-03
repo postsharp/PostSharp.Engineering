@@ -450,7 +450,7 @@ public static class TeamCityHelper
         {
             var familyVersion = context.Product.ProductFamily.Version;
             var url = repository.TeamCityRemoteUrl;
-            var defaultBranch = $"refs/heads/{context.Product.DependencyDefinition.Branch}";
+            var defaultBranch = "%DefaultBranch%";
 
             var branchSpecification = new List<string>
             {
@@ -666,6 +666,16 @@ public static class TeamCityHelper
 
         var consolidatedProjectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId;
         var consolidatedProjectIdPrefix = $"{consolidatedProjectId}_";
+        var defaultBranch = context.Product.DependencyDefinition.Branch;
+        var deploymentBranch = context.Product.DependencyDefinition.ReleaseBranch;
+
+        if ( deploymentBranch == null )
+        {
+            context.Console.WriteError( $"Release branch not set for the consolidated project." );
+
+            return false;
+        }
+        
         var tcConfigurations = new List<TeamCityBuildConfiguration>();
         var nuGetConfigurations = new List<TeamCityBuildConfiguration>();
 
@@ -827,7 +837,7 @@ public static class TeamCityHelper
 
             dependencies.Add( new( nuGetBuildCiId, true ) );
 
-            consolidatedBuildConfiguration = new( consolidatedBuildObjectName, consolidatedBuildConfigurationName )
+            consolidatedBuildConfiguration = new( consolidatedBuildObjectName, consolidatedBuildConfigurationName, deploymentBranch )
             {
                 SnapshotDependencies = dependencies.ToArray(), BuildTriggers = consolidatedBuildTriggers
             };
@@ -835,7 +845,8 @@ public static class TeamCityHelper
             var nuGetBuildSteps =
                 new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( configuration, false, context.Product.UseDockerInTeamcity ) };
 
-            nuGetBuildConfiguration = new( nuGetBuildObjectName, nuGetBuildConfigurationName, context.Product.ResolvedBuildAgentRequirements )
+            // The default branch is the same as for public build of any other project - see the build configuration of a regular project.
+            nuGetBuildConfiguration = new( nuGetBuildObjectName, nuGetBuildConfigurationName, defaultBranch )
             {
                 BuildSteps = nuGetBuildSteps,
                 SnapshotDependencies = nuGetDependencies.ToArray(),
@@ -884,7 +895,7 @@ public static class TeamCityHelper
             var consolidatedDownstreamMergeBuildTriggers = new IBuildTrigger[] { new NightlyBuildTrigger( 23, true ) };
 
             tcConfigurations.Add(
-                new TeamCityBuildConfiguration( downstreamMergeObjectName, "Merge Downstream" )
+                new TeamCityBuildConfiguration( downstreamMergeObjectName, "Merge Downstream", defaultBranch )
                 {
                     SnapshotDependencies = consolidatedDownstreamMergeSnapshotDependencies.ToArray(),
                     BuildTriggers = consolidatedDownstreamMergeBuildTriggers
@@ -994,6 +1005,7 @@ public static class TeamCityHelper
             new TeamCityBuildConfiguration(
                 versionBumpObjectName,
                 "1. Version Bump",
+                defaultBranch,
                 context.Product.ResolvedBuildAgentRequirements )
             {
                 BuildSteps = consolidatedVersionBumpSteps.ToArray(), BuildTriggers = consolidatedVersionBumpBuildTriggers
@@ -1020,7 +1032,7 @@ public static class TeamCityHelper
                 .Append( new( publicNuGetBuildCiId, true, nuGetBuildArtifactRules ) );
 
         nuGetConfigurations.Add(
-            new( MarkNuGetObjectId( publicDeploymentObjectName ), publicDeploymentName, context.Product.ResolvedBuildAgentRequirements )
+            new( MarkNuGetObjectId( publicDeploymentObjectName ), publicDeploymentName, deploymentBranch, context.Product.ResolvedBuildAgentRequirements )
             {
                 BuildSteps = nuGetPublicDeploymentSteps,
                 SnapshotDependencies = nuGetPublicDeploymentDependencies.ToArray(),
@@ -1046,7 +1058,7 @@ public static class TeamCityHelper
                 .Append( new( publicNuGetDeploymentCiId, true ) );
 
         tcConfigurations.Add(
-            new TeamCityBuildConfiguration( publicDeploymentObjectName, $"3. {publicDeploymentName}" )
+            new TeamCityBuildConfiguration( publicDeploymentObjectName, $"3. {publicDeploymentName}", deploymentBranch )
             {
                 SnapshotDependencies = consolidatedPublicDeploymentSnapshotDependencies.ToArray(),
                 IsDeployment = true

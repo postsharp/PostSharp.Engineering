@@ -83,6 +83,7 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
             var teamCityUpdateSearchConfiguration = new TeamCityBuildConfiguration(
                 $"{configuration}UpdateSearch",
                 name,
+                context.Product.DependencyDefinition.ReleaseBranch ?? context.Product.DependencyDefinition.Branch,
                 buildAgentRequirements )
             {
                 BuildSteps = [CreateBuildStep()],
@@ -99,6 +100,7 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
                 var teamCityUpdateSearchWithoutDependenciesConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}UpdateSearchNoDependency",
                     $"Standalone {name}",
+                    context.Product.DependencyDefinition.Branch,
                     buildAgentRequirements ) { BuildSteps = [CreateBuildStep()], IsDeployment = true, BuildTimeOutThreshold = this.TimeOutThreshold };
 
                 teamCityBuildConfigurations.Add( teamCityUpdateSearchWithoutDependenciesConfiguration );

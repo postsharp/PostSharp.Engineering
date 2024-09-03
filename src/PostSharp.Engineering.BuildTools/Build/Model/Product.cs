@@ -2255,6 +2255,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
             var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
             var isRepoRemoteSsh = this.DependencyDefinition.VcsRepository.IsSshAgentRequired;
+            var defaultBranch = this.DependencyDefinition.Branch;
+            var deploymentBranch = this.DependencyDefinition.ReleaseBranch ?? defaultBranch;
 
             foreach ( var configuration in configurations )
             {
@@ -2358,9 +2360,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "Kill", "Kill background processes before next build", "tools kill" ) );
                 }
 
+                // The default branch for the public build cannot be set to the release branch,
+                // because the schedulled build would not trigger the build on the develop branch
+                // where the develop branch name differs.
+                // Only the consolidated public build has the release branch as the default branch
+                // and it expects that the release branch name is the same for each project.
+                // If it happens that it's not, the build of the develop branch would be triggered
+                // during the consolidated public build on such project, but the correct
+                // one would be triggered during deployment.
                 var teamCityBuildConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}Build",
                     configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
+                    defaultBranch,
                     this.ResolvedBuildAgentRequirements )
                 {
                     BuildSteps = teamCityBuildSteps.ToArray(),
@@ -2388,6 +2399,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
                             $"{configuration}Deployment",
                             configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
+                            deploymentBranch,
                             this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps = [CreatePublishBuildStep()],
@@ -2410,9 +2422,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     if ( configurationInfo.ExportsToTeamCityDeployWithoutDependencies )
                     {
+                        // The standalone deployment doesn't expect pre-publishing and post-publishing step to be triggered,
+                        // so it's done from the develop branch.
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
                             objectName: $"{configuration}DeploymentNoDependency",
                             name: "Standalone " + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
+                            defaultBranch,
                             buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps = [CreatePublishBuildStep()],
@@ -2444,6 +2459,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         new TeamCityBuildConfiguration(
                             objectName: $"{configuration}Swap",
                             name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
+                            deploymentBranch,
                             buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps =
@@ -2468,6 +2484,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         new TeamCityBuildConfiguration(
                             objectName: "VersionBump",
                             name: $"Version Bump",
+                            defaultBranch,
                             buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps =
@@ -2489,6 +2506,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     new TeamCityBuildConfiguration(
                         "DownstreamMerge",
                         "Downstream Merge",
+                        defaultBranch,
                         this.ResolvedBuildAgentRequirements )
                     {
                         BuildSteps =
