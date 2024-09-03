@@ -69,7 +69,7 @@ public abstract class UpdateSearchCommandBase : AsyncCommand<UpdateSearchCommand
         
         await ResetCollectionAsync( updater, targetCollection );
 
-        if ( !BuildContext.TryCreate( context, settings, out var buildContext ) )
+        if ( !BuildContext.TryCreate( context, out var buildContext ) )
         {
             return -1;
         }

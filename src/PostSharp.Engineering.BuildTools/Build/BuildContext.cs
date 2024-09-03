@@ -87,7 +87,6 @@ namespace PostSharp.Engineering.BuildTools.Build
         /// </summary>
         public static bool TryCreate(
             CommandContext commandContext,
-            CommonCommandSettings settings,
             [NotNullWhen( true )] out BuildContext? buildContext )
         {
             buildContext = null;
@@ -104,57 +103,6 @@ namespace PostSharp.Engineering.BuildTools.Build
             if ( !GitHelper.TryGetCurrentBranch( console, repoDirectory, out var currentBranch ) )
             {
                 return false;
-            }
-            
-            // TeamCity may not check out the selected branch,
-            // if the current commit is the same as the one on the head of the selected branch.
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
-            {
-                if ( settings.CiBranch == null )
-                {
-                    console.WriteError( "The --ci-branch argument was not specified. Make sure that the TeamCity script is up to date." );
-
-                    return false;
-                }
-            
-                if ( currentBranch != settings.CiBranch )
-                {
-                    console.WriteImportantMessage(
-                        $"The current branch '{currentBranch}' is different from the CI selected branch '{settings.CiBranch}'. Checking out '{settings.CiBranch}' branch." );
-
-                    if ( !GitHelper.TryGetCurrentCommitHash( console, repoDirectory, out var initialCommitHash ) )
-                    {
-                        return false;
-                    }
-                    
-                    if ( !GitHelper.TryFetch( console, repoDirectory, settings.CiBranch ) )
-                    {
-                        return false;
-                    }
-
-                    if ( !ToolInvocationHelper.InvokeTool(
-                            console,
-                            "git",
-                            $"checkout {settings.CiBranch}",
-                            repoDirectory ) )
-                    {
-                        return false;
-                    }
-
-                    if ( !GitHelper.TryGetCurrentCommitHash( console, repoDirectory, out var currentCommitHash ) )
-                    {
-                        return false;
-                    }
-
-                    if ( initialCommitHash != currentCommitHash )
-                    {
-                        console.WriteError( $"Failed to checkout to the branch '{settings.CiBranch}'." );
-
-                        return false;
-                    }
-
-                    console.WriteImportantMessage( $"'{settings.CiBranch}' branch checked out sucessfully." );
-                }
             }
 
             buildContext = new BuildContext(

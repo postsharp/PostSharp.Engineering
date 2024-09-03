@@ -33,7 +33,7 @@ namespace PostSharp.Engineering.BuildTools
                     Debugger.Launch();
                 }
 
-                if ( !BuildContext.TryCreate( context, settings, out var buildContext ) )
+                if ( !BuildContext.TryCreate( context, out var buildContext ) )
                 {
                     return 1;
                 }
