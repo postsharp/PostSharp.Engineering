@@ -142,11 +142,6 @@ namespace PostSharp.Engineering.BuildTools
                             dependencies.AddCommand<UpdateEngineeringCommand>( "update-eng" )
                                 .WithData( data )
                                 .WithDescription( "Updates PostSharp.Engineering in global.json and Versions.props." );
-
-                            dependencies.AddCommand<UpdateAutoUpdatedDependenciesCommand>( "update-auto-updated" )
-                                .WithData( data )
-                                .WithDescription(
-                                    "Updated auto-updated dependencies. This command serves for development of PostSharp.Engineering. In production, the auto-update is done by the MergePublisher during deployment." );
                         } );
 
                     root.AddBranch(

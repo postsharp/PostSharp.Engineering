@@ -2080,9 +2080,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // It is forbidden to push to the release branch, but it occasionally happens.
             // We need to make sure that there are no pending changes in the release branch to be merged to the development branch.
             // Failing to do so could result in missing published changes, and it could also break the version bump.
-            // (The merge publisher creates a merge commit in the release branch, and tags this commit as the released one,
-            //  instead of the released one. The tag is then not visible in the development branch by the version bump,
-            //  and it is considered, that bump is not needed, because there was no release.)
             var releaseBranch = context.Product.DependencyDefinition.ReleaseBranch;
 
             if ( releaseBranch == null )
@@ -2130,7 +2127,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            if ( hasBumpSinceLastDeployment && !settings.OverridePreviousDump )
+            if ( hasBumpSinceLastDeployment && !settings.OverridePreviousBump )
             {
                 context.Console.WriteWarning( "Version has already been bumped since the last deployment." );
 
