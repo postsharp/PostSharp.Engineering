@@ -1646,15 +1646,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         private bool CanPublish( BuildContext context, PublishSettings settings )
         {
-            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
-            {
-                // When on TeamCity, Git user credentials are set to TeamCity.
-                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
-                {
-                    return false;
-                }
-            }
-            
             if ( !this.TryReadMainVersionFile( context, out var mainVersionFileInfo, out _ ) )
             {
                 return false;
@@ -1718,6 +1709,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( !this.CanPublish( context, settings ) )
             {
                 return false;
+            }
+            
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                // When on TeamCity, Git user credentials are set to TeamCity.
+                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
+                {
+                    return false;
+                }
             }
 
             var sourceBranch = context.Product.DependencyDefinition.Branch;
@@ -1854,6 +1854,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool PostPublish( BuildContext context, PublishSettings settings )
         {
+            context.Console.WriteHeading( "Finishing publishig." );
+            
             // This step is only required for pre-publishing and post-publishing, so they don't require a build.
             // Publishing gets this file along with the published artifacts.
             if ( !this.PrepareVersionsFile( context, settings, out _ ) )
@@ -1861,7 +1863,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
             
-            context.Console.WriteHeading( "Finishing publishig." );
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                // When on TeamCity, Git user credentials are set to TeamCity.
+                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
+                {
+                    return false;
+                }
+            }
             
             var sourceBranch = context.Product.DependencyDefinition.ReleaseBranch;
 
