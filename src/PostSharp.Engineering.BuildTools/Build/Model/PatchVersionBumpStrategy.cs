@@ -18,21 +18,14 @@ public class PatchVersionBumpStrategy : IBumpStrategy
         [NotNullWhen( true )] out Version? oldVersion,
         [NotNullWhen( true )] out Version? newVersion )
     {
-        var mainVersionFile = Path.Combine(
-            context.RepoDirectory,
-            product.MainVersionFilePath );
-
-        if ( !File.Exists( mainVersionFile ) )
+        if ( !product.TryReadMainVersionFile( context, out var currentMainVersionFile, out var mainVersionFile ) )
         {
-            context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
-
             oldVersion = null;
             newVersion = null;
 
             return false;
         }
 
-        var currentMainVersionFile = Product.ReadMainVersionFile( mainVersionFile );
         var oldOurPatchVersion = currentMainVersionFile.OurPatchVersion;
         oldVersion = new Version( currentMainVersionFile.MainVersion );
 
@@ -56,8 +49,15 @@ public class PatchVersionBumpStrategy : IBumpStrategy
 
             return false;
         }
+        
+        if ( !product.TryReadMainVersionFile( context, out var updatedMainVersionFile ) )
+        {
+            oldVersion = null;
+            newVersion = null;
 
-        var updatedMainVersionFile = Product.ReadMainVersionFile( mainVersionFile );
+            return false;
+        }
+
         newVersion = new Version( updatedMainVersionFile.MainVersion );
 
         context.Console.WriteSuccess( $"Bumping the '{context.Product.ProductName}' version from '{oldVersion}' to '{newVersion}' was successful." );

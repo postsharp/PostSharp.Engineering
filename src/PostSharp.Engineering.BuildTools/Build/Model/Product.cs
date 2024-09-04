@@ -670,10 +670,33 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Reads MainVersion.props but does not interpret anything.
         /// </summary>
-        public static MainVersionFileInfo ReadMainVersionFile( string path )
+        public bool TryReadMainVersionFile(
+            BuildContext context,
+            [NotNullWhen( true )] out MainVersionFileInfo? mainVersionFileInfo )
+            => this.TryReadMainVersionFile( context, out mainVersionFileInfo, out _ );
+        
+        /// <summary>
+        /// Reads MainVersion.props but does not interpret anything.
+        /// </summary>
+        public bool TryReadMainVersionFile(
+            BuildContext context,
+            [NotNullWhen( true )] out MainVersionFileInfo? mainVersionFileInfo,
+            out string mainVersionFilePath )
         {
-            var versionFilePath = path;
-            var versionFile = Project.FromFile( versionFilePath, new ProjectOptions() );
+            mainVersionFileInfo = null;
+
+            mainVersionFilePath = Path.Combine(
+                context.RepoDirectory,
+                this.MainVersionFilePath );
+
+            if ( !File.Exists( mainVersionFilePath ) )
+            {
+                context.Console.WriteError( $"The file '{mainVersionFilePath}' does not exist." );
+
+                return false;
+            }
+
+            var versionFile = Project.FromFile( mainVersionFilePath, new ProjectOptions() );
 
             var mainVersion = versionFile
                 .Properties
@@ -692,7 +715,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( string.IsNullOrEmpty( mainVersion ) )
             {
-                throw new InvalidOperationException( $"MainVersion should not be null in '{path}'." );
+                context.Console.WriteError( $"MainVersion should not be null in '{mainVersionFilePath}'." );
+
+                return false;
             }
 
             var suffix = versionFile
@@ -705,11 +730,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
-            return new MainVersionFileInfo(
+            mainVersionFileInfo = new(
                 mainVersion,
                 overriddenPatchVersion,
                 suffix,
                 ourPatchVersion != null ? int.Parse( ourPatchVersion, CultureInfo.InvariantCulture ) : null );
+
+            return true;
         }
 
         /// <summary>
@@ -1131,19 +1158,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            var mainVersionFile = Path.Combine(
-                context.RepoDirectory,
-                this.MainVersionFilePath );
-
-            if ( !File.Exists( mainVersionFile ) )
+            if ( !this.TryReadMainVersionFile( context, out var mainVersionFileInfo, out _ ) )
             {
-                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
-
                 return false;
             }
-
-            // Read the main version number.
-            var mainVersionFileInfo = ReadMainVersionFile( mainVersionFile );
 
             if ( !this.TryComputeVersion( context, settings, configuration, mainVersionFileInfo, dependenciesOverrideFile, out var version ) )
             {
@@ -1626,10 +1644,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
         }
 
-        private bool TryPreparePublishing( BuildContext context, PublishSettings settings, [NotNullWhen( true )] out PreparedVersionInfo? preparedVersionInfo )
+        private bool CanPublish( BuildContext context, PublishSettings settings )
         {
-            preparedVersionInfo = null;
-            
             if ( TeamCityHelper.IsTeamCityBuild( settings ) )
             {
                 // When on TeamCity, Git user credentials are set to TeamCity.
@@ -1639,25 +1655,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
             
-            var mainVersionFile = Path.Combine(
-                context.RepoDirectory,
-                this.MainVersionFilePath );
-
-            if ( !File.Exists( mainVersionFile ) )
+            if ( !this.TryReadMainVersionFile( context, out var mainVersionFileInfo, out _ ) )
             {
-                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
-                
                 return false;
             }
 
-            // Get the location of MainVersion.props file.
-            var mainVersionFileInfo = ReadMainVersionFile( mainVersionFile );
-
-            // Get the current version from MainVersion.props.
             if ( !this.TryGetPreparedVersionInfo(
                     context,
                     mainVersionFileInfo,
-                    out preparedVersionInfo ) )
+                    out var preparedVersionInfo ) )
             {
                 return false;
             }
@@ -1701,14 +1707,15 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool PrePublish( BuildContext context, PublishSettings settings )
         {
-            // This step is only required for pre-publishing, so it doesn't require a build.
-            // Publishing and post-publishing gets this file along with the published artifacts.
+            // This step is only required for pre-publishing and post-publishing, so they don't require a build.
+            // Publishing gets this file along with the published artifacts.
             if ( !this.PrepareVersionsFile( context, settings, out _ ) )
             {
                 return false;
             }
 
-            if ( !this.TryPreparePublishing( context, settings, out _ ) )
+            // Check that we're ready to publish.
+            if ( !this.CanPublish( context, settings ) )
             {
                 return false;
             }
@@ -1775,7 +1782,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            if ( !this.TryPreparePublishing( context, settings, out _ ) )
+            if ( !this.CanPublish( context, settings ) )
             {
                 return false;
             }
@@ -1847,12 +1854,14 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool PostPublish( BuildContext context, PublishSettings settings )
         {
-            context.Console.WriteHeading( "Finishing publishig." );
-            
-            if ( !this.TryPreparePublishing( context, settings, out var preparedVersionInfo ) )
+            // This step is only required for pre-publishing and post-publishing, so they don't require a build.
+            // Publishing gets this file along with the published artifacts.
+            if ( !this.PrepareVersionsFile( context, settings, out _ ) )
             {
                 return false;
             }
+            
+            context.Console.WriteHeading( "Finishing publishig." );
             
             var sourceBranch = context.Product.DependencyDefinition.ReleaseBranch;
 
@@ -1921,6 +1930,19 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     return false;
                 }
+            }
+            
+            if ( !this.TryReadMainVersionFile( context, out var mainVersionFileInfo ) )
+            {
+                return false;
+            }
+
+            if ( !this.TryGetPreparedVersionInfo(
+                    context,
+                    mainVersionFileInfo,
+                    out var preparedVersionInfo ) )
+            {
+                return false;
             }
             
             // Tag the last commit with current version tag.
@@ -2066,7 +2088,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             if ( releaseBranch == null )
             {
                 context.Console.WriteMessage(
-                    $"Skipping check for pending changes from the release branch, as the release branch is not set for this product." );
+                    "Skipping check for pending changes from the release branch, as the release branch is not set for this product." );
             }
             else
             {
@@ -2097,18 +2119,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            var mainVersionFile = Path.Combine(
-                context.RepoDirectory,
-                this.MainVersionFilePath );
-
-            if ( !File.Exists( mainVersionFile ) )
+            if ( !this.TryReadMainVersionFile( context, out var currentMainVersionFile ) )
             {
-                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
-
                 return false;
             }
-
-            var currentMainVersionFile = ReadMainVersionFile( mainVersionFile );
 
             // If the version has already been dumped since the last deployment, there is nothing to do. 
             if ( !TryAnalyzeGitHistory( context, currentMainVersionFile, out var hasBumpSinceLastDeployment, out var hasChangesSinceLastDeployment, out _ ) )
