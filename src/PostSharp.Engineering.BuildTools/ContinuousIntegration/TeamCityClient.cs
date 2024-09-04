@@ -713,30 +713,27 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
 
         public bool TryCreateVcsRoot(
             ConsoleHelper console,
-            string url,
             string? projectId,
+            string id,
+            string name,
             string defaultBranch,
-            IEnumerable<string> branchSpecification,
-            [NotNullWhen( true )] out string? name,
-            [NotNullWhen( true )] out string? id )
+            VcsRepository repository,
+            IEnumerable<string> branchSpecification )
         {
-            projectId ??= "_Root";
-
+            var url = repository.TeamCityRemoteUrl;
             var properties = new List<(string Name, string Value)>();
 
-            void AddProperty( string name, string value ) => properties.Add( (name, value) );
+            void AddProperty( string propertyName, string propertyValue ) => properties.Add( (propertyName, propertyValue) );
 
-            if ( AzureDevOpsRepository.TryParse( url, out var azureDevOpsRepository ) )
+            if ( repository is AzureDevOpsRepository )
             {
-                name = azureDevOpsRepository.Name;
                 AddProperty( "authMethod", "PASSWORD" );
                 AddProperty( "username", "teamcity@postsharp.net" );
                 AddProperty( "secure:password", "%SourceCodeWritingToken%" );
                 AddProperty( "usernameStyle", "EMAIL" );
             }
-            else if ( GitHubRepository.TryParse( url, out var gitHubRepository ) )
+            else if ( repository is GitHubRepository )
             {
-                name = gitHubRepository.Name;
                 AddProperty( "authMethod", "TEAMCITY_SSH_KEY" );
                 AddProperty( "teamcitySshKey", "PostSharp.Engineering" );
                 AddProperty( "usernameStyle", "USERID" );
@@ -744,8 +741,6 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             else
             {
                 console.WriteError( $"Unknown VCS provider: {url}" );
-                name = null;
-                id = null;
 
                 return false;
             }
@@ -759,10 +754,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
             AddProperty( "branch", defaultBranch );
             AddProperty( "teamcity:branchSpec", string.Join( "&#xA;", branchSpecification ) );
 
-            id = $"{(projectId == "_Root" ? "Root" : projectId)}_{name.Replace( ".", "", StringComparison.Ordinal )}";
-
             var payload = $@"<vcs-root id=""{id}"" name=""{name}"" vcsName=""jetbrains.git"">
-   <project id=""{projectId}""/>
+   <project id=""{projectId ?? "_Root"}""/>
    <properties>
      {string.Join( Environment.NewLine, properties.Select( p => $"<property name=\"{p.Name}\" value=\"{p.Value}\" />" ) )}
    </properties>

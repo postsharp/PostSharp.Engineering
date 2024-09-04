@@ -2273,6 +2273,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var isRepoRemoteSsh = this.DependencyDefinition.VcsRepository.IsSshAgentRequired;
             var defaultBranch = this.DependencyDefinition.Branch;
             var deploymentBranch = this.DependencyDefinition.ReleaseBranch ?? defaultBranch;
+            var vcsRootId = TeamCityHelper.GetVcsRootId( this.DependencyDefinition );
 
             foreach ( var configuration in configurations )
             {
@@ -2388,6 +2389,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     $"{configuration}Build",
                     configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
                     defaultBranch,
+                    vcsRootId,
                     this.ResolvedBuildAgentRequirements )
                 {
                     BuildSteps = teamCityBuildSteps.ToArray(),
@@ -2416,6 +2418,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             $"{configuration}Deployment",
                             configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
                             deploymentBranch,
+                            vcsRootId,
                             this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps = [CreatePublishBuildStep()],
@@ -2444,6 +2447,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: $"{configuration}DeploymentNoDependency",
                             name: "Standalone " + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
                             defaultBranch,
+                            vcsRootId,
                             buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps = [CreatePublishBuildStep()],
@@ -2476,6 +2480,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: $"{configuration}Swap",
                             name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
                             deploymentBranch,
+                            vcsRootId,
                             buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps =
@@ -2489,8 +2494,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            // Only versioned products can be bumped.
-            if ( this.DependencyDefinition.IsVersioned )
+            // Only versioned products that don't have consolidated version bump can be bumped individually.
+            if ( !this.ProductFamily.TryGetDependencyDefinition( "Consolidated", out _ ) && this.DependencyDefinition.IsVersioned )
             {
                 var dependencies = this.ParametrizedDependencies;
 
@@ -2501,6 +2506,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: "VersionBump",
                             name: $"Version Bump",
                             defaultBranch,
+                            vcsRootId,
                             buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps =
@@ -2523,6 +2529,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         "DownstreamMerge",
                         "Downstream Merge",
                         defaultBranch,
+                        vcsRootId,
                         this.ResolvedBuildAgentRequirements )
                     {
                         BuildSteps =

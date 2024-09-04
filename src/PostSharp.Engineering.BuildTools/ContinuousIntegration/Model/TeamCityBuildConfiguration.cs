@@ -17,6 +17,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         public string Name { get; }
         
         public string DefaultBranch { get; }
+        
+        public string VcsRootId { get; }
 
         public BuildAgentRequirements? BuildAgentRequirements { get; }
 
@@ -40,11 +42,12 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public TimeSpan? BuildTimeOutThreshold { get; init; }
 
-        public TeamCityBuildConfiguration( string objectName, string name, string defaultBranch, BuildAgentRequirements? buildAgentRequirements = null )
+        public TeamCityBuildConfiguration( string objectName, string name, string defaultBranch, string vcsRootId, BuildAgentRequirements? buildAgentRequirements = null )
         {
             this.ObjectName = objectName;
             this.Name = name;
             this.DefaultBranch = defaultBranch;
+            this.VcsRootId = vcsRootId;
             this.BuildAgentRequirements = buildAgentRequirements;
         }
 
@@ -120,7 +123,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
             writer.WriteLine(
                 $@"    vcs {{
-        {(this.IsComposite ? "showDependenciesChanges = true" : "root(DslContext.settingsRoot)")}" );
+        {(this.IsComposite ? "showDependenciesChanges = true" : @$"root(AbsoluteId(""{this.VcsRootId}""))")}" );
 
             // Source dependencies.
             var hasSourceDependencies = this.SourceDependencies is { Length: > 0 };
@@ -228,7 +231,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
                 foreach ( var trigger in this.BuildTriggers )
                 {
-                    trigger.GenerateTeamcityCode( writer );
+                    trigger.GenerateTeamcityCode( writer, $"+:{this.DefaultBranch}" );
                 }
 
                 writer.WriteLine( @"    }" );

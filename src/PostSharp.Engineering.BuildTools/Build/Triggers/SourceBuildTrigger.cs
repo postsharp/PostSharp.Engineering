@@ -12,12 +12,12 @@ public class SourceBuildTrigger : IBuildTrigger
 {
     public bool WatchChangesInDependencies { get; set; } = true;
 
-    public void GenerateTeamcityCode( TextWriter writer )
+    public void GenerateTeamcityCode( TextWriter writer, string branchFilter )
     {
         writer.WriteLine(
             $@"        vcs {{
             watchChangesInDependencies = {this.WatchChangesInDependencies.ToString().ToLowerInvariant()}
-            branchFilter = ""+:<default>""
+            branchFilter = ""{branchFilter}""
             // Build will not trigger automatically if the commit message contains comment value.
             triggerRules = ""-:comment=<<VERSION_BUMP>>|<<DEPENDENCIES_UPDATED>>:**""
         }}" );

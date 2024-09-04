@@ -417,64 +417,58 @@ public static class TeamCityHelper
         return TryCreateProject( tc, context, name, id, parentId, vcsRootId );
     }
 
-    private static bool TryCreateVcsRoot( TeamCityClient tc, BuildContext context, string? projectId, [NotNullWhen( true )] out string? vcsRootId )
+    public static string GetVcsRootId( DependencyDefinition dependencyDefinition, bool parameterizedDefaultBranch = true )
+        => GetVcsRootId( dependencyDefinition.VcsRepository, dependencyDefinition.CiConfiguration.ProjectId.ParentId, parameterizedDefaultBranch );
+
+    private static string GetVcsRootId( VcsRepository repository, string? projectId, bool parameterizedDefaultBranch )
+        => $"{projectId ?? "Root"}_{repository.Name.Replace( ".", "", StringComparison.Ordinal )}{(parameterizedDefaultBranch ? "" : "_Default")}";
+
+    private static bool TryCreateVcsRoot( TeamCityClient tc, BuildContext context, string? projectId, bool parameterizedDefaultBranch, out string vcsRootId )
     {
-        projectId ??= "_Root";
+        var repository = context.Product.DependencyDefinition.VcsRepository;
+        vcsRootId = GetVcsRootId( repository, projectId, parameterizedDefaultBranch );
 
         context.Console.WriteMessage( $"Retrieving VCS roots of '{projectId}' project." );
-
-        if ( !tc.TryGetVcsRoots( context.Console, projectId, out var vcsRoots ) )
+        
+        if ( !tc.TryGetVcsRoots( context.Console, projectId ?? "_Root", out var vcsRoots ) )
         {
-            vcsRootId = null;
-
             return false;
         }
 
-        // The URLs and IDs can differ, so we search by name.
-        // Eg. https://postsharp@dev.azure.com/postsharp/Engineering/_git/PostSharp.Engineering.Test.TestProduct
-        // and "https://dev.azure.com/postsharp/Engineering/_git/PostSharp.Engineering.Test.TestProduct
-        // are both valid and refer to the same project.
-        var vcsRootIdsByName = vcsRoots.Value.ToDictionary(
-            root => VcsUrlParser.TryGetRepository( root.Url, out var repository )
-                ? repository.Name
-                : throw new InvalidOperationException( $"Unknown VCS provider of '{root.Url}' repository." ),
-            r => r.Id );
-
-        var repository = context.Product.DependencyDefinition.VcsRepository;
-
-        if ( vcsRootIdsByName.TryGetValue( repository.Name, out vcsRootId ) )
+        if ( vcsRoots.Value.ToHashSet( r => r.Id ).Contains( vcsRootId ) )
         {
             context.Console.WriteMessage( $"Using existing '{vcsRootId}' VCS root" );
+
+            return true;
         }
-        else
+
+        var vcsRootName = parameterizedDefaultBranch ? repository.Name : $"{repository.Name}_Default";
+        var familyVersion = context.Product.ProductFamily.Version;
+        var defaultBranch = parameterizedDefaultBranch ? "%DefaultBranch%" : context.Product.DependencyDefinition.Branch;
+
+        var branchSpecification = new List<string>
         {
-            var familyVersion = context.Product.ProductFamily.Version;
-            var url = repository.TeamCityRemoteUrl;
-            var defaultBranch = "%DefaultBranch%";
+            $"+:refs/heads/(topic/{familyVersion}/*)",
+            $"+:refs/heads/(feature/{familyVersion}/*)",
+            $"+:refs/heads/(experimental/{familyVersion}/*)",
+            $"+:refs/heads/(merge/{familyVersion}/*)",
+            $"+:refs/heads/({context.Product.DependencyDefinition.Branch})"
+        };
 
-            var branchSpecification = new List<string>
-            {
-                $"+:refs/heads/(topic/{familyVersion}/*)",
-                $"+:refs/heads/(feature/{familyVersion}/*)",
-                $"+:refs/heads/(experimental/{familyVersion}/*)",
-                $"+:refs/heads/(merge/{familyVersion}/*)",
-                $"+:refs/heads/({context.Product.DependencyDefinition.Branch})"
-            };
-
-            if ( context.Product.DependencyDefinition.ReleaseBranch != null )
-            {
-                branchSpecification.Add( $"+:refs/heads/({context.Product.DependencyDefinition.ReleaseBranch})" );
-            }
-
-            context.Console.WriteMessage( $"Creating '{url}' VCS root in '{projectId}' project for '{familyVersion}' family version." );
-
-            if ( !tc.TryCreateVcsRoot( context.Console, url, projectId, defaultBranch, branchSpecification, out var vcsRootName, out vcsRootId ) )
-            {
-                return false;
-            }
-
-            context.Console.WriteMessage( $"Created '{vcsRootName}' VCS root ID '{vcsRootId}'." );
+        if ( context.Product.DependencyDefinition.ReleaseBranch != null )
+        {
+            branchSpecification.Add( $"+:refs/heads/({context.Product.DependencyDefinition.ReleaseBranch})" );
         }
+
+        context.Console.WriteMessage(
+            $"Creating '{repository.TeamCityRemoteUrl}' VCS root in '{projectId}' project for '{familyVersion}' family version with default branch '{defaultBranch}'." );
+
+        if ( !tc.TryCreateVcsRoot( context.Console, projectId, vcsRootId, vcsRootName, defaultBranch, repository, branchSpecification ) )
+        {
+            return false;
+        }
+
+        context.Console.WriteMessage( $"Created '{vcsRootName}' VCS root ID '{vcsRootId}'." );
 
         return true;
     }
@@ -486,7 +480,17 @@ public static class TeamCityHelper
             return false;
         }
 
-        return TryCreateVcsRoot( tc, context, projectId, out _ );
+        if ( !TryCreateVcsRoot( tc, context, projectId, true, out _ ) )
+        {
+            return false;
+        }
+        
+        if ( !TryCreateVcsRoot( tc, context, projectId, false, out _ ) )
+        {
+            return false;
+        }
+
+        return true;
     }
 
     public static bool TryCreateProject( BuildContext context )
@@ -500,7 +504,12 @@ public static class TeamCityHelper
         var parentProjectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId.ParentId;
         var projectName = context.Product.DependencyDefinition.Name;
 
-        if ( !TryCreateVcsRoot( tc, context, parentProjectId, out var vcsRootId ) )
+        if ( !TryCreateVcsRoot( tc, context, parentProjectId, true, out _ ) )
+        {
+            return false;
+        }
+        
+        if ( !TryCreateVcsRoot( tc, context, parentProjectId, false, out var vcsRootId ) )
         {
             return false;
         }
@@ -668,6 +677,7 @@ public static class TeamCityHelper
         var consolidatedProjectIdPrefix = $"{consolidatedProjectId}_";
         var defaultBranch = context.Product.DependencyDefinition.Branch;
         var deploymentBranch = context.Product.DependencyDefinition.ReleaseBranch;
+        var vcsRootId = GetVcsRootId( context.Product.DependencyDefinition );
 
         if ( deploymentBranch == null )
         {
@@ -837,7 +847,7 @@ public static class TeamCityHelper
 
             dependencies.Add( new( nuGetBuildCiId, true ) );
 
-            consolidatedBuildConfiguration = new( consolidatedBuildObjectName, consolidatedBuildConfigurationName, deploymentBranch )
+            consolidatedBuildConfiguration = new( consolidatedBuildObjectName, consolidatedBuildConfigurationName, deploymentBranch, vcsRootId )
             {
                 SnapshotDependencies = dependencies.ToArray(), BuildTriggers = consolidatedBuildTriggers
             };
@@ -846,7 +856,7 @@ public static class TeamCityHelper
                 new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( configuration, false, context.Product.UseDockerInTeamcity ) };
 
             // The default branch is the same as for public build of any other project - see the build configuration of a regular project.
-            nuGetBuildConfiguration = new( nuGetBuildObjectName, nuGetBuildConfigurationName, defaultBranch )
+            nuGetBuildConfiguration = new( nuGetBuildObjectName, nuGetBuildConfigurationName, defaultBranch, vcsRootId )
             {
                 BuildSteps = nuGetBuildSteps,
                 SnapshotDependencies = nuGetDependencies.ToArray(),
@@ -895,7 +905,7 @@ public static class TeamCityHelper
             var consolidatedDownstreamMergeBuildTriggers = new IBuildTrigger[] { new NightlyBuildTrigger( 23, true ) };
 
             tcConfigurations.Add(
-                new TeamCityBuildConfiguration( downstreamMergeObjectName, "Merge Downstream", defaultBranch )
+                new TeamCityBuildConfiguration( downstreamMergeObjectName, "Merge Downstream", defaultBranch, vcsRootId )
                 {
                     SnapshotDependencies = consolidatedDownstreamMergeSnapshotDependencies.ToArray(),
                     BuildTriggers = consolidatedDownstreamMergeBuildTriggers
@@ -1006,6 +1016,7 @@ public static class TeamCityHelper
                 versionBumpObjectName,
                 "1. Version Bump",
                 defaultBranch,
+                vcsRootId,
                 context.Product.ResolvedBuildAgentRequirements )
             {
                 BuildSteps = consolidatedVersionBumpSteps.ToArray(), BuildTriggers = consolidatedVersionBumpBuildTriggers
@@ -1032,7 +1043,12 @@ public static class TeamCityHelper
                 .Append( new( publicNuGetBuildCiId, true, nuGetBuildArtifactRules ) );
 
         nuGetConfigurations.Add(
-            new( MarkNuGetObjectId( publicDeploymentObjectName ), publicDeploymentName, deploymentBranch, context.Product.ResolvedBuildAgentRequirements )
+            new(
+                MarkNuGetObjectId( publicDeploymentObjectName ),
+                publicDeploymentName,
+                deploymentBranch,
+                vcsRootId,
+                context.Product.ResolvedBuildAgentRequirements )
             {
                 BuildSteps = nuGetPublicDeploymentSteps,
                 SnapshotDependencies = nuGetPublicDeploymentDependencies.ToArray(),
@@ -1058,7 +1074,7 @@ public static class TeamCityHelper
                 .Append( new( publicNuGetDeploymentCiId, true ) );
 
         tcConfigurations.Add(
-            new TeamCityBuildConfiguration( publicDeploymentObjectName, $"3. {publicDeploymentName}", deploymentBranch )
+            new TeamCityBuildConfiguration( publicDeploymentObjectName, $"3. {publicDeploymentName}", deploymentBranch, vcsRootId )
             {
                 SnapshotDependencies = consolidatedPublicDeploymentSnapshotDependencies.ToArray(),
                 IsDeployment = true

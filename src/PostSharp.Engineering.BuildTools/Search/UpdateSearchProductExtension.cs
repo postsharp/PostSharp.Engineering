@@ -2,6 +2,7 @@
 
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -77,13 +78,14 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
                 : null;
 
             var buildTriggers = this.BuildTriggers?[configuration];
-
+            var vcsRootId = TeamCityHelper.GetVcsRootId( context.Product.DependencyDefinition );
             var buildAgentRequirements = context.Product.ResolvedBuildAgentRequirements;
 
             var teamCityUpdateSearchConfiguration = new TeamCityBuildConfiguration(
                 $"{configuration}UpdateSearch",
                 name,
                 context.Product.DependencyDefinition.ReleaseBranch ?? context.Product.DependencyDefinition.Branch,
+                vcsRootId,
                 buildAgentRequirements )
             {
                 BuildSteps = [CreateBuildStep()],
@@ -101,6 +103,7 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
                     $"{configuration}UpdateSearchNoDependency",
                     $"Standalone {name}",
                     context.Product.DependencyDefinition.Branch,
+                    vcsRootId,
                     buildAgentRequirements ) { BuildSteps = [CreateBuildStep()], IsDeployment = true, BuildTimeOutThreshold = this.TimeOutThreshold };
 
                 teamCityBuildConfigurations.Add( teamCityUpdateSearchWithoutDependenciesConfiguration );
