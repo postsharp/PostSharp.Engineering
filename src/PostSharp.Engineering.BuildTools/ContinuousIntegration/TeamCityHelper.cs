@@ -847,7 +847,13 @@ public static class TeamCityHelper
 
             dependencies.Add( new( nuGetBuildCiId, true ) );
 
-            consolidatedBuildConfiguration = new( consolidatedBuildObjectName, consolidatedBuildConfigurationName, deploymentBranch, vcsRootId )
+            var defaultBuildBranch = configuration switch
+            {
+                BuildConfiguration.Public => deploymentBranch,
+                _ => defaultBranch
+            };
+
+            consolidatedBuildConfiguration = new( consolidatedBuildObjectName, consolidatedBuildConfigurationName, defaultBuildBranch, vcsRootId )
             {
                 SnapshotDependencies = dependencies.ToArray(), BuildTriggers = consolidatedBuildTriggers
             };
@@ -856,7 +862,12 @@ public static class TeamCityHelper
                 new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( configuration, false, context.Product.UseDockerInTeamcity ) };
 
             // The default branch is the same as for public build of any other project - see the build configuration of a regular project.
-            nuGetBuildConfiguration = new( nuGetBuildObjectName, nuGetBuildConfigurationName, defaultBranch, vcsRootId )
+            nuGetBuildConfiguration = new(
+                nuGetBuildObjectName,
+                nuGetBuildConfigurationName,
+                defaultBranch,
+                vcsRootId,
+                context.Product.ResolvedBuildAgentRequirements )
             {
                 BuildSteps = nuGetBuildSteps,
                 SnapshotDependencies = nuGetDependencies.ToArray(),
@@ -944,7 +955,15 @@ public static class TeamCityHelper
                 BuildConfiguration.Public,
                 publicBuildObjectName,
                 $"2. {publicBuildName}",
-                [new NightlyBuildTrigger( 2, true )],
+                [
+                    new NightlyBuildTrigger( 2, true )
+                    {
+                        // The nightly build is done on the develop branch to find issues early and to prepare for the deployment.
+                        // The manually triggered build is done on the release branch to allow for deployment without merge freeze.
+                        // Any successful build of the same commit done on the develop branch is reused by TeamCity when deploying from the release branch.
+                        BranchFilter = $"+:{defaultBranch}"
+                    }
+                ],
                 MarkNuGetObjectId( publicBuildObjectName ),
                 publicBuildName,
                 out var consolidatedPublicBuildConfiguration,
@@ -959,35 +978,44 @@ public static class TeamCityHelper
         const string versionBumpObjectName = "VersionBump";
 
         var consolidatedVersionBumpSteps = new List<TeamCityBuildStep>();
+        var consolidatedVersionBumpSourceDependencies = new List<TeamCitySourceDependency>();
         var bumpedProjects = new HashSet<string>();
-
-        var familyName = context.Product.ProductFamily.Name;
-        var familyVersion = context.Product.ProductFamily.Version;
 
         var success = true;
 
-        foreach ( var versionBumpBuildConfiguration in buildConfigurationsByKind[versionBumpObjectName] )
+        foreach ( var bumpedProject in subprojects )
         {
-            var bumpedProjectId = versionBumpBuildConfiguration.ProjectId;
-            var bumpedProjectName = versionBumpBuildConfiguration.ProjectName;
+            if ( !context.Product.DependencyDefinition.ProductFamily.TryGetDependencyDefinitionByCiId( bumpedProject.Id, out var dependencyDefinition ) )
+            {
+                context.Console.WriteError( $"Dependency definition for project '{bumpedProject.Id}' not found." );
 
-            foreach ( var projectDependencyId in consolidatedPublicBuildSnapshotDependenciesByProjectId[bumpedProjectId] )
+                return false;
+            }
+
+            if ( !dependencyDefinition.IsVersioned )
+            {
+                continue;
+            }
+            
+            foreach ( var projectDependencyId in consolidatedPublicBuildSnapshotDependenciesByProjectId[bumpedProject.Id] )
             {
                 if ( !bumpedProjects.Contains( projectDependencyId ) )
                 {
-                    context.Console.WriteError( $"Incorrect projects order. '{bumpedProjectId}' depends on '{projectDependencyId}', but is ordered earlier." );
+                    context.Console.WriteError( $"Incorrect projects order. '{bumpedProject.Id}' depends on '{projectDependencyId}', but is ordered earlier." );
                     success = false;
                 }
             }
 
             consolidatedVersionBumpSteps.Add(
                 new TeamCityEngineeringCommandBuildStep(
-                    $"Bump{versionBumpBuildConfiguration.ProjectId.Split( '_' ).Last()}",
-                    $"Trigger version bump of {bumpedProjectName}",
-                    "teamcity run bump",
-                    $"{familyName} {familyVersion} {bumpedProjectName}" ) );
+                    $"Bump{bumpedProject.Id.Split( '_' ).Last()}",
+                    $"Bump version of {bumpedProject.Name}",
+                    "bump" ) );
 
-            bumpedProjects.Add( bumpedProjectId );
+            consolidatedVersionBumpSourceDependencies.Add(
+                new( bumpedProject.Id, true, $"+:. => {context.Product.SourceDependenciesDirectory}/{bumpedProject.Name}" ) );
+
+            bumpedProjects.Add( bumpedProject.Id );
         }
 
         if ( !success )
@@ -1019,7 +1047,10 @@ public static class TeamCityHelper
                 vcsRootId,
                 context.Product.ResolvedBuildAgentRequirements )
             {
-                BuildSteps = consolidatedVersionBumpSteps.ToArray(), BuildTriggers = consolidatedVersionBumpBuildTriggers
+                BuildSteps = consolidatedVersionBumpSteps.ToArray(),
+                BuildTriggers = consolidatedVersionBumpBuildTriggers,
+                IsDefaultVcsRootUsed = false,
+                SourceDependencies = consolidatedVersionBumpSourceDependencies.ToArray()
             } );
         
         tcConfigurations.Add( consolidatedPublicBuildConfiguration );

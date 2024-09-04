@@ -40,6 +40,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public TeamCitySourceDependency[]? SourceDependencies { get; init; }
 
+        public bool IsDefaultVcsRootUsed { get; init; } = true;
+
         public TimeSpan? BuildTimeOutThreshold { get; init; }
 
         public TeamCityBuildConfiguration( string objectName, string name, string defaultBranch, string vcsRootId, BuildAgentRequirements? buildAgentRequirements = null )
@@ -118,12 +120,16 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 writer.WriteLine(
                     $@"    params {{
 {string.Join( Environment.NewLine, buildParameters.Select( p => p.GenerateTeamCityCode() ) )}
-    }}" );
+    }}
+" );
             }
 
-            writer.WriteLine(
-                $@"    vcs {{
-        {(this.IsComposite ? "showDependenciesChanges = true" : @$"root(AbsoluteId(""{this.VcsRootId}""))")}" );
+            writer.WriteLine( "    vcs {{" );
+
+            if ( this.IsDefaultVcsRootUsed )
+            {
+                writer.WriteLine( $"        {(this.IsComposite ? "showDependenciesChanges = true" : @$"root(AbsoluteId(""{this.VcsRootId}""))")}" );
+            }
 
             // Source dependencies.
             var hasSourceDependencies = this.SourceDependencies is { Length: > 0 };
@@ -270,8 +276,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 }
 
                 writer.WriteLine(
-                    $@"
-     }}" );
+                    $@"     }}" );
             }
 
             writer.WriteLine(

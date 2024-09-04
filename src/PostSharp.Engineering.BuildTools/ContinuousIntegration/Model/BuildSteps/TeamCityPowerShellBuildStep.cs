@@ -24,6 +24,6 @@ public class TeamCityPowerShellBuildStep : TeamCityBuildStep
                 path = ""{this.ScriptPath}""
             }}
             noProfile = false
-            param(""jetbrains_powershell_scriptArguments"", ""{this.ScriptArguments}"")
+            scriptArgs = ""{this.ScriptArguments}""
         }}";
 }
