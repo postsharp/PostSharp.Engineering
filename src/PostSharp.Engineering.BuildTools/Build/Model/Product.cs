@@ -1701,8 +1701,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool PrePublish( BuildContext context, PublishSettings settings )
         {
-            // This step is only required for pre-publishing and post-publishing, so they don't trigger a build.
-            // Publishing gets this file along with the published artifacts.
+            // This step is only required for pre-publishing, so it doesn't require a build.
+            // Publishing and post-publishing gets this file along with the published artifacts.
             if ( !this.PrepareVersionsFile( context, settings, out _ ) )
             {
                 return false;
@@ -1848,13 +1848,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public bool PostPublish( BuildContext context, PublishSettings settings )
         {
             context.Console.WriteHeading( "Finishing publishig." );
-            
-            // This step is only required for pre-publishing and post-publishing, so they don't trigger a build.
-            // Publishing gets this file along with the published artifacts.
-            if ( !this.PrepareVersionsFile( context, settings, out _ ) )
-            {
-                return false;
-            }
             
             if ( !this.TryPreparePublishing( context, settings, out var preparedVersionInfo ) )
             {
