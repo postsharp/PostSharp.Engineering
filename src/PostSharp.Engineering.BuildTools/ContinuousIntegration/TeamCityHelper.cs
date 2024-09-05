@@ -1081,11 +1081,6 @@ public static class TeamCityHelper
                 return false;
             }
 
-            var mainVersionDependencyId = context.Product.MainVersionDependency.CiConfiguration.ProjectId.Id;
-            var mainVersionDependencyName = context.Product.MainVersionDependency.Name;
-            string? mainVersionDependencyPrivateArtifactsDirectory = null;
-            string? mainVersionDependencyVersionFileName = null;
-
             foreach ( var project in subprojects )
             {
                 if ( project.Id == consolidatedProjectId.Id || project.Id == $"{consolidatedProjectId.Id}_NuGet" )
@@ -1106,14 +1101,12 @@ public static class TeamCityHelper
 
                 if ( hasDependencies )
                 {
-                    foreach ( var dependencyId in buildConfiguration.SnapshotDependencies.Select( d => string.Join( '_', d.Split( '_' ).SkipLast( 1 ) ) )
-                                 .Distinct() )
-                    {
-                        if ( dependencyId == project.Id )
-                        {
-                            continue;
-                        }
+                    var dependencies = new List<string>();
 
+                    foreach ( var dependencyId in buildConfiguration.SnapshotDependencies.Select( d => string.Join( '_', d.Split( '_' ).SkipLast( 1 ) ) )
+                                 .Distinct()
+                                 .Where( d => d != project.Id ) )
+                    {
                         if ( !context.Product.ProductFamily.TryGetDependencyDefinitionByCiId( dependencyId, out var dependencyDefinition ) )
                         {
                             context.Console.WriteError( $"Definition of dependency '{dependencyId}' not found." );
@@ -1121,32 +1114,17 @@ public static class TeamCityHelper
                             return false;
                         }
 
-                        var dependencyName = dependencyDefinition.Name;
+                        dependencies.Add( dependencyDefinition.Name );
+                    }
 
-                        var configuration = BuildConfiguration.Public;
-                        var dependencyMsBuildConfiguration = dependencyDefinition.MSBuildConfiguration[configuration];
-                        var dependencyBuildInfo = new BuildInfo( null, configuration.ToString(), dependencyMsBuildConfiguration, null );
-
-                        var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory.ToString( dependencyBuildInfo )
-                            .Replace( Path.DirectorySeparatorChar, '/' );
-
-                        var versionFileName = $"{dependencyName}.version.props";
-
+                    if ( dependencies.Count > 0 )
+                    {
                         steps.Add(
                             new TeamCityEngineeringCommandBuildStep(
-                                $"Prepare_{objectName}_{projectRelativeId}_{dependencyId.Split( '_' ).Last()}",
-                                $"Copy version file of {dependencyName} for {project.Name}",
-                                "copy",
-                                $"../{dependencyName}/{dependencyPrivateArtifactsDirectory}/{versionFileName} ../{project.Name}/dependencies/{dependencyName}/{versionFileName}" )
-                            {
-                                WorkingDirectory = $"source-dependencies/{consolidatedProjectName}"
-                            } );
-
-                        if ( dependencyId == mainVersionDependencyId )
-                        {
-                            mainVersionDependencyPrivateArtifactsDirectory = dependencyPrivateArtifactsDirectory;
-                            mainVersionDependencyVersionFileName = versionFileName;
-                        }
+                                $"Prepare_{objectName}_{projectRelativeId}",
+                                $"Set dependencies of {project.Name}",
+                                "dependencies",
+                                $"set local {string.Join( ' ', dependencies )}" ) { WorkingDirectory = $"source-dependencies/{project.Name}" } );
                     }
                 }
 
@@ -1161,21 +1139,14 @@ public static class TeamCityHelper
                     } );
             }
 
-            if ( mainVersionDependencyPrivateArtifactsDirectory == null || mainVersionDependencyVersionFileName == null )
-            {
-                context.Console.WriteError( $"Main version dependency not found for the consolidated project." );
-
-                return false;
-            }
-
             sourceDependencies.Add( CreateSourceDependencyFromDefintion( context.Product.DependencyDefinition ) );
 
             steps.Add(
                 new TeamCityEngineeringCommandBuildStep(
-                    $"Prepare_{objectName}_{consolidatedProjectId.Id}_{mainVersionDependencyId.Split( '_' ).Last()}",
-                    $"Copy version file of {mainVersionDependencyName} for the consolidated project",
-                    "copy",
-                    $"../{mainVersionDependencyName}/{mainVersionDependencyPrivateArtifactsDirectory}/{mainVersionDependencyVersionFileName} ../{consolidatedProjectName}/dependencies/{mainVersionDependencyName}/{mainVersionDependencyVersionFileName}" )
+                    $"Prepare_{objectName}_{consolidatedProjectId.Id}",
+                    "Set dependencies of the consolidated project",
+                    "dependencies",
+                    $"set local {context.Product.MainVersionDependency.Name}" )
                 {
                     WorkingDirectory = $"source-dependencies/{consolidatedProjectName}"
                 } );
