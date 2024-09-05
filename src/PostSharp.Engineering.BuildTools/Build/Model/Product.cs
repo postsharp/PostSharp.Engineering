@@ -2355,7 +2355,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 if ( !this.UseDockerInTeamcity )
                 {
-                    teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "Kill", "Kill background processes before cleanup", "tools kill" ) );
+                    teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "PreKill", "Kill background processes before cleanup", "tools kill" ) );
                 }
 
                 var requiresUpstreamCheck = configurationInfo.RequiresUpstreamCheck && this.ProductFamily.UpstreamProductFamily != null;
@@ -2374,7 +2374,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 
                 if ( !this.UseDockerInTeamcity )
                 {
-                    teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "Kill", "Kill background processes before next build", "tools kill" ) );
+                    teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "PostKill", "Kill background processes before next build", "tools kill" ) );
                 }
 
                 // The default branch for the public build cannot be set to the release branch,
