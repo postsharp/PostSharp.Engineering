@@ -993,6 +993,11 @@ public static class TeamCityHelper
 
         foreach ( var bumpedProject in subprojects )
         {
+            if ( bumpedProject.Id == consolidatedProjectId.Id || bumpedProject.Id == $"{consolidatedProjectId.Id}_NuGet" )
+            {
+                continue;
+            }
+            
             if ( !context.Product.DependencyDefinition.ProductFamily.TryGetDependencyDefinitionByCiId( bumpedProject.Id, out var dependencyDefinition ) )
             {
                 context.Console.WriteError( $"Dependency definition for project '{bumpedProject.Id}' not found." );
@@ -1085,6 +1090,11 @@ public static class TeamCityHelper
 
             foreach ( var project in subprojects )
             {
+                if ( project.Id == consolidatedProjectId.Id || project.Id == $"{consolidatedProjectId.Id}_NuGet" )
+                {
+                    continue;
+                }
+                
                 if ( !context.Product.ProductFamily.TryGetDependencyDefinitionByCiId( project.Id, out var projectDependencyDefinition ) )
                 {
                     context.Console.WriteError( $"Definition of project '{project.Name}' '{project.Id}' not found." );

@@ -128,8 +128,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
             if ( this.IsDefaultVcsRootUsed )
             {
-                writer.WriteLine(
-                    $"        {(this.IsComposite || this.IsDeployment ? "showDependenciesChanges = true" : @$"root(AbsoluteId(""{this.VcsRootId}""))")}" );
+                writer.WriteLine( $"        {(hasBuildSteps ? @$"root(AbsoluteId(""{this.VcsRootId}""))" : "showDependenciesChanges = true")}" );
             }
 
             // Source dependencies.
