@@ -198,7 +198,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 writer.WriteLine( "    }" );
             }
 
-            var hasSwabra = !this.IsComposite && !this.IsDeployment;
+            var hasSwabra = hasBuildSteps;
             var hasSshAgent = this.IsSshAgentRequired;
             var hasFeatures = hasSwabra || hasSshAgent;
 
