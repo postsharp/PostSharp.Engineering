@@ -1771,7 +1771,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             context.Console.WriteHeading( "Publishing files" );
 
-            if ( !context.Product.IsPublishingNonReleaseBranchesAllowed )
+            if ( !context.Product.IsPublishingNonReleaseBranchesAllowed && !settings.IsStandalone )
             {
                 var releaseBranch = context.Product.DependencyDefinition.ReleaseBranch;
 
@@ -2415,8 +2415,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // Create a TeamCity configuration for Deploy.
                 if ( configurationInfo.PrivatePublishers != null || configurationInfo.PublicPublishers != null )
                 {
-                    TeamCityBuildStep CreatePublishBuildStep()
-                        => new TeamCityEngineeringCommandBuildStep( "Publish", "Publish", "publish", $"--configuration {configuration}", true );
+                    TeamCityBuildStep CreatePublishBuildStep( bool isStandalone = false )
+                        => new TeamCityEngineeringCommandBuildStep(
+                            "Publish",
+                            "Publish",
+                            "publish",
+                            $"--configuration {configuration} {(isStandalone ? "--standalone" : "")}",
+                            true );
 
                     if ( configurationInfo.ExportsToTeamCityDeploy )
                     {
@@ -2456,7 +2461,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             vcsRootId,
                             buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
-                            BuildSteps = [CreatePublishBuildStep()],
+                            BuildSteps = [CreatePublishBuildStep( true )],
                             IsDeployment = true,
                             SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
                                 .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules ) } )
