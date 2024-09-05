@@ -1761,6 +1761,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteSuccess( $"Merging '{sourceBranch}' branch into '{targetBranch}' branch was successful." );
             
+            // Act as a local dependency for subsequent projects, that use the --use-local-dependencies flag.
             this.WriteImportFile( context, settings.BuildConfiguration );
 
             return true;
@@ -1988,6 +1989,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             context.Console.WriteMessage( $"Merging '{sourceBranch}' branch into '{targetBranch}' branch was successful." );
             
+            // Act as a local dependency for subsequent projects, that use the --use-local-dependencies flag.
             this.WriteImportFile( context, settings.BuildConfiguration );
             
             context.Console.WriteSuccess( "Publishing finished successfuly." );
