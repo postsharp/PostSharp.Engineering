@@ -128,7 +128,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
             if ( this.IsDefaultVcsRootUsed )
             {
-                writer.WriteLine( $"        {(this.IsComposite ? "showDependenciesChanges = true" : @$"root(AbsoluteId(""{this.VcsRootId}""))")}" );
+                writer.WriteLine(
+                    $"        {(this.IsComposite || this.IsDeployment ? "showDependenciesChanges = true" : @$"root(AbsoluteId(""{this.VcsRootId}""))")}" );
             }
 
             // Source dependencies.
@@ -184,30 +185,31 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
     }}" );
             }
 
-            if ( !this.IsComposite )
+            if ( !this.IsComposite && this.BuildAgentRequirements != null )
             {
-                if ( this.BuildAgentRequirements != null )
+                writer.WriteLine();
+                writer.WriteLine( "    requirements {" );
+
+                foreach ( var environmentVariable in this.BuildAgentRequirements.Items )
                 {
-                    writer.WriteLine();
-                    writer.WriteLine( "    requirements {" );
-
-                    foreach ( var environmentVariable in this.BuildAgentRequirements.Items )
-                    {
-                        writer.WriteLine( $"        equals(\"{environmentVariable.Name}\", \"{environmentVariable.Value}\")" );
-                    }
-
-                    writer.WriteLine( "    }" );
+                    writer.WriteLine( $"        equals(\"{environmentVariable.Name}\", \"{environmentVariable.Value}\")" );
                 }
+
+                writer.WriteLine( "    }" );
             }
 
+            var hasSwabra = !this.IsComposite && !this.IsDeployment;
+            var hasSshAgent = this.IsSshAgentRequired;
+            var hasFeatures = hasSwabra || hasSshAgent;
+
             // Features.
-            if ( !this.IsComposite || this.IsSshAgentRequired )
+            if ( hasFeatures )
             {
                 writer.WriteLine(
                     $@"
     features {{" );
 
-                if ( !this.IsComposite )
+                if ( hasSwabra )
                 {
                     writer.WriteLine(
                         $@"        swabra {{
@@ -216,7 +218,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         }}" );
                 }
 
-                if ( this.IsSshAgentRequired )
+                if ( hasSshAgent )
                 {
                     writer.WriteLine(
                         $@"        sshAgent {{

@@ -1236,10 +1236,14 @@ public static class TeamCityHelper
                 .Append( new( publicNuGetDeploymentCiId, true ) );
 
         tcConfigurations.Add(
-            new TeamCityBuildConfiguration( publicDeploymentObjectName, $"3. {publicDeploymentName}", deploymentBranch, vcsRootId )
+            new TeamCityBuildConfiguration(
+                publicDeploymentObjectName,
+                $"4. {publicDeploymentName}",
+                deploymentBranch,
+                vcsRootId,
+                context.Product.ResolvedBuildAgentRequirements )
             {
-                SnapshotDependencies = consolidatedPublicDeploymentSnapshotDependencies.ToArray(),
-                IsDeployment = true
+                SnapshotDependencies = consolidatedPublicDeploymentSnapshotDependencies.ToArray(), IsDeployment = true
             } );
         
         var nuGetProject = new TeamCityProject( "NuGet", "NuGet", nuGetConfigurations.ToArray() );
