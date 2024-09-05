@@ -954,7 +954,7 @@ public static class TeamCityHelper
         if ( !TryPopulateBuildConfgurations(
                 BuildConfiguration.Public,
                 publicBuildObjectName,
-                $"2. {publicBuildName}",
+                $"3. {publicBuildName}",
                 [
                     new NightlyBuildTrigger( 2, true )
                     {
@@ -1050,12 +1050,22 @@ public static class TeamCityHelper
                 BuildSteps = consolidatedVersionBumpSteps.ToArray(),
                 BuildTriggers = consolidatedVersionBumpBuildTriggers,
                 IsDefaultVcsRootUsed = false,
-                SourceDependencies = consolidatedVersionBumpSourceDependencies.ToArray()
+                SourceDependencies = consolidatedVersionBumpSourceDependencies.ToArray(),
+                IsSshAgentRequired = true
             } );
         
         tcConfigurations.Add( consolidatedPublicBuildConfiguration );
         nuGetConfigurations.Add( nuGetPublicBuildConfiguration );
 
+        // Pre-deployment
+        // const string preDeploymentObjectName = "PreDeployment";
+        // const string preDeploymentName = "2. Prepare Deployment [Public]";
+        //
+        // foreach ( var project in subprojects )
+        // {
+        //     
+        // }
+        
         // Public deployment
         const string publicDeploymentObjectName = "PublicDeployment";
         const string publicDeploymentName = "Deploy [Public]";
