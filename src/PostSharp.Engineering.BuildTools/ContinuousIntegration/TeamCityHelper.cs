@@ -991,16 +991,14 @@ public static class TeamCityHelper
         TeamCitySourceDependency CreateSourceDependencyFromDefintion( DependencyDefinition dependencyDefinition )
             => CreateSourceDependency( GetVcsRootId( dependencyDefinition ), dependencyDefinition.Name );
 
-        foreach ( var bumpedProject in subprojects )
+        foreach ( var buildConfiguration in buildConfigurationsByKind[publicBuildObjectName] )
         {
-            if ( bumpedProject.Id == consolidatedProjectId.Id || bumpedProject.Id == $"{consolidatedProjectId.Id}_NuGet" )
-            {
-                continue;
-            }
+            var bumpedProjectId = buildConfiguration.ProjectId;
+            var bumpedProjectName = buildConfiguration.ProjectName;
             
-            if ( !context.Product.DependencyDefinition.ProductFamily.TryGetDependencyDefinitionByCiId( bumpedProject.Id, out var dependencyDefinition ) )
+            if ( !context.Product.DependencyDefinition.ProductFamily.TryGetDependencyDefinitionByCiId( bumpedProjectId, out var dependencyDefinition ) )
             {
-                context.Console.WriteError( $"Dependency definition for project '{bumpedProject.Id}' not found." );
+                context.Console.WriteError( $"Dependency definition for project '{bumpedProjectId}' not found." );
 
                 return false;
             }
@@ -1010,24 +1008,24 @@ public static class TeamCityHelper
                 continue;
             }
 
-            foreach ( var projectDependencyId in consolidatedPublicBuildSnapshotDependenciesByProjectId[bumpedProject.Id] )
+            foreach ( var projectDependencyId in consolidatedPublicBuildSnapshotDependenciesByProjectId[bumpedProjectId] )
             {
                 if ( !bumpedProjects.Contains( projectDependencyId ) )
                 {
-                    context.Console.WriteError( $"Incorrect projects order. '{bumpedProject.Id}' depends on '{projectDependencyId}', but is ordered earlier." );
+                    context.Console.WriteError( $"Incorrect projects order. '{bumpedProjectId}' depends on '{projectDependencyId}', but is ordered earlier." );
                     success = false;
                 }
             }
 
             consolidatedVersionBumpSteps.Add(
                 new TeamCityEngineeringCommandBuildStep(
-                    $"Bump{bumpedProject.Id.Split( '_' ).Last()}",
-                    $"Bump version of {bumpedProject.Name}",
-                    "bump" ) );
+                    $"Bump{bumpedProjectId.Split( '_' ).Last()}",
+                    $"Bump version of {bumpedProjectName}",
+                    "bump" ) { WorkingDirectory = $"source-dependencies/{bumpedProjectName}" } );
 
             consolidatedVersionBumpSourceDependencies.Add( CreateSourceDependencyFromDefintion( dependencyDefinition ) );
 
-            bumpedProjects.Add( bumpedProject.Id );
+            bumpedProjects.Add( bumpedProjectId );
         }
 
         if ( !success )
@@ -1097,62 +1095,58 @@ public static class TeamCityHelper
                 
                 if ( !context.Product.ProductFamily.TryGetDependencyDefinitionByCiId( project.Id, out var projectDependencyDefinition ) )
                 {
-                    context.Console.WriteError( $"Definition of project '{project.Name}' '{project.Id}' not found." );
-
-                    return false;
+                    // This is a container for other projects.
+                    continue;
                 }
                 
                 sourceDependencies.Add( CreateSourceDependencyFromDefintion( projectDependencyDefinition ) );
 
-                if ( !buildConfigurationsById.TryGetValue( $"{project.Id}_PublicDeployment", out var buildConfiguration ) )
-                {
-                    context.Console.WriteError( $"Project configuration of '{project.Name}' ('{project.Id}') not found." );
-
-                    return false;
-                }
-
                 var projectRelativeId = project.Id.Split( '_' ).Last();
+                var hasDependencies = buildConfigurationsById.TryGetValue( $"{project.Id}_PublicDeployment", out var buildConfiguration );
 
-                foreach ( var dependencyId in buildConfiguration.SnapshotDependencies.Select( d => string.Join( '_', d.Split( '_' ).SkipLast( 1 ) ) )
-                             .Distinct() )
+                if ( hasDependencies )
                 {
-                    if ( dependencyId == project.Id )
+                    foreach ( var dependencyId in buildConfiguration.SnapshotDependencies.Select( d => string.Join( '_', d.Split( '_' ).SkipLast( 1 ) ) )
+                                 .Distinct() )
                     {
-                        continue;
-                    }
-
-                    if ( !context.Product.ProductFamily.TryGetDependencyDefinitionByCiId( dependencyId, out var dependencyDefinition ) )
-                    {
-                        context.Console.WriteError( $"Definition of dependency '{dependencyId}' not found." );
-
-                        return false;
-                    }
-
-                    var dependencyName = dependencyDefinition.Name;
-
-                    var configuration = BuildConfiguration.Public;
-                    var dependencyMsBuildConfiguration = dependencyDefinition.MSBuildConfiguration[configuration];
-                    var dependencyBuildInfo = new BuildInfo( null, configuration.ToString(), dependencyMsBuildConfiguration, null );
-
-                    var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory.ToString( dependencyBuildInfo )
-                        .Replace( Path.DirectorySeparatorChar, '/' );
-
-                    var versionFileName = $"{dependencyName}.version.props";
-
-                    steps.Add(
-                        new TeamCityEngineeringCommandBuildStep(
-                            $"Prepare_{objectName}_{projectRelativeId}_{dependencyId.Split( '_' ).Last()}",
-                            $"Copy version file of {dependencyName} for {project.Name}",
-                            "copy",
-                            $"../{dependencyName}/{dependencyPrivateArtifactsDirectory}/{versionFileName} ../{project.Name}/dependencies/{dependencyName}/{versionFileName}" )
+                        if ( dependencyId == project.Id )
                         {
-                            WorkingDirectory = $"source-dependencies/{consolidatedProjectName}"
-                        } );
+                            continue;
+                        }
 
-                    if ( dependencyId == mainVersionDependencyId )
-                    {
-                        mainVersionDependencyPrivateArtifactsDirectory = dependencyPrivateArtifactsDirectory;
-                        mainVersionDependencyVersionFileName = versionFileName;
+                        if ( !context.Product.ProductFamily.TryGetDependencyDefinitionByCiId( dependencyId, out var dependencyDefinition ) )
+                        {
+                            context.Console.WriteError( $"Definition of dependency '{dependencyId}' not found." );
+
+                            return false;
+                        }
+
+                        var dependencyName = dependencyDefinition.Name;
+
+                        var configuration = BuildConfiguration.Public;
+                        var dependencyMsBuildConfiguration = dependencyDefinition.MSBuildConfiguration[configuration];
+                        var dependencyBuildInfo = new BuildInfo( null, configuration.ToString(), dependencyMsBuildConfiguration, null );
+
+                        var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory.ToString( dependencyBuildInfo )
+                            .Replace( Path.DirectorySeparatorChar, '/' );
+
+                        var versionFileName = $"{dependencyName}.version.props";
+
+                        steps.Add(
+                            new TeamCityEngineeringCommandBuildStep(
+                                $"Prepare_{objectName}_{projectRelativeId}_{dependencyId.Split( '_' ).Last()}",
+                                $"Copy version file of {dependencyName} for {project.Name}",
+                                "copy",
+                                $"../{dependencyName}/{dependencyPrivateArtifactsDirectory}/{versionFileName} ../{project.Name}/dependencies/{dependencyName}/{versionFileName}" )
+                            {
+                                WorkingDirectory = $"source-dependencies/{consolidatedProjectName}"
+                            } );
+
+                        if ( dependencyId == mainVersionDependencyId )
+                        {
+                            mainVersionDependencyPrivateArtifactsDirectory = dependencyPrivateArtifactsDirectory;
+                            mainVersionDependencyVersionFileName = versionFileName;
+                        }
                     }
                 }
 
