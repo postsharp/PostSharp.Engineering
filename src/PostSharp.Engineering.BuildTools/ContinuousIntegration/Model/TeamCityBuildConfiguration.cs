@@ -124,7 +124,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 " );
             }
 
-            writer.WriteLine( "    vcs {{" );
+            writer.WriteLine( "    vcs {" );
 
             if ( this.IsDefaultVcsRootUsed )
             {

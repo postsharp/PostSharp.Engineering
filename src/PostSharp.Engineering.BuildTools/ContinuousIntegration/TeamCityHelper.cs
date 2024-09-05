@@ -983,6 +983,9 @@ public static class TeamCityHelper
 
         var success = true;
 
+        TeamCitySourceDependency CreateSourceDependency( (string Id, string Name) project )
+            => new( project.Id, true, $"+:. => {context.Product.SourceDependenciesDirectory}/{project.Name}" );
+
         foreach ( var bumpedProject in subprojects )
         {
             if ( !context.Product.DependencyDefinition.ProductFamily.TryGetDependencyDefinitionByCiId( bumpedProject.Id, out var dependencyDefinition ) )
@@ -1012,8 +1015,7 @@ public static class TeamCityHelper
                     $"Bump version of {bumpedProject.Name}",
                     "bump" ) );
 
-            consolidatedVersionBumpSourceDependencies.Add(
-                new( bumpedProject.Id, true, $"+:. => {context.Product.SourceDependenciesDirectory}/{bumpedProject.Name}" ) );
+            consolidatedVersionBumpSourceDependencies.Add( CreateSourceDependency( bumpedProject ) );
 
             bumpedProjects.Add( bumpedProject.Id );
         }
@@ -1054,17 +1056,136 @@ public static class TeamCityHelper
                 IsSshAgentRequired = true
             } );
         
+        // Pre-deployment
+        const string preDeploymentObjectName = "PreDeployment";
+        const string preDeploymentName = "2. Prepare Deployment [Public]";
+        
+        List<TeamCitySourceDependency> preDeploymentSourceDependencies = new();
+        List<TeamCityBuildStep> preDeploymentSteps = new();
+        
+        if ( context.Product.MainVersionDependency == null )
+        {
+            context.Console.WriteError( "Main version dependency is not set for the consolidated project." );
+            
+            return false;
+        }
+        
+        var mainVersionDependencyId = context.Product.MainVersionDependency.CiConfiguration.ProjectId.Id;
+        var mainVersionDependencyName = context.Product.MainVersionDependency.Name;
+        string? mainVersionDependencyPrivateArtifactsDirectory = null;
+        string? mainVersionDependencyVersionFileName = null;
+        
+        foreach ( var project in subprojects )
+        {
+            preDeploymentSourceDependencies.Add( CreateSourceDependency( project ) );
+
+            if ( !buildConfigurationsById.TryGetValue( $"{project.Id}_PublicDeployment", out var buildConfiguration ) )
+            {
+                context.Console.WriteError( $"Project configuration of '{project.Name}' ('{project.Id}') not found." );
+
+                return false;
+            }
+
+            var projectRelativeId = project.Id.Split( '_' ).Last();
+
+            foreach ( var dependencyId in buildConfiguration.SnapshotDependencies.Select( d => string.Join( '_', d.Split( '_' ).SkipLast( 1 ) ) ).Distinct() )
+            {
+                if ( dependencyId == project.Id )
+                {
+                    continue;
+                }
+
+                if ( !context.Product.ProductFamily.TryGetDependencyDefinitionByCiId( dependencyId, out var dependencyDefinition ) )
+                {
+                    context.Console.WriteError( $"Definition of dependency '{dependencyId}' not found." );
+
+                    return false;
+                }
+
+                var dependencyName = dependencyDefinition.Name;
+
+                var configuration = BuildConfiguration.Public;
+                var dependencyMsBuildConfiguration = dependencyDefinition.MSBuildConfiguration[configuration];
+                var dependencyBuildInfo = new BuildInfo( null, configuration.ToString(), dependencyMsBuildConfiguration, null );
+
+                var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory.ToString( dependencyBuildInfo )
+                    .Replace( Path.DirectorySeparatorChar, '/' );
+
+                var versionFileName = $"{dependencyName}.version.props";
+
+                preDeploymentSteps.Add(
+                    new TeamCityEngineeringCommandBuildStep(
+                        $"Prepare_Pre_Deploy_{projectRelativeId}_{dependencyId.Split( '_' ).Last()}",
+                        $"Copy version file of {dependencyName} for {project.Name}",
+                        "copy",
+                        $"../{dependencyName}/{dependencyPrivateArtifactsDirectory}/{versionFileName} ../{project.Name}/dependencies/{dependencyName}/{versionFileName}" )
+                    {
+                        WorkingDirectory = $"source-dependencies/{consolidatedProjectName}"
+                    } );
+
+                if ( dependencyId == mainVersionDependencyId )
+                {
+                    mainVersionDependencyPrivateArtifactsDirectory = dependencyPrivateArtifactsDirectory;
+                    mainVersionDependencyVersionFileName = versionFileName;
+                }
+            }
+
+            preDeploymentSteps.Add(
+                new TeamCityEngineeringCommandBuildStep(
+                    $"Pre_Deploy_{projectRelativeId}",
+                    $"Prepare deployment of {project.Name}",
+                    "prepublish",
+                    "--configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id%" )
+                {
+                    WorkingDirectory = $"source-dependencies/{project.Name}"
+                } );
+        }
+        
+        if ( mainVersionDependencyPrivateArtifactsDirectory == null || mainVersionDependencyVersionFileName == null )
+        {
+            context.Console.WriteError( $"Main version dependency not found for the consolidated project." );
+
+            return false;
+        }
+
+        preDeploymentSourceDependencies.Add( CreateSourceDependency( (consolidatedProjectId.Id, consolidatedProjectName) ) );
+
+        preDeploymentSteps.Add(
+            new TeamCityEngineeringCommandBuildStep(
+                $"Prepare_Pre_Deploy_{consolidatedProjectId.Id}_{mainVersionDependencyId.Split( '_' ).Last()}",
+                $"Copy version file of {mainVersionDependencyName} for the consolidated project",
+                "copy",
+                $"../{mainVersionDependencyName}/{mainVersionDependencyPrivateArtifactsDirectory}/{mainVersionDependencyVersionFileName} ../{consolidatedProjectName}/dependencies/{mainVersionDependencyName}/{mainVersionDependencyVersionFileName}" )
+            {
+                WorkingDirectory = $"source-dependencies/{consolidatedProjectName}"
+            } );
+
+        preDeploymentSteps.Add(
+            new TeamCityEngineeringCommandBuildStep(
+                $"Pre_Deploy_{consolidatedProjectId.Id}",
+                "Prepare consolidated deployment",
+                "prepublish",
+                "--configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id%" )
+            {
+                WorkingDirectory = $"source-dependencies/{consolidatedProjectName}"
+            } );
+
+        tcConfigurations.Add(
+            new TeamCityBuildConfiguration(
+                preDeploymentObjectName,
+                preDeploymentName,
+                defaultBranch,
+                vcsRootId,
+                context.Product.ResolvedBuildAgentRequirements )
+            {
+                BuildSteps = preDeploymentSteps.ToArray(),
+                SourceDependencies = preDeploymentSourceDependencies.ToArray(),
+                IsDefaultVcsRootUsed = false,
+                IsSshAgentRequired = true
+            } );
+        
         tcConfigurations.Add( consolidatedPublicBuildConfiguration );
         nuGetConfigurations.Add( nuGetPublicBuildConfiguration );
-
-        // Pre-deployment
-        // const string preDeploymentObjectName = "PreDeployment";
-        // const string preDeploymentName = "2. Prepare Deployment [Public]";
-        //
-        // foreach ( var project in subprojects )
-        // {
-        //     
-        // }
         
         // Public deployment
         const string publicDeploymentObjectName = "PublicDeployment";
