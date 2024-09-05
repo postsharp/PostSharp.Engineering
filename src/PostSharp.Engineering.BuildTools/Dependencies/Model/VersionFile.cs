@@ -78,7 +78,7 @@ public class VersionFile
 
             dependencyVersion = dependencyVersion.Trim();
 
-            // The property value can be either empty either a semantic version, but empty values are not allowed on guest devices,
+            // The property value can be either empty or a semantic version, but empty values are not allowed on guest devices,
             // i.e. for build outside of our VPN.
 
             if ( dependencyVersion != "" && !Regex.IsMatch( dependencyVersion, @"^\d+.*$" ) )
@@ -106,6 +106,10 @@ public class VersionFile
                 }
 
                 dependencySource = DependencySource.CreateFeed( dependencyVersion, DependencyConfigurationOrigin.Default );
+            }
+            else if ( settings.UseLocalDependencies )
+            {
+                dependencySource = DependencySource.CreateLocalRepo( DependencyConfigurationOrigin.Default );
             }
             else if ( TeamCityHelper.IsTeamCityBuild( settings ) )
             {

@@ -1097,43 +1097,13 @@ public static class TeamCityHelper
                 sourceDependencies.Add( CreateSourceDependencyFromDefintion( projectDependencyDefinition ) );
 
                 var projectRelativeId = project.Id.Split( '_' ).Last();
-                var hasDependencies = buildConfigurationsById.TryGetValue( $"{project.Id}_PublicDeployment", out var buildConfiguration );
-
-                if ( hasDependencies )
-                {
-                    var dependencies = new List<string>();
-
-                    foreach ( var dependencyId in buildConfiguration.SnapshotDependencies.Select( d => string.Join( '_', d.Split( '_' ).SkipLast( 1 ) ) )
-                                 .Distinct()
-                                 .Where( d => d != project.Id ) )
-                    {
-                        if ( !context.Product.ProductFamily.TryGetDependencyDefinitionByCiId( dependencyId, out var dependencyDefinition ) )
-                        {
-                            context.Console.WriteError( $"Definition of dependency '{dependencyId}' not found." );
-
-                            return false;
-                        }
-
-                        dependencies.Add( dependencyDefinition.Name );
-                    }
-
-                    if ( dependencies.Count > 0 )
-                    {
-                        steps.Add(
-                            new TeamCityEngineeringCommandBuildStep(
-                                $"Prepare_{objectName}_{projectRelativeId}",
-                                $"Set dependencies of {project.Name}",
-                                "dependencies",
-                                $"set local {string.Join( ' ', dependencies )}" ) { WorkingDirectory = $"source-dependencies/{project.Name}" } );
-                    }
-                }
 
                 steps.Add(
                     new TeamCityEngineeringCommandBuildStep(
                         $"{objectName}_{projectRelativeId}",
                         $"{commandName} deployment of {project.Name}",
                         command,
-                        "--configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id%" )
+                        "--configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --use-local-dependencies" )
                     {
                         WorkingDirectory = $"source-dependencies/{project.Name}"
                     } );
@@ -1143,20 +1113,10 @@ public static class TeamCityHelper
 
             steps.Add(
                 new TeamCityEngineeringCommandBuildStep(
-                    $"Prepare_{objectName}_{consolidatedProjectId.Id}",
-                    "Set dependencies of the consolidated project",
-                    "dependencies",
-                    $"set local {context.Product.MainVersionDependency.Name}" )
-                {
-                    WorkingDirectory = $"source-dependencies/{consolidatedProjectName}"
-                } );
-
-            steps.Add(
-                new TeamCityEngineeringCommandBuildStep(
                     $"{objectName}_{consolidatedProjectId.Id}",
                     $"{commandName} consolidated deployment",
                     command,
-                    "--configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id%" )
+                    "--configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --use-local-dependencies" )
                 {
                     WorkingDirectory = $"source-dependencies/{consolidatedProjectName}"
                 } );
