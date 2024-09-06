@@ -45,15 +45,13 @@ public static partial class MetalamaDependencies
 
         public static ProductFamily Family { get; } = new( _projectName, "2024.2", DevelopmentDependencies.Family, PostSharpDependencies.V2024_1.Family )
         {
-            DockerBaseImage = DockerImages.WindowsServerCore, UpstreamProductFamily = V2024_1.Family
-
-            // DownstreamProductFamily = V2024_3.Family
+            DockerBaseImage = DockerImages.WindowsServerCore, UpstreamProductFamily = V2024_1.Family, DownstreamProductFamily = V2025_0.Family
         };
 
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.GitHub );
 
         public static DependencyDefinition Consolidated { get; } = new MetalamaDependencyDefinition(
-            "Consolidated",
+            ProductFamily.ConsolidatedProjectName,
             VcsProvider.AzureDevOps,
             false,
             customRepositoryName: "Metalama.Consolidated" );

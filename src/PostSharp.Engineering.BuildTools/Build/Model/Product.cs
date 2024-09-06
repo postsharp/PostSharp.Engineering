@@ -1738,28 +1738,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 return false;
             }
-
-            context.Console.WriteHeading( $"Merging branch '{sourceBranch}' to '{targetBranch}' before publishing artifacts." );
-
-            // Checkout to target branch branch and pull to update the local repository.
-            if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
+            
+            if ( !GitHelper.TryPullAndMergeAndPush( context, settings, targetBranch ) )
             {
                 return false;
             }
-
-            // Attempts merging from the source branch, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
-            if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--strategy-option theirs" ) )
-            {
-                return false;
-            }
-
-            // Push the target branch.
-            if ( !GitHelper.TryPush( context, settings ) )
-            {
-                return false;
-            }
-
-            context.Console.WriteSuccess( $"Merging '{sourceBranch}' branch into '{targetBranch}' branch was successful." );
             
             // Act as a local dependency for subsequent projects, that use the --use-local-dependencies flag.
             this.WriteImportFile( context, settings.BuildConfiguration );
@@ -1828,6 +1811,34 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
+            // For consolidated deployments, this is part of the post-deployment step.
+            if ( !this.ProductFamily.HasConsolidatedBuild || settings.IsStandalone )
+            {
+                if ( !TryUpdateAutoUpdatedDependencies( context, settings ) )
+                {
+                    context.Console.WriteError( "Failed to update auto-updated dependencies." );
+
+                    return false;
+                }
+
+                if ( !this.TryAddTagToLastCommit( context, settings ) )
+                {
+                    context.Console.WriteError( "Failed to tag the latest commit." );
+
+                    return false;
+                }
+
+                var releaseBranch = context.Product.DependencyDefinition.ReleaseBranch;
+
+                if ( releaseBranch != null && context.Branch == context.Product.DependencyDefinition.Branch )
+                {
+                    if ( !GitHelper.TryPullAndMergeAndPush( context, settings, releaseBranch ) )
+                    {
+                        return false;
+                    }
+                }
+            }
+
             if ( !hasTarget )
             {
                 context.Console.WriteWarning( "No active publishing target was detected." );
@@ -1894,6 +1905,36 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             
             var targetBranch = context.Product.DependencyDefinition.Branch;
 
+            if ( !TryUpdateAutoUpdatedDependencies( context, settings ) )
+            {
+                context.Console.WriteError( "Failed to update auto-updated dependencies." );
+                
+                return false;
+            }
+
+            if ( !this.TryAddTagToLastCommit( context, settings ) )
+            {
+                context.Console.WriteError( "Failed to tag the latest commit." );
+                
+                return false;
+            }
+            
+            // Merge the release branch back to develop branch.
+            if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
+            {
+                return false;
+            }
+
+            // Act as a local dependency for subsequent projects, that use the --use-local-dependencies flag.
+            this.WriteImportFile( context, settings.BuildConfiguration );
+            
+            context.Console.WriteSuccess( "Publishing finished successfuly." );
+
+            return true;
+        }
+
+        private static bool TryUpdateAutoUpdatedDependencies( BuildContext context, PublishSettings settings )
+        {
             // Go through all dependencies and update their fixed version in AutoUpdatedVersions.props file.
             if ( !AutoUpdatedDependenciesHelper.TryParseAndVerifyDependencies( context, settings, out var dependenciesUpdated ) )
             {
@@ -1943,56 +1984,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     return false;
                 }
             }
-            
-            if ( !this.TryReadMainVersionFile( context, out var mainVersionFileInfo ) )
-            {
-                return false;
-            }
-
-            if ( !this.TryGetPreparedVersionInfo(
-                    context,
-                    mainVersionFileInfo,
-                    out var preparedVersionInfo ) )
-            {
-                return false;
-            }
-            
-            // Tag the last commit with current version tag.
-            if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
-            {
-                context.Console.WriteError(
-                    $"Could not tag the latest commit with version '{preparedVersionInfo.Version}{preparedVersionInfo.PackageVersionSuffix}'." );
-
-                return false;
-            }
-            
-            // Merge the release branch back to develop branch.
-            context.Console.WriteMessage( $"Merging branch '{sourceBranch}' to '{targetBranch}' after publishing artifacts." );
-
-            // Checkout to target branch branch and pull to update the local repository.
-            if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
-            {
-                return false;
-            }
-
-            // Attempts merging from the source branch, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
-            if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--strategy-option theirs" ) )
-            {
-                return false;
-            }
-
-            // Push the target branch.
-            if ( !GitHelper.TryPush( context, settings ) )
-            {
-                return false;
-            }
-
-            context.Console.WriteMessage( $"Merging '{sourceBranch}' branch into '{targetBranch}' branch was successful." );
-            
-            // Act as a local dependency for subsequent projects, that use the --use-local-dependencies flag.
-            this.WriteImportFile( context, settings.BuildConfiguration );
-            
-            context.Console.WriteSuccess( "Publishing finished successfuly." );
 
             return true;
         }
@@ -2278,7 +2269,11 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
             var isRepoRemoteSsh = this.DependencyDefinition.VcsRepository.IsSshAgentRequired;
             var defaultBranch = this.DependencyDefinition.Branch;
-            var deploymentBranch = this.DependencyDefinition.ReleaseBranch ?? defaultBranch;
+
+            var deploymentBranch = this.ProductFamily.HasConsolidatedBuild
+                ? this.DependencyDefinition.ReleaseBranch ?? defaultBranch
+                : defaultBranch;
+
             var vcsRootId = TeamCityHelper.GetVcsRootId( this.DependencyDefinition );
 
             foreach ( var configuration in configurations )
@@ -2506,7 +2501,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // Only versioned products that don't have consolidated version bump can be bumped individually.
-            if ( !this.ProductFamily.TryGetDependencyDefinition( "Consolidated", out _ ) && this.DependencyDefinition.IsVersioned )
+            if ( !this.ProductFamily.HasConsolidatedBuild && this.DependencyDefinition.IsVersioned )
             {
                 var dependencies = this.ParametrizedDependencies;
 
@@ -2686,8 +2681,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             return true;
         }
 
-        private static bool AddTagToLastCommit( BuildContext context, PreparedVersionInfo preparedVersionInfo, BaseBuildSettings settings )
+        private bool TryAddTagToLastCommit( BuildContext context, BaseBuildSettings settings )
         {
+            if ( !this.TryReadMainVersionFile( context, out var mainVersionFileInfo ) )
+            {
+                return false;
+            }
+
+            if ( !this.TryGetPreparedVersionInfo(
+                    context,
+                    mainVersionFileInfo,
+                    out var preparedVersionInfo ) )
+            {
+                return false;
+            }
+            
             var versionTag = string.Concat( "release/", preparedVersionInfo.Version, preparedVersionInfo.PackageVersionSuffix );
 
             ToolInvocationHelper.InvokeTool(

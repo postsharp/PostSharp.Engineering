@@ -41,7 +41,7 @@ public static partial class TestDependencies
         };
         
         public static DependencyDefinition Consolidated { get; } = new TestDependencyDefinition(
-            "Consolidated",
+            ProductFamily.ConsolidatedProjectName,
             VcsProvider.AzureDevOps,
             false,
             customRepositoryName: "PostSharp.Engineering.Test.Consolidated" );

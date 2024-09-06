@@ -79,6 +79,39 @@ public static class GitHelper
         return true;
     }
 
+    public static bool TryPullAndMergeAndPush( BuildContext context, BuildSettings settings, string targetBranch )
+    {
+        // We don't use context.Branch here in case the current branch has changed.
+        if ( !TryGetCurrentBranch( context, out var sourceBranch ) )
+        {
+            return false;
+        }
+
+        context.Console.WriteMessage( $"Merging branch '{sourceBranch}' to '{targetBranch}'." );
+        
+        // Checkout to target branch branch and pull to update the local repository.
+        if ( !TryCheckoutAndPull( context, targetBranch ) )
+        {
+            return false;
+        }
+
+        // Attempts merging from the source branch, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
+        if ( !TryMerge( context, sourceBranch, targetBranch, "--strategy-option theirs" ) )
+        {
+            return false;
+        }
+
+        // Push the target branch.
+        if ( !TryPush( context, settings ) )
+        {
+            return false;
+        }
+        
+        context.Console.WriteMessage( $"Merging '{sourceBranch}' branch into '{targetBranch}' branch was successful." );
+
+        return true;
+    }
+
     public static bool TryCreateBranch( BuildContext context, string branch )
     {
         if ( !ToolInvocationHelper.InvokeTool(

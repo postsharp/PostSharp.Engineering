@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using PostSharp.Engineering.BuildTools.Docker;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
@@ -13,7 +14,7 @@ public static partial class MetalamaDependencies
     // ReSharper disable once InconsistentNaming
 
     [PublicAPI]
-    public static class V2024_0
+    public static class V2025_0
     {
         private class MetalamaDependencyDefinition : DependencyDefinition
         {
@@ -42,13 +43,17 @@ public static partial class MetalamaDependencies
                     isVersioned ) { }
         }
 
-        public static ProductFamily Family { get; } =
-            new( _projectName, "2024.0", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2024_1.Family };
+        public static ProductFamily Family { get; } = new( _projectName, "2025.0", DevelopmentDependencies.Family, PostSharpDependencies.V2024_1.Family )
+        {
+            DockerBaseImage = DockerImages.WindowsServerCore, UpstreamProductFamily = V2024_2.Family
+
+            // DownstreamProductFamily = V2025_1.Family
+        };
 
         public static DependencyDefinition MetalamaBackstage { get; } = new MetalamaDependencyDefinition( "Metalama.Backstage", VcsProvider.GitHub );
 
         public static DependencyDefinition Consolidated { get; } = new MetalamaDependencyDefinition(
-            "Consolidated",
+            ProductFamily.ConsolidatedProjectName,
             VcsProvider.AzureDevOps,
             false,
             customRepositoryName: "Metalama.Consolidated" );
@@ -83,6 +88,9 @@ public static partial class MetalamaDependencies
         public static DependencyDefinition MetalamaSamples { get; } =
             new MetalamaDependencyDefinition( "Metalama.Samples", VcsProvider.GitHub ) { CodeStyle = "Metalama.Samples" };
 
+        public static DependencyDefinition TimelessDotNetEngineer { get; } =
+            new MetalamaDependencyDefinition( "TimelessDotNetEngineer", VcsProvider.GitHub ) { CodeStyle = "Metalama.Samples" };
+
         public static DependencyDefinition MetalamaMigration { get; } = new MetalamaDependencyDefinition( "Metalama.Migration", VcsProvider.GitHub );
 
         public static DependencyDefinition MetalamaLinqPad { get; } = new MetalamaDependencyDefinition( "Metalama.LinqPad", VcsProvider.GitHub );
@@ -116,6 +124,12 @@ public static partial class MetalamaDependencies
         public static DependencyDefinition CargoSupport { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.CargoSupport",
             VcsProvider.AzureDevOps,
+            false,
+            parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests" );
+        
+        public static DependencyDefinition DotNetSdkTests { get; } = new MetalamaDependencyDefinition(
+            "Metalama.Tests.DotNetSdk",
+            VcsProvider.GitHub,
             false,
             parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests" );
 

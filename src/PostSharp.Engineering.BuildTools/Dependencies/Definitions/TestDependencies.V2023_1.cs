@@ -39,7 +39,7 @@ public static partial class TestDependencies
             new( _projectName, "2023.1", DevelopmentDependencies.Family ) { DownstreamProductFamily = V2023_2.Family };
         
         public static DependencyDefinition Consolidated { get; } = new TestDependencyDefinition(
-            "Consolidated",
+            ProductFamily.ConsolidatedProjectName,
             VcsProvider.AzureDevOps,
             false,
             customRepositoryName: "PostSharp.Engineering.Test.Consolidated" );

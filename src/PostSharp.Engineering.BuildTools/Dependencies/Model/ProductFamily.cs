@@ -19,6 +19,8 @@ public class ProductFamily
     private readonly Dictionary<string, DependencyDefinition> _dependencyDefinitions = new();
     private readonly Dictionary<string, DependencyDefinition> _dependencyDefinitionsByCiId = new();
     private readonly ProductFamily[] _relativeFamilies;
+    
+    public static string ConsolidatedProjectName { get; } = "Consolidated";
 
     public string Name { get; set; }
 
@@ -35,6 +37,8 @@ public class ProductFamily
     public DockerImageComponent[] DockerImageComponents { get; init; } = [];
 
     public BuildAgentRequirements DefaultBuildAgentRequirements { get; init; } = BuildAgentRequirements.SelfHosted( "caravela04cloud" );
+
+    public bool HasConsolidatedBuild => this.TryGetDependencyDefinition( ConsolidatedProjectName, out _ );
 
     public ProductFamily( string name, string version, params ProductFamily[] relativeFamilies )
     {
