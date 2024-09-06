@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -11,16 +12,17 @@ using System.Text.RegularExpressions;
 
 namespace PostSharp.Engineering.BuildTools.Utilities;
 
+[PublicAPI]
 public static class GitHelper
 {
-    private static bool TryAddOrigin( BuildContext context, string branch )
+    private static bool TryAddOrigin( ConsoleHelper console, string repoDirectory, string branch )
     {
         // Add origin/<branch> branch to the list of currently tracked branches because local repository may be initialized with only the default branch.
         if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
+                console,
                 "git",
                 $"remote set-branches --add origin {branch}",
-                context.RepoDirectory ) )
+                repoDirectory ) )
         {
             return false;
         }
@@ -28,18 +30,20 @@ public static class GitHelper
         return true;
     }
 
-    public static bool TryFetch( BuildContext context, string? branch )
+    public static bool TryFetch( BuildContext context, string? branch ) => TryFetch( context.Console, context.RepoDirectory, branch );
+    
+    public static bool TryFetch( ConsoleHelper console, string repoDirectory, string? branch )
     {
-        if ( branch != null && !TryAddOrigin( context, branch ) )
+        if ( branch != null && !TryAddOrigin( console, repoDirectory, branch ) )
         {
             return false;
         }
 
         if ( !ToolInvocationHelper.InvokeTool(
-                context.Console,
+                console,
                 "git",
                 $"fetch",
-                context.RepoDirectory ) )
+                repoDirectory ) )
         {
             return false;
         }
@@ -54,7 +58,6 @@ public static class GitHelper
             return false;
         }
 
-        // Switch to the <branch> branch before we do merge.
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
@@ -64,7 +67,6 @@ public static class GitHelper
             return false;
         }
 
-        // Pull remote changes
         if ( !ToolInvocationHelper.InvokeTool(
                 context.Console,
                 "git",
@@ -88,7 +90,7 @@ public static class GitHelper
             return false;
         }
 
-        if ( !TryAddOrigin( context, branch ) )
+        if ( !TryAddOrigin( context.Console, context.RepoDirectory, branch ) )
         {
             return false;
         }
@@ -123,29 +125,35 @@ public static class GitHelper
     }
 
     public static bool TryGetCurrentCommitHash( BuildContext context, [NotNullWhen( true )] out string? currentCommitHash )
+        => TryGetCurrentCommitHash( context.Console, context.RepoDirectory, out currentCommitHash );
+
+    public static bool TryGetCurrentCommitHash( ConsoleHelper console, string repoDirectory, [NotNullWhen( true )] out string? currentCommitHash )
     {
-        if ( !TryGetCurrentCommitHash( context, "HEAD", out currentCommitHash ) )
+        if ( !TryGetCurrentCommitHash( console, repoDirectory, "HEAD", out currentCommitHash ) )
         {
             return false;
         }
 
         if ( currentCommitHash == null )
         {
-            context.Console.WriteError( "Failed to get current commit hash." );
+            console.WriteError( "Failed to get current commit hash." );
 
             return false;
         }
 
         return true;
     }
-    
+
     public static bool TryGetCurrentCommitHash( BuildContext context, string reference, out string? currentCommitHash )
+        => TryGetCurrentCommitHash( context.Console, context.RepoDirectory, reference, out currentCommitHash );
+    
+    public static bool TryGetCurrentCommitHash( ConsoleHelper console, string repoDirectory, string reference, out string? currentCommitHash )
     {
         ToolInvocationHelper.InvokeTool(
-            context.Console,
+            console,
             "git",
             $"rev-parse --verify --quiet {reference}",
-            context.RepoDirectory,
+            repoDirectory,
             out var gitExitCode,
             out var gitOutput );
 
@@ -156,7 +164,7 @@ public static class GitHelper
             // If the reference doesn't exist, the command returns non-zero exit code and no output.
             if ( !string.IsNullOrEmpty( gitOutput ) )
             {
-                context.Console.WriteError( gitOutput );
+                console.WriteError( gitOutput );
 
                 return false;
             }

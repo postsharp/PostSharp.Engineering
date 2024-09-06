@@ -18,18 +18,6 @@ internal static class AutoUpdatedDependenciesHelper
 
         dependenciesUpdated = false;
 
-        // For following Prepare step we need to BuildSettings
-        var buildSettings = new BuildSettings()
-        {
-            BuildConfiguration = settings.BuildConfiguration, SimulateContinuousIntegration = settings.SimulateContinuousIntegration, Force = settings.Force
-        };
-
-        // Do prepare step to get Version.Public.g.props to load up-to-date versions from.
-        if ( !context.Product.PrepareVersionsFile( context, buildSettings, out _ ) )
-        {
-            return false;
-        }
-
         // Get dependenciesOverrideFile from Versions.Public.g.props.
         if ( !DependenciesOverrideFile.TryLoad( context, settings, settings.BuildConfiguration, out var dependenciesOverrideFile ) )
         {

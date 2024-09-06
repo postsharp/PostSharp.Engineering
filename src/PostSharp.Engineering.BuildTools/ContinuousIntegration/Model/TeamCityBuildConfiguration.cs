@@ -15,6 +15,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         public string ObjectName { get; }
 
         public string Name { get; }
+        
+        public string DefaultBranch { get; }
+        
+        public string VcsRootId { get; }
 
         public BuildAgentRequirements? BuildAgentRequirements { get; }
 
@@ -36,12 +40,16 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public TeamCitySourceDependency[]? SourceDependencies { get; init; }
 
+        public bool IsDefaultVcsRootUsed { get; init; } = true;
+
         public TimeSpan? BuildTimeOutThreshold { get; init; }
 
-        public TeamCityBuildConfiguration( string objectName, string name, BuildAgentRequirements? buildAgentRequirements = null )
+        public TeamCityBuildConfiguration( string objectName, string name, string defaultBranch, string vcsRootId, BuildAgentRequirements? buildAgentRequirements = null )
         {
             this.ObjectName = objectName;
             this.Name = name;
+            this.DefaultBranch = defaultBranch;
+            this.VcsRootId = vcsRootId;
             this.BuildAgentRequirements = buildAgentRequirements;
         }
 
@@ -89,6 +97,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                     this.BuildSteps!.SelectMany( s => s.BuildConfigurationParameters ?? Enumerable.Empty<TeamCityBuildConfigurationParameter>() ) );
             }
 
+            buildParameters.Add(
+                new TeamCityTextBuildConfigurationParameter(
+                    "DefaultBranch",
+                    "Default Branch",
+                    "The default branch of this build configuration.",
+                    this.DefaultBranch ) );
+
             if ( this.BuildTimeOutThreshold.HasValue )
             {
                 var timeOutParameter = new TeamCityTextBuildConfigurationParameter(
@@ -105,12 +120,16 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 writer.WriteLine(
                     $@"    params {{
 {string.Join( Environment.NewLine, buildParameters.Select( p => p.GenerateTeamCityCode() ) )}
-    }}" );
+    }}
+" );
             }
 
-            writer.WriteLine(
-                $@"    vcs {{
-        {(this.IsComposite ? "showDependenciesChanges = true" : "root(DslContext.settingsRoot)")}" );
+            writer.WriteLine( "    vcs {" );
+
+            if ( this.IsDefaultVcsRootUsed )
+            {
+                writer.WriteLine( $"        {(hasBuildSteps ? @$"root(AbsoluteId(""{this.VcsRootId}""))" : "showDependenciesChanges = true")}" );
+            }
 
             // Source dependencies.
             var hasSourceDependencies = this.SourceDependencies is { Length: > 0 };
@@ -165,30 +184,31 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
     }}" );
             }
 
-            if ( !this.IsComposite )
+            if ( !this.IsComposite && this.BuildAgentRequirements != null )
             {
-                if ( this.BuildAgentRequirements != null )
+                writer.WriteLine();
+                writer.WriteLine( "    requirements {" );
+
+                foreach ( var environmentVariable in this.BuildAgentRequirements.Items )
                 {
-                    writer.WriteLine();
-                    writer.WriteLine( "    requirements {" );
-
-                    foreach ( var environmentVariable in this.BuildAgentRequirements.Items )
-                    {
-                        writer.WriteLine( $"        equals(\"{environmentVariable.Name}\", \"{environmentVariable.Value}\")" );
-                    }
-
-                    writer.WriteLine( "    }" );
+                    writer.WriteLine( $"        equals(\"{environmentVariable.Name}\", \"{environmentVariable.Value}\")" );
                 }
+
+                writer.WriteLine( "    }" );
             }
 
+            var hasSwabra = hasBuildSteps;
+            var hasSshAgent = this.IsSshAgentRequired;
+            var hasFeatures = hasSwabra || hasSshAgent;
+
             // Features.
-            if ( !this.IsComposite || this.IsSshAgentRequired )
+            if ( hasFeatures )
             {
                 writer.WriteLine(
                     $@"
     features {{" );
 
-                if ( !this.IsComposite )
+                if ( hasSwabra )
                 {
                     writer.WriteLine(
                         $@"        swabra {{
@@ -197,7 +217,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         }}" );
                 }
 
-                if ( this.IsSshAgentRequired )
+                if ( hasSshAgent )
                 {
                     writer.WriteLine(
                         $@"        sshAgent {{
@@ -218,7 +238,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
                 foreach ( var trigger in this.BuildTriggers )
                 {
-                    trigger.GenerateTeamcityCode( writer );
+                    trigger.GenerateTeamcityCode( writer, $"+:{this.DefaultBranch}" );
                 }
 
                 writer.WriteLine( @"    }" );
@@ -257,8 +277,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                 }
 
                 writer.WriteLine(
-                    $@"
-     }}" );
+                    $@"     }}" );
             }
 
             writer.WriteLine(

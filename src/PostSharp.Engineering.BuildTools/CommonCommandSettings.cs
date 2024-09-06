@@ -75,7 +75,11 @@ namespace PostSharp.Engineering.BuildTools
         
         [Description( "Use the project or solution directory as a working directory." )]
         [CommandOption( "--project-dir-as-working-dir" )]
-        public bool UseProjectDirectoryAsWorkingDirectory { get; protected set; }
+        public bool UseProjectDirectoryAsWorkingDirectory { get; set; }
+        
+        [Description( "Use local dependencies instead of build server dependencies." )]
+        [CommandOption( "--use-local-dependencies" )]
+        public bool UseLocalDependencies { get; set; }
 
         [Description( "Properties in form Name=Value" )]
         [CommandOption( "-p|--property" )]

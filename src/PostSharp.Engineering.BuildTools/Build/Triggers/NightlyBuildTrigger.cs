@@ -15,6 +15,8 @@ public class NightlyBuildTrigger : IBuildTrigger
     public int Minute { get; }
 
     public bool WithPendingChangesOnly { get; }
+    
+    public string? BranchFilter { get; set; }
 
     public NightlyBuildTrigger( int hour, bool withPendingChangesOnly )
     {
@@ -29,7 +31,7 @@ public class NightlyBuildTrigger : IBuildTrigger
         this.WithPendingChangesOnly = withPendingChangesOnly;
     }
 
-    public void GenerateTeamcityCode( TextWriter writer )
+    public void GenerateTeamcityCode( TextWriter writer, string branchFilter )
     {
         writer.WriteLine(
             @$"        schedule {{
@@ -37,7 +39,7 @@ public class NightlyBuildTrigger : IBuildTrigger
                 hour = {this.Hour}
                 minute = {this.Minute}
             }}
-            branchFilter = ""+:<default>""
+            branchFilter = ""{this.BranchFilter ?? branchFilter}""
             triggerBuild = always()
             withPendingChangesOnly = {this.WithPendingChangesOnly.ToString().ToLowerInvariant()}
         }}" );

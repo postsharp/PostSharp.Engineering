@@ -1,6 +1,7 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using PostSharp.Engineering.BuildTools.Build.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Utilities;
 using Spectre.Console.Cli;
 using System;
@@ -88,21 +89,19 @@ namespace PostSharp.Engineering.BuildTools.Build
             CommandContext commandContext,
             [NotNullWhen( true )] out BuildContext? buildContext )
         {
+            buildContext = null;
             var repoDirectory = FindRepoDirectory( Environment.CurrentDirectory );
             var console = new ConsoleHelper();
 
             if ( repoDirectory == null )
             {
                 console.WriteError( "This tool must be called from a git repository." );
-                buildContext = null;
 
                 return false;
             }
 
             if ( !GitHelper.TryGetCurrentBranch( console, repoDirectory, out var currentBranch ) )
             {
-                buildContext = null;
-
                 return false;
             }
 

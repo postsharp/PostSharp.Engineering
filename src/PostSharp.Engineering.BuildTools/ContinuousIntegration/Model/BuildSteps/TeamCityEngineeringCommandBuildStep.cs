@@ -9,22 +9,23 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
     private static string GetCustomArgumentsParameterName( string objectName ) => $"{objectName}Arguments";
 
     public TeamCityEngineeringCommandBuildStep(
-        string objectName,
+        string id,
         string name,
         string command,
         string? arguments = null,
         bool areCustomArgumentsAllowed = false,
         bool useDocker = false ) : base(
+        id,
         name,
         "Build.ps1",
-        $"{(useDocker ? "docker " : "")}{command}{(arguments == null ? "" : $" {arguments}")}{(!areCustomArgumentsAllowed ? "" : $" %{GetCustomArgumentsParameterName( objectName )}%")}" )
+        $"{(useDocker ? "docker " : "")}{command}{(arguments == null ? "" : $" {arguments}")}{(!areCustomArgumentsAllowed ? "" : $" %{GetCustomArgumentsParameterName( id )}%")}" )
     {
         if ( areCustomArgumentsAllowed )
         {
             this.BuildConfigurationParameters =
             [
                 new TeamCityTextBuildConfigurationParameter(
-                    GetCustomArgumentsParameterName( objectName ),
+                    GetCustomArgumentsParameterName( id ),
                     $"{name} Arguments",
                     $"Arguments to append to the '{name}' build step.",
                     allowEmpty: true )

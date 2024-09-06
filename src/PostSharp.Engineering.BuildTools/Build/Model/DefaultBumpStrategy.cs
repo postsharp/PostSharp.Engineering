@@ -17,21 +17,13 @@ internal class DefaultBumpStrategy : IBumpStrategy
         [NotNullWhen( true )] out Version? oldVersion,
         [NotNullWhen( true )] out Version? newVersion )
     {
-        var mainVersionFile = Path.Combine(
-            context.RepoDirectory,
-            product.MainVersionFilePath );
-
-        if ( !File.Exists( mainVersionFile ) )
+        if ( !product.TryReadMainVersionFile( context, out var currentMainVersionFile, out var mainVersionFile ) )
         {
-            context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
-
             oldVersion = null;
             newVersion = null;
 
             return false;
         }
-
-        var currentMainVersionFile = Product.ReadMainVersionFile( mainVersionFile );
 
         oldVersion = new Version( currentMainVersionFile.MainVersion );
 

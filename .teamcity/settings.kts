@@ -27,40 +27,45 @@ object DebugBuild : BuildType({
 
     name = "Build [Debug]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n+:artifacts/logs/**/*=>logs\n"
 
     params {
         text("BuildArguments", "", label = "Build Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
+        text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
         text("TimeOut", "300", label = "Time-Out Threshold", description = "Seconds after the duration of the last successful build.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
+
     vcs {
-        root(DslContext.settingsRoot)
+        root(AbsoluteId("Engineering_PostSharpEngineering"))
     }
 
     steps {
         powerShell {
             name = "Kill background processes before cleanup"
+            id = "PreKill"
             scriptMode = file {
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "tools kill")
+            scriptArgs = "tools kill"
         }
         powerShell {
             name = "Build"
+            id = "Build"
             scriptMode = file {
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "test --configuration Debug --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%")
+            scriptArgs = "test --configuration Debug --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%"
         }
         powerShell {
             name = "Kill background processes before next build"
+            id = "PostKill"
             scriptMode = file {
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "tools kill")
+            scriptArgs = "tools kill"
         }
     }
 
@@ -91,7 +96,7 @@ object DebugBuild : BuildType({
     triggers {
         vcs {
             watchChangesInDependencies = true
-            branchFilter = "+:<default>"
+            branchFilter = "+:develop/2023.2"
             // Build will not trigger automatically if the commit message contains comment value.
             triggerRules = "-:comment=<<VERSION_BUMP>>|<<DEPENDENCIES_UPDATED>>:**"
         }
@@ -103,40 +108,45 @@ object ReleaseBuild : BuildType({
 
     name = "Build [Release]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n+:artifacts/logs/**/*=>logs\n"
 
     params {
         text("BuildArguments", "", label = "Build Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
+        text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
         text("TimeOut", "300", label = "Time-Out Threshold", description = "Seconds after the duration of the last successful build.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
+
     vcs {
-        root(DslContext.settingsRoot)
+        root(AbsoluteId("Engineering_PostSharpEngineering"))
     }
 
     steps {
         powerShell {
             name = "Kill background processes before cleanup"
+            id = "PreKill"
             scriptMode = file {
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "tools kill")
+            scriptArgs = "tools kill"
         }
         powerShell {
             name = "Build"
+            id = "Build"
             scriptMode = file {
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "test --configuration Release --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%")
+            scriptArgs = "test --configuration Release --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%"
         }
         powerShell {
             name = "Kill background processes before next build"
+            id = "PostKill"
             scriptMode = file {
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "tools kill")
+            scriptArgs = "tools kill"
         }
     }
 
@@ -170,40 +180,45 @@ object PublicBuild : BuildType({
 
     name = "Build [Public]"
 
-    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n"
+    artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults\n+:artifacts/logs/**/*=>logs\n"
 
     params {
         text("BuildArguments", "", label = "Build Arguments", description = "Arguments to append to the 'Build' build step.", allowEmpty = true)
+        text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
         text("TimeOut", "300", label = "Time-Out Threshold", description = "Seconds after the duration of the last successful build.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
+
     vcs {
-        root(DslContext.settingsRoot)
+        root(AbsoluteId("Engineering_PostSharpEngineering"))
     }
 
     steps {
         powerShell {
             name = "Kill background processes before cleanup"
+            id = "PreKill"
             scriptMode = file {
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "tools kill")
+            scriptArgs = "tools kill"
         }
         powerShell {
             name = "Build"
+            id = "Build"
             scriptMode = file {
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "test --configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%")
+            scriptArgs = "test --configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% %BuildArguments%"
         }
         powerShell {
             name = "Kill background processes before next build"
+            id = "PostKill"
             scriptMode = file {
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "tools kill")
+            scriptArgs = "tools kill"
         }
     }
 
@@ -241,20 +256,23 @@ object PublicDeployment : BuildType({
 
     params {
         text("PublishArguments", "", label = "Publish Arguments", description = "Arguments to append to the 'Publish' build step.", allowEmpty = true)
+        text("DefaultBranch", "release/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
         text("TimeOut", "300", label = "Time-Out Threshold", description = "Seconds after the duration of the last successful build.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
+
     vcs {
-        root(DslContext.settingsRoot)
+        root(AbsoluteId("Engineering_PostSharpEngineering"))
     }
 
     steps {
         powerShell {
             name = "Publish"
+            id = "Publish"
             scriptMode = file {
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "publish --configuration Public %PublishArguments%")
+            scriptArgs = "publish --configuration Public %PublishArguments%"
         }
     }
 
@@ -294,10 +312,9 @@ object PublicDeployment : BuildType({
 
             artifacts {
                 cleanDestination = true
-                artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private\n+:artifacts/testResults/**/*=>artifacts/testResults"
+                artifactRules = "+:artifacts/publish/public/**/*=>artifacts/publish/public\n+:artifacts/publish/private/**/*=>artifacts/publish/private"
             }
         }
-
      }
 
 })
@@ -308,20 +325,23 @@ object VersionBump : BuildType({
 
     params {
         text("BumpArguments", "", label = "Bump Arguments", description = "Arguments to append to the 'Bump' build step.", allowEmpty = true)
+        text("DefaultBranch", "develop/2023.2", label = "Default Branch", description = "The default branch of this build configuration.")
         text("TimeOut", "300", label = "Time-Out Threshold", description = "Seconds after the duration of the last successful build.", regex = """\d+""", validationMessage = "The timeout has to be an integer number.")
     }
+
     vcs {
-        root(DslContext.settingsRoot)
+        root(AbsoluteId("Engineering_PostSharpEngineering"))
     }
 
     steps {
         powerShell {
             name = "Bump"
+            id = "Bump"
             scriptMode = file {
                 path = "Build.ps1"
             }
             noProfile = false
-            param("jetbrains_powershell_scriptArguments", "bump %BumpArguments%")
+            scriptArgs = "bump %BumpArguments%"
         }
     }
 

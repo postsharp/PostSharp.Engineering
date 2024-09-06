@@ -63,9 +63,17 @@ namespace PostSharp.Engineering.BuildTools
                         .WithData( data )
                         .WithDescription( "Verify that the dependencies of public artifacts have already been publicly deployed" );
 
+                    root.AddCommand<PrePublishCommand>( "prepublish" )
+                        .WithData( data )
+                        .WithDescription( "Prepares publishing of all packages that have been previously built by the 'build' command" );
+                    
                     root.AddCommand<PublishCommand>( "publish" )
                         .WithData( data )
                         .WithDescription( "Publishes all packages that have been previously built by the 'build' command" );
+                    
+                    root.AddCommand<PostPublishCommand>( "postpublish" )
+                        .WithData( data )
+                        .WithDescription( "Finalizes publishing of all packages that have been previously built by the 'build' command" );
 
                     root.AddCommand<SwapCommand>( "swap" )
                         .WithData( data )
@@ -134,11 +142,6 @@ namespace PostSharp.Engineering.BuildTools
                             dependencies.AddCommand<UpdateEngineeringCommand>( "update-eng" )
                                 .WithData( data )
                                 .WithDescription( "Updates PostSharp.Engineering in global.json and Versions.props." );
-
-                            dependencies.AddCommand<UpdateAutoUpdatedDependenciesCommand>( "update-auto-updated" )
-                                .WithData( data )
-                                .WithDescription(
-                                    "Updated auto-updated dependencies. This command serves for development of PostSharp.Engineering. In production, the auto-update is done by the MergePublisher during deployment." );
                         } );
 
                     root.AddBranch(

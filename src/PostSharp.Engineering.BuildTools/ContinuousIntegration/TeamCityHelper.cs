@@ -417,64 +417,58 @@ public static class TeamCityHelper
         return TryCreateProject( tc, context, name, id, parentId, vcsRootId );
     }
 
-    private static bool TryCreateVcsRoot( TeamCityClient tc, BuildContext context, string? projectId, [NotNullWhen( true )] out string? vcsRootId )
+    public static string GetVcsRootId( DependencyDefinition dependencyDefinition, bool parameterizedDefaultBranch = true )
+        => GetVcsRootId( dependencyDefinition.VcsRepository, dependencyDefinition.CiConfiguration.ProjectId.ParentId, parameterizedDefaultBranch );
+
+    private static string GetVcsRootId( VcsRepository repository, string? projectId, bool parameterizedDefaultBranch )
+        => $"{projectId ?? "Root"}_{repository.Name.Replace( ".", "", StringComparison.Ordinal )}{(parameterizedDefaultBranch ? "" : "_Default")}";
+
+    private static bool TryCreateVcsRoot( TeamCityClient tc, BuildContext context, string? projectId, bool parameterizedDefaultBranch, out string vcsRootId )
     {
-        projectId ??= "_Root";
+        var repository = context.Product.DependencyDefinition.VcsRepository;
+        vcsRootId = GetVcsRootId( repository, projectId, parameterizedDefaultBranch );
 
         context.Console.WriteMessage( $"Retrieving VCS roots of '{projectId}' project." );
 
-        if ( !tc.TryGetVcsRoots( context.Console, projectId, out var vcsRoots ) )
+        if ( !tc.TryGetVcsRoots( context.Console, projectId ?? "_Root", out var vcsRoots ) )
         {
-            vcsRootId = null;
-
             return false;
         }
 
-        // The URLs and IDs can differ, so we search by name.
-        // Eg. https://postsharp@dev.azure.com/postsharp/Engineering/_git/PostSharp.Engineering.Test.TestProduct
-        // and "https://dev.azure.com/postsharp/Engineering/_git/PostSharp.Engineering.Test.TestProduct
-        // are both valid and refer to the same project.
-        var vcsRootIdsByName = vcsRoots.Value.ToDictionary(
-            root => VcsUrlParser.TryGetRepository( root.Url, out var repository )
-                ? repository.Name
-                : throw new InvalidOperationException( $"Unknown VCS provider of '{root.Url}' repository." ),
-            r => r.Id );
-
-        var repository = context.Product.DependencyDefinition.VcsRepository;
-
-        if ( vcsRootIdsByName.TryGetValue( repository.Name, out vcsRootId ) )
+        if ( vcsRoots.Value.ToHashSet( r => r.Id ).Contains( vcsRootId ) )
         {
             context.Console.WriteMessage( $"Using existing '{vcsRootId}' VCS root" );
+
+            return true;
         }
-        else
+
+        var vcsRootName = parameterizedDefaultBranch ? repository.Name : $"{repository.Name}_Default";
+        var familyVersion = context.Product.ProductFamily.Version;
+        var defaultBranch = parameterizedDefaultBranch ? "%DefaultBranch%" : context.Product.DependencyDefinition.Branch;
+
+        var branchSpecification = new List<string>
         {
-            var familyVersion = context.Product.ProductFamily.Version;
-            var url = repository.TeamCityRemoteUrl;
-            var defaultBranch = $"refs/heads/{context.Product.DependencyDefinition.Branch}";
+            $"+:refs/heads/(topic/{familyVersion}/*)",
+            $"+:refs/heads/(feature/{familyVersion}/*)",
+            $"+:refs/heads/(experimental/{familyVersion}/*)",
+            $"+:refs/heads/(merge/{familyVersion}/*)",
+            $"+:refs/heads/({context.Product.DependencyDefinition.Branch})"
+        };
 
-            var branchSpecification = new List<string>
-            {
-                $"+:refs/heads/(topic/{familyVersion}/*)",
-                $"+:refs/heads/(feature/{familyVersion}/*)",
-                $"+:refs/heads/(experimental/{familyVersion}/*)",
-                $"+:refs/heads/(merge/{familyVersion}/*)",
-                $"+:refs/heads/({context.Product.DependencyDefinition.Branch})"
-            };
-
-            if ( context.Product.DependencyDefinition.ReleaseBranch != null )
-            {
-                branchSpecification.Add( $"+:refs/heads/({context.Product.DependencyDefinition.ReleaseBranch})" );
-            }
-
-            context.Console.WriteMessage( $"Creating '{url}' VCS root in '{projectId}' project for '{familyVersion}' family version." );
-
-            if ( !tc.TryCreateVcsRoot( context.Console, url, projectId, defaultBranch, branchSpecification, out var vcsRootName, out vcsRootId ) )
-            {
-                return false;
-            }
-
-            context.Console.WriteMessage( $"Created '{vcsRootName}' VCS root ID '{vcsRootId}'." );
+        if ( context.Product.DependencyDefinition.ReleaseBranch != null )
+        {
+            branchSpecification.Add( $"+:refs/heads/({context.Product.DependencyDefinition.ReleaseBranch})" );
         }
+
+        context.Console.WriteMessage(
+            $"Creating '{repository.TeamCityRemoteUrl}' VCS root in '{projectId}' project for '{familyVersion}' family version with default branch '{defaultBranch}'." );
+
+        if ( !tc.TryCreateVcsRoot( context.Console, projectId, vcsRootId, vcsRootName, defaultBranch, repository, branchSpecification ) )
+        {
+            return false;
+        }
+
+        context.Console.WriteMessage( $"Created '{vcsRootName}' VCS root ID '{vcsRootId}'." );
 
         return true;
     }
@@ -486,7 +480,17 @@ public static class TeamCityHelper
             return false;
         }
 
-        return TryCreateVcsRoot( tc, context, projectId, out _ );
+        if ( !TryCreateVcsRoot( tc, context, projectId, true, out _ ) )
+        {
+            return false;
+        }
+
+        if ( !TryCreateVcsRoot( tc, context, projectId, false, out _ ) )
+        {
+            return false;
+        }
+
+        return true;
     }
 
     public static bool TryCreateProject( BuildContext context )
@@ -500,7 +504,12 @@ public static class TeamCityHelper
         var parentProjectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId.ParentId;
         var projectName = context.Product.DependencyDefinition.Name;
 
-        if ( !TryCreateVcsRoot( tc, context, parentProjectId, out var vcsRootId ) )
+        if ( !TryCreateVcsRoot( tc, context, parentProjectId, true, out _ ) )
+        {
+            return false;
+        }
+
+        if ( !TryCreateVcsRoot( tc, context, parentProjectId, false, out var vcsRootId ) )
         {
             return false;
         }
@@ -630,7 +639,7 @@ public static class TeamCityHelper
         project.GenerateTeamcityCode( content );
 
         var filePath = Path.Combine( context.RepoDirectory, ".teamcity", "settings.kts" );
-        
+
         WriteIfDiffers( context, project.GenerateTeamcityCode, "Continuous integration script", filePath );
     }
 
@@ -640,7 +649,7 @@ public static class TeamCityHelper
         writer( content );
 
         string resultMessage;
-        
+
         if ( !File.Exists( filePath ) || File.ReadAllText( filePath ) != content.ToString() )
         {
             context.Console.WriteWarning( $"Replacing '{filePath}'." );
@@ -666,6 +675,17 @@ public static class TeamCityHelper
 
         var consolidatedProjectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId;
         var consolidatedProjectIdPrefix = $"{consolidatedProjectId}_";
+        var defaultBranch = context.Product.DependencyDefinition.Branch;
+        var deploymentBranch = context.Product.DependencyDefinition.ReleaseBranch;
+        var vcsRootId = GetVcsRootId( context.Product.DependencyDefinition );
+
+        if ( deploymentBranch == null )
+        {
+            context.Console.WriteError( $"Release branch not set for the consolidated project." );
+
+            return false;
+        }
+
         var tcConfigurations = new List<TeamCityBuildConfiguration>();
         var nuGetConfigurations = new List<TeamCityBuildConfiguration>();
 
@@ -720,13 +740,13 @@ public static class TeamCityHelper
                 buildConfigurationsById.Add( buildConfigurationId, buildConfiguration );
             }
         }
-        
+
         // TeamCity doesn't allow to have artifact dependencies that match no artifacts.
         // TODO: Make this configurable.
         string[] projectsWithNoNuGetArtifacts = [".Vsx", ".Documentation", ".Try", ".Tests."];
 
         static string MarkNuGetObjectId( string objectId ) => $"NuGet{objectId}";
-        
+
         bool TryPopulateBuildConfgurations(
             BuildConfiguration configuration,
             string consolidatedBuildObjectName,
@@ -746,7 +766,7 @@ public static class TeamCityHelper
             dependenciesByProjectId = new();
             nuGetDependencies = new();
             buildArtifactRules = null;
-            
+
             foreach ( var buildConfiguration in buildConfigurationsByKind[consolidatedBuildObjectName] )
             {
                 var dependencyProjectId = buildConfiguration.ProjectId;
@@ -769,7 +789,7 @@ public static class TeamCityHelper
 
                     var dependencyPublicArtifactsDirectory = dependencyDefinition.PublicArtifactsDirectory.ToString( dependencyBuildInfo )
                         .Replace( Path.DirectorySeparatorChar, '/' );
-                
+
                     var dependencyName = dependencyDefinition.Name;
                     var artifactRulesFormat = $"+:{{0}}/**/*.{{1}}=>dependencies/{dependencyName}";
 
@@ -813,7 +833,7 @@ public static class TeamCityHelper
                         .Where( c => c != null )
                         .Select( c => c! ) );
             }
-            
+
             var buildInfo = new BuildInfo( null, configuration, context.Product, null );
 
             var privateArtifactsDirectory =
@@ -822,12 +842,20 @@ public static class TeamCityHelper
             var publicArtifactsDirectory =
                 context.Product.PublicArtifactsDirectory.ToString( buildInfo ).Replace( "\\", "/", StringComparison.Ordinal );
 
-            buildArtifactRules = $@"+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}\n+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
+            buildArtifactRules =
+                $@"+:{privateArtifactsDirectory}/**/*=>{privateArtifactsDirectory}\n+:{publicArtifactsDirectory}/**/*=>{publicArtifactsDirectory}";
+
             var nuGetBuildCiId = $"{consolidatedProjectIdPrefix}{nuGetBuildObjectName}";
 
             dependencies.Add( new( nuGetBuildCiId, true ) );
 
-            consolidatedBuildConfiguration = new( consolidatedBuildObjectName, consolidatedBuildConfigurationName )
+            var defaultBuildBranch = configuration switch
+            {
+                BuildConfiguration.Public => deploymentBranch,
+                _ => defaultBranch
+            };
+
+            consolidatedBuildConfiguration = new( consolidatedBuildObjectName, consolidatedBuildConfigurationName, defaultBuildBranch, vcsRootId )
             {
                 SnapshotDependencies = dependencies.ToArray(), BuildTriggers = consolidatedBuildTriggers
             };
@@ -835,7 +863,13 @@ public static class TeamCityHelper
             var nuGetBuildSteps =
                 new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( configuration, false, context.Product.UseDockerInTeamcity ) };
 
-            nuGetBuildConfiguration = new( nuGetBuildObjectName, nuGetBuildConfigurationName, context.Product.ResolvedBuildAgentRequirements )
+            // The default branch is the same as for public build of any other project - see the build configuration of a regular project.
+            nuGetBuildConfiguration = new(
+                nuGetBuildObjectName,
+                nuGetBuildConfigurationName,
+                defaultBranch,
+                vcsRootId,
+                context.Product.ResolvedBuildAgentRequirements )
             {
                 BuildSteps = nuGetBuildSteps,
                 SnapshotDependencies = nuGetDependencies.ToArray(),
@@ -845,7 +879,7 @@ public static class TeamCityHelper
 
             return true;
         }
-        
+
         // Debug Build
         const string debugBuildObjectName = "DebugBuild";
         const string debugBuildName = "Build [Debug]";
@@ -865,7 +899,7 @@ public static class TeamCityHelper
         {
             return false;
         }
-        
+
         tcConfigurations.Add( consolidatedDebugBuildConfiguration );
         nuGetConfigurations.Add( nuGetDebugBuildConfiguration );
 
@@ -884,7 +918,7 @@ public static class TeamCityHelper
             var consolidatedDownstreamMergeBuildTriggers = new IBuildTrigger[] { new NightlyBuildTrigger( 23, true ) };
 
             tcConfigurations.Add(
-                new TeamCityBuildConfiguration( downstreamMergeObjectName, "Merge Downstream" )
+                new TeamCityBuildConfiguration( downstreamMergeObjectName, "Merge Downstream", defaultBranch, vcsRootId )
                 {
                     SnapshotDependencies = consolidatedDownstreamMergeSnapshotDependencies.ToArray(),
                     BuildTriggers = consolidatedDownstreamMergeBuildTriggers
@@ -910,7 +944,7 @@ public static class TeamCityHelper
         {
             return false;
         }
-        
+
         tcConfigurations.Add( consolidatedReleaseBuildConfiguration );
         nuGetConfigurations.Add( nuGetReleaseBuildConfiguration );
 
@@ -922,8 +956,16 @@ public static class TeamCityHelper
         if ( !TryPopulateBuildConfgurations(
                 BuildConfiguration.Public,
                 publicBuildObjectName,
-                $"2. {publicBuildName}",
-                [new NightlyBuildTrigger( 2, true )],
+                $"3. {publicBuildName}",
+                [
+                    new NightlyBuildTrigger( 2, true )
+                    {
+                        // The nightly build is done on the develop branch to find issues early and to prepare for the deployment.
+                        // The manually triggered build is done on the release branch to allow for deployment without merge freeze.
+                        // Any successful build of the same commit done on the develop branch is reused by TeamCity when deploying from the release branch.
+                        BranchFilter = $"+:{defaultBranch}"
+                    }
+                ],
                 MarkNuGetObjectId( publicBuildObjectName ),
                 publicBuildName,
                 out var consolidatedPublicBuildConfiguration,
@@ -938,17 +980,33 @@ public static class TeamCityHelper
         const string versionBumpObjectName = "VersionBump";
 
         var consolidatedVersionBumpSteps = new List<TeamCityBuildStep>();
+        var consolidatedVersionBumpSourceDependencies = new List<TeamCitySourceDependency>();
         var bumpedProjects = new HashSet<string>();
-
-        var familyName = context.Product.ProductFamily.Name;
-        var familyVersion = context.Product.ProductFamily.Version;
 
         var success = true;
 
-        foreach ( var versionBumpBuildConfiguration in buildConfigurationsByKind[versionBumpObjectName] )
+        TeamCitySourceDependency CreateSourceDependency( string projectVcsRootId, string projectName )
+            => new( projectVcsRootId, true, $"+:. => {context.Product.SourceDependenciesDirectory}/{projectName}" );
+        
+        TeamCitySourceDependency CreateSourceDependencyFromDefintion( DependencyDefinition dependencyDefinition )
+            => CreateSourceDependency( GetVcsRootId( dependencyDefinition ), dependencyDefinition.Name );
+
+        foreach ( var buildConfiguration in buildConfigurationsByKind[publicBuildObjectName] )
         {
-            var bumpedProjectId = versionBumpBuildConfiguration.ProjectId;
-            var bumpedProjectName = versionBumpBuildConfiguration.ProjectName;
+            var bumpedProjectId = buildConfiguration.ProjectId;
+            var bumpedProjectName = buildConfiguration.ProjectName;
+            
+            if ( !context.Product.DependencyDefinition.ProductFamily.TryGetDependencyDefinitionByCiId( bumpedProjectId, out var dependencyDefinition ) )
+            {
+                context.Console.WriteError( $"Dependency definition for project '{bumpedProjectId}' not found." );
+
+                return false;
+            }
+
+            if ( !dependencyDefinition.IsVersioned )
+            {
+                continue;
+            }
 
             foreach ( var projectDependencyId in consolidatedPublicBuildSnapshotDependenciesByProjectId[bumpedProjectId] )
             {
@@ -961,10 +1019,11 @@ public static class TeamCityHelper
 
             consolidatedVersionBumpSteps.Add(
                 new TeamCityEngineeringCommandBuildStep(
-                    $"Bump{versionBumpBuildConfiguration.ProjectId.Split( '_' ).Last()}",
-                    $"Trigger version bump of {bumpedProjectName}",
-                    "teamcity run bump",
-                    $"{familyName} {familyVersion} {bumpedProjectName}" ) );
+                    $"Bump{bumpedProjectId.Split( '_' ).Last()}",
+                    $"Bump version of {bumpedProjectName}",
+                    "bump" ) { WorkingDirectory = $"source-dependencies/{bumpedProjectName}" } );
+
+            consolidatedVersionBumpSourceDependencies.Add( CreateSourceDependencyFromDefintion( dependencyDefinition ) );
 
             bumpedProjects.Add( bumpedProjectId );
         }
@@ -994,11 +1053,97 @@ public static class TeamCityHelper
             new TeamCityBuildConfiguration(
                 versionBumpObjectName,
                 "1. Version Bump",
+                defaultBranch,
+                vcsRootId,
                 context.Product.ResolvedBuildAgentRequirements )
             {
-                BuildSteps = consolidatedVersionBumpSteps.ToArray(), BuildTriggers = consolidatedVersionBumpBuildTriggers
+                BuildSteps = consolidatedVersionBumpSteps.ToArray(),
+                BuildTriggers = consolidatedVersionBumpBuildTriggers,
+                IsDefaultVcsRootUsed = false,
+                SourceDependencies = consolidatedVersionBumpSourceDependencies.ToArray(),
+                IsSshAgentRequired = true
             } );
-        
+
+        bool TryAddPreOrPostDeploymentBuildConfiguration(
+            string objectName,
+            string name,
+            string command,
+            string commandName,
+            string branch )
+        {
+            List<TeamCitySourceDependency> sourceDependencies = new();
+            List<TeamCityBuildStep> steps = new();
+
+            if ( context.Product.MainVersionDependency == null )
+            {
+                context.Console.WriteError( "Main version dependency is not set for the consolidated project." );
+
+                return false;
+            }
+
+            foreach ( var project in subprojects )
+            {
+                if ( project.Id == consolidatedProjectId.Id || project.Id == $"{consolidatedProjectId.Id}_NuGet" )
+                {
+                    continue;
+                }
+                
+                if ( !context.Product.ProductFamily.TryGetDependencyDefinitionByCiId( project.Id, out var projectDependencyDefinition ) )
+                {
+                    // This is a container for other projects.
+                    continue;
+                }
+                
+                sourceDependencies.Add( CreateSourceDependencyFromDefintion( projectDependencyDefinition ) );
+
+                var projectRelativeId = project.Id.Split( '_' ).Last();
+
+                steps.Add(
+                    new TeamCityEngineeringCommandBuildStep(
+                        $"{objectName}_{projectRelativeId}",
+                        $"{commandName} deployment of {project.Name}",
+                        command,
+                        "--configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --use-local-dependencies" )
+                    {
+                        WorkingDirectory = $"source-dependencies/{project.Name}"
+                    } );
+            }
+
+            sourceDependencies.Add( CreateSourceDependencyFromDefintion( context.Product.DependencyDefinition ) );
+
+            steps.Add(
+                new TeamCityEngineeringCommandBuildStep(
+                    $"{objectName}_{consolidatedProjectId.Id}",
+                    $"{commandName} consolidated deployment",
+                    command,
+                    "--configuration Public --buildNumber %build.number% --buildType %system.teamcity.buildType.id% --use-local-dependencies" )
+                {
+                    WorkingDirectory = $"source-dependencies/{consolidatedProjectName}"
+                } );
+
+            tcConfigurations.Add(
+                new TeamCityBuildConfiguration(
+                    objectName,
+                    name,
+                    branch,
+                    vcsRootId,
+                    context.Product.ResolvedBuildAgentRequirements )
+                {
+                    BuildSteps = steps.ToArray(), SourceDependencies = sourceDependencies.ToArray(), IsDefaultVcsRootUsed = false, IsSshAgentRequired = true
+                } );
+
+            return true;
+        }
+
+        // Pre-deployment
+        const string preDeploymentObjectName = "PreDeployment";
+        const string preDeploymentName = "2. Prepare Deployment [Public]";
+
+        if ( !TryAddPreOrPostDeploymentBuildConfiguration( preDeploymentObjectName, preDeploymentName, "prepublish", "Prepare", defaultBranch ) )
+        {
+            return false;
+        }
+
         tcConfigurations.Add( consolidatedPublicBuildConfiguration );
         nuGetConfigurations.Add( nuGetPublicBuildConfiguration );
 
@@ -1008,7 +1153,7 @@ public static class TeamCityHelper
         var publicConsolidatedBuildCiId = $"{consolidatedProjectIdPrefix}{publicBuildObjectName}";
         var publicNuGetBuildCiId = $"{consolidatedProjectIdPrefix}{MarkNuGetObjectId( publicBuildObjectName )}";
         var publicNuGetDeploymentCiId = $"{consolidatedProjectIdPrefix}{MarkNuGetObjectId( publicDeploymentObjectName )}";
-        
+
         var nuGetPublicDeploymentSteps = new TeamCityBuildStep[] { new TeamCityEngineeringPublishBuildStep( publicConfiguration ) };
 
         var nuGetPublicDeploymentDependencies =
@@ -1020,7 +1165,12 @@ public static class TeamCityHelper
                 .Append( new( publicNuGetBuildCiId, true, nuGetBuildArtifactRules ) );
 
         nuGetConfigurations.Add(
-            new( MarkNuGetObjectId( publicDeploymentObjectName ), publicDeploymentName, context.Product.ResolvedBuildAgentRequirements )
+            new(
+                MarkNuGetObjectId( publicDeploymentObjectName ),
+                publicDeploymentName,
+                deploymentBranch,
+                vcsRootId,
+                context.Product.ResolvedBuildAgentRequirements )
             {
                 BuildSteps = nuGetPublicDeploymentSteps,
                 SnapshotDependencies = nuGetPublicDeploymentDependencies.ToArray(),
@@ -1046,12 +1196,26 @@ public static class TeamCityHelper
                 .Append( new( publicNuGetDeploymentCiId, true ) );
 
         tcConfigurations.Add(
-            new TeamCityBuildConfiguration( publicDeploymentObjectName, $"3. {publicDeploymentName}" )
+            new TeamCityBuildConfiguration(
+                publicDeploymentObjectName,
+                $"4. {publicDeploymentName}",
+                deploymentBranch,
+                vcsRootId,
+                context.Product.ResolvedBuildAgentRequirements )
             {
-                SnapshotDependencies = consolidatedPublicDeploymentSnapshotDependencies.ToArray(),
-                IsDeployment = true
+                SnapshotDependencies = consolidatedPublicDeploymentSnapshotDependencies.ToArray(), IsDeployment = true
             } );
-        
+
+        // Post-deployment
+        const string postDeploymentObjectName = "PostDeployment";
+        const string postDeploymentName = "5. Finish Deployment [Public]";
+
+        if ( !TryAddPreOrPostDeploymentBuildConfiguration( postDeploymentObjectName, postDeploymentName, "postpublish", "Finish", deploymentBranch ) )
+        {
+            return false;
+        }
+
+        // Add NuGet ZIP project
         var nuGetProject = new TeamCityProject( "NuGet", "NuGet", nuGetConfigurations.ToArray() );
 
         var tcProject = new TeamCityProject( tcConfigurations.ToArray(), [nuGetProject] );

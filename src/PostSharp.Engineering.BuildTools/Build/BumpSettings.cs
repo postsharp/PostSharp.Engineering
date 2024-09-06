@@ -9,5 +9,5 @@ public class BumpSettings : CommonCommandSettings
 {
     [Description( "Ignore any previous bump commit." )]
     [CommandOption( "--override" )]
-    public bool OverridePreviousDump { get; init; }
+    public bool OverridePreviousBump { get; init; }
 }

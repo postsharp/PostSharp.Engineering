@@ -10,6 +10,7 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 using PostSharp.Engineering.BuildTools.Coverage;
+using PostSharp.Engineering.BuildTools.Dependencies;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Docker;
 using PostSharp.Engineering.BuildTools.NuGet;
@@ -151,8 +152,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 {
                     // .snupkg packages are published along with .nupkg packages automatically by the "dotnet nuget push" tool.
                     new NugetPublisher( Pattern.Create( "*.nupkg" ), "https://api.nuget.org/v3/index.json", "%NUGET_ORG_API_KEY%" ),
-                    new VsixPublisher( Pattern.Create( "*.vsix" ) ),
-                    new MergePublisher()
+                    new VsixPublisher( Pattern.Create( "*.vsix" ) )
                 }
             ];
 
@@ -213,6 +213,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         public DockerImageComponent[] AdditionalDockerImageComponents { get; init; } = [];
 
         public bool UseDockerInTeamcity { get; init; }
+        
+        public bool IsPublishingNonReleaseBranchesAllowed { get; init; }
 
         public bool TryGetDependency( string name, [NotNullWhen( true )] out ParametrizedDependency? dependency )
         {
@@ -668,10 +670,33 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         /// <summary>
         /// Reads MainVersion.props but does not interpret anything.
         /// </summary>
-        public static MainVersionFileInfo ReadMainVersionFile( string path )
+        public bool TryReadMainVersionFile(
+            BuildContext context,
+            [NotNullWhen( true )] out MainVersionFileInfo? mainVersionFileInfo )
+            => this.TryReadMainVersionFile( context, out mainVersionFileInfo, out _ );
+        
+        /// <summary>
+        /// Reads MainVersion.props but does not interpret anything.
+        /// </summary>
+        public bool TryReadMainVersionFile(
+            BuildContext context,
+            [NotNullWhen( true )] out MainVersionFileInfo? mainVersionFileInfo,
+            out string mainVersionFilePath )
         {
-            var versionFilePath = path;
-            var versionFile = Project.FromFile( versionFilePath, new ProjectOptions() );
+            mainVersionFileInfo = null;
+
+            mainVersionFilePath = Path.Combine(
+                context.RepoDirectory,
+                this.MainVersionFilePath );
+
+            if ( !File.Exists( mainVersionFilePath ) )
+            {
+                context.Console.WriteError( $"The file '{mainVersionFilePath}' does not exist." );
+
+                return false;
+            }
+
+            var versionFile = Project.FromFile( mainVersionFilePath, new ProjectOptions() );
 
             var mainVersion = versionFile
                 .Properties
@@ -690,7 +715,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             if ( string.IsNullOrEmpty( mainVersion ) )
             {
-                throw new InvalidOperationException( $"MainVersion should not be null in '{path}'." );
+                context.Console.WriteError( $"MainVersion should not be null in '{mainVersionFilePath}'." );
+
+                return false;
             }
 
             var suffix = versionFile
@@ -703,11 +730,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
             ProjectCollection.GlobalProjectCollection.UnloadAllProjects();
 
-            return new MainVersionFileInfo(
+            mainVersionFileInfo = new(
                 mainVersion,
                 overriddenPatchVersion,
                 suffix,
                 ourPatchVersion != null ? int.Parse( ourPatchVersion, CultureInfo.InvariantCulture ) : null );
+
+            return true;
         }
 
         /// <summary>
@@ -1098,7 +1127,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         {
             var configuration = settings.BuildConfiguration;
 
-            context.Console.WriteHeading( "Preparing the version file" );
+            context.Console.WriteMessage( "Preparing the version file" );
 
             var propsFilePath = this.GetVersionPropertiesFilePath( context, settings );
             Directory.CreateDirectory( Path.GetDirectoryName( propsFilePath )! );
@@ -1129,19 +1158,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            var mainVersionFile = Path.Combine(
-                context.RepoDirectory,
-                this.MainVersionFilePath );
-
-            if ( !File.Exists( mainVersionFile ) )
+            if ( !this.TryReadMainVersionFile( context, out var mainVersionFileInfo, out _ ) )
             {
-                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
-
                 return false;
             }
-
-            // Read the main version number.
-            var mainVersionFileInfo = ReadMainVersionFile( mainVersionFile );
 
             if ( !this.TryComputeVersion( context, settings, configuration, mainVersionFileInfo, dependenciesOverrideFile, out var version ) )
             {
@@ -1624,30 +1644,13 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
         }
 
-        public bool Publish( BuildContext context, PublishSettings settings )
+        private bool CanPublish( BuildContext context, PublishSettings settings )
         {
-            var configuration = settings.BuildConfiguration;
-            var buildInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) );
-            var directories = this.GetArtifactsDirectories( context, buildInfo );
-
-            var hasTarget = false;
-            var configurationInfo = this.Configurations.GetValue( configuration );
-
-            var mainVersionFile = Path.Combine(
-                context.RepoDirectory,
-                this.MainVersionFilePath );
-
-            if ( !File.Exists( mainVersionFile ) )
+            if ( !this.TryReadMainVersionFile( context, out var mainVersionFileInfo, out _ ) )
             {
-                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
-
                 return false;
             }
 
-            // Get the location of MainVersion.props file.
-            var mainVersionFileInfo = ReadMainVersionFile( mainVersionFile );
-
-            // Get the current version from MainVersion.props.
             if ( !this.TryGetPreparedVersionInfo(
                     context,
                     mainVersionFileInfo,
@@ -1690,13 +1693,117 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            if ( configuration == BuildConfiguration.Public )
+            return true;
+        }
+
+        public bool PrePublish( BuildContext context, PublishSettings settings )
+        {
+            // This step is only required for pre-publishing and post-publishing, so they don't require a build.
+            // Publishing gets this file along with the published artifacts.
+            if ( !this.PrepareVersionsFile( context, settings, out _ ) )
             {
-                this.Verify( context, settings );
+                return false;
             }
 
+            // Check that we're ready to publish.
+            if ( !this.CanPublish( context, settings ) )
+            {
+                return false;
+            }
+            
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                // When on TeamCity, Git user credentials are set to TeamCity.
+                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
+                {
+                    return false;
+                }
+            }
+
+            var sourceBranch = context.Product.DependencyDefinition.Branch;
+
+            if ( context.Branch != sourceBranch )
+            {
+                context.Console.WriteError(
+                    $"Pre-publishing can only be executed on the development branch ('{sourceBranch}'). The current branch is '{context.Branch}'." );
+
+                return false;
+            }
+
+            var targetBranch = context.Product.DependencyDefinition.ReleaseBranch;
+
+            if ( targetBranch == null )
+            {
+                context.Console.WriteError( $"Pre-publishing failed. The release branch is not set for '{context.Product.ProductName}' product." );
+
+                return false;
+            }
+
+            context.Console.WriteHeading( $"Merging branch '{sourceBranch}' to '{targetBranch}' before publishing artifacts." );
+
+            // Checkout to target branch branch and pull to update the local repository.
+            if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
+            {
+                return false;
+            }
+
+            // Attempts merging from the source branch, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
+            if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--strategy-option theirs" ) )
+            {
+                return false;
+            }
+
+            // Push the target branch.
+            if ( !GitHelper.TryPush( context, settings ) )
+            {
+                return false;
+            }
+
+            context.Console.WriteSuccess( $"Merging '{sourceBranch}' branch into '{targetBranch}' branch was successful." );
+            
+            // Act as a local dependency for subsequent projects, that use the --use-local-dependencies flag.
+            this.WriteImportFile( context, settings.BuildConfiguration );
+
+            return true;
+        }
+
+        public bool Publish( BuildContext context, PublishSettings settings )
+        {
             context.Console.WriteHeading( "Publishing files" );
 
+            if ( !context.Product.IsPublishingNonReleaseBranchesAllowed && !settings.IsStandalone )
+            {
+                var releaseBranch = context.Product.DependencyDefinition.ReleaseBranch;
+
+                // If the release branch is not specified, the pre and post publishing is not required, and the publishing can be performed from any branch. 
+                if ( releaseBranch != null && context.Branch != releaseBranch )
+                {
+                    context.Console.WriteError(
+                        $"Publishing can only be executed on the release branch ('{releaseBranch}'). The current branch is '{context.Branch}'." );
+
+                    return false;
+                }
+            }
+
+            if ( !this.CanPublish( context, settings ) )
+            {
+                return false;
+            }
+            
+            if ( settings.BuildConfiguration == BuildConfiguration.Public )
+            {
+                if ( !this.Verify( context, settings ) )
+                {
+                    return false;
+                }
+            }
+
+            var configuration = settings.BuildConfiguration;
+            var buildInfo = this.ReadGeneratedVersionFile( context.GetManifestFilePath( configuration ) );
+            var directories = this.GetArtifactsDirectories( context, buildInfo );
+            var configurationInfo = this.Configurations.GetValue( configuration );
+            var hasTarget = false;
+            
             if ( !Publisher.PublishDirectory(
                     context,
                     settings,
@@ -1745,7 +1852,112 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 context.Console.WriteSuccess( "Swap after publishing has succeeded." );
             }
 
-            // After successful artifact publishing the last commit is tagged with current version tag.
+            return true;
+        }
+
+        public bool PostPublish( BuildContext context, PublishSettings settings )
+        {
+            context.Console.WriteHeading( "Finishing publishig." );
+            
+            // This step is only required for pre-publishing and post-publishing, so they don't require a build.
+            // Publishing gets this file along with the published artifacts.
+            if ( !this.PrepareVersionsFile( context, settings, out _ ) )
+            {
+                return false;
+            }
+            
+            if ( TeamCityHelper.IsTeamCityBuild( settings ) )
+            {
+                // When on TeamCity, Git user credentials are set to TeamCity.
+                if ( !TeamCityHelper.TrySetGitIdentityCredentials( context ) )
+                {
+                    return false;
+                }
+            }
+            
+            var sourceBranch = context.Product.DependencyDefinition.ReleaseBranch;
+
+            if ( sourceBranch == null )
+            {
+                context.Console.WriteError( $"Post-publishing failed. The release branch is not set for '{context.Product.ProductName}' product." );
+
+                return false;
+            }
+            
+            if ( context.Branch != sourceBranch )
+            {
+                context.Console.WriteError(
+                    $"Post-publishing can only be executed on the release branch ('{sourceBranch}'). The current branch is '{context.Branch}'." );
+
+                return false;
+            }
+            
+            var targetBranch = context.Product.DependencyDefinition.Branch;
+
+            // Go through all dependencies and update their fixed version in AutoUpdatedVersions.props file.
+            if ( !AutoUpdatedDependenciesHelper.TryParseAndVerifyDependencies( context, settings, out var dependenciesUpdated ) )
+            {
+                return false;
+            }
+
+            // Commit and push if dependencies versions were updated in previous step.
+            if ( dependenciesUpdated )
+            {
+                // Adds AutoUpdatedVersions.props with updated dependencies versions to Git staging area.
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        $"add {context.Product.AutoUpdatedVersionsFilePath}",
+                        context.RepoDirectory ) )
+                {
+                    return false;
+                }
+
+                // Returns the remote origin.
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        "remote get-url origin",
+                        context.RepoDirectory,
+                        out _,
+                        out var gitOrigin ) )
+                {
+                    return false;
+                }
+
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        "commit -m \"<<DEPENDENCIES_UPDATED>>\"",
+                        context.RepoDirectory ) )
+                {
+                    return false;
+                }
+
+                if ( !ToolInvocationHelper.InvokeTool(
+                        context.Console,
+                        "git",
+                        $"push {gitOrigin.Trim()}",
+                        context.RepoDirectory ) )
+                {
+                    return false;
+                }
+            }
+            
+            if ( !this.TryReadMainVersionFile( context, out var mainVersionFileInfo ) )
+            {
+                return false;
+            }
+
+            if ( !this.TryGetPreparedVersionInfo(
+                    context,
+                    mainVersionFileInfo,
+                    out var preparedVersionInfo ) )
+            {
+                return false;
+            }
+            
+            // Tag the last commit with current version tag.
             if ( !AddTagToLastCommit( context, preparedVersionInfo, settings ) )
             {
                 context.Console.WriteError(
@@ -1753,6 +1965,34 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 return false;
             }
+            
+            // Merge the release branch back to develop branch.
+            context.Console.WriteMessage( $"Merging branch '{sourceBranch}' to '{targetBranch}' after publishing artifacts." );
+
+            // Checkout to target branch branch and pull to update the local repository.
+            if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
+            {
+                return false;
+            }
+
+            // Attempts merging from the source branch, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
+            if ( !GitHelper.TryMerge( context, sourceBranch, targetBranch, "--strategy-option theirs" ) )
+            {
+                return false;
+            }
+
+            // Push the target branch.
+            if ( !GitHelper.TryPush( context, settings ) )
+            {
+                return false;
+            }
+
+            context.Console.WriteMessage( $"Merging '{sourceBranch}' branch into '{targetBranch}' branch was successful." );
+            
+            // Act as a local dependency for subsequent projects, that use the --use-local-dependencies flag.
+            this.WriteImportFile( context, settings.BuildConfiguration );
+            
+            context.Console.WriteSuccess( "Publishing finished successfuly." );
 
             return true;
         }
@@ -1855,15 +2095,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             // It is forbidden to push to the release branch, but it occasionally happens.
             // We need to make sure that there are no pending changes in the release branch to be merged to the development branch.
             // Failing to do so could result in missing published changes, and it could also break the version bump.
-            // (The merge publisher creates a merge commit in the release branch, and tags this commit as the released one,
-            //  instead of the released one. The tag is then not visible in the development branch by the version bump,
-            //  and it is considered, that bump is not needed, because there was no release.)
             var releaseBranch = context.Product.DependencyDefinition.ReleaseBranch;
 
             if ( releaseBranch == null )
             {
                 context.Console.WriteMessage(
-                    $"Skipping check for pending changes from the release branch, as the release branch is not set for this product." );
+                    "Skipping check for pending changes from the release branch, as the release branch is not set for this product." );
             }
             else
             {
@@ -1894,18 +2131,10 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            var mainVersionFile = Path.Combine(
-                context.RepoDirectory,
-                this.MainVersionFilePath );
-
-            if ( !File.Exists( mainVersionFile ) )
+            if ( !this.TryReadMainVersionFile( context, out var currentMainVersionFile ) )
             {
-                context.Console.WriteError( $"The file '{mainVersionFile}' does not exist." );
-
                 return false;
             }
-
-            var currentMainVersionFile = ReadMainVersionFile( mainVersionFile );
 
             // If the version has already been dumped since the last deployment, there is nothing to do. 
             if ( !TryAnalyzeGitHistory( context, currentMainVersionFile, out var hasBumpSinceLastDeployment, out var hasChangesSinceLastDeployment, out _ ) )
@@ -1913,7 +2142,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
 
-            if ( hasBumpSinceLastDeployment && !settings.OverridePreviousDump )
+            if ( hasBumpSinceLastDeployment && !settings.OverridePreviousBump )
             {
                 context.Console.WriteWarning( "Version has already been bumped since the last deployment." );
 
@@ -2048,6 +2277,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
             var teamCityBuildConfigurations = new List<TeamCityBuildConfiguration>();
             var isRepoRemoteSsh = this.DependencyDefinition.VcsRepository.IsSshAgentRequired;
+            var defaultBranch = this.DependencyDefinition.Branch;
+            var deploymentBranch = this.DependencyDefinition.ReleaseBranch ?? defaultBranch;
+            var vcsRootId = TeamCityHelper.GetVcsRootId( this.DependencyDefinition );
 
             foreach ( var configuration in configurations )
             {
@@ -2129,7 +2361,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                 if ( !this.UseDockerInTeamcity )
                 {
-                    teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "Kill", "Kill background processes before cleanup", "tools kill" ) );
+                    teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "PreKill", "Kill background processes before cleanup", "tools kill" ) );
                 }
 
                 var requiresUpstreamCheck = configurationInfo.RequiresUpstreamCheck && this.ProductFamily.UpstreamProductFamily != null;
@@ -2148,12 +2380,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 
                 if ( !this.UseDockerInTeamcity )
                 {
-                    teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "Kill", "Kill background processes before next build", "tools kill" ) );
+                    teamCityBuildSteps.Add( new TeamCityEngineeringCommandBuildStep( "PostKill", "Kill background processes before next build", "tools kill" ) );
                 }
 
+                // The default branch for the public build cannot be set to the release branch,
+                // because the schedulled build would not trigger the build on the develop branch
+                // where the develop branch name differs.
+                // Only the consolidated public build has the release branch as the default branch
+                // and it expects that the release branch name is the same for each project.
+                // If it happens that it's not, the build of the develop branch would be triggered
+                // during the consolidated public build on such project, but the correct
+                // one would be triggered during deployment.
                 var teamCityBuildConfiguration = new TeamCityBuildConfiguration(
                     $"{configuration}Build",
                     configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
+                    defaultBranch,
+                    vcsRootId,
                     this.ResolvedBuildAgentRequirements )
                 {
                     BuildSteps = teamCityBuildSteps.ToArray(),
@@ -2173,14 +2415,21 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 // Create a TeamCity configuration for Deploy.
                 if ( configurationInfo.PrivatePublishers != null || configurationInfo.PublicPublishers != null )
                 {
-                    TeamCityBuildStep CreatePublishBuildStep()
-                        => new TeamCityEngineeringCommandBuildStep( "Publish", "Publish", "publish", $"--configuration {configuration}", true );
+                    TeamCityBuildStep CreatePublishBuildStep( bool isStandalone = false )
+                        => new TeamCityEngineeringCommandBuildStep(
+                            "Publish",
+                            "Publish",
+                            "publish",
+                            $"--configuration {configuration} {(isStandalone ? "--standalone" : "")}",
+                            true );
 
                     if ( configurationInfo.ExportsToTeamCityDeploy )
                     {
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
                             $"{configuration}Deployment",
                             configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
+                            deploymentBranch,
+                            vcsRootId,
                             this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps = [CreatePublishBuildStep()],
@@ -2203,12 +2452,16 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
                     if ( configurationInfo.ExportsToTeamCityDeployWithoutDependencies )
                     {
+                        // The standalone deployment doesn't expect pre-publishing and post-publishing step to be triggered,
+                        // so it's done from the develop branch.
                         teamCityDeploymentConfiguration = new TeamCityBuildConfiguration(
                             objectName: $"{configuration}DeploymentNoDependency",
                             name: "Standalone " + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
+                            defaultBranch,
+                            vcsRootId,
                             buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
-                            BuildSteps = [CreatePublishBuildStep()],
+                            BuildSteps = [CreatePublishBuildStep( true )],
                             IsDeployment = true,
                             SnapshotDependencies = buildDependencies.Where( d => d.ArtifactRules != null )
                                 .Concat( new[] { new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules ) } )
@@ -2237,6 +2490,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         new TeamCityBuildConfiguration(
                             objectName: $"{configuration}Swap",
                             name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
+                            deploymentBranch,
+                            vcsRootId,
                             buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps =
@@ -2250,8 +2505,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 }
             }
 
-            // Only versioned products can be bumped.
-            if ( this.DependencyDefinition.IsVersioned )
+            // Only versioned products that don't have consolidated version bump can be bumped individually.
+            if ( !this.ProductFamily.TryGetDependencyDefinition( "Consolidated", out _ ) && this.DependencyDefinition.IsVersioned )
             {
                 var dependencies = this.ParametrizedDependencies;
 
@@ -2261,6 +2516,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         new TeamCityBuildConfiguration(
                             objectName: "VersionBump",
                             name: $"Version Bump",
+                            defaultBranch,
+                            vcsRootId,
                             buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
                             BuildSteps =
@@ -2282,6 +2539,8 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     new TeamCityBuildConfiguration(
                         "DownstreamMerge",
                         "Downstream Merge",
+                        defaultBranch,
+                        vcsRootId,
                         this.ResolvedBuildAgentRequirements )
                     {
                         BuildSteps =
@@ -2584,7 +2843,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
         private record PreparedVersionInfo( Version Version, string PackageVersionSuffix );
 
         /// <summary>
-        /// Reads the MyProduce.version.props file from the artifacts directory generated by the Prepare step.
+        /// Reads the MyProduct.version.props file from the artifacts directory generated by the Prepare step.
         /// </summary>
         private bool TryGetPreparedVersionInfo(
             BuildContext context,
