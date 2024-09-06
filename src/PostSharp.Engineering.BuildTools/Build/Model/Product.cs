@@ -2420,7 +2420,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             "Publish",
                             "Publish",
                             "publish",
-                            $"--configuration {configuration} {(isStandalone ? "--standalone" : "")}",
+                            $"--configuration {configuration}{(isStandalone ? " --standalone" : "")}",
                             true );
 
                     if ( configurationInfo.ExportsToTeamCityDeploy )
