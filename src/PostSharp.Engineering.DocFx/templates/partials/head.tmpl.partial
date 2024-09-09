@@ -5,7 +5,8 @@
   <meta name="postsharp:uid" content="{{uid}}">
   <meta name="postsharp:level" content="{{level}}">
   <meta name="postsharp:product" content="{{product}}">
-  <meta name="postsharp:categories" content="{{categories}}">
+  <meta name="postsharp:created-date" content="{{created-date}}">
+  <meta name="postsharp:modified-date" content="{{modified-date}}">
   <meta name="description" content="{{summary}}">
   <meta name="keywords" content="{{keywords}}">
 
