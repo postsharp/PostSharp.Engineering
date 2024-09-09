@@ -107,7 +107,7 @@ public class VersionFile
 
                 dependencySource = DependencySource.CreateFeed( dependencyVersion, DependencyConfigurationOrigin.Default );
             }
-            else if ( settings.UseLocalDependencies )
+            else if ( settings.UseLocalDependencies && dependencyDefinition.Definition.ProductFamily == context.Product.ProductFamily )
             {
                 dependencySource = DependencySource.CreateLocalRepo( DependencyConfigurationOrigin.Default );
             }

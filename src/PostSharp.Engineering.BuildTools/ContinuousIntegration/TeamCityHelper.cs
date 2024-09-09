@@ -1092,6 +1092,7 @@ public static class TeamCityHelper
             string branch )
         {
             List<TeamCitySourceDependency> sourceDependencies = new();
+            List<TeamCitySnapshotDependency> snapshotDependencies = new();
             List<TeamCityBuildStep> steps = new();
             List<TeamCityBuildConfigurationParameter> parameters = new();
 
@@ -1138,6 +1139,29 @@ public static class TeamCityHelper
                     {
                         WorkingDirectory = $"source-dependencies/{project.Name}"
                     } );
+
+                // Dependencies outside of the product family are fetched from the artifacts.
+                if ( buildConfigurationsById.TryGetValue( $"{project.Id}_{publicBuildObjectName}", out var publicBuildConfiguration ) )
+                {
+                    // If not found, the project is not published.
+
+                    foreach ( var dependencyConfigurationId in publicBuildConfiguration.SnapshotDependencies )
+                    {
+                        var dependencyProjectId = string.Join( '_', dependencyConfigurationId.Split( '_' ).SkipLast( 1 ) );
+
+                        if ( !context.Product.ProductFamily.TryGetDependencyDefinitionByCiId( dependencyProjectId, out var dependencyDefinition ) )
+                        {
+                            context.Console.WriteError( $"Dependency definition for project '{dependencyProjectId}' (configuration '{dependencyConfigurationId}') not found." );
+
+                            return false;
+                        }
+
+                        if ( dependencyDefinition.ProductFamily != projectDependencyDefinition.ProductFamily )
+                        {
+                            snapshotDependencies.Add( new( dependencyConfigurationId, true ) );
+                        }
+                    }
+                }
             }
 
             sourceDependencies.Add( CreateSourceDependencyFromDefintion( context.Product.DependencyDefinition ) );
@@ -1163,6 +1187,7 @@ public static class TeamCityHelper
                 {
                     BuildSteps = steps.ToArray(),
                     SourceDependencies = sourceDependencies.ToArray(),
+                    SnapshotDependencies = snapshotDependencies.ToArray(),
                     IsDefaultVcsRootUsed = false,
                     IsSshAgentRequired = true,
                     Parameters = parameters.ToArray()
