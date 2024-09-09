@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
+using System;
 using System.IO;
 
 namespace PostSharp.Engineering.BuildTools.Dependencies.Definitions;
@@ -26,19 +27,26 @@ public static partial class MetalamaDependencies
                 string? customBranch = null,
                 string? customReleaseBranch = null,
                 string? customRepositoryName = null,
-                bool pullRequestRequiresStatusCheck = true )
+                bool pullRequestRequiresStatusCheck = true,
+                string? vcsRootProjectId = null )
                 : base(
                     Family,
                     dependencyName,
                     customBranch ?? $"develop/{Family.Version}",
                     customReleaseBranch ?? $"release/{Family.Version}",
-                    CreateMetalamaVcsRepository( customRepositoryName ?? dependencyName, vcsProvider ),
+                    CreateMetalamaVcsRepository(
+                        customRepositoryName ?? dependencyName,
+                        vcsProvider,
+                        customBranch == null && customReleaseBranch == null
+                            ? null
+                            : $"DefaultBranch_{dependencyName.Replace( ".", "", StringComparison.Ordinal )}" ),
                     TeamCityHelper.CreateConfiguration(
                         parentCiProjectId == null
                             ? TeamCityHelper.GetProjectId( dependencyName, _projectName, Family.Version )
                             : TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, parentCiProjectId ),
                         isVersioned,
-                        pullRequestRequiresStatusCheck: pullRequestRequiresStatusCheck ),
+                        pullRequestRequiresStatusCheck: pullRequestRequiresStatusCheck,
+                        vcsRootProjectId: vcsRootProjectId ),
                     isVersioned ) { }
         }
 
@@ -114,19 +122,22 @@ public static partial class MetalamaDependencies
             VcsProvider.GitHub,
             false,
             parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
+            vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}",
             customBranch: $"dev/{Family.Version}" );
 
         public static DependencyDefinition CargoSupport { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.CargoSupport",
             VcsProvider.AzureDevOps,
             false,
-            parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests" );
+            parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
+            vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}" );
         
         public static DependencyDefinition DotNetSdkTests { get; } = new MetalamaDependencyDefinition(
             "Metalama.Tests.DotNetSdk",
             VcsProvider.GitHub,
             false,
-            parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests" );
+            parentCiProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}_MetalamaTests",
+            vcsRootProjectId: $"Metalama_Metalama{Family.VersionWithoutDots}" );
 
         public static DependencyDefinition MetalamaPerformance { get; } = new MetalamaDependencyDefinition(
             "Metalama.Performance",

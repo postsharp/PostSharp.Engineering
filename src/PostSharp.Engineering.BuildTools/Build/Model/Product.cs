@@ -2274,6 +2274,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 ? this.DependencyDefinition.ReleaseBranch ?? defaultBranch
                 : defaultBranch;
 
+            var defaultBranchParameter = this.DependencyDefinition.VcsRepository.DefaultBranchParameter;
             var vcsRootId = TeamCityHelper.GetVcsRootId( this.DependencyDefinition );
 
             foreach ( var configuration in configurations )
@@ -2390,6 +2391,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                     $"{configuration}Build",
                     configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
                     defaultBranch,
+                    defaultBranchParameter,
                     vcsRootId,
                     this.ResolvedBuildAgentRequirements )
                 {
@@ -2424,6 +2426,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             $"{configuration}Deployment",
                             configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]",
                             deploymentBranch,
+                            defaultBranchParameter,
                             vcsRootId,
                             this.ResolvedBuildAgentRequirements )
                         {
@@ -2453,6 +2456,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: $"{configuration}DeploymentNoDependency",
                             name: "Standalone " + (configurationInfo.TeamCityDeploymentName ?? $"Deploy [{configuration}]"),
                             defaultBranch,
+                            defaultBranchParameter,
                             vcsRootId,
                             buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
@@ -2486,6 +2490,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: $"{configuration}Swap",
                             name: configurationInfo.TeamCitySwapName ?? $"Swap [{configuration}]",
                             deploymentBranch,
+                            defaultBranchParameter,
                             vcsRootId,
                             buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
@@ -2512,6 +2517,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                             objectName: "VersionBump",
                             name: $"Version Bump",
                             defaultBranch,
+                            defaultBranchParameter,
                             vcsRootId,
                             buildAgentRequirements: this.ResolvedBuildAgentRequirements )
                         {
@@ -2535,6 +2541,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                         "DownstreamMerge",
                         "Downstream Merge",
                         defaultBranch,
+                        defaultBranchParameter,
                         vcsRootId,
                         this.ResolvedBuildAgentRequirements )
                     {

@@ -85,6 +85,7 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
                 $"{configuration}UpdateSearch",
                 name,
                 context.Product.DependencyDefinition.ReleaseBranch ?? context.Product.DependencyDefinition.Branch,
+                context.Product.DependencyDefinition.VcsRepository.DefaultBranchParameter,
                 vcsRootId,
                 buildAgentRequirements )
             {
@@ -103,6 +104,7 @@ public class UpdateSearchProductExtension<TUpdateSearchCommand> : ProductExtensi
                     $"{configuration}UpdateSearchNoDependency",
                     $"Standalone {name}",
                     context.Product.DependencyDefinition.Branch,
+                    context.Product.DependencyDefinition.VcsRepository.DefaultBranchParameter,
                     vcsRootId,
                     buildAgentRequirements ) { BuildSteps = [CreateBuildStep()], IsDeployment = true, BuildTimeOutThreshold = this.TimeOutThreshold };
 

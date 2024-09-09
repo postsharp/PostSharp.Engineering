@@ -18,6 +18,8 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         
         public string DefaultBranch { get; }
         
+        public string DefaultBranchParameter { get; }
+        
         public string VcsRootId { get; }
 
         public BuildAgentRequirements? BuildAgentRequirements { get; }
@@ -43,12 +45,15 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
         public bool IsDefaultVcsRootUsed { get; init; } = true;
 
         public TimeSpan? BuildTimeOutThreshold { get; init; }
+        
+        public TeamCityBuildConfigurationParameter[]? Parameters { get; init; }
 
-        public TeamCityBuildConfiguration( string objectName, string name, string defaultBranch, string vcsRootId, BuildAgentRequirements? buildAgentRequirements = null )
+        public TeamCityBuildConfiguration( string objectName, string name, string defaultBranch, string defaultBranchParameter, string vcsRootId, BuildAgentRequirements? buildAgentRequirements = null )
         {
             this.ObjectName = objectName;
             this.Name = name;
             this.DefaultBranch = defaultBranch;
+            this.DefaultBranchParameter = defaultBranchParameter;
             this.VcsRootId = vcsRootId;
             this.BuildAgentRequirements = buildAgentRequirements;
         }
@@ -99,7 +104,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
             buildParameters.Add(
                 new TeamCityTextBuildConfigurationParameter(
-                    "DefaultBranch",
+                    this.DefaultBranchParameter,
                     "Default Branch",
                     "The default branch of this build configuration.",
                     this.DefaultBranch ) );
@@ -113,6 +118,11 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
                     $"{(int) this.BuildTimeOutThreshold.Value.TotalSeconds}" ) { Validation = (@"\d+", "The timeout has to be an integer number.") };
 
                 buildParameters.Add( timeOutParameter );
+            }
+
+            if ( this.Parameters != null )
+            {
+                buildParameters.AddRange( this.Parameters );
             }
 
             if ( buildParameters.Count > 0 )

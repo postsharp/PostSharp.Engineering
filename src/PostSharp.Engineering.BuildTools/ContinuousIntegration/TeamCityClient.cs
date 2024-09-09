@@ -465,7 +465,10 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration
                     }
                     else if ( expectedCount != newExpectedCount )
                     {
-                        throw new InvalidOperationException( "Inconsistent subprojects count" );
+                        console.WriteError(
+                            $"Not all subprojects retrieved for '{projectId}' have assigned order. Expected {expectedCount}, given {newExpectedCount}." );
+
+                        return false;
                     }
 
                     foreach ( var subprojectElement in subprojectsRootsElement.Elements( "project" ) )

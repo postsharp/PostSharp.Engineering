@@ -5,6 +5,7 @@ using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Triggers;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.Arguments;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildSteps;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Utilities;
@@ -293,7 +294,8 @@ public static class TeamCityHelper
         bool hasVersionBump = true,
         bool isCloudInstance = true,
         bool pullRequestRequiresStatusCheck = true,
-        string? pullRequestStatusCheckBuildType = null )
+        string? pullRequestStatusCheckBuildType = null,
+        string? vcsRootProjectId = null )
     {
         var buildTypes = new ConfigurationSpecific<string>(
             $"{teamCityProjectId}_DebugBuild",
@@ -330,7 +332,8 @@ public static class TeamCityHelper
             tokenEnvironmentVariableName,
             baseUrl,
             pullRequestRequiresStatusCheck,
-            pullRequestStatusCheckBuildType );
+            pullRequestStatusCheckBuildType,
+            vcsRootProjectId );
     }
 
     private static string ReplaceDots( string input, string substitute = "" ) => input.Replace( ".", substitute, StringComparison.Ordinal );
@@ -418,7 +421,7 @@ public static class TeamCityHelper
     }
 
     public static string GetVcsRootId( DependencyDefinition dependencyDefinition, bool parameterizedDefaultBranch = true )
-        => GetVcsRootId( dependencyDefinition.VcsRepository, dependencyDefinition.CiConfiguration.ProjectId.ParentId, parameterizedDefaultBranch );
+        => GetVcsRootId( dependencyDefinition.VcsRepository, dependencyDefinition.CiConfiguration.VcsRootProjectId, parameterizedDefaultBranch );
 
     private static string GetVcsRootId( VcsRepository repository, string? projectId, bool parameterizedDefaultBranch )
         => $"{projectId ?? "Root"}_{repository.Name.Replace( ".", "", StringComparison.Ordinal )}{(parameterizedDefaultBranch ? "" : "_Default")}";
@@ -444,7 +447,7 @@ public static class TeamCityHelper
 
         var vcsRootName = parameterizedDefaultBranch ? repository.Name : $"{repository.Name}_Default";
         var familyVersion = context.Product.ProductFamily.Version;
-        var defaultBranch = parameterizedDefaultBranch ? "%DefaultBranch%" : context.Product.DependencyDefinition.Branch;
+        var defaultBranch = parameterizedDefaultBranch ? $"%{repository.DefaultBranchParameter}%" : context.Product.DependencyDefinition.Branch;
 
         var branchSpecification = new List<string>
         {
@@ -502,14 +505,15 @@ public static class TeamCityHelper
 
         var projectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId.Id;
         var parentProjectId = context.Product.DependencyDefinition.CiConfiguration.ProjectId.ParentId;
+        var vcsRootProjectId = context.Product.DependencyDefinition.CiConfiguration.VcsRootProjectId;
         var projectName = context.Product.DependencyDefinition.Name;
 
-        if ( !TryCreateVcsRoot( tc, context, parentProjectId, true, out _ ) )
+        if ( !TryCreateVcsRoot( tc, context, vcsRootProjectId, true, out _ ) )
         {
             return false;
         }
 
-        if ( !TryCreateVcsRoot( tc, context, parentProjectId, false, out var vcsRootId ) )
+        if ( !TryCreateVcsRoot( tc, context, vcsRootProjectId, false, out var vcsRootId ) )
         {
             return false;
         }
@@ -677,6 +681,7 @@ public static class TeamCityHelper
         var consolidatedProjectIdPrefix = $"{consolidatedProjectId}_";
         var defaultBranch = context.Product.DependencyDefinition.Branch;
         var deploymentBranch = context.Product.DependencyDefinition.ReleaseBranch;
+        var defaultBranchParameter = context.Product.DependencyDefinition.VcsRepository.DefaultBranchParameter;
         var vcsRootId = GetVcsRootId( context.Product.DependencyDefinition );
 
         if ( deploymentBranch == null )
@@ -855,10 +860,11 @@ public static class TeamCityHelper
                 _ => defaultBranch
             };
 
-            consolidatedBuildConfiguration = new( consolidatedBuildObjectName, consolidatedBuildConfigurationName, defaultBuildBranch, vcsRootId )
-            {
-                SnapshotDependencies = dependencies.ToArray(), BuildTriggers = consolidatedBuildTriggers
-            };
+            consolidatedBuildConfiguration =
+                new( consolidatedBuildObjectName, consolidatedBuildConfigurationName, defaultBuildBranch, defaultBranchParameter, vcsRootId )
+                {
+                    SnapshotDependencies = dependencies.ToArray(), BuildTriggers = consolidatedBuildTriggers
+                };
 
             var nuGetBuildSteps =
                 new TeamCityBuildStep[] { new TeamCityEngineeringBuildBuildStep( configuration, false, context.Product.UseDockerInTeamcity ) };
@@ -868,6 +874,7 @@ public static class TeamCityHelper
                 nuGetBuildObjectName,
                 nuGetBuildConfigurationName,
                 defaultBranch,
+                defaultBranchParameter,
                 vcsRootId,
                 context.Product.ResolvedBuildAgentRequirements )
             {
@@ -918,7 +925,7 @@ public static class TeamCityHelper
             var consolidatedDownstreamMergeBuildTriggers = new IBuildTrigger[] { new NightlyBuildTrigger( 23, true ) };
 
             tcConfigurations.Add(
-                new TeamCityBuildConfiguration( downstreamMergeObjectName, "Merge Downstream", defaultBranch, vcsRootId )
+                new TeamCityBuildConfiguration( downstreamMergeObjectName, "Merge Downstream", defaultBranch, defaultBranchParameter, vcsRootId )
                 {
                     SnapshotDependencies = consolidatedDownstreamMergeSnapshotDependencies.ToArray(),
                     BuildTriggers = consolidatedDownstreamMergeBuildTriggers
@@ -982,12 +989,13 @@ public static class TeamCityHelper
         var consolidatedVersionBumpSteps = new List<TeamCityBuildStep>();
         var consolidatedVersionBumpSourceDependencies = new List<TeamCitySourceDependency>();
         var bumpedProjects = new HashSet<string>();
+        var consolidatedVersionBumpParameters = new List<TeamCityBuildConfigurationParameter>();
 
         var success = true;
 
-        TeamCitySourceDependency CreateSourceDependency( string projectVcsRootId, string projectName )
-            => new( projectVcsRootId, true, $"+:. => {context.Product.SourceDependenciesDirectory}/{projectName}" );
-        
+        TeamCitySourceDependency CreateSourceDependency( string vcsProjectRootId, string projectName )
+            => new( vcsProjectRootId, true, $"+:. => {context.Product.SourceDependenciesDirectory}/{projectName}" );
+
         TeamCitySourceDependency CreateSourceDependencyFromDefintion( DependencyDefinition dependencyDefinition )
             => CreateSourceDependency( GetVcsRootId( dependencyDefinition ), dependencyDefinition.Name );
 
@@ -995,7 +1003,7 @@ public static class TeamCityHelper
         {
             var bumpedProjectId = buildConfiguration.ProjectId;
             var bumpedProjectName = buildConfiguration.ProjectName;
-            
+
             if ( !context.Product.DependencyDefinition.ProductFamily.TryGetDependencyDefinitionByCiId( bumpedProjectId, out var dependencyDefinition ) )
             {
                 context.Console.WriteError( $"Dependency definition for project '{bumpedProjectId}' not found." );
@@ -1024,6 +1032,16 @@ public static class TeamCityHelper
                     "bump" ) { WorkingDirectory = $"source-dependencies/{bumpedProjectName}" } );
 
             consolidatedVersionBumpSourceDependencies.Add( CreateSourceDependencyFromDefintion( dependencyDefinition ) );
+
+            if ( dependencyDefinition.VcsRepository.DefaultBranchParameter != VcsRepository.DefaultDefaultBranchParameter )
+            {
+                consolidatedVersionBumpParameters.Add(
+                    new TeamCityTextBuildConfigurationParameter(
+                        dependencyDefinition.VcsRepository.DefaultBranchParameter,
+                        dependencyDefinition.VcsRepository.DefaultBranchParameter,
+                        $"Default branch of {bumpedProjectName}",
+                        dependencyDefinition.Branch ) );
+            }
 
             bumpedProjects.Add( bumpedProjectId );
         }
@@ -1054,6 +1072,7 @@ public static class TeamCityHelper
                 versionBumpObjectName,
                 "1. Version Bump",
                 defaultBranch,
+                defaultBranchParameter,
                 vcsRootId,
                 context.Product.ResolvedBuildAgentRequirements )
             {
@@ -1061,7 +1080,8 @@ public static class TeamCityHelper
                 BuildTriggers = consolidatedVersionBumpBuildTriggers,
                 IsDefaultVcsRootUsed = false,
                 SourceDependencies = consolidatedVersionBumpSourceDependencies.ToArray(),
-                IsSshAgentRequired = true
+                IsSshAgentRequired = true,
+                Parameters = consolidatedVersionBumpParameters.ToArray()
             } );
 
         bool TryAddPreOrPostDeploymentBuildConfiguration(
@@ -1073,6 +1093,7 @@ public static class TeamCityHelper
         {
             List<TeamCitySourceDependency> sourceDependencies = new();
             List<TeamCityBuildStep> steps = new();
+            List<TeamCityBuildConfigurationParameter> parameters = new();
 
             if ( context.Product.MainVersionDependency == null )
             {
@@ -1087,14 +1108,24 @@ public static class TeamCityHelper
                 {
                     continue;
                 }
-                
+
                 if ( !context.Product.ProductFamily.TryGetDependencyDefinitionByCiId( project.Id, out var projectDependencyDefinition ) )
                 {
                     // This is a container for other projects.
                     continue;
                 }
-                
+
                 sourceDependencies.Add( CreateSourceDependencyFromDefintion( projectDependencyDefinition ) );
+
+                if ( projectDependencyDefinition.VcsRepository.DefaultBranchParameter != VcsRepository.DefaultDefaultBranchParameter )
+                {
+                    parameters.Add(
+                        new TeamCityTextBuildConfigurationParameter(
+                            projectDependencyDefinition.VcsRepository.DefaultBranchParameter,
+                            projectDependencyDefinition.VcsRepository.DefaultBranchParameter,
+                            $"Default branch of {project.Name}",
+                            projectDependencyDefinition.Branch ) );
+                }
 
                 var projectRelativeId = project.Id.Split( '_' ).Last();
 
@@ -1126,10 +1157,15 @@ public static class TeamCityHelper
                     objectName,
                     name,
                     branch,
+                    defaultBranchParameter,
                     vcsRootId,
                     context.Product.ResolvedBuildAgentRequirements )
                 {
-                    BuildSteps = steps.ToArray(), SourceDependencies = sourceDependencies.ToArray(), IsDefaultVcsRootUsed = false, IsSshAgentRequired = true
+                    BuildSteps = steps.ToArray(),
+                    SourceDependencies = sourceDependencies.ToArray(),
+                    IsDefaultVcsRootUsed = false,
+                    IsSshAgentRequired = true,
+                    Parameters = parameters.ToArray()
                 } );
 
             return true;
@@ -1169,6 +1205,7 @@ public static class TeamCityHelper
                 MarkNuGetObjectId( publicDeploymentObjectName ),
                 publicDeploymentName,
                 deploymentBranch,
+                defaultBranchParameter,
                 vcsRootId,
                 context.Product.ResolvedBuildAgentRequirements )
             {
@@ -1200,6 +1237,7 @@ public static class TeamCityHelper
                 publicDeploymentObjectName,
                 $"4. {publicDeploymentName}",
                 deploymentBranch,
+                defaultBranchParameter,
                 vcsRootId,
                 context.Product.ResolvedBuildAgentRequirements )
             {

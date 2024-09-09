@@ -7,6 +7,11 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 public class CiProjectConfiguration
 {
     public TeamCityProjectId ProjectId { get; }
+    
+    /// <summary>
+    /// The project where the VCS root is stored.
+    /// </summary>
+    public string VcsRootProjectId { get; }
 
     public ConfigurationSpecific<string> BuildTypes { get; }
 
@@ -28,9 +33,11 @@ public class CiProjectConfiguration
         string tokenEnvironmentVariableName,
         string baseUrl,
         bool pullRequestRequiresStatusCheck = true,
-        string? pullRequestStatusCheckBuildType = null )
+        string? pullRequestStatusCheckBuildType = null,
+        string? vcsRootProjectId = null )
     {
         this.ProjectId = projectProjectId;
+        this.VcsRootProjectId = vcsRootProjectId ?? projectProjectId.ParentId;
         this.BuildTypes = buildTypes;
         this.PullRequestStatusCheckBuildType = pullRequestRequiresStatusCheck ? pullRequestStatusCheckBuildType ?? $"{this.ProjectId}_DebugBuild" : null;
         this.DeploymentBuildType = deploymentBuildType;

@@ -41,7 +41,8 @@ public class AzureDevOpsRepository : VcsRepository
 
     public override bool IsSshAgentRequired => false;
 
-    public AzureDevOpsRepository( string project, string name, string organisation = "postsharp", string domain = "dev.azure.com" )
+    public AzureDevOpsRepository( string project, string name, string organisation = "postsharp", string domain = "dev.azure.com", string? defaultBranchParameter = null )
+        : base( defaultBranchParameter )
     {
         this.Name = name;
         this.Domain = domain;

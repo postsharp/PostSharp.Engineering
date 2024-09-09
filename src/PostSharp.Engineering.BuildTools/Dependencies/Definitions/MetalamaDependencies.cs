@@ -12,15 +12,15 @@ public partial class MetalamaDependencies
 {
     private const string _projectName = "Metalama";
 
-    private static VcsRepository CreateMetalamaVcsRepository( string name, VcsProvider provider )
+    private static VcsRepository CreateMetalamaVcsRepository( string name, VcsProvider provider, string? defaultBranchParameter )
     {
         switch ( provider )
         {
             case VcsProvider.AzureDevOps:
-                return new AzureDevOpsRepository( _projectName, name );
+                return new AzureDevOpsRepository( _projectName, name, defaultBranchParameter: defaultBranchParameter );
             
             case VcsProvider.GitHub:
-                return new GitHubRepository( name );
+                return new GitHubRepository( name, defaultBranchParameter: defaultBranchParameter );
             
             default:
                 throw new InvalidOperationException( $"Unknown VCS provider: \"{provider}\"" );

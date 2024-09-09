@@ -8,7 +8,19 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration;
 
 public abstract class VcsRepository
 {
+    public const string DefaultDefaultBranchParameter = "DefaultBranch";
+    
+    protected VcsRepository( string? defaultBranchParameter )
+    {
+        this.DefaultBranchParameter = defaultBranchParameter ?? DefaultDefaultBranchParameter;
+    }
+
     public abstract string Name { get; }
+    
+    /// <summary>
+    /// Parameter name used to specify the default branch in TeamCity build configurations.
+    /// </summary>
+    public string DefaultBranchParameter { get; }
     
     public abstract VcsProvider Provider { get; }
     
