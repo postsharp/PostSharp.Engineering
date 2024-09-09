@@ -1151,14 +1151,26 @@ public static class TeamCityHelper
 
                         if ( !context.Product.ProductFamily.TryGetDependencyDefinitionByCiId( dependencyProjectId, out var dependencyDefinition ) )
                         {
-                            context.Console.WriteError( $"Dependency definition for project '{dependencyProjectId}' (configuration '{dependencyConfigurationId}') not found." );
+                            context.Console.WriteError(
+                                $"Dependency definition for project '{dependencyProjectId}' (configuration '{dependencyConfigurationId}') not found." );
 
                             return false;
                         }
 
                         if ( dependencyDefinition.ProductFamily != projectDependencyDefinition.ProductFamily )
                         {
-                            snapshotDependencies.Add( new( dependencyConfigurationId, true ) );
+                            var dependencyName = dependencyDefinition.Name;
+                            var configuration = BuildConfiguration.Public;
+                            var dependencyMsBuildConfiguration = dependencyDefinition.MSBuildConfiguration[configuration];
+                            var dependencyBuildInfo = new BuildInfo( null, configuration.ToString(), dependencyMsBuildConfiguration, null );
+
+                            var dependencyPrivateArtifactsDirectory = dependencyDefinition.PrivateArtifactsDirectory.ToString( dependencyBuildInfo )
+                                .Replace( Path.DirectorySeparatorChar, '/' );
+
+                            var artifactRules =
+                                $"+:{dependencyPrivateArtifactsDirectory}/{dependencyName}.version.props=>source-dependencies/{project.Name}/dependencies/{dependencyName}";
+
+                            snapshotDependencies.Add( new( dependencyConfigurationId, true, artifactRules ) );
                         }
                     }
                 }
