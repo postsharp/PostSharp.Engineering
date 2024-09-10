@@ -1905,8 +1905,6 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
                 return false;
             }
             
-            var targetBranch = context.Product.DependencyDefinition.Branch;
-
             if ( !TryUpdateAutoUpdatedDependencies( context, settings ) )
             {
                 context.Console.WriteError( "Failed to update auto-updated dependencies." );
@@ -1922,7 +1920,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
             
             // Merge the release branch back to develop branch.
-            if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
+            if ( !GitHelper.TryPullAndMergeAndPush( context, settings, context.Product.DependencyDefinition.Branch ) )
             {
                 return false;
             }
