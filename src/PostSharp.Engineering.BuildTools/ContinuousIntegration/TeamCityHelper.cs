@@ -1089,7 +1089,7 @@ public static class TeamCityHelper
             string name,
             string command,
             string commandName,
-            string branch )
+            Func<DependencyDefinition, string?> getBranch )
         {
             List<TeamCitySourceDependency> sourceDependencies = new();
             List<TeamCitySnapshotDependency> snapshotDependencies = new();
@@ -1120,12 +1120,21 @@ public static class TeamCityHelper
 
                 if ( projectDependencyDefinition.VcsRepository.DefaultBranchParameter != VcsRepository.DefaultDefaultBranchParameter )
                 {
+                    var dependencyBranch = getBranch( projectDependencyDefinition );
+
+                    if ( dependencyBranch == null )
+                    {
+                        context.Console.WriteError( $"The '{projectDependencyDefinition.Name}' doesn't have the required branch set for {command}ing." );
+                        
+                        return false;
+                    }
+                    
                     parameters.Add(
                         new TeamCityTextBuildConfigurationParameter(
                             projectDependencyDefinition.VcsRepository.DefaultBranchParameter,
                             projectDependencyDefinition.VcsRepository.DefaultBranchParameter,
                             $"Default branch of {project.Name}",
-                            projectDependencyDefinition.Branch ) );
+                            dependencyBranch ) );
                 }
 
                 var projectRelativeId = project.Id.Split( '_' ).Last();
@@ -1187,6 +1196,15 @@ public static class TeamCityHelper
                 {
                     WorkingDirectory = $"source-dependencies/{consolidatedProjectName}"
                 } );
+            
+            var branch = getBranch( context.Product.DependencyDefinition );
+
+            if ( branch == null )
+            {
+                context.Console.WriteError( $"The consolidated project doesn't have the required branch set for {command}ing." );
+                        
+                return false;
+            }
 
             tcConfigurations.Add(
                 new TeamCityBuildConfiguration(
@@ -1212,7 +1230,7 @@ public static class TeamCityHelper
         const string preDeploymentObjectName = "PreDeployment";
         const string preDeploymentName = "2. Prepare Deployment [Public]";
 
-        if ( !TryAddPreOrPostDeploymentBuildConfiguration( preDeploymentObjectName, preDeploymentName, "prepublish", "Prepare", defaultBranch ) )
+        if ( !TryAddPreOrPostDeploymentBuildConfiguration( preDeploymentObjectName, preDeploymentName, "prepublish", "Prepare", d => d.Branch ) )
         {
             return false;
         }
@@ -1285,7 +1303,7 @@ public static class TeamCityHelper
         const string postDeploymentObjectName = "PostDeployment";
         const string postDeploymentName = "5. Finish Deployment [Public]";
 
-        if ( !TryAddPreOrPostDeploymentBuildConfiguration( postDeploymentObjectName, postDeploymentName, "postpublish", "Finish", deploymentBranch ) )
+        if ( !TryAddPreOrPostDeploymentBuildConfiguration( postDeploymentObjectName, postDeploymentName, "postpublish", "Finish", d => d.ReleaseBranch ) )
         {
             return false;
         }
