@@ -1,5 +1,6 @@
 ﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
@@ -13,6 +14,7 @@ using System.Threading.Tasks;
 
 namespace PostSharp.Engineering.BuildTools.Git;
 
+[UsedImplicitly]
 internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 {
     protected override bool ExecuteCore( BuildContext context, DownstreamMergeSettings settings )
@@ -25,7 +27,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
                 return false;
             }
         }
-        
+
         if ( !GitHelper.TryGetStatus( context, context.RepoDirectory, out var statuses ) )
         {
             return false;
@@ -102,37 +104,51 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
         context.Console.WriteImportantMessage( $"There are {commitsCount} commits to merge from '{sourceBranch}' branch to '{downstreamBranch}' branch." );
 
-        var targetBranch = $"merge/{downstreamProductFamily.Version}/{context.Product.ProductFamily.Version}-{sourceCommitHash}";
-        
-        context.Console.WriteMessage( $"Checking '{context.Product.ProductName}' product version '{downstreamProductFamily.Version}' for pending merge branches." );
-            
-        var filter = $"merge/{downstreamProductFamily.Version}/*";
-            
-        if ( !GitHelper.TryGetRemoteReferences( context, settings, filter, out var references ) )
+        var pullRequestStatusCheckBuildTypeId = downstreamDependencyDefinition.CiConfiguration.PullRequestStatusCheckBuildType;
+        var isPullRequestRequired = pullRequestStatusCheckBuildTypeId != null;
+        string targetBranch;
+        bool targetBranchExistsRemotely;
+
+        if ( isPullRequestRequired )
         {
-            return false;
-        }
+            targetBranch = $"merge/{downstreamProductFamily.Version}/{context.Product.ProductFamily.Version}-{sourceCommitHash}";
 
-        var targetBranchReference = $"refs/heads/{targetBranch}";
+            context.Console.WriteMessage(
+                $"Checking '{context.Product.ProductName}' product version '{downstreamProductFamily.Version}' for pending merge branches." );
 
-        var targetBranchExistsRemotely = references.Any( r => r.Reference == targetBranchReference );
+            var filter = $"merge/{downstreamProductFamily.Version}/*";
 
-        var formerTargetBranchReferences = references.Where( r => r.Reference != targetBranchReference ).ToArray();
-
-        if ( formerTargetBranchReferences.Length > 0 && !settings.Force )
-        {
-            MergeHelper.ExplainUnmergedBranches(
-                context.Console,
-                formerTargetBranchReferences.Select( r => r.Reference ),
-                settings.Force,
-                targetBranchExistsRemotely
-                    ? $"Until a new commit is pushed to the '{sourceBranch}' source branch, there's no need to delete the '{targetBranch}' target branch, as it will be reused next time the downstream merge is run."
-                    : null );
-
-            if ( !settings.Force )
+            if ( !GitHelper.TryGetRemoteReferences( context, settings, filter, out var references ) )
             {
                 return false;
             }
+
+            var targetBranchReference = $"refs/heads/{targetBranch}";
+
+            targetBranchExistsRemotely = references.Any( r => r.Reference == targetBranchReference );
+
+            var formerTargetBranchReferences = references.Where( r => r.Reference != targetBranchReference ).ToArray();
+
+            if ( formerTargetBranchReferences.Length > 0 && !settings.Force )
+            {
+                MergeHelper.ExplainUnmergedBranches(
+                    context.Console,
+                    formerTargetBranchReferences.Select( r => r.Reference ),
+                    settings.Force,
+                    targetBranchExistsRemotely
+                        ? $"Until a new commit is pushed to the '{sourceBranch}' source branch, there's no need to delete the '{targetBranch}' target branch, as it will be reused next time the downstream merge is run."
+                        : null );
+
+                if ( !settings.Force )
+                {
+                    return false;
+                }
+            }
+        }
+        else
+        {
+            targetBranch = downstreamBranch;
+            targetBranchExistsRemotely = true;
         }
 
         bool targetBranchExists;
@@ -154,7 +170,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
         if ( targetBranchExists )
         {
             context.Console.WriteImportantMessage( $"The '{targetBranch}' target branch already exists. Let's use it." );
-            
+
             if ( !GitHelper.TryCheckoutAndPull( context, targetBranch ) )
             {
                 return false;
@@ -171,7 +187,7 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
 
             context.Console.WriteImportantMessage( $"The '{targetBranch}' target was created." );
         }
-        
+
         // Push the branch now to avoid issues when the DownstreamMergeCommand
         // is executed again with the same upstream changes
         // or when developers are required to resolve conflicts.
@@ -193,36 +209,31 @@ internal class DownstreamMergeCommand : BaseCommand<DownstreamMergeSettings>
             return true;
         }
 
-        if ( !TryCreatePullRequest( context, targetBranch, downstreamBranch, sourceBranch, out var pullRequestUrl ) )
-        {
-            return false;
-        }
+        context.Console.WriteSuccess( $"Changes from '{sourceBranch}' missing in '{downstreamBranch}' branch have been merged in branch '{targetBranch}'." );
 
-        var buildTypeId = downstreamDependencyDefinition.CiConfiguration.PullRequestStatusCheckBuildType;
-        string? buildUrl = null;
+        if ( isPullRequestRequired )
+        {
+            if ( !TryCreatePullRequest( context, targetBranch, downstreamBranch, sourceBranch, out var pullRequestUrl ) )
+            {
+                return false;
+            }
 
-        if ( buildTypeId == null )
-        {
-            context.Console.WriteImportantMessage( "Build scheduling is not required." );
-        }
-        else
-        {
+            context.Console.WriteSuccess( $"Created pull request: {pullRequestUrl}" );
+
             if ( !TryScheduleBuild(
                     downstreamDependencyDefinition.CiConfiguration,
                     context.Console,
                     targetBranch,
                     sourceBranch,
                     pullRequestUrl,
-                    buildTypeId,
-                    out buildUrl ) )
+                    pullRequestStatusCheckBuildTypeId!, // Checked by isPullRequestRequired
+                    out var buildUrl ) )
             {
                 return false;
             }
-        }
 
-        context.Console.WriteSuccess( $"Changes from '{sourceBranch}' missing in '{downstreamBranch}' branch have been merged in branch '{targetBranch}'." );
-        context.Console.WriteSuccess( $"Created pull request: {pullRequestUrl}" );
-        context.Console.WriteSuccess( buildUrl == null ? "Build is not required." : $"Scheduled build: {buildUrl}" );
+            context.Console.WriteSuccess( $"Scheduled build: {buildUrl}" );
+        }
 
         return true;
     }
