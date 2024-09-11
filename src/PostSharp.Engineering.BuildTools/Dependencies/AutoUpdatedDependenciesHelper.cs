@@ -25,7 +25,7 @@ internal static class AutoUpdatedDependenciesHelper
         }
 
         var autoUpdatedDependencies = dependenciesOverrideFile.Dependencies
-            .Where( d => d.Value.SourceKind != DependencySourceKind.Feed && d.Value.SourceKind != DependencySourceKind.Local )
+            .Where( d => d.Value.SourceKind != DependencySourceKind.Feed )
             .ToArray();
 
         if ( autoUpdatedDependencies.Length == 0 )
