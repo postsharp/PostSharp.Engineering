@@ -48,9 +48,31 @@ internal static class AutoUpdatedDependenciesHelper
             var dependency = context.Product.ProductFamily.GetDependencyDefinition( dependencyOverride.Key );
 
             // Path to the downloaded build version file.
-            var dependencyVersionPath = dependencySource.VersionFile;
+            string? dependencyVersionPath;
 
-            if ( dependencyVersionPath == null )
+            if ( dependencyOverride.Value.SourceKind == DependencySourceKind.Local )
+            {
+                var localImportDocumentPath = dependencySource.VersionFile;
+                
+                if ( !File.Exists( localImportDocumentPath ) )
+                {
+                    context.Console.WriteError( $"Local import document of '{dependency.Name}' does not exist." );
+
+                    return false;
+                }
+                
+                var localImportDocument = XDocument.Load( localImportDocumentPath );
+                
+                var dependencyVersionRelativePath = localImportDocument.Root!.Element( "Import" )!.Attribute( "Project" )!.Value;
+                var localImportDocumentDirectory = Path.GetDirectoryName( localImportDocumentPath )!;
+                dependencyVersionPath = Path.Combine( localImportDocumentDirectory, dependencyVersionRelativePath );
+            }
+            else
+            {
+                dependencyVersionPath = dependencySource.VersionFile;
+            }
+            
+            if ( !File.Exists( dependencyVersionPath ) )
             {
                 context.Console.WriteError( $"Version file of '{dependency.Name}' does not exist." );
 
