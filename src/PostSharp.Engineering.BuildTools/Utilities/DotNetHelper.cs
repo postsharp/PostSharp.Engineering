@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using System;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
@@ -76,7 +77,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
             else
             {
-                return options.WithEnvironmentVariables( environmentVariables );
+                return options.AddEnvironmentVariables( environmentVariables );
             }
         }
 
@@ -158,7 +159,8 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             BuildSettings settings,
             string projectOrSolution,
             ImmutableDictionary<string, string?>? environmentVariables = null,
-            string? additionalArguments = null )
+            string? additionalArguments = null,
+            bool buildFirst = false )
         {
             var resultsRelativeDirectory =
                 context.Product.TestResultsDirectory.ToString( new BuildInfo( null, settings.BuildConfiguration, context.Product, null ) );
@@ -190,6 +192,9 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 args += $" {additionalArguments}";
             }
 
+            var options = new ToolInvocationOptions( environmentVariables ).AddEnvironmentVariables(
+                TeamCityHelper.GetSimulatedContinuousIntegrationEnvironmentVariables( settings ) );
+
             bool success;
 
             if ( File.Exists( testJsonFile ) )
@@ -204,25 +209,50 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     return false;
                 }
 
-                _ = Run(
-                    context,
-                    settings,
-                    projectOrSolution,
-                    command,
-                    args,
-                    true,
-                    out var exitCode,
-                    out var output,
-                    new ToolInvocationOptions( environmentVariables ).WithEnvironmentVariables(
-                        TeamCityHelper.GetSimulatedContinuousIntegrationEnvironmentVariables( settings ) ) );
+                string output;
 
-                success = exitCode != 0 && !testOptions.IgnoreExitCode;
+                string? buildOutput = null;
+                var buildSuccess = true;
 
-                if ( exitCode != 0 )
+                if ( buildFirst )
                 {
-                    context.Console.WriteError( output );
+                    _ = Run(
+                        context,
+                        settings,
+                        projectOrSolution,
+                        "build",
+                        "",
+                        true,
+                        out var buildExitCode,
+                        out buildOutput,
+                        options );
+
+                    buildSuccess = buildExitCode == 0;
+                }
+
+                if ( !buildSuccess )
+                {
+                    success = testOptions.IgnoreExitCode;
+                    output = buildOutput!;
                 }
                 else
+                {
+                    _ = Run(
+                        context,
+                        settings,
+                        projectOrSolution,
+                        command,
+                        args,
+                        true,
+                        out var testExitCode,
+                        out var testOutput,
+                        options );
+
+                    success = testExitCode == 0 || testOptions.IgnoreExitCode;
+                    output = buildOutput == null ? testOutput : buildOutput + Environment.NewLine + testOutput;
+                }
+
+                if ( success )
                 {
                     if ( testOptions.ErrorRegexes != null )
                     {
@@ -231,29 +261,64 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                             if ( Regex.IsMatch( output, regex, RegexOptions.IgnoreCase ) )
                             {
                                 context.Console.WriteError( $"Output matched for pattern '{regex}'." );
-                                context.Console.WriteError( output );
 
                                 success = false;
                             }
                         }
                     }
 
-                    if ( success )
+                    if ( testOptions.SuccessRegexes != null )
                     {
-                        context.Console.WriteMessage( output );
+                        foreach ( var regex in testOptions.SuccessRegexes )
+                        {
+                            if ( !Regex.IsMatch( output, regex, RegexOptions.IgnoreCase ) )
+                            {
+                                context.Console.WriteError( $"Output did not match for pattern '{regex}'." );
+
+                                success = false;
+                            }
+                        }
                     }
+                }
+
+                if ( success )
+                {
+                    context.Console.WriteMessage( output );
+                }
+                else
+                {
+                    context.Console.WriteError( output );
                 }
             }
             else
             {
-                success = Run(
-                    context,
-                    settings,
-                    projectOrSolution,
-                    command,
-                    args,
-                    true,
-                    new ToolInvocationOptions( TeamCityHelper.GetSimulatedContinuousIntegrationEnvironmentVariables( settings ) ) );
+                if ( buildFirst )
+                {
+                    success = Run(
+                        context,
+                        settings,
+                        projectOrSolution,
+                        "build",
+                        "",
+                        true,
+                        options );
+                }
+                else
+                {
+                    success = true;
+                }
+
+                if ( success )
+                {
+                    success = Run(
+                        context,
+                        settings,
+                        projectOrSolution,
+                        command,
+                        args,
+                        true,
+                        options );
+                }
             }
 
             if ( TeamCityHelper.IsTeamCityBuild( settings ) )

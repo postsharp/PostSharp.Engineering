@@ -68,17 +68,11 @@ public class ManyDotNetSolutions : Solution
 
                     try
                     {
-                        if ( solution.Build( localContext, settings ) )
-                        {
-                            if ( test && solution.TestMethod == Model.BuildMethod.Test )
-                            {
-                                if ( !solution.Test( localContext, settings ) )
-                                {
-                                    failedProjects.Add( solution );
-                                }
-                            }
-                        }
-                        else
+                        var success = test && solution.TestMethod == Model.BuildMethod.Test
+                            ? solution.BuildAndTest( localContext, settings )
+                            : solution.Build( localContext, settings );
+
+                        if ( !success )
                         {
                             failedProjects.Add( solution );
                         }

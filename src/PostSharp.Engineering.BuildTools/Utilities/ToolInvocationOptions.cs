@@ -31,7 +31,7 @@ public record ToolInvocationOptions(
 
     public bool FilterOutput { get; init; } = true;
 
-    public ToolInvocationOptions WithEnvironmentVariables( ImmutableDictionary<string, string?> additionalEnvironmentVariables )
+    public ToolInvocationOptions AddEnvironmentVariables( ImmutableDictionary<string, string?> additionalEnvironmentVariables )
         => this with
         {
             EnvironmentVariables = this.EnvironmentVariables == null

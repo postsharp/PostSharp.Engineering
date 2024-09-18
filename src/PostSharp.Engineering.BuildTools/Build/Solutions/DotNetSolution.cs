@@ -20,6 +20,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
         public override bool Test( BuildContext context, BuildSettings settings )
             => DotNetHelper.RunTests( context, settings, this.GetFinalSolutionPath( context ), this.EnvironmentVariables );
 
+        public bool BuildAndTest( BuildContext context, BuildSettings settings )
+            => DotNetHelper.RunTests( context, settings, this.GetFinalSolutionPath( context ), this.EnvironmentVariables, buildFirst: true );
+
         public override bool Restore( BuildContext context, BuildSettings settings ) => this.RunDotNet( context, settings, "restore", "--no-cache", false );
 
         private string GetFinalSolutionPath( BuildContext context )
