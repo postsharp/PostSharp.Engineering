@@ -103,10 +103,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                 CultureInfo.InvariantCulture,
                 $"-t:{target} -p:Configuration={context.Product.DependencyDefinition.MSBuildConfiguration[settings.BuildConfiguration]} \"{path}\" -v:{settings.Verbosity.ToAlias()} -NoLogo" );
 
-            if ( settings.NoConcurrency )
-            {
-                argsBuilder.Append( " -m:1" );
-            }
+            argsBuilder.Append( settings.NoConcurrency ? " -m:1" : " -m" );
 
             argsBuilder.Append( CultureInfo.InvariantCulture, $" -bl:\"{binaryLogFilePath}\"" );
 
