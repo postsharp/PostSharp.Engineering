@@ -104,7 +104,14 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
             else
             {
-                this.Out.MarkupLine( $"[bold cyan]===== {message.EscapeMarkup()} {new string( '=', 160 - message.Length )}[/]" );
+                var rightPaddingLength = 160 - message.Length;
+
+                if ( rightPaddingLength < 3 )
+                {
+                    rightPaddingLength = 3;
+                }
+
+                this.Out.MarkupLine( $"[bold cyan]===== {message.EscapeMarkup()} {new string( '=', rightPaddingLength )}[/]" );
             }
         }
 
