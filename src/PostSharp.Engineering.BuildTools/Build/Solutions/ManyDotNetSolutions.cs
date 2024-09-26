@@ -83,6 +83,11 @@ public class ManyDotNetSolutions : Solution
                             failedProjects.Add( solution );
                         }
                     }
+                    catch ( TaskCanceledException )
+                    {
+                        bufferingConsole.WriteError( "The build has been canceled." );
+                        failedProjects.Add( solution );
+                    }
                     finally
                     {
                         semaphore.Release();

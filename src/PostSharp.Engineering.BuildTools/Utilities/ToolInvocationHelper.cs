@@ -144,8 +144,6 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             }
         }
 
-        // #16205 We don't allow cancellation here because there's no other working way to wait for a process exit
-        // than Process.WaitForExit() on .NET Core when capturing process output.
         public static bool InvokeTool(
             ConsoleHelper console,
             string fileName,
@@ -155,7 +153,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
             out string output,
             ToolInvocationOptions? options = null )
         {
-            StringBuilder stringBuilder = new();
+            StringBuilder outputBuilder = new();
 
             var success =
                 InvokeTool(
@@ -163,27 +161,27 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                     fileName,
                     commandLine,
                     workingDirectory,
-                    default,
+                    ConsoleHelper.CancellationToken,
                     out exitCode,
                     s =>
                     {
-                        lock ( stringBuilder )
+                        lock ( outputBuilder )
                         {
-                            stringBuilder.Append( s );
-                            stringBuilder.Append( '\n' );
+                            outputBuilder.Append( s );
+                            outputBuilder.Append( '\n' );
                         }
                     },
                     s =>
                     {
-                        lock ( stringBuilder )
+                        lock ( outputBuilder )
                         {
-                            stringBuilder.Append( s );
-                            stringBuilder.Append( '\n' );
+                            outputBuilder.Append( s );
+                            outputBuilder.Append( '\n' );
                         }
                     },
                     options );
 
-            output = stringBuilder.ToString();
+            output = outputBuilder.ToString();
 
             return success && exitCode == 0;
         }

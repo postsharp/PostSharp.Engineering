@@ -20,7 +20,7 @@ namespace PostSharp.Engineering.BuildTools.Utilities
                 var exe = "where";
                 var whereArgs = _batch;
 
-                if ( !ToolInvocationHelper.InvokeTool( console, exe, whereArgs, Environment.CurrentDirectory, out var _, out var whereOutput ) )
+                if ( !ToolInvocationHelper.InvokeTool( console, exe, whereArgs, Environment.CurrentDirectory, out _, out var whereOutput ) )
                 {
                     console.WriteError( $"Error executing {exe} {whereArgs}" );
                     console.WriteError( whereOutput );
