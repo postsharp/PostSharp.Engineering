@@ -970,7 +970,8 @@ public static class TeamCityHelper
                         // The nightly build is done on the develop branch to find issues early and to prepare for the deployment.
                         // The manually triggered build is done on the release branch to allow for deployment without merge freeze.
                         // Any successful build of the same commit done on the develop branch is reused by TeamCity when deploying from the release branch.
-                        BranchFilter = $"+:{defaultBranch}"
+                        BranchFilter = $"+:{defaultBranch}",
+                        Parameters = [new TeamCityBuildConfigurationParameter( "DefaultBranch", defaultBranch )]
                     }
                 ],
                 MarkNuGetObjectId( publicBuildObjectName ),
@@ -989,7 +990,7 @@ public static class TeamCityHelper
         var consolidatedVersionBumpSteps = new List<TeamCityBuildStep>();
         var consolidatedVersionBumpSourceDependencies = new List<TeamCitySourceDependency>();
         var bumpedProjects = new HashSet<string>();
-        var consolidatedVersionBumpParameters = new List<TeamCityBuildConfigurationParameter>();
+        var consolidatedVersionBumpParameters = new List<TeamCityBuildConfigurationParameterBase>();
 
         var success = true;
 
@@ -1036,7 +1037,7 @@ public static class TeamCityHelper
             if ( dependencyDefinition.VcsRepository.DefaultBranchParameter != VcsRepository.DefaultDefaultBranchParameter )
             {
                 consolidatedVersionBumpParameters.Add(
-                    new TeamCityTextBuildConfigurationParameter(
+                    new TeamCityTextBuildConfigurationParameterBase(
                         dependencyDefinition.VcsRepository.DefaultBranchParameter,
                         dependencyDefinition.VcsRepository.DefaultBranchParameter,
                         $"Default branch of {bumpedProjectName}",
@@ -1051,21 +1052,7 @@ public static class TeamCityHelper
             return false;
         }
 
-        // Consolidated version bumps don't run for all versions at the same time to avoid build agent starvation.
-        var consolidatedVersionBumpBuildTriggerMinute = 0;
-
-        if ( context.Product.ProductFamily.UpstreamProductFamily != null )
-        {
-            var previousProductFamily = context.Product.ProductFamily.UpstreamProductFamily;
-
-            while ( previousProductFamily != null )
-            {
-                consolidatedVersionBumpBuildTriggerMinute += 10;
-                previousProductFamily = previousProductFamily.UpstreamProductFamily;
-            }
-        }
-
-        var consolidatedVersionBumpBuildTriggers = new IBuildTrigger[] { new NightlyBuildTrigger( 1, consolidatedVersionBumpBuildTriggerMinute, false ) };
+        var consolidatedVersionBumpBuildTriggers = new IBuildTrigger[] { new NightlyBuildTrigger( 1, false ) };
 
         tcConfigurations.Add(
             new TeamCityBuildConfiguration(
@@ -1094,7 +1081,7 @@ public static class TeamCityHelper
             List<TeamCitySourceDependency> sourceDependencies = new();
             List<TeamCitySnapshotDependency> snapshotDependencies = new();
             List<TeamCityBuildStep> steps = new();
-            List<TeamCityBuildConfigurationParameter> parameters = new();
+            List<TeamCityBuildConfigurationParameterBase> parameters = new();
 
             if ( context.Product.MainVersionDependency == null )
             {
@@ -1130,7 +1117,7 @@ public static class TeamCityHelper
                     }
                     
                     parameters.Add(
-                        new TeamCityTextBuildConfigurationParameter(
+                        new TeamCityTextBuildConfigurationParameterBase(
                             projectDependencyDefinition.VcsRepository.DefaultBranchParameter,
                             projectDependencyDefinition.VcsRepository.DefaultBranchParameter,
                             $"Default branch of {project.Name}",

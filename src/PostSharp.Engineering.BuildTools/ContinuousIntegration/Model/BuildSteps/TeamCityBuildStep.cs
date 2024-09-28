@@ -6,7 +6,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.BuildStep
 
 public abstract class TeamCityBuildStep
 {
-    public TeamCityBuildConfigurationParameter[]? BuildConfigurationParameters { get; init; }
+    public TeamCityBuildConfigurationParameterBase[]? BuildConfigurationParameters { get; init; }
     
     public abstract string GenerateTeamCityCode();
 }

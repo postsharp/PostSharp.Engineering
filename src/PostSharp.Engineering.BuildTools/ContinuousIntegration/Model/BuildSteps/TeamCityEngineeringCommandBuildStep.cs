@@ -24,7 +24,7 @@ public class TeamCityEngineeringCommandBuildStep : TeamCityPowerShellBuildStep
         {
             this.BuildConfigurationParameters =
             [
-                new TeamCityTextBuildConfigurationParameter(
+                new TeamCityTextBuildConfigurationParameterBase(
                     GetCustomArgumentsParameterName( id ),
                     $"{name} Arguments",
                     $"Arguments to append to the '{name}' build step.",

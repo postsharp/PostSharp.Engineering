@@ -13,5 +13,5 @@ public interface IBuildTrigger
     /// <summary>
     /// Generates the TeamCity code representing the current build trigger.
     /// </summary>
-    void GenerateTeamcityCode( TextWriter writer, string branchFilter = "+:<default>" );
+    void GenerateTeamcityCode( TextWriter writer, string? branchFilter = null );
 }

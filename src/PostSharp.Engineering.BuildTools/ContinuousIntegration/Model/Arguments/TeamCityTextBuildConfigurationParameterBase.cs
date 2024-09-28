@@ -2,7 +2,7 @@
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.Arguments;
 
-public class TeamCityTextBuildConfigurationParameter : TeamCityBuildConfigurationParameter
+public class TeamCityTextBuildConfigurationParameterBase : TeamCityBuildConfigurationParameterBase
 {
     public string DefaultValue { get; }
     
@@ -14,7 +14,7 @@ public class TeamCityTextBuildConfigurationParameter : TeamCityBuildConfiguratio
 
     public (string Regex, string ValidationMessage)? Validation { get; init; }
 
-    public TeamCityTextBuildConfigurationParameter( string name, string label, string description, string defaultValue = "", bool allowEmpty = false )
+    public TeamCityTextBuildConfigurationParameterBase( string name, string label, string description, string defaultValue = "", bool allowEmpty = false )
         : base( name )
     {
         this.DefaultValue = defaultValue;

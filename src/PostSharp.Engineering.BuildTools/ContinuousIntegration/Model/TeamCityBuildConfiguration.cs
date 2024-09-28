@@ -46,7 +46,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
         public TimeSpan? BuildTimeOutThreshold { get; init; }
         
-        public TeamCityBuildConfigurationParameter[]? Parameters { get; init; }
+        public TeamCityBuildConfigurationParameterBase[]? Parameters { get; init; }
 
         public TeamCityBuildConfiguration( string objectName, string name, string defaultBranch, string defaultBranchParameter, string vcsRootId, BuildAgentRequirements? buildAgentRequirements = null )
         {
@@ -94,16 +94,16 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
             var hasBuildSteps = this.BuildSteps is { Length: > 0 };
 
-            var buildParameters = new List<TeamCityBuildConfigurationParameter>();
+            var buildParameters = new List<TeamCityBuildConfigurationParameterBase>();
 
             if ( hasBuildSteps )
             {
                 buildParameters.AddRange(
-                    this.BuildSteps!.SelectMany( s => s.BuildConfigurationParameters ?? Enumerable.Empty<TeamCityBuildConfigurationParameter>() ) );
+                    this.BuildSteps!.SelectMany( s => s.BuildConfigurationParameters ?? Enumerable.Empty<TeamCityBuildConfigurationParameterBase>() ) );
             }
 
             buildParameters.Add(
-                new TeamCityTextBuildConfigurationParameter(
+                new TeamCityTextBuildConfigurationParameterBase(
                     this.DefaultBranchParameter,
                     "Default Branch",
                     "The default branch of this build configuration.",
@@ -111,7 +111,7 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
             if ( this.BuildTimeOutThreshold.HasValue )
             {
-                var timeOutParameter = new TeamCityTextBuildConfigurationParameter(
+                var timeOutParameter = new TeamCityTextBuildConfigurationParameterBase(
                     "TimeOut",
                     "Time-Out Threshold",
                     "Seconds after the duration of the last successful build.",
@@ -138,7 +138,13 @@ namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model
 
             if ( this.IsDefaultVcsRootUsed )
             {
-                writer.WriteLine( $"        {(hasBuildSteps ? @$"root(AbsoluteId(""{this.VcsRootId}""))" : "showDependenciesChanges = true")}" );
+                // We set the VCS root explicitly for consolidated as well builds to enable the DefaultBranch paramater.
+                writer.WriteLine( @$"        root(AbsoluteId(""{this.VcsRootId}""))" );
+
+                if ( !hasBuildSteps )
+                {
+                    writer.WriteLine( $"        showDependenciesChanges = true" );
+                }
             }
 
             // Source dependencies.

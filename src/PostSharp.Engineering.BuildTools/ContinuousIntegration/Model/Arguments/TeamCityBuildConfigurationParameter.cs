@@ -1,15 +1,16 @@
-﻿// Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
+﻿// Copyright (c) SharpCrafters s.r.o.See the LICENSE.md file in the root directory of this repository root for details.
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model.Arguments;
 
-public abstract class TeamCityBuildConfigurationParameter
+public class TeamCityBuildConfigurationParameter : TeamCityBuildConfigurationParameterBase
 {
-    public string Name { get; }
+    public string Value { get; }
 
-    protected TeamCityBuildConfigurationParameter( string name )
+    public TeamCityBuildConfigurationParameter( string name, string value ) : base( name )
     {
-        this.Name = name;
+        this.Value = value;
     }
 
-    public abstract string GenerateTeamCityCode();
+    public override string GenerateTeamCityCode()
+        => @$"        param(""{this.Name}"", ""{this.Value}"")";
 }
