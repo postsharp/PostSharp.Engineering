@@ -124,13 +124,12 @@ namespace PostSharp.Engineering.BuildTools.Build.Solutions
                     out var output,
                     options );
 
-                success = exitCode != 0 && !testOptions.IgnoreExitCode;
+                success = exitCode == 0 || testOptions.IgnoreExitCode;
                 var writeOutputOnSuccess = true;
 
                 if ( testOptions.ExpectedDiagnosticsRegexes != null )
                 {
-                    success = success || testOptions.IgnoreExitCode;
-                    var diagnostics = output.Split( '\n' ).Select( l => l.Trim() ).Where( l => l.StartsWith( "CSC : ", StringComparison.Ordinal ) ).ToArray();
+                    var diagnostics = output.Split( '\n' ).Select( l => l.Trim() ).Where( l => l.Contains( ": error ", StringComparison.Ordinal ) || l.Contains( ": warning ", StringComparison.Ordinal ) ).ToArray();
                     var isDiagnosticExpected = new bool[diagnostics.Length];
                         
                     foreach ( var regex in testOptions.ExpectedDiagnosticsRegexes )
