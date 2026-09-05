@@ -70,12 +70,29 @@ public sealed class DotNetComponent : ContainerComponent
         }
         else
         {
+            // From .NET 11 on, dotnet-install.ps1 downloads a .tar.gz on Windows instead of a .zip and extracts it by
+            // invoking tar as an external process. GitComponent, which is added to every generated Windows image, puts
+            // C:\git\usr\bin ahead of System32 in PATH, so that call resolves to the GNU tar of Git for Windows instead
+            // of the bsdtar of Windows. GNU tar reads the leading 'C:' of the archive path as the name of a remote host,
+            // in the host:path form it accepts, and fails with "Cannot connect to C: resolve failed".
+            // DOTNET_INSTALL_SKIP_TAR makes the script take the .zip path and extract the archive in-process with
+            // System.IO.Compression, which depends on no external program. Do not remove this assignment: without it,
+            // every image that installs a .NET 11 or later SDK or runtime fails to build. It is set on the RUN itself
+            // instead of an image-wide ENV so that this component stays self-contained and adds no layer.
+            //
+            // The assignment is restricted to version 11 and later, although it is harmless for earlier versions,
+            // because the text of the RUN instruction is part of the image content hash. Writing it unconditionally
+            // would change every Windows Dockerfile and invalidate every cached image, including those of products
+            // that install no .NET 11. A version that does not parse keeps the earlier form; every version string a
+            // product declares parses.
+            var skipTar = this.ParsedVersion is { Major: >= 11 } ? "$env:DOTNET_INSTALL_SKIP_TAR = '1'; " : "";
+
             // Run script directly since we're already in a PowerShell shell
             if ( this.DotNetComponentKind == DotNetComponentKind.Sdk )
             {
                 writer.WriteLine(
                     $"""
-                     RUN & .\dotnet-install.ps1 -Version {this.Version} -InstallDir 'C:\Program Files\dotnet'
+                     RUN {skipTar}& .\dotnet-install.ps1 -Version {this.Version} -InstallDir 'C:\Program Files\dotnet'
                      """ );
             }
             else
@@ -90,7 +107,7 @@ public sealed class DotNetComponent : ContainerComponent
 
                 writer.WriteLine(
                     $"""
-                     RUN & .\dotnet-install.ps1 -Version {this.Version} -Runtime {runtime} -InstallDir 'C:\Program Files\dotnet'
+                     RUN {skipTar}& .\dotnet-install.ps1 -Version {this.Version} -Runtime {runtime} -InstallDir 'C:\Program Files\dotnet'
                      """ );
             }
         }
