@@ -71,6 +71,12 @@
 .PARAMETER RegistryImage
     Use a pre-built image from a registry, skipping Dockerfile build entirely.
 
+.PARAMETER NoRegistry
+    Ignore DOCKER_REGISTRY, DOCKER_USERNAME and DOCKER_PASSWORD, and build every image locally under a local
+    tag: no authentication, no pull of an ancestor image, no push of what is built. Use it on a host that
+    cannot reach the registry, or cannot verify its certificate, so that the build proceeds without the layer
+    reuse the registry would otherwise give it.
+
 .PARAMETER NoInit
     Do not generate or call Init.g.ps1 (skips environment variables, git config, safe.directory, etc).
 
@@ -147,6 +153,7 @@ param(
     [string]$Script = 'Build.ps1', # The build script to be executed inside Docker.
     [string]$Dockerfile, # Path to custom Dockerfile (defaults to Dockerfile or Dockerfile.claude based on -Claude).
     [string]$RegistryImage, # Use a pre-built image from a registry, skipping Dockerfile build entirely.
+    [switch]$NoRegistry, # Ignore DOCKER_REGISTRY and its credentials; build locally without pulling or pushing.
     [switch]$NoInit, # Do not generate or call Init.g.ps1 (skips git config, safe.directory, etc).
     [string]$Isolation = 'process', # Docker isolation mode (process or hyperv). When not specified, defaults to hyperv on Windows Desktop and process on Windows Server. Memory/CPU limits only apply to hyperv.
     [string]$Memory = $(if ($env:BuildAgentMemory) { "${env:BuildAgentMemory}g" } else { '24g' }), # Docker memory limit (e.g., "8g"). Only used with hyperv isolation. Defaults to $env:BuildAgentMemory (in GB) or 24g.
@@ -1282,7 +1289,17 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
 
         # Resolve the Docker registry for build images (env-based). Registry mode is off (local image tags) if
         # not set. Set before Resolve-ImageTag, which uses it to form the tag.
-        $dockerRegistry = $env:DOCKER_REGISTRY
+        # -NoRegistry suppresses the environment, which is how a host that cannot reach or verify the registry
+        # still builds: the cost is that it builds every layer itself instead of pulling the ones already made.
+        if ($NoRegistry)
+        {
+            Write-Host "Registry disabled by -NoRegistry; building images locally." -ForegroundColor Yellow
+            $dockerRegistry = $null
+        }
+        else
+        {
+            $dockerRegistry = $env:DOCKER_REGISTRY
+        }
 
         # Compute the target image tag (and, transitively, its ancestors' tags via ARG BASE_IMAGE). The image
         # name is the Dockerfile stem; the tag is its content hash (folding the parent tag, OS and day-stamp).
