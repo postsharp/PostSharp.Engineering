@@ -2296,7 +2296,16 @@ $envVarAssignments$gitConfigCommands$postInitCommands
             {
                 $scriptFullPath = Join-Path $ContainerSourceDir $Script
             }
-            $scriptInvocation = "& '$scriptFullPath'"
+            # Fail if the script is not there. In -Command mode `& <missing>` is a non-terminating error and
+            # leaves $LASTEXITCODE at 0, so without this guard the container exits 0 and the build is reported
+            # successful having run nothing at all. That is what an unmounted workspace looks like: the bind
+            # mount silently yields an empty directory when the engine is not allowed to share the host path.
+            $missingScriptMessage = "The script $scriptFullPath is not present in the container. The workspace " +
+                "is most likely not mounted -- check that the agent work directory is a path the container " +
+                "engine is allowed to share."
+
+            $scriptInvocation = "if ( -not ( Test-Path -LiteralPath '$scriptFullPath' ) ) " +
+                "{ Write-Host '$missingScriptMessage' -ForegroundColor Red; exit 127 }; & '$scriptFullPath'"
             $inlineScript = "${substCommandsInline}${initCall}cd '$SourceDirName'; $scriptInvocation $buildArgsString; $pwshExitCommand"
 
             # No environment args for normal build
