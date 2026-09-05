@@ -1974,9 +1974,12 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         {
             if ($dir)
             {
-                # Normalize path: convert backslashes to forward slashes, add trailing slash
-                $normalizedDir = ($dir -replace '\\', '/').TrimEnd('/') + '/'
+                # Git compares safe.directory against the repository path exactly, and the path it reports has
+                # no trailing separator: registering only the trailing-slash form leaves the exception unmatched
+                # and the repository still refused as dubiously owned. Register both forms.
+                $normalizedDir = ($dir -replace '\\', '/').TrimEnd('/')
                 $gitConfigCommands += "git config --global --add safe.directory '$normalizedDir'`n"
+                $gitConfigCommands += "git config --global --add safe.directory '$normalizedDir/'`n"
             }
         }
 
