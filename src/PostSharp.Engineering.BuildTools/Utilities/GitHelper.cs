@@ -133,6 +133,13 @@ public static class GitHelper
             return false;
         }
 
+        // The merge below refuses to update any file that the working tree reports as modified, so the line endings
+        // of the target branch have to be normalized before it runs. See TryRenormalizeLineEndings.
+        if ( !TryRenormalizeLineEndings( context ) )
+        {
+            return false;
+        }
+
         // Attempts merging from the source branch, forcing conflicting hunks to be auto-resolved in favour of the branch being merged.
         if ( !TryMerge( context, sourceBranch, targetBranch, "--strategy-option theirs" ) )
         {
@@ -378,6 +385,59 @@ public static class GitHelper
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Rewrites the index of the current branch with the line endings required by <c>.gitattributes</c> and
+    /// <c>core.autocrlf</c>, then commits the result. Does nothing when the branch is already normalized.
+    /// </summary>
+    /// <remarks>
+    /// A blob committed before its normalization rules were in force keeps the line endings it was stored with.
+    /// Git applies those rules when it stages the file, so the file is reported as modified as soon as it is
+    /// checked out, in every clone and without any local edit. A merge then refuses to update such a file and the
+    /// deployment fails. Normalizing the stored blobs once removes the discrepancy for good.
+    /// Callers must check out the target branch with <c>--force</c> first, because this method commits whatever
+    /// the working tree contains.
+    /// </remarks>
+    public static bool TryRenormalizeLineEndings( BuildContext context )
+    {
+        if ( !ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                "add --renormalize .",
+                context.RepoDirectory ) )
+        {
+            return false;
+        }
+
+        // 'git diff --cached --quiet' exits with 0 when the index matches HEAD and with 1 when it does not.
+        // Any other exit code is a genuine failure.
+        if ( ToolInvocationHelper.InvokeTool(
+                context.Console,
+                "git",
+                "diff --cached --quiet",
+                context.RepoDirectory,
+                out var exitCode,
+                out var output ) )
+        {
+            return true;
+        }
+
+        if ( exitCode != 1 )
+        {
+            context.Console.WriteError( output );
+
+            return false;
+        }
+
+        context.Console.WriteWarning(
+            "Some files are stored with line endings that do not match the normalization rules of the repository. Committing the normalized files." );
+
+        return ToolInvocationHelper.InvokeTool(
+            context.Console,
+            "git",
+            "commit -m \"Normalize line endings\"",
+            context.RepoDirectory );
     }
 
     public static bool TryCommitMerge( BuildContext context )
