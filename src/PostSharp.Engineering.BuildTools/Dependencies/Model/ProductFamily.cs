@@ -16,6 +16,16 @@ namespace PostSharp.Engineering.BuildTools.Dependencies.Model;
 public class ProductFamily
 {
     private static int _areDependenciesInitialized;
+
+    /// <summary>
+    /// Guards every read and write of the registries below. Families and their dependency definitions are registered
+    /// from the static constructors of the definition classes, and the runtime runs the constructors of different
+    /// classes on different threads, so those registries are written concurrently even though each class is
+    /// initialized once. Without this, a test run that touches several definition classes at once corrupts the
+    /// dictionaries, and the failure surfaces far from its cause as a type initialization error.
+    /// </summary>
+    private static readonly object _sync = new();
+
     private static readonly Dictionary<string, Dictionary<string, ProductFamily>> _productFamilies = new();
     private readonly Dictionary<string, DependencyDefinition> _dependencyDefinitions = new();
     private readonly Dictionary<string, DependencyDefinition> _dependencyDefinitionsByCiId = new();
@@ -56,13 +66,16 @@ public class ProductFamily
         this.VersionWithoutDots = this.Version.Replace( ".", "", StringComparison.Ordinal );
         this._relativeFamilies = relativeFamilies;
 
-        if ( !_productFamilies.TryGetValue( name, out var versions ) )
+        lock ( _sync )
         {
-            versions = new Dictionary<string, ProductFamily>();
-            _productFamilies.Add( name, versions );
-        }
+            if ( !_productFamilies.TryGetValue( name, out var versions ) )
+            {
+                versions = new Dictionary<string, ProductFamily>();
+                _productFamilies.Add( name, versions );
+            }
 
-        versions.Add( version, this );
+            versions.Add( version, this );
+        }
     }
 
     public static bool TryGetFamily( string name, string version, [NotNullWhen( true )] out ProductFamily? family )
@@ -84,14 +97,19 @@ public class ProductFamily
             dependencies.ForEach( t => RuntimeHelpers.RunClassConstructor( t.TypeHandle ) );
         }
 
-        if ( !_productFamilies.TryGetValue( name, out var versions ) )
+        // Deliberately not holding the lock while the class constructors run above: one of them registers a family and
+        // would wait for this lock, while this thread waits for the runtime to finish initializing that same class.
+        lock ( _sync )
         {
-            family = null;
+            if ( !_productFamilies.TryGetValue( name, out var versions ) )
+            {
+                family = null;
 
-            return false;
+                return false;
+            }
+
+            return versions.TryGetValue( version, out family );
         }
-
-        return versions.TryGetValue( version, out family );
     }
 
     public bool TryGetDependencyDefinition( string name, [NotNullWhen( true )] out DependencyDefinition? definition )
@@ -105,22 +123,26 @@ public class ProductFamily
         Func<ProductFamily, IReadOnlyDictionary<string, DependencyDefinition>> getDependencyDefinitions,
         [NotNullWhen( true )] out DependencyDefinition? definition )
     {
-        if ( getDependencyDefinitions( this ).TryGetValue( name, out definition ) )
+        lock ( _sync )
         {
-            return true;
-        }
-        else
-        {
-            foreach ( var relatives in this._relativeFamilies )
+            if ( getDependencyDefinitions( this ).TryGetValue( name, out definition ) )
             {
-                if ( relatives.TryGetDependencyDefinition( name, getDependencyDefinitions, out definition ) )
-                {
-                    return true;
-                }
+                return true;
             }
-
-            return false;
         }
+
+        // Outside the lock: the relatives are searched through this same method, which takes it again.
+        foreach ( var relatives in this._relativeFamilies )
+        {
+            if ( relatives.TryGetDependencyDefinition( name, getDependencyDefinitions, out definition ) )
+            {
+                return true;
+            }
+        }
+
+        definition = null;
+
+        return false;
     }
 
     public DependencyDefinition GetDependencyDefinition( string name )
@@ -130,8 +152,11 @@ public class ProductFamily
 
     public void Register( DependencyDefinition dependencyDefinition )
     {
-        this._dependencyDefinitions.Add( dependencyDefinition.Name, dependencyDefinition );
-        this._dependencyDefinitionsByCiId.Add( dependencyDefinition.CiConfiguration.ProjectId.Id, dependencyDefinition );
+        lock ( _sync )
+        {
+            this._dependencyDefinitions.Add( dependencyDefinition.Name, dependencyDefinition );
+            this._dependencyDefinitionsByCiId.Add( dependencyDefinition.CiConfiguration.ProjectId.Id, dependencyDefinition );
+        }
     }
 
     public override string ToString() => $"{this.Name} {this.Version}";

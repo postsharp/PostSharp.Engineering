@@ -150,6 +150,10 @@ Invoke-RestMethod -Uri "https://postsharp.teamcity.com/app/rest/buildQueue" -Met
 5. Monitor version bumping
 6. When completed, schedule deploy public
 
+**Do not bump the version a second time if no deployment has succeeded since the last bump.** A bumped version
+that failed to deploy has not been published, so the number is still free. After fixing whatever broke the
+deployment, push the fix and schedule the deployment again — skip steps 4 and 5.
+
 
 ## Warnings
 
