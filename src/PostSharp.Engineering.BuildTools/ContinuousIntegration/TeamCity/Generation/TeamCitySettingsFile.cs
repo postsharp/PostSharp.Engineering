@@ -3,6 +3,7 @@
 using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Publishing;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.BuildSteps;
 using PostSharp.Engineering.BuildTools.Utilities;
 using System;
@@ -19,6 +20,14 @@ internal static class TeamCitySettingsFile
     {
         var product = context.Product;
         context.Console.WriteHeading( "Generating build integration scripts" );
+
+        // A dependency between build configurations of the same product names its target by identifier, so a typo or
+        // a cycle can only be caught here. Doing it before anything is generated is what lets the error name the
+        // product definition rather than a Kotlin object in a generated file.
+        if ( !SnapshotDependencyGraph.TryValidate( context.Console, product ) )
+        {
+            return false;
+        }
 
         var configurations = new[] { BuildConfiguration.Debug, BuildConfiguration.Release, BuildConfiguration.Public };
 
@@ -66,12 +75,20 @@ internal static class TeamCitySettingsFile
             publishedArtifactRules += $@"\n+:{productProperties.LogsDirectory}/**/*=>logs";
             publishedArtifactRules += $@"\n+:{productProperties.DumpsDirectory}/**/*=>dumps";
 
-            var teamCityBuildConfiguration = CreateBuildConfiguration(
-                context,
-                productProperties,
-                configurationProperties,
-                publishedArtifactRules,
-                additionalArtifactRules );
+            var teamCityBuildConfiguration = configurationInfo.CustomBuildConfiguration != null
+                ? CreateReplacementBuildConfiguration(
+                    configurationInfo.CustomBuildConfiguration,
+                    productProperties,
+                    configurationProperties,
+                    teamCityBuildBuildConfigurations,
+                    publishedArtifactRules,
+                    additionalArtifactRules )
+                : CreateBuildConfiguration(
+                    context,
+                    productProperties,
+                    configurationProperties,
+                    publishedArtifactRules,
+                    additionalArtifactRules );
 
             teamCityBuildConfigurations.Add( teamCityBuildConfiguration );
             teamCityBuildBuildConfigurations.Add( configuration, teamCityBuildConfiguration );
@@ -512,6 +529,9 @@ internal static class TeamCitySettingsFile
         }
 
         // Depend on the Build configuration so its artifacts (including the .zip) are downloaded onto the deploy agent.
+        // Dependencies on other products only. A dependency of the build on another build configuration of the same
+        // product is deliberately absent here: the deployment already receives what that configuration produced,
+        // through the artifacts the build republishes under its own rules.
         var snapshotDependencies = configurationProperties.SnapshotDependenciesForBuildConfiguration
             .Where( d => d.ArtifactRules != null )
             .Concat( [new TeamCitySnapshotDependency( teamCityBuildConfiguration.ObjectName, false, deployedArtifactRules )] );
@@ -811,6 +831,101 @@ internal static class TeamCitySettingsFile
         return swapConfiguration;
     }
 
+    /// <summary>
+    /// Determines whether the generated build configuration runs the upstream check.
+    /// </summary>
+    /// <remarks>
+    /// The declared flag is not the whole condition, which is why this is a method rather than a property read. The
+    /// default public configuration sets the flag, so a product with a release branch, where the check belongs to the
+    /// deployment preparation instead, carries the flag without ever generating the step.
+    /// </remarks>
+    internal static bool RequiresUpstreamCheck( Product product, BuildConfigurationInfo configurationInfo )
+        =>
+
+            // The check is required.
+            configurationInfo.RequiresUpstreamCheck
+
+            // There is upstream product to check.
+            && product.ProductFamily.UpstreamProductFamily != null
+
+            // For products with the release branch, the check is done as part of the deployment preparation step.
+            && product.DependencyDefinition.ReleaseBranch == null;
+
+    /// <summary>
+    /// Creates the <b>Build</b> build configuration of a product that replaces it, from the
+    /// <see cref="AdditionalCiBuildConfiguration"/> declared in
+    /// <see cref="BuildConfigurationInfo.CustomBuildConfiguration"/>.
+    /// </summary>
+    /// <remarks>
+    /// The replacement is materialised by the same factory that generates an additional configuration, then given
+    /// back the properties that identify a product build configuration to everything downstream. It is registered
+    /// like the standard one, so a deployment and the additional configurations that depend on the build resolve it
+    /// without knowing that it was replaced.
+    /// </remarks>
+    internal static TeamCityBuildConfiguration CreateReplacementBuildConfiguration(
+        AdditionalCiBuildConfiguration customBuildConfiguration,
+        ProductProperties productProperties,
+        ConfigurationProperties configurationProperties,
+        IReadOnlyDictionary<BuildConfiguration, TeamCityBuildConfiguration> teamCityBuildBuildConfigurations,
+        string publishedArtifactRules,
+        ImmutableArray<string> additionalArtifactRules )
+    {
+        var product = productProperties.Product;
+        var configuration = configurationProperties.Configuration;
+        var configurationInfo = configurationProperties.BuildConfigurationInfo;
+
+        var generated = customBuildConfiguration.TeamCityBuildConfiguration( productProperties, teamCityBuildBuildConfigurations );
+
+        // The factory appends the dependencies on other products itself, keyed on the artifact layout it reads, while
+        // the product's own graph is keyed on this build configuration. Keeping only the same-product entries and then
+        // adding the product's graph avoids emitting the same build type twice under artifact rules that need not even
+        // agree.
+        var snapshotDependencies = ( generated.SnapshotDependencies ?? [] )
+            .Where( d => !d.IsAbsoluteId )
+            .Concat( configurationProperties.SnapshotDependenciesForBuildConfiguration )
+            .ToArray();
+
+        var duplicateDependency = snapshotDependencies
+            .GroupBy( d => d.ObjectId, StringComparer.Ordinal )
+            .FirstOrDefault( g => g.Count() > 1 );
+
+        if ( duplicateDependency != null )
+        {
+            throw new InvalidOperationException(
+                $"The '{configuration}' build configuration would depend on '{duplicateDependency.Key}' more than once. "
+                + "The filter that separates the dependencies of the replacement from those of the product no longer holds." );
+        }
+
+        return generated with
+        {
+            // TeamCity derives the build type identifier from the object name, and other products address this build
+            // by that identifier, so the replacement cannot choose it.
+            ObjectName = SnapshotDependency.GetBuildObjectName( configuration ),
+            Name = configurationInfo.TeamCityBuildName ?? $"Build [{configuration}]",
+
+            // Not the branch the additional-configuration factory uses. See the comment on the standard build
+            // configuration: the public build's default branch must not be the release branch.
+            DefaultBranch = productProperties.DefaultBranch,
+
+            // The deployment reads these directories from this configuration by name.
+            ArtifactRules = publishedArtifactRules,
+            AdditionalArtifactRules = additionalArtifactRules.ToArray(),
+            BuildTriggers = configurationInfo.BuildTriggers,
+            SnapshotDependencies = snapshotDependencies,
+            SourceDependencies = product.BuildRequiresSourceDependencies ? productProperties.SourceDependencies : [],
+
+            // The factory requests an SSH agent unconditionally. A replacement runs no upstream check unless the
+            // product would have generated one, and loading a key it never reads is a needless secret in the build.
+            IsSshAgentRequired = RequiresUpstreamCheck( product, configurationInfo ) && productProperties.IsRepoRemoteSsh,
+            RequiresCommitStatusPublisher = true,
+
+            // The loop over the additional configurations assigns this after the factory returns. A replacement never
+            // goes through that loop, and without this the build would run under the repository's default GitHub App
+            // identity rather than the one the product configured for it.
+            GitHubAppTokenOverride = customBuildConfiguration.GitHubAppToken
+        };
+    }
+
     private static TeamCityBuildConfiguration CreateBuildConfiguration(
         BuildContext context,
         ProductProperties productProperties,
@@ -826,16 +941,7 @@ internal static class TeamCitySettingsFile
             teamCityBuildSteps.Add( new EngineeringCommandBuildStep( "PreKill", "Kill background processes before cleanup", "tools kill" ) );
         }
 
-        var requiresUpstreamCheck =
-
-            // The check is required.
-            configurationProperties.BuildConfigurationInfo.RequiresUpstreamCheck
-
-            // There is upstream product to check.
-            && product.ProductFamily.UpstreamProductFamily != null
-
-            // For products with the release branch, the check is done as part of the deployment preparation step.
-            && product.DependencyDefinition.ReleaseBranch == null;
+        var requiresUpstreamCheck = RequiresUpstreamCheck( product, configurationProperties.BuildConfigurationInfo );
 
         if ( requiresUpstreamCheck )
         {
@@ -864,7 +970,7 @@ internal static class TeamCitySettingsFile
         // during the consolidated public build on such project, but the correct
         // one would be triggered during deployment.
         var teamCityBuildConfiguration = new TeamCityBuildConfiguration(
-            $"{configurationProperties.Configuration}Build",
+            SnapshotDependency.GetBuildObjectName( configurationProperties.Configuration ),
             configurationProperties.BuildConfigurationInfo.TeamCityBuildName ?? $"Build [{configurationProperties.Configuration}]",
             productProperties.DefaultBranch,
             productProperties.VcsId,

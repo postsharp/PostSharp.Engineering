@@ -5,6 +5,7 @@ using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
@@ -46,11 +47,25 @@ public class CompositeAdditionalCiBuildConfiguration : AdditionalCiBuildConfigur
         {
             // Empty rather than null: the generator dereferences the step array unconditionally.
             BuildSteps = [],
-            SnapshotDependencies = this.DependencyIds
-                .Select( x => new TeamCitySnapshotDependency( x, false ) )
+            SnapshotDependencies = this.GetSnapshotDependencies()
+                .Select( d => d.ToTeamCitySnapshotDependency( d.ConfigurationId!, "", this.EffectiveReuseLastSuccessfulBuild ) )
                 .ToArray(),
             Parameters = this.Parameters,
             TimeoutInMinutes = this.TimeoutInMinutes,
             BuildTriggers = this.BuildTriggers
         };
+
+    /// <summary>
+    /// Gets the configurations this one aggregates, as dependencies. A composite downloads nothing from them, hence
+    /// the empty rule set: it waits for them and reports their combined result. Expressing the edges this way is
+    /// what puts them in reach of the validation that rejects an unknown identifier or a cycle.
+    /// </summary>
+    internal override ImmutableArray<SnapshotDependency> GetSnapshotDependencies()
+        => [..this.DependencyIds.Select( id => new SnapshotDependency( id ) { ArtifactRules = [] } )];
+
+    /// <summary>
+    /// Always <c>false</c>. A composite waits for its children and downloads nothing from them, and reusing their
+    /// last successful build would suppress the wait, which is the only thing a composite does.
+    /// </summary>
+    internal override bool EffectiveReuseLastSuccessfulBuild => false;
 }
