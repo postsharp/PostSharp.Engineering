@@ -161,9 +161,12 @@ public class VersionFile
         foreach ( var dependency in dependenciesConfigurationFile.Dependencies.Keys )
         {
             // Look up the parametrized dependency to get the consumer-side key (which equals Name when no alias is set).
+            // A transitive dependency is resolved through the product, which also searches the families of the direct
+            // dependencies; the product family alone does not know a dependency fetched through a product of another
+            // family.
             var keyWithoutDot = context.Product.TryGetDependency( dependency, out var parametrizedDependency )
                 ? parametrizedDependency.KeyWithoutDot
-                : context.Product.ProductFamily.GetDependencyDefinition( dependency ).NameWithoutDot;
+                : context.Product.GetDependencyDefinition( dependency ).NameWithoutDot;
 
             var propertyName = $"{keyWithoutDot}Version";
 
