@@ -11,17 +11,17 @@ using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity
 {
-    internal class TeamCityBuildConfiguration
+    internal record TeamCityBuildConfiguration
     {
-        public string ObjectName { get; }
+        public string ObjectName { get; init; }
 
-        public string Name { get; }
+        public string Name { get; init; }
 
-        public string DefaultBranch { get; }
+        public string DefaultBranch { get; init; }
 
-        public string VcsId { get; }
+        public string VcsId { get; init; }
 
-        public BuildAgentRequirements? BuildAgentRequirements { get; }
+        public BuildAgentRequirements? BuildAgentRequirements { get; init; }
 
         public BuildStep[]? BuildSteps { get; init; }
 
