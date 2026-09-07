@@ -259,57 +259,15 @@ namespace PostSharp.Engineering.BuildTools.Build
                     File.Copy( Path.Combine( privateArtifactsDirectory, file ), targetFile, true );
                 }
 
-                var signSuccess = true;
-
                 if ( buildConfigurationInfo.RequiresSigning && !settings.NoSign )
                 {
                     context.Console.WriteHeading( "Signing artifacts" );
 
-                    // SignClient now presents the build agent's own service principal rather than signing
-                    // in as a named user, so the credential it needs is the agent's, which is already in
-                    // the environment. SIGNSERVER_SECRET held the user account's password and is no
-                    // longer read by anything.
-                    var signToolSecret = Environment.GetEnvironmentVariable( EnvironmentVariableNames.AzureClientSecret );
-
-                    if ( string.IsNullOrEmpty( signToolSecret ) )
-                    {
-                        context.Console.WriteError( "The AZURE_CLIENT_SECRET environment variable is not defined." );
-
-                        return false;
-                    }
-
-                    void Sign( string filter )
-                    {
-                        if ( Directory.EnumerateFiles( publicArtifactsDirectory, filter ).Any() )
-                        {
-                            signSuccess = signSuccess && DotNetTool.SignClient.Invoke(
-                                context,
-                                $"Sign --baseDirectory \"{publicArtifactsDirectory}\" --input {filter}" );
-                        }
-                    }
-
-                    Sign( "*.nupkg" );
-                    Sign( "*.snupkg" );
-                    Sign( "*.vsix" );
-
-                    if ( !signSuccess )
+                    // Shared with the 'sign' command, so that a product whose public build is a configuration of its
+                    // own signs exactly the way the standard build does.
+                    if ( !ArtifactSigner.TrySign( context, publicArtifactsDirectory, ArtifactSigner.DefaultFilters ) )
                     {
                         return false;
-                    }
-
-                    // Verify signed NuGet packages.
-                    foreach ( var nupkg in Directory.EnumerateFiles( publicArtifactsDirectory, "*.nupkg" ) )
-                    {
-                        if ( !ToolInvocationHelper.InvokeTool(
-                                context.Console,
-                                "dotnet",
-                                $"nuget verify --all \"{nupkg}\"",
-                                context.RepoDirectory ) )
-                        {
-                            context.Console.WriteError( $"Signature verification failed for '{Path.GetFileName( nupkg )}'." );
-
-                            return false;
-                        }
                     }
 
                     // Zipping public artifacts.

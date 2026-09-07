@@ -39,6 +39,24 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
 
         public bool AddDefaultCommands { get; init; } = true;
 
+        /// <summary>
+        /// Gets the globs selecting which files inside a signed container are signed, empty to sign every file the
+        /// container holds.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The sign service descends into a package or an extension and signs every executable it finds, so a
+        /// container that carries third-party dependencies has them signed with this organisation's certificate
+        /// unless it is told otherwise -- asserting authorship of code that is not ours. An empty filter is not a
+        /// safe default and is only the historical one: the service signs everything when it is given no globs.
+        /// </para>
+        /// <para>
+        /// A glob prefixed with <c>!</c> excludes. Paths are relative to the root of the expanded container, so a
+        /// pattern normally begins with <c>**/</c>.
+        /// </para>
+        /// </remarks>
+        public ImmutableArray<string> SigningFilter { get; init; } = ImmutableArray<string>.Empty;
+
         public ProductFamily ProductFamily => this.DependencyDefinition.ProductFamily;
 
         public string BuildExePath { get; }

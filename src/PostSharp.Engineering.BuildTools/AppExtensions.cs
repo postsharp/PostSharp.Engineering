@@ -57,6 +57,11 @@ namespace PostSharp.Engineering.BuildTools
                         .WithData( data )
                         .WithDescription( "Builds all packages in the product (implies 'prepare')" );
 
+                    root.AddCommand<SignCommand>( "sign" )
+                        .WithData( data )
+                        .WithDescription(
+                            "Signs build artifacts, for a product whose public build does not run the standard build step" );
+
                     root.AddCommand<GenerateScriptsCommand>( "generate-scripts" )
                         .WithData( data )
                         .WithDescription( "Generates the CI and Docker scripts" );
