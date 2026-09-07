@@ -39,7 +39,10 @@ public static class BusinessSystemsDependencies
     public static ProductFamily Family { get; } = new( "Business%20Systems", "1.0", DevelopmentDependencies.Family );
 
     public static DependencyDefinition BusinessSystems { get; } =
-        new BusinessSystemsDependencyDefinition( "BusinessSystems", "postsharp-ops", GitHubAppConnections.PostSharpOps );
+        new BusinessSystemsDependencyDefinition( "BusinessSystems", "postsharp-ops", GitHubAppConnections.PostSharpOps )
+        {
+            Dependencies = [DevelopmentDependencies.PostSharpEngineering, MetalamaDependencies.V2027_0.Metalama]
+        };
 
     public static DependencyDefinition HelpBrowser { get; } = new BusinessSystemsDependencyDefinition( "HelpBrowser" );
 
