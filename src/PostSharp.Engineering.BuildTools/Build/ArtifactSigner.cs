@@ -66,16 +66,43 @@ internal static class ArtifactSigner
 
             foreach ( var filter in filters )
             {
-                if ( !Directory.EnumerateFiles( directory, filter ).Any() )
+                var matches = Directory.EnumerateFiles( directory, filter ).ToList();
+
+                if ( matches.Count == 0 )
                 {
                     continue;
                 }
 
-                if ( !DotNetTool.SignClient.Invoke(
-                        context,
-                        $"Sign --baseDirectory \"{directory}\" --input {filter}{filterArgument}" ) )
+                var alreadySigned = matches.Where( IsSignedPackage ).ToList();
+
+                if ( alreadySigned.Count == 0 )
                 {
-                    return false;
+                    // Nothing to skip, so the pattern goes to the tool as it is and the whole set is one call.
+                    if ( !DotNetTool.SignClient.Invoke(
+                            context,
+                            $"Sign --baseDirectory \"{directory}\" --input {filter}{filterArgument}" ) )
+                    {
+                        return false;
+                    }
+
+                    continue;
+                }
+
+                foreach ( var file in alreadySigned )
+                {
+                    context.Console.WriteMessage( $"Already signed, skipping: {Path.GetFileName( file )}" );
+                }
+
+                // The remainder is named one by one, because the tool selects by pattern and there is no
+                // pattern that means "these and not those".
+                foreach ( var file in matches.Except( alreadySigned, StringComparer.OrdinalIgnoreCase ) )
+                {
+                    if ( !DotNetTool.SignClient.Invoke(
+                            context,
+                            $"Sign --baseDirectory \"{directory}\" --input {Path.GetFileName( file )}{filterArgument}" ) )
+                    {
+                        return false;
+                    }
                 }
             }
         }
@@ -93,6 +120,39 @@ internal static class ArtifactSigner
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Determines whether a package already carries its own signature, in which case signing it again is not a
+    /// no-op: the service rejects it, and the caller sees a 500 with nothing to say which file caused it.
+    /// </summary>
+    /// <remarks>
+    /// A product can pack more than once into one directory -- a build that produces both a public and a
+    /// commit-stamped variant does exactly that -- and the second pass would otherwise be handed the packages the
+    /// first one signed. Skipping them makes signing a directory idempotent, which is what a caller naming a
+    /// directory rather than a file expects.
+    /// </remarks>
+    private static bool IsSignedPackage( string file )
+    {
+        var extension = Path.GetExtension( file );
+
+        if ( !extension.Equals( ".nupkg", StringComparison.OrdinalIgnoreCase )
+             && !extension.Equals( ".snupkg", StringComparison.OrdinalIgnoreCase ) )
+        {
+            return false;
+        }
+
+        try
+        {
+            using var archive = ZipFile.OpenRead( file );
+
+            return archive.GetEntry( ".signature.p7s" ) != null;
+        }
+        catch ( InvalidDataException )
+        {
+            // Not a readable archive. Let the sign service be the one to complain about it.
+            return false;
+        }
     }
 
     /// <summary>
