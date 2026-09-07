@@ -48,7 +48,7 @@ public class CompositeAdditionalCiBuildConfiguration : AdditionalCiBuildConfigur
             // Empty rather than null: the generator dereferences the step array unconditionally.
             BuildSteps = [],
             SnapshotDependencies = this.GetSnapshotDependencies()
-                .Select( d => d.ToTeamCitySnapshotDependency( d.ConfigurationId!, "", false ) )
+                .Select( d => d.ToTeamCitySnapshotDependency( d.ConfigurationId!, "", this.EffectiveReuseLastSuccessfulBuild ) )
                 .ToArray(),
             Parameters = this.Parameters,
             TimeoutInMinutes = this.TimeoutInMinutes,
@@ -62,4 +62,10 @@ public class CompositeAdditionalCiBuildConfiguration : AdditionalCiBuildConfigur
     /// </summary>
     internal override ImmutableArray<SnapshotDependency> GetSnapshotDependencies()
         => [..this.DependencyIds.Select( id => new SnapshotDependency( id ) { ArtifactRules = [] } )];
+
+    /// <summary>
+    /// Always <c>false</c>. A composite waits for its children and downloads nothing from them, and reusing their
+    /// last successful build would suppress the wait, which is the only thing a composite does.
+    /// </summary>
+    internal override bool EffectiveReuseLastSuccessfulBuild => false;
 }

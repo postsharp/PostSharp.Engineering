@@ -223,4 +223,10 @@ public abstract class AdditionalCiBuildConfiguration
     /// version file is imported.
     /// </summary>
     internal BuildConfiguration EffectiveArtifactsConfiguration => this.BuildSnapshotDependency ?? BuildConfiguration.Public;
+
+    /// <summary>
+    /// Gets a value indicating whether the dependencies of this configuration accept the last successful build of
+    /// their target, for those that do not state it themselves.
+    /// </summary>
+    internal virtual bool EffectiveReuseLastSuccessfulBuild => this.ReuseLastSuccessfulBuild;
 }

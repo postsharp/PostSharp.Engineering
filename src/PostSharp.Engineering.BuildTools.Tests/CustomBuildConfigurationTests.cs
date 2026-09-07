@@ -201,6 +201,22 @@ public sealed class CustomBuildConfigurationTests
     }
 
     /// <summary>
+    /// The loop over the additional configurations assigns the GitHub App identity after the factory returns, and a
+    /// replacement never goes through that loop. Without carrying it, the build would run under the repository's
+    /// default identity instead of the one the product configured, which nothing in the generated file would show.
+    /// </summary>
+    [Fact]
+    public void AReplacementKeepsItsGitHubAppTokenOverride()
+    {
+        var replacement = new PowershellAdditionalCiBuildConfiguration( "SignedDistribution", "Signed", "make.ps1", "dist" )
+        {
+            GitHubAppToken = new GitHubAppTokenOverride( "SomeConnectionId" )
+        };
+
+        Assert.Equal( "SomeConnectionId", Generate( CreateProduct( replacement ) ).GitHubAppTokenOverride?.ConnectionId );
+    }
+
+    /// <summary>
     /// Declaring no replacement leaves everything as it was, which is the case of every product that exists today.
     /// </summary>
     [Fact]

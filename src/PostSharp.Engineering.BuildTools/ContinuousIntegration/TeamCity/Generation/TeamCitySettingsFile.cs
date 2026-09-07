@@ -917,7 +917,12 @@ internal static class TeamCitySettingsFile
             // The factory requests an SSH agent unconditionally. A replacement runs no upstream check unless the
             // product would have generated one, and loading a key it never reads is a needless secret in the build.
             IsSshAgentRequired = RequiresUpstreamCheck( product, configurationInfo ) && productProperties.IsRepoRemoteSsh,
-            RequiresCommitStatusPublisher = true
+            RequiresCommitStatusPublisher = true,
+
+            // The loop over the additional configurations assigns this after the factory returns. A replacement never
+            // goes through that loop, and without this the build would run under the repository's default GitHub App
+            // identity rather than the one the product configured for it.
+            GitHubAppTokenOverride = customBuildConfiguration.GitHubAppToken
         };
     }
 

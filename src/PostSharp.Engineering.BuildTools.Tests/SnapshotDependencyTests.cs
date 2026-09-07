@@ -258,6 +258,61 @@ public sealed class SnapshotDependencyTests
                     SnapshotDependencies = [new SnapshotDependency( "BuildArtifacts" )]
                 } ) );
 
+    /// <summary>
+    /// A dependency that downloads nothing is an ordering constraint, which is the snapshot dependency itself, and
+    /// reusing the last successful build suppresses that snapshot. Together they emit neither block, so the
+    /// dependency would vanish from the generated configuration without a word.
+    /// </summary>
+    [Fact]
+    public void AnOrderingOnlyDependencyThatReusesTheLastSuccessfulBuildIsRejected()
+    {
+        // Declared on the dependency.
+        Assert.False(
+            IsValid(
+                new PowershellAdditionalCiBuildConfiguration( "Cell", "A test cell", "Build.ps1", "test" )
+                {
+                    SnapshotDependencies = [new SnapshotDependency( "BuildArtifacts" ) { ArtifactRules = [], ReuseLastSuccessfulBuild = true }]
+                } ) );
+
+        // Inherited from the configuration, which is how a nightly job sets it.
+        Assert.False(
+            IsValid(
+                new PowershellAdditionalCiBuildConfiguration( "Cell", "A test cell", "Build.ps1", "test" )
+                {
+                    ReuseLastSuccessfulBuild = true,
+                    SnapshotDependencies = [new SnapshotDependency( "BuildArtifacts" ) { ArtifactRules = [] }]
+                } ) );
+
+        // Either one alone is meaningful.
+        Assert.True(
+            IsValid(
+                new PowershellAdditionalCiBuildConfiguration( "Cell", "A test cell", "Build.ps1", "test" )
+                {
+                    SnapshotDependencies = [new SnapshotDependency( "BuildArtifacts" ) { ArtifactRules = [] }]
+                } ) );
+
+        Assert.True(
+            IsValid(
+                new PowershellAdditionalCiBuildConfiguration( "Cell", "A test cell", "Build.ps1", "test" )
+                {
+                    ReuseLastSuccessfulBuild = true,
+                    SnapshotDependencies = [new SnapshotDependency( "BuildArtifacts" ) { ArtifactRules = ["+:a=>a"] }]
+                } ) );
+    }
+
+    /// <summary>
+    /// A composite waits for its children and downloads nothing from them, so it must never reuse their last
+    /// successful build: that would suppress the wait, which is the only thing a composite does.
+    /// </summary>
+    [Fact]
+    public void ACompositeNeverReusesTheLastSuccessfulBuild()
+    {
+        var composite = new CompositeAdditionalCiBuildConfiguration( "All", "All cells", "BuildArtifacts" ) { ReuseLastSuccessfulBuild = true };
+
+        Assert.True( IsValid( composite ) );
+        Assert.Contains( "snapshot(BuildArtifacts)", GenerateCode( composite ), StringComparison.Ordinal );
+    }
+
     [Fact]
     public void ASelfDependencyIsRejected()
         => Assert.False(

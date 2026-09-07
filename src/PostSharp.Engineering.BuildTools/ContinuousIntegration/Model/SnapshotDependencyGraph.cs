@@ -175,6 +175,22 @@ internal static class SnapshotDependencyGraph
                     continue;
                 }
 
+                // A dependency that downloads nothing is an ordering constraint, which is the snapshot dependency
+                // itself. Reusing the last successful build suppresses that snapshot, so the two together emit
+                // neither block and the dependency disappears from the generated configuration without a word.
+                if ( dependency.ArtifactRules is { Length: 0 }
+                     && ( dependency.ReuseLastSuccessfulBuild ?? configuration.EffectiveReuseLastSuccessfulBuild ) )
+                {
+                    console.WriteError(
+                        $"{description} depends on '{dependency}' without artifact rules, which makes the dependency an ordering "
+                        + "constraint, and also reuses the last successful build, which removes the ordering. The dependency would "
+                        + "generate nothing. Give it artifact rules, or clear ReuseLastSuccessfulBuild." );
+
+                    isValid = false;
+
+                    continue;
+                }
+
                 var targetObjectName = dependency.TryGetObjectName( product )!;
 
                 if ( string.Equals( targetObjectName, objectName, StringComparison.Ordinal ) )

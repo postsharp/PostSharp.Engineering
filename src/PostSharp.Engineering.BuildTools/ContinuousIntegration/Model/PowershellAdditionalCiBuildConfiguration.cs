@@ -66,7 +66,7 @@ public class PowershellAdditionalCiBuildConfiguration : AdditionalCiBuildConfigu
                         ?? throw new KeyNotFoundException(
                             $"The '{this.Id}' build configuration depends on '{d}', which the product does not declare." ),
                         defaultArtifactRules,
-                        this.ReuseLastSuccessfulBuild ) )
+                        this.EffectiveReuseLastSuccessfulBuild ) )
                 .ToList();
 
             snapshotDependencies.AddRange(
