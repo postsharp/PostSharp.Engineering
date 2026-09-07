@@ -88,6 +88,10 @@
 .PARAMETER Memory
     Docker memory limit (e.g., "8g"). Applied on Linux and macOS, and on Windows under
     hyperv isolation; Windows process isolation ignores it.
+    Clamped to the memory that the Docker engine reports, so a default larger than the
+    machine does not produce a limit the engine cannot honour. The MSBuild node count
+    passed to the container as MAX_BUILD_PARALLELISM is derived from the result, at one
+    node per 4 GB.
     Defaults to $env:BuildAgentMemory (an integer in GB) if set, otherwise 24g.
 
 .PARAMETER Cpus
@@ -157,7 +161,7 @@ param(
     [switch]$NoRegistry, # Ignore DOCKER_REGISTRY and its credentials; build locally without pulling or pushing.
     [switch]$NoInit, # Do not generate or call Init.g.ps1 (skips git config, safe.directory, etc).
     [string]$Isolation = 'process', # Docker isolation mode (process or hyperv). Windows only. When not specified, defaults to hyperv on Windows Desktop and process on Windows Server. Memory/CPU limits only apply to hyperv.
-    [string]$Memory = $(if ($env:BuildAgentMemory) { "${env:BuildAgentMemory}g" } else { '24g' }), # Docker memory limit (e.g., "8g"). Applied except under Windows process isolation. Defaults to $env:BuildAgentMemory (in GB) or 24g.
+    [string]$Memory = $(if ($env:BuildAgentMemory) { "${env:BuildAgentMemory}g" } else { '24g' }), # Docker memory limit (e.g., "8g"). Applied except under Windows process isolation, and clamped to the memory reported by the Docker engine. Defaults to $env:BuildAgentMemory (in GB) or 24g.
     [string]$Cpus = $(if ($env:BuildAgentCpus) { $env:BuildAgentCpus } else { [Environment]::ProcessorCount }), # Docker CPU limit. Use a positive integer or "dynamic". Defaults to $env:BuildAgentCpus or host processor count.
     [string[]]$Mount, # Additional directories to mount from host (readonly by default, append :w for writable). Supports * and ** glob patterns.
     [string[]]$Env, # Additional environment variables to pass from host to container.
@@ -307,6 +311,43 @@ try
             exit 1
         }
         $Cpus = $cpuInt
+    }
+
+    # msbuild.ps1 budgets one MSBuild node per 4 GB of the container's memory.
+    $MinMemoryPerCpuGb = 4
+
+    # -Memory defaults to 24g, which is more than several agents have. A limit above what the engine can honour is
+    # worse than no limit at all on Linux: the cgroup ceiling is then unreachable, so nothing constrains the build,
+    # and the node count below would be derived from memory the container can never use. Ask the engine what it
+    # actually has and clamp to it. A failure to reach the engine leaves the requested value untouched.
+    $memoryGb = 0
+    if ($supportsResourceLimits -and $Memory -match '^\s*(\d+(?:\.\d+)?)\s*([gm])b?\s*$')
+    {
+        $memoryGb = [double]$Matches[1]
+        if ($Matches[2] -eq 'm') { $memoryGb = $memoryGb / 1024 }
+
+        $engineMemoryBytes = [long]0
+        $engineMemoryRaw = "$( docker info --format '{{.MemTotal}}' 2>$null )".Trim()
+        if ([long]::TryParse($engineMemoryRaw, [ref]$engineMemoryBytes) -and $engineMemoryBytes -gt 0)
+        {
+            $engineMemoryGb = $engineMemoryBytes / 1GB
+            if ($memoryGb -gt $engineMemoryGb)
+            {
+                $clampedGb = [int][Math]::Max(1, [Math]::Floor($engineMemoryGb))
+                Write-Host "Requested --memory=$Memory exceeds the $( [Math]::Round($engineMemoryGb, 1) )g reported by the Docker engine; clamping to ${clampedGb}g" -ForegroundColor Yellow
+                $Memory = "${clampedGb}g"
+                $memoryGb = $clampedGb
+            }
+        }
+    }
+
+    # Derive the node count here, where the container's memory budget is known. Inside the container msbuild.ps1
+    # cannot read the cgroup limit, so without this it falls back to the processor count and over-subscribes a
+    # small agent - 16 nodes against 7 GB on the cell that reported this.
+    $maxBuildParallelism = 0
+    if ($memoryGb -gt 0)
+    {
+        $maxBuildParallelism = [int][Math]::Max(1, [Math]::Floor($memoryGb / $MinMemoryPerCpuGb))
     }
 
     if ($env:IS_TEAMCITY_AGENT)
@@ -2402,6 +2443,13 @@ $envVarAssignments$gitConfigCommands$postInitCommands
             if ($supportsResourceLimits -and $Memory)
             {
                 $dockerCmd += "--memory=$Memory"
+            }
+
+            # The MSBuild node count that matches that budget. msbuild.ps1 reads it inside the container, where the
+            # limit itself is not visible.
+            if ($maxBuildParallelism -gt 0)
+            {
+                $dockerCmd += @('-e', "MAX_BUILD_PARALLELISM=$maxBuildParallelism")
             }
 
             # CPU limit: dynamic or static

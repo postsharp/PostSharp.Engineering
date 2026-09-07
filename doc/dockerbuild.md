@@ -64,7 +64,7 @@ flowchart LR
 | `-Clean` | Delete `bin`/`obj` on the host before building. |
 | `-Update` | Force a full timestamp bump to invalidate the Docker cache (refreshes `@latest` Claude CLI / plugins). |
 | `-Isolation process\|hyperv` | Container isolation. Windows only. Auto-detected when omitted: `process` on Windows Server, `hyperv` on Windows Desktop. |
-| `-Memory <size>` / `-Cpus <n>\|dynamic` | Resource limits. Applied on Linux and macOS, and on Windows under Hyper-V isolation; Windows process isolation ignores them. `dynamic` rebalances CPUs under any isolation. |
+| `-Memory <size>` / `-Cpus <n>\|dynamic` | Resource limits. Applied on Linux and macOS, and on Windows under Hyper-V isolation; Windows process isolation ignores them. `-Memory` is clamped to the memory the Docker engine reports. `dynamic` rebalances CPUs under any isolation. |
 | `-Mount <dir[:w]>` | Mount extra host directories (read-only by default, `:w` = writable; `*`/`**` globs supported). |
 | `-Env NAME[=VALUE]` | Pass extra environment variables (host value or literal). |
 | `-Ports <h:c>` | Publish container ports. |
@@ -173,6 +173,9 @@ On a build agent (`IS_TEAMCITY_AGENT` set):
   secrets come from the host environment rather than the developer key vault.
 - `process` isolation is selected automatically on Windows Server (faster, no per-container VM), so
   `-Memory` and `-Cpus` have no effect there. Linux agents always get both.
+- The container receives `MAX_BUILD_PARALLELISM`, the MSBuild node count derived from its memory budget at
+  one node per 4 GB. `msbuild.ps1` cannot read the limit from inside the container, and falls back to the
+  processor count when the variable is absent.
 - The build agent path and LFS `system/git` parent repo are mounted when present.
 - Dynamic CPU allocation (`-Cpus dynamic`) lets several agent containers share the host's cores and
   rebalances as containers start and exit.
