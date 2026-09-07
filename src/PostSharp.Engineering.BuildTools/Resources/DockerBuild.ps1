@@ -81,18 +81,19 @@
     Do not generate or call Init.g.ps1 (skips environment variables, git config, safe.directory, etc).
 
 .PARAMETER Isolation
-    Docker isolation mode: 'process' or 'hyperv'.
+    Docker isolation mode: 'process' or 'hyperv'. Windows only; ignored on Linux and macOS.
     When not specified, defaults to 'hyperv' on Windows Desktop and 'process' on Windows Server.
-    Memory and CPU limits only apply to hyperv isolation.
+    On Windows, -Memory and a static -Cpus only apply under hyperv isolation.
 
 .PARAMETER Memory
-    Docker memory limit (e.g., "8g"). Only used with hyperv isolation.
+    Docker memory limit (e.g., "8g"). Applied on Linux and macOS, and on Windows under
+    hyperv isolation; Windows process isolation ignores it.
     Defaults to $env:BuildAgentMemory (an integer in GB) if set, otherwise 24g.
 
 .PARAMETER Cpus
     Docker CPU limit. Use a positive integer for a static limit, or "dynamic" for
     automatic allocation that rebalances CPUs across all managed containers.
-    Only used with hyperv isolation (static) or any isolation (dynamic).
+    A static limit is applied wherever -Memory is; "dynamic" applies under any isolation.
     Defaults to $env:BuildAgentCpus if set, otherwise the host processor count.
 
 .PARAMETER Mount
@@ -155,8 +156,8 @@ param(
     [string]$RegistryImage, # Use a pre-built image from a registry, skipping Dockerfile build entirely.
     [switch]$NoRegistry, # Ignore DOCKER_REGISTRY and its credentials; build locally without pulling or pushing.
     [switch]$NoInit, # Do not generate or call Init.g.ps1 (skips git config, safe.directory, etc).
-    [string]$Isolation = 'process', # Docker isolation mode (process or hyperv). When not specified, defaults to hyperv on Windows Desktop and process on Windows Server. Memory/CPU limits only apply to hyperv.
-    [string]$Memory = $(if ($env:BuildAgentMemory) { "${env:BuildAgentMemory}g" } else { '24g' }), # Docker memory limit (e.g., "8g"). Only used with hyperv isolation. Defaults to $env:BuildAgentMemory (in GB) or 24g.
+    [string]$Isolation = 'process', # Docker isolation mode (process or hyperv). Windows only. When not specified, defaults to hyperv on Windows Desktop and process on Windows Server. Memory/CPU limits only apply to hyperv.
+    [string]$Memory = $(if ($env:BuildAgentMemory) { "${env:BuildAgentMemory}g" } else { '24g' }), # Docker memory limit (e.g., "8g"). Applied except under Windows process isolation. Defaults to $env:BuildAgentMemory (in GB) or 24g.
     [string]$Cpus = $(if ($env:BuildAgentCpus) { $env:BuildAgentCpus } else { [Environment]::ProcessorCount }), # Docker CPU limit. Use a positive integer or "dynamic". Defaults to $env:BuildAgentCpus or host processor count.
     [string[]]$Mount, # Additional directories to mount from host (readonly by default, append :w for writable). Supports * and ** glob patterns.
     [string[]]$Env, # Additional environment variables to pass from host to container.
@@ -228,6 +229,14 @@ else
 {
     ""
 }
+
+# --memory and --cpus are honoured by the Linux and macOS engines whatever $Isolation says: isolation modes
+# are a Windows concept and nothing outside $isolationArg acts on the value there. On Windows the limits only
+# take effect under hyperv isolation - a process-isolated container shares the host kernel and the daemon
+# silently drops both flags. Guarding on $Isolation alone would therefore leave every Linux container
+# unlimited, which also loses MAX_BUILD_PARALLELISM (msbuild.ps1 derives the node count from the memory
+# budget, and falls back to one node per CPU when there is none).
+$supportsResourceLimits = $IsUnix -or $Isolation -ne 'process'
 
 # Set BuildAgentPath default based on platform
 if ( [string]::IsNullOrEmpty($BuildAgentPath))
@@ -873,7 +882,7 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         Copy-TimestampToContext $dfPath
         $cmd = @('build', '-t', $tag)
         if ($isolationArg) { $cmd += $isolationArg }
-        if ($Memory -and $Isolation -ne 'process') { $cmd += "--memory=$Memory" }
+        if ($Memory -and $supportsResourceLimits) { $cmd += "--memory=$Memory" }
         # Pass WINDOWS_VERSION only to the root image that declares it (avoids 'unconsumed build-arg' warnings).
         if ($IsWindows -and $windowsVersion -and ($content -match 'ARG\s+WINDOWS_VERSION'))
         {
@@ -943,7 +952,7 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
         {
             $cmd = @('build', '-t', $bootTag)
             if ($isolationArg) { $cmd += $isolationArg }
-            if ($Memory -and $Isolation -ne 'process') { $cmd += "--memory=$Memory" }
+            if ($Memory -and $supportsResourceLimits) { $cmd += "--memory=$Memory" }
             $cmd += @('--build-arg', "MOUNTPOINTS=$mountPointsAsString", '-f', '-', $bootCtx)
             Write-Host "Building boot image $bootTag (bind-mount dirs) over $baseTag" -ForegroundColor Green
             # Its FROM is the local chain leaf, so no credentials are needed - but the config dir is passed for
@@ -2389,8 +2398,8 @@ $envVarAssignments$gitConfigCommands$postInitCommands
             # Build docker command with proper argument handling (avoid empty strings)
             $dockerCmd = @('run', '--rm')
 
-            # Memory limit: only add when NOT using process isolation
-            if ($Isolation -ne 'process' -and $Memory)
+            # Memory limit: everywhere except Windows process isolation, which ignores it.
+            if ($supportsResourceLimits -and $Memory)
             {
                 $dockerCmd += "--memory=$Memory"
             }
@@ -2403,7 +2412,7 @@ $envVarAssignments$gitConfigCommands$postInitCommands
                 $dockerCmd += @('-e', "DOTNET_PROCESSOR_COUNT=$dynamicAllocation")
                 $dockerCmd += @('--label', "$DynamicCpuLabel")
             }
-            elseif ($Isolation -ne 'process')
+            elseif ($supportsResourceLimits)
             {
                 $dockerCmd += "--cpus=$Cpus"
             }

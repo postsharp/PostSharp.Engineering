@@ -63,8 +63,8 @@ flowchart LR
 | `-Dockerfile <path>` | Use a custom Dockerfile instead of the `build`/`claude` leaf. |
 | `-Clean` | Delete `bin`/`obj` on the host before building. |
 | `-Update` | Force a full timestamp bump to invalidate the Docker cache (refreshes `@latest` Claude CLI / plugins). |
-| `-Isolation process\|hyperv` | Container isolation. Auto-detected when omitted: `process` on Windows Server, `hyperv` on Windows Desktop. |
-| `-Memory <size>` / `-Cpus <n>\|dynamic` | Resource limits (Hyper-V isolation only; `dynamic` rebalances CPUs across managed containers). |
+| `-Isolation process\|hyperv` | Container isolation. Windows only. Auto-detected when omitted: `process` on Windows Server, `hyperv` on Windows Desktop. |
+| `-Memory <size>` / `-Cpus <n>\|dynamic` | Resource limits. Applied on Linux and macOS, and on Windows under Hyper-V isolation; Windows process isolation ignores them. `dynamic` rebalances CPUs under any isolation. |
 | `-Mount <dir[:w]>` | Mount extra host directories (read-only by default, `:w` = writable; `*`/`**` globs supported). |
 | `-Env NAME[=VALUE]` | Pass extra environment variables (host value or literal). |
 | `-Ports <h:c>` | Publish container ports. |
@@ -171,7 +171,8 @@ On a build agent (`IS_TEAMCITY_AGENT` set):
 
 - Git identity must come from `GIT_USER_NAME` / `GIT_USER_EMAIL` (the script errors if they are missing);
   secrets come from the host environment rather than the developer key vault.
-- `process` isolation is selected automatically on Windows Server (faster, no per-container VM).
+- `process` isolation is selected automatically on Windows Server (faster, no per-container VM), so
+  `-Memory` and `-Cpus` have no effect there. Linux agents always get both.
 - The build agent path and LFS `system/git` parent repo are mounted when present.
 - Dynamic CPU allocation (`-Cpus dynamic`) lets several agent containers share the host's cores and
   rebalances as containers start and exit.
