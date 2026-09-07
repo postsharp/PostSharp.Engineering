@@ -7,7 +7,10 @@ using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Arguments;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity.Generation;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using PostSharp.Engineering.BuildTools.Docker;
+using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
 
 namespace PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 
@@ -71,6 +74,7 @@ public abstract class AdditionalCiBuildConfiguration
     /// the archive itself -- for example <c>PostSharp*.7z!**/* =&gt;</c>, where the <c>!</c> tells TeamCity to
     /// extract rather than copy.
     /// </summary>
+    [Obsolete( "Use SnapshotDependencies instead, which carries the rules per dependency." )]
     public string? DependencyArtifactRules { get; init; }
 
     /// <summary>
@@ -79,6 +83,7 @@ public abstract class AdditionalCiBuildConfiguration
     /// because the clean would then delete the sources; the build fails afterwards on a missing file, with
     /// nothing to say that the checkout was emptied.
     /// </summary>
+    [Obsolete( "Use SnapshotDependencies instead, which carries this flag per dependency." )]
     public bool CleanDependencyDestination { get; init; } = true;
 
     /// <summary>
@@ -107,6 +112,7 @@ public abstract class AdditionalCiBuildConfiguration
     /// which is right for a product that produces nothing else.
     /// </para>
     /// </remarks>
+    [Obsolete( "Use SnapshotDependencies instead, which can name several build configurations." )]
     public string? BuildSnapshotDependencyId { get; init; }
 
     /// <summary>
@@ -142,4 +148,79 @@ public abstract class AdditionalCiBuildConfiguration
     /// while the build log showed the opposite, there was no way to tell which of them was right.
     /// </remarks>
     public string[]? ArtifactRules { get; init; }
+
+    /// <summary>
+    /// Gets the build configurations of the same product that this configuration depends on, or <c>null</c> to use
+    /// <see cref="BuildSnapshotDependency"/> alone.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This replaces <see cref="BuildSnapshotDependencyId"/> and the two members that qualified it. Unlike them it
+    /// holds several dependencies, each with its own artifact rules and its own clean-destination flag, which is
+    /// what a configuration consuming two build configurations of one pipeline needs: one unpacks the archives to
+    /// be signed, another takes the unsigned baseline they are compared against.
+    /// </para>
+    /// <para>
+    /// <see cref="BuildSnapshotDependency"/> keeps its second job alongside this: it selects whose artifact layout
+    /// the checkout is prepared for. Where this collection is set, that is all it does.
+    /// </para>
+    /// </remarks>
+    public SnapshotDependency[]? SnapshotDependencies { get; init; }
+
+    /// <summary>
+    /// Gets the dependencies of this configuration, whether declared through <see cref="SnapshotDependencies"/>,
+    /// through <see cref="BuildSnapshotDependency"/> alone, or through the obsolete members. Those are read here and
+    /// nowhere else, so the ways of declaring a dependency cannot disagree.
+    /// </summary>
+    internal virtual ImmutableArray<SnapshotDependency> GetSnapshotDependencies()
+    {
+#pragma warning disable CS0618 // Type or member is obsolete
+        var hasObsoleteMembers = this.BuildSnapshotDependencyId != null
+                                 || this.DependencyArtifactRules != null
+                                 || !this.CleanDependencyDestination;
+
+        if ( this.SnapshotDependencies != null )
+        {
+            if ( hasObsoleteMembers )
+            {
+                throw new InvalidOperationException(
+                    $"The '{this.Id}' build configuration sets SnapshotDependencies together with BuildSnapshotDependencyId, "
+                    + "DependencyArtifactRules or CleanDependencyDestination. Those are the older spelling of the same thing; "
+                    + "move their values into SnapshotDependencies." );
+            }
+
+            return [..this.SnapshotDependencies];
+        }
+
+        if ( hasObsoleteMembers )
+        {
+            var target = this.BuildSnapshotDependencyId != null
+                ? new SnapshotDependency( this.BuildSnapshotDependencyId )
+                : new SnapshotDependency( this.BuildSnapshotDependency!.Value );
+
+            return
+            [
+                target with
+                {
+                    // A single pre-joined string is one entry, because joining one entry yields that entry, so the
+                    // older spelling and this one emit the same rules.
+                    ArtifactRules = this.DependencyArtifactRules == null ? null : [this.DependencyArtifactRules],
+                    CleanDestination = this.CleanDependencyDestination
+
+                    // ReuseLastSuccessfulBuild is left null on purpose: it inherits the configuration-wide member,
+                    // which also governs the dependencies on other products.
+                }
+            ];
+        }
+#pragma warning restore CS0618 // Type or member is obsolete
+
+        return this.BuildSnapshotDependency == null ? [] : [new SnapshotDependency( this.BuildSnapshotDependency.Value )];
+    }
+
+    /// <summary>
+    /// Gets the build configuration whose artifact layout the checkout of this configuration is prepared for: which
+    /// private artifact directory the default rules address, whose <c>nuget.restored.config</c> is copied and whose
+    /// version file is imported.
+    /// </summary>
+    internal BuildConfiguration EffectiveArtifactsConfiguration => this.BuildSnapshotDependency ?? BuildConfiguration.Public;
 }

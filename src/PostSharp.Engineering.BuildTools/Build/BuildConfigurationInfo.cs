@@ -3,6 +3,7 @@
 using PostSharp.Engineering.BuildTools.Build.Model;
 using PostSharp.Engineering.BuildTools.Build.Publishing;
 using PostSharp.Engineering.BuildTools.Build.Swapping;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.Triggers;
 using System;
 
@@ -19,6 +20,21 @@ namespace PostSharp.Engineering.BuildTools.Build;
 /// <param name="TeamCityBuildName">Name of the TeamCity configuration implementing the <b>Build</b> action.</param>
 /// <param name="TeamCityDeploymentName">Name of the TeamCity configuration implementing the <b>Deploy</b> action.</param>
 /// <param name="TeamCitySwapName">Name of the TeamCity configuration implementing the <b>Swap</b> action.</param>
+/// <param name="CustomBuildConfiguration">
+/// The build configuration that replaces the standard <b>Build</b> action, or <c>null</c> for the standard one. A
+/// product whose public build consumes what an earlier build configuration of the same product produced -- PostSharp
+/// signs a distribution that an earlier configuration assembled and tested -- cannot be described by the standard
+/// build step, which builds from source and depends on nothing.
+/// </param>
+/// <remarks>
+/// The replacement states its own build steps, parameters, timeout, agent requirements and Docker specification.
+/// What identifies the build configuration to the rest of the product is not its to choose and is overridden: the
+/// object name, from which TeamCity derives the build type identifier that other products depend on; the display
+/// name; the default branch; the published artifact rules, which the deployment reads by name; the dependencies on
+/// other products; the source dependencies; and the commit status publisher. Extra artifact rules go in
+/// <see cref="AdditionalArtifactRules"/> and triggers in <see cref="BuildTriggers"/>, both of which the generator
+/// applies to the replacement as it does to the standard configuration.
+/// </remarks>
 public record BuildConfigurationInfo(
     bool RequiresSigning = false,
     IBuildTrigger[]? BuildTriggers = null,
@@ -42,4 +58,5 @@ public record BuildConfigurationInfo(
     bool RequiresUpstreamCheck = false,
     TimeSpan? BuildTimeout = null,
     TimeSpan? DeploymentTimeout = null,
-    TimeSpan? SwapTimeout = null );
+    TimeSpan? SwapTimeout = null,
+    AdditionalCiBuildConfiguration? CustomBuildConfiguration = null );
