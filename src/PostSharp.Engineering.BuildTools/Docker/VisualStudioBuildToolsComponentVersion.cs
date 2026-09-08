@@ -82,6 +82,20 @@ public sealed class VisualStudioBuildToolsComponentVersion
         _dev17Bootstrapper );
 
     /// <summary>
+    /// Visual Studio 2026 (Dev18) 18.0.0, the first Stable release of the Dev18 line. It is the version
+    /// installed by the canonical Windows image of PostSharp 2026.0.
+    /// </summary>
+    /// <remarks>
+    /// The Stable channel serves a later version, so <c>https://aka.ms/vs/18/stable/channel</c> no longer
+    /// returns this channel manifest. The embedded copy is the only remaining source of it.
+    /// </remarks>
+    // ReSharper disable once InconsistentNaming
+    public static readonly VisualStudioBuildToolsComponentVersion v18_0_0 = new(
+        "18.0.0",
+        "https://download.visualstudio.microsoft.com/download/pr/d3b4e0f6-4bc0-4ec0-ba9c-20b355d61cc4/ccd546b5752c6afac8992e5810260d4cbc52192108a1b70390604fa14b4329d1/VisualStudio.vsman",
+        _dev18Bootstrapper );
+
+    /// <summary>
     /// Visual Studio 2026 (Dev18) 18.9.2, the Stable release of 25 August 2026. This is the lowest line that
     /// officially supports targeting <c>net10.0</c>: MSBuild 17.14 accepts the .NET 10 SDK but warns and is
     /// unsupported for <c>net10.0</c>. It bundles the .NET 10.0.4xx SDK, the last .NET 10 feature band.
