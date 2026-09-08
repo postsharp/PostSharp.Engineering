@@ -1,7 +1,9 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
 using JetBrains.Annotations;
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
+using PostSharp.Engineering.BuildTools.ContinuousIntegration.Model;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
@@ -16,32 +18,64 @@ public static partial class PostSharpDependencies
     public static class V2026_0
     {
         public static ProductFamily Family { get; } =
-            new( _projectName, "2026.0", DevelopmentDependencies.Family ) { GitHubAppConnectionId = GitHubAppConnections.PostSharp };
+            new( _projectName, "2026.0", DevelopmentDependencies.Family )
+            {
+                GitHubAppConnectionId = GitHubAppConnections.PostSharp,
 
-        private static readonly TeamCityProjectId _teamCityProjectId = new(
-            $"PostSharpGitHub_{_projectName}{Family.VersionWithoutDots}",
-            "PostSharpGitHub" );
+                // Changes flow from the 2024.0 line into this one. Declaring the upstream is what generates the
+                // 'Upstream Merge' build configuration and the 'Check pending upstream changes' step on the
+                // publishing configurations.
+                UpstreamProductFamily = V2024_0.Family
+            };
 
-        private static readonly string _distributionBuildId = $"{_teamCityProjectId}_BuildSignedDistribution";
+        private static TeamCityProjectId GetProjectId( string dependencyName )
+            => TeamCityHelper.GetProjectIdWithParentProjectId( $"{dependencyName} {Family.Version}", _parentProjectId );
 
-        public static DependencyDefinition PostSharp { get; } = new(
-            Family,
-            "PostSharpPackage",
-            $"refs/heads/release/{Family.Version}",
-            null,
-            new GitHubRepository( _projectName, _projectName ),
-            new CiProjectConfiguration(
-                _teamCityProjectId,
-                new ConfigurationSpecific<string>( "not-used", _distributionBuildId, "not-used" ),
-                null,
-                null,
-                EnvironmentVariableNames.TeamCityToken,
-                TeamCityHelper.TeamCityCloudUrl ),
-            false )
+        /// <summary>
+        /// A repository of this line: it builds from the development branch, publishes from the release branch, and
+        /// owns a TeamCity project and a VCS root named after itself and the version.
+        /// </summary>
+        private class PostSharpDependencyDefinition : DependencyDefinition
         {
-            EngineeringDirectory = @"Build\Distribution\eng",
+            public PostSharpDependencyDefinition( string dependencyName )
+                : base(
+                    Family,
+                    dependencyName,
+                    $"develop/{Family.Version}",
+                    $"release/{Family.Version}",
+                    new GitHubRepository( dependencyName, _projectName ),
+                    TeamCityHelper.CreateConfiguration( GetProjectId( dependencyName ), vcsRootId: GetProjectId( dependencyName ).Id ) ) { }
+        }
+
+        /// <summary>The compiler and the pattern libraries.</summary>
+        public static DependencyDefinition PostSharp { get; } = new PostSharpDependencyDefinition( _projectName )
+        {
+            GenerateSnapshotDependency = false,
+            Dependencies = [DevelopmentDependencies.PostSharpEngineering],
+
+            // The packages this repository builds. The default is the product name followed by ".*", which would claim
+            // PostSharp.Engineering.*: package source mapping would then look for the engineering packages in the
+            // artifact directory, where they are not, and a restore against the generated nuget.config fails NU1101.
             PackagePatterns = ["PostSharp", "PostSharp.Redist", "PostSharp.Compiler.*", "PostSharp.Patterns.*", "PostSharp.Settings.*"],
             AutoUpdateVersion = false
         };
+
+        /// <summary>The documentation site, which documents this line and is built against its packages.</summary>
+        public static DependencyDefinition PostSharpDocumentation { get; } =
+            new PostSharpDependencyDefinition( $"{_projectName}.Documentation" )
+            {
+                Dependencies =
+                [
+                    DevelopmentDependencies.PostSharpEngineering.ToDependency(),
+
+                    // PostSharp exports only its public build -- the signed distribution -- so that is what every one
+                    // of its consumers resolves, whichever configuration the consumer is itself built in.
+                    PostSharp.ToDependency(
+                        new ConfigurationSpecific<BuildConfiguration>(
+                            BuildConfiguration.Public,
+                            BuildConfiguration.Public,
+                            BuildConfiguration.Public ) )
+                ]
+            };
     }
 }
