@@ -2,7 +2,6 @@
 
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.ContinuousIntegration;
-using PostSharp.Engineering.BuildTools.ContinuousIntegration.TeamCity;
 using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using PostSharp.Engineering.BuildTools.Tools.TeamCity;
 
@@ -14,7 +13,7 @@ public static partial class PostSharpDependencies
 
     /// <summary>
     /// The PostSharp 2024.0 line. It is the upstream of <see cref="V2026_0"/>: changes flow from it into the newer
-    /// line, which is why the family is declared here even though nothing consumes the packages it publishes.
+    /// line. The documentation is not part of this family -- it is written for 2026.0 onwards.
     /// </summary>
     [PublicAPI]
     public static class V2024_0
@@ -22,22 +21,20 @@ public static partial class PostSharpDependencies
         public static ProductFamily Family { get; } =
             new( _projectName, "2024.0", DevelopmentDependencies.Family ) { GitHubAppConnectionId = GitHubAppConnections.PostSharp };
 
-        private static readonly TeamCityProjectId _teamCityProjectId = new(
-            $"PostSharpGitHub_{_projectName}{Family.VersionWithoutDots}",
-            "PostSharpGitHub" );
-
         /// <summary>
-        /// The repository as it is built. The upstream merge resolves the upstream of a product by its
+        /// The compiler and the pattern libraries. The upstream merge resolves the upstream of a product by its
         /// <see cref="Build.Model.Product.ProductName"/>, which is the name of this definition, so the name has to
-        /// match the one the downstream line uses -- see <see cref="V2026_0.PostSharpProduct"/>.
+        /// match the one the downstream line uses -- see <see cref="V2026_0.PostSharp"/>.
         /// </summary>
-        public static DependencyDefinition PostSharpProduct { get; } = new(
+        public static DependencyDefinition PostSharp { get; } = new(
             Family,
             _projectName,
             $"develop/{Family.Version}",
             $"release/{Family.Version}",
-            new GitHubRepository( _projectName, "postsharp" ),
-            TeamCityHelper.CreateConfiguration( _teamCityProjectId, vcsRootId: _teamCityProjectId.Id ) )
+            new GitHubRepository( _projectName, _projectName ),
+            TeamCityHelper.CreateConfiguration(
+                TeamCityHelper.GetProjectIdWithParentProjectId( $"{_projectName} {Family.Version}", _parentProjectId ),
+                vcsRootId: $"PostSharpGitHub_{_projectName}{Family.VersionWithoutDots}" ) )
         {
             GenerateSnapshotDependency = false,
             Dependencies = [DevelopmentDependencies.PostSharpEngineering],
@@ -45,7 +42,8 @@ public static partial class PostSharpDependencies
             // The packages this repository builds. The default is the product name followed by ".*", which would claim
             // PostSharp.Engineering.*: package source mapping would then look for the engineering packages in the
             // artifact directory, where they are not, and a restore against the generated nuget.config fails NU1101.
-            PackagePatterns = ["PostSharp", "PostSharp.Redist", "PostSharp.Compiler.*", "PostSharp.Patterns.*"]
+            PackagePatterns = ["PostSharp", "PostSharp.Redist", "PostSharp.Compiler.*", "PostSharp.Patterns.*"],
+            AutoUpdateVersion = false
         };
     }
 }

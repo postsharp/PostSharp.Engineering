@@ -1,92 +1,117 @@
 // Copyright (c) SharpCrafters s.r.o. See the LICENSE.md file in the root directory of this repository root for details.
 
+using PostSharp.Engineering.BuildTools.Build;
 using PostSharp.Engineering.BuildTools.Dependencies.Definitions;
+using PostSharp.Engineering.BuildTools.Dependencies.Model;
 using Xunit;
 
 namespace PostSharp.Engineering.BuildTools.Tests;
 
 /// <summary>
-/// The PostSharp 2026.0 line receives its changes from the 2024.0 line through the upstream merge, and it declares two
-/// definitions of one repository. Both arrangements are resolved by name at run time rather than by the compiler, so
-/// they fail as a missing configuration or a type-initialization error rather than as a build break.
+/// The PostSharp lines are chained by the upstream merge, and each line owns its own repositories. Both arrangements
+/// are resolved by name at run time rather than by the compiler, so a mistake surfaces as a missing build
+/// configuration or a type-initialization error rather than as a build break.
 /// </summary>
 public class PostSharpUpstreamTests
 {
     [Fact]
-    public void PostSharp20260_DeclaresPostSharp20240AsItsUpstream()
-        => Assert.Same( PostSharpDependencies.V2024_0.Family, PostSharpDependencies.V2026_0.Family.UpstreamProductFamily );
+    public void EachLine_DeclaresThePreviousOneAsItsUpstream()
+    {
+        Assert.Same( PostSharpDependencies.V2024_0.Family, PostSharpDependencies.V2026_0.Family.UpstreamProductFamily );
+        Assert.Same( PostSharpDependencies.V2026_0.Family, PostSharpDependencies.V2027_0.Family.UpstreamProductFamily );
+        Assert.Null( PostSharpDependencies.V2024_0.Family.UpstreamProductFamily );
+    }
 
     /// <summary>
     /// The upstream merge looks the upstream repository up by the product name of the downstream repository, so the
-    /// two definitions must carry the same name. They do not have to, as far as the compiler is concerned.
+    /// two definitions must carry the same name. Nothing in the compiler requires that.
     /// </summary>
-    [Fact]
-    public void UpstreamOfPostSharp20260_IsResolvedByTheProductName()
+    [Theory]
+    [InlineData( "2026.0", "develop/2024.0" )]
+    [InlineData( "2027.0", "develop/2026.0" )]
+    public void Upstream_IsResolvedByTheProductName( string version, string expectedUpstreamBranch )
     {
-        var productName = PostSharpDependencies.V2026_0.PostSharpProduct.Name;
-        var upstreamFamily = PostSharpDependencies.V2026_0.Family.UpstreamProductFamily;
+        var family = version == "2026.0" ? PostSharpDependencies.V2026_0.Family : PostSharpDependencies.V2027_0.Family;
 
-        Assert.NotNull( upstreamFamily );
-        Assert.True( upstreamFamily.TryGetDependencyDefinition( productName, out var upstreamDefinition ) );
-        Assert.Equal( "develop/2024.0", upstreamDefinition.Branch );
+        var productName = version == "2026.0"
+            ? PostSharpDependencies.V2026_0.PostSharp.Name
+            : PostSharpDependencies.V2027_0.PostSharp.Name;
+
+        Assert.NotNull( family.UpstreamProductFamily );
+        Assert.True( family.UpstreamProductFamily.TryGetDependencyDefinition( productName, out var upstreamDefinition ) );
+        Assert.Equal( expectedUpstreamBranch, upstreamDefinition.Branch );
     }
 
     [Fact]
-    public void BuildableDefinitions_UseTheDevelopmentAndReleaseBranches()
+    public void EveryRepository_BuildsFromDevelopAndPublishesFromRelease()
     {
-        Assert.Equal( "develop/2026.0", PostSharpDependencies.V2026_0.PostSharpProduct.Branch );
-        Assert.Equal( "release/2026.0", PostSharpDependencies.V2026_0.PostSharpProduct.ReleaseBranch );
-        Assert.Equal( "develop/2024.0", PostSharpDependencies.V2024_0.PostSharpProduct.Branch );
-        Assert.Equal( "release/2024.0", PostSharpDependencies.V2024_0.PostSharpProduct.ReleaseBranch );
+        AssertBranches( PostSharpDependencies.V2024_0.PostSharp, "2024.0" );
+        AssertBranches( PostSharpDependencies.V2026_0.PostSharp, "2026.0" );
+        AssertBranches( PostSharpDependencies.V2026_0.PostSharpDocumentation, "2026.0" );
+        AssertBranches( PostSharpDependencies.V2027_0.PostSharp, "2027.0" );
+        AssertBranches( PostSharpDependencies.V2027_0.PostSharpDocumentation, "2027.0" );
+
+        static void AssertBranches( DependencyDefinition definition, string version )
+        {
+            Assert.Equal( $"develop/{version}", definition.Branch );
+            Assert.Equal( $"release/{version}", definition.ReleaseBranch );
+        }
     }
 
     /// <summary>
-    /// The version bump configuration is generated only for a versioned definition, and the consuming definition is
-    /// not versioned. Were the product built from the consuming one, no bump configuration would be generated at all.
+    /// Every repository of a line owns a TeamCity project named after itself and the version, so the lines never share
+    /// a build configuration. The identifier of the PostSharp project is the one the existing projects already carry.
     /// </summary>
     [Fact]
-    public void BuildableDefinitionIsVersioned_AndTheConsumingOneIsNot()
+    public void EveryRepository_OwnsAProjectNamedAfterItselfAndTheVersion()
     {
-        Assert.True( PostSharpDependencies.V2026_0.PostSharpProduct.IsVersioned );
-        Assert.False( PostSharpDependencies.V2026_0.PostSharp.IsVersioned );
+        Assert.Equal( "PostSharpGitHub_PostSharp20240", PostSharpDependencies.V2024_0.PostSharp.CiConfiguration.ProjectId.Id );
+        Assert.Equal( "PostSharpGitHub_PostSharp20260", PostSharpDependencies.V2026_0.PostSharp.CiConfiguration.ProjectId.Id );
+        Assert.Equal( "PostSharpGitHub_PostSharp20270", PostSharpDependencies.V2027_0.PostSharp.CiConfiguration.ProjectId.Id );
+
+        Assert.Equal(
+            "PostSharpGitHub_PostSharpDocumentation20260",
+            PostSharpDependencies.V2026_0.PostSharpDocumentation.CiConfiguration.ProjectId.Id );
+
+        Assert.Equal(
+            "PostSharpGitHub_PostSharpDocumentation20270",
+            PostSharpDependencies.V2027_0.PostSharpDocumentation.CiConfiguration.ProjectId.Id );
     }
 
     /// <summary>
-    /// The two definitions of the 2026.0 repository share one TeamCity project. The index that answers "which product
-    /// is built here" must return the buildable one.
+    /// The documentation is written for 2026.0 onwards, so the 2024.0 line has none.
     /// </summary>
     [Fact]
-    public void WhereTwoDefinitionsShareACiProject_TheBuildableOneIsIndexed()
+    public void The20240Line_HasNoDocumentation()
+        => Assert.False( PostSharpDependencies.V2024_0.Family.TryGetDependencyDefinition( "PostSharp.Documentation", out _ ) );
+
+    /// <summary>
+    /// The version bump configuration is generated only for a versioned definition, so leaving a repository unversioned
+    /// silently gives it no way to bump.
+    /// </summary>
+    [Fact]
+    public void EveryRepository_IsVersioned()
     {
-        var product = PostSharpDependencies.V2026_0.PostSharpProduct;
-        var package = PostSharpDependencies.V2026_0.PostSharp;
-
-        Assert.Equal( package.CiConfiguration.ProjectId.Id, product.CiConfiguration.ProjectId.Id );
-
-        Assert.True(
-            PostSharpDependencies.V2026_0.Family.TryGetDependencyDefinitionByCiId(
-                product.CiConfiguration.ProjectId.Id,
-                out var indexedDefinition ) );
-
-        Assert.Same( product, indexedDefinition );
+        Assert.True( PostSharpDependencies.V2024_0.PostSharp.IsVersioned );
+        Assert.True( PostSharpDependencies.V2026_0.PostSharp.IsVersioned );
+        Assert.True( PostSharpDependencies.V2026_0.PostSharpDocumentation.IsVersioned );
+        Assert.True( PostSharpDependencies.V2027_0.PostSharp.IsVersioned );
+        Assert.True( PostSharpDependencies.V2027_0.PostSharpDocumentation.IsVersioned );
     }
 
     /// <summary>
-    /// The name of the consuming definition is what makes the version property <c>PostSharpPackageVersion</c>, which
-    /// Metalama.Vsx references by that name in its <c>Directory.Packages.props</c>.
+    /// PostSharp exports only its public build -- the signed distribution -- so a consumer that resolves any other
+    /// configuration points at a build type that is never produced.
     /// </summary>
     [Fact]
-    public void ConsumingDefinition_KeepsItsName()
-        => Assert.Equal( "PostSharpPackage", PostSharpDependencies.V2026_0.PostSharp.Name );
-
-    /// <summary>
-    /// The engineering directory of the buildable definition is where the version files are read from. The consuming
-    /// definition points at the directory the published distribution carries instead.
-    /// </summary>
-    [Fact]
-    public void BuildableDefinition_ReadsItsVersionFromTheDefaultEngineeringDirectory()
+    public void ConsumersOfPostSharp_ResolveItsPublicBuild()
     {
-        Assert.Equal( "eng", PostSharpDependencies.V2026_0.PostSharpProduct.EngineeringDirectory );
-        Assert.Equal( @"Build\Distribution\eng", PostSharpDependencies.V2026_0.PostSharp.EngineeringDirectory );
+        var postSharp = Assert.Single(
+            PostSharpDependencies.V2026_0.PostSharpDocumentation.Dependencies,
+            d => d.Definition.Name == "PostSharp" );
+
+        Assert.Equal( BuildConfiguration.Public, postSharp.ConfigurationMapping.Debug );
+        Assert.Equal( BuildConfiguration.Public, postSharp.ConfigurationMapping.Release );
+        Assert.Equal( BuildConfiguration.Public, postSharp.ConfigurationMapping.Public );
     }
 }

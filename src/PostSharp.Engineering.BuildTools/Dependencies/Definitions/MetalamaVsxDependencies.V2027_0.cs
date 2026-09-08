@@ -66,11 +66,13 @@ public static partial class MetalamaVsxDependencies
                 // PostSharp 2026.0, not 2027.0. PostSharp 2027.0 has no branch and no build configuration yet, so a
                 // reference to it would resolve to a build that does not exist and the dependency could not be fetched.
                 // Move this to PostSharpDependencies.V2027_0 once that family produces a signed distribution.
+                // PostSharp exports only its public build -- the signed distribution -- so that is the configuration
+                // to resolve, whichever configuration this product is itself built in.
                 PostSharpDependencies.V2026_0.PostSharp.ToDependency(
                         new ConfigurationSpecific<BuildConfiguration>(
-                            BuildConfiguration.Release,
-                            BuildConfiguration.Release,
-                            BuildConfiguration.Release ) )
+                            BuildConfiguration.Public,
+                            BuildConfiguration.Public,
+                            BuildConfiguration.Public ) )
                     .WithLastSuccessfulOnly()
             ]
         };

@@ -64,11 +64,13 @@ public static partial class MetalamaVsxDependencies
                     .WithAlias( "Metalama20260" )
                     .WithPublishingBranch()
                     .WithLastSuccessfulOnly(),
+                // PostSharp exports only its public build -- the signed distribution -- so that is the configuration
+                // to resolve, whichever configuration this product is itself built in.
                 PostSharpDependencies.V2026_0.PostSharp.ToDependency(
                         new ConfigurationSpecific<BuildConfiguration>(
-                            BuildConfiguration.Release,
-                            BuildConfiguration.Release,
-                            BuildConfiguration.Release ) )
+                            BuildConfiguration.Public,
+                            BuildConfiguration.Public,
+                            BuildConfiguration.Public ) )
                     .WithLastSuccessfulOnly()
             ]
         };

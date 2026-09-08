@@ -155,29 +155,7 @@ public class ProductFamily
         lock ( _sync )
         {
             this._dependencyDefinitions.Add( dependencyDefinition.Name, dependencyDefinition );
-
-            // Two definitions of the same repository can share a continuous-integration project: one describes how the
-            // repository is built, the other how the packages it publishes are consumed. PostSharp 2026.0 is the case in
-            // point -- 'PostSharp' builds from the development branch, while 'PostSharpPackage' resolves the signed
-            // distribution from the release branch -- and both belong to PostSharpGitHub_PostSharp20260. This index
-            // answers "which product is built here", so the versioned definition is the one it must return; the
-            // consuming definition takes the entry only when no versioned definition has claimed the project.
-            var ciProjectId = dependencyDefinition.CiConfiguration.ProjectId.Id;
-
-            if ( !this._dependencyDefinitionsByCiId.TryGetValue( ciProjectId, out var registeredDefinition ) )
-            {
-                this._dependencyDefinitionsByCiId.Add( ciProjectId, dependencyDefinition );
-            }
-            else if ( dependencyDefinition.IsVersioned && registeredDefinition.IsVersioned )
-            {
-                throw new InvalidOperationException(
-                    $"'{dependencyDefinition.Name}' and '{registeredDefinition.Name}' are both versioned definitions of the "
-                    + $"continuous-integration project '{ciProjectId}' in '{this}'. A project builds a single product." );
-            }
-            else if ( dependencyDefinition.IsVersioned )
-            {
-                this._dependencyDefinitionsByCiId[ciProjectId] = dependencyDefinition;
-            }
+            this._dependencyDefinitionsByCiId.Add( dependencyDefinition.CiConfiguration.ProjectId.Id, dependencyDefinition );
         }
     }
 
