@@ -385,9 +385,9 @@ namespace PostSharp.Engineering.BuildTools.Build.Model
             }
 
             // A transitive dependency of a direct dependency from another product family is not known to this
-            // product's family: BusinessSystems, in the Business Systems family, depends on Metalama, whose restored
-            // version file lists Metalama.Compiler. DependenciesHelper resolves such a dependency from the direct
-            // dependency's family when it fetches the artifacts; the lookups that follow the fetch (the version file
+            // product's family: the restored version file of the direct dependency lists that transitive dependency,
+            // but only the family of the direct dependency defines it. DependenciesHelper resolves such a dependency
+            // from the direct dependency's family when it fetches the artifacts; the lookups that follow the fetch (the version file
             // validation, the nuget.config generation) must resolve it the same way, or the name is found by one and
             // unknown to the other.
             foreach ( var directDependency in this.ParametrizedDependencies )
