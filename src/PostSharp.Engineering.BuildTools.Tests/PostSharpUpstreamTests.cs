@@ -86,17 +86,27 @@ public class PostSharpUpstreamTests
         => Assert.False( PostSharpDependencies.V2024_0.Family.TryGetDependencyDefinition( "PostSharp.Documentation", out _ ) );
 
     /// <summary>
-    /// The version bump configuration is generated only for a versioned definition, so leaving a repository unversioned
+    /// The version bump configuration is generated only for a versioned definition, so leaving the product unversioned
     /// silently gives it no way to bump.
     /// </summary>
     [Fact]
-    public void EveryRepository_IsVersioned()
+    public void ThePostSharpProduct_IsVersioned()
     {
         Assert.True( PostSharpDependencies.V2024_0.PostSharp.IsVersioned );
         Assert.True( PostSharpDependencies.V2026_0.PostSharp.IsVersioned );
-        Assert.True( PostSharpDependencies.V2026_0.PostSharpDocumentation.IsVersioned );
         Assert.True( PostSharpDependencies.V2027_0.PostSharp.IsVersioned );
-        Assert.True( PostSharpDependencies.V2027_0.PostSharpDocumentation.IsVersioned );
+    }
+
+    /// <summary>
+    /// The documentation is published continuously rather than released, so it is not versioned and generates no
+    /// version bump configuration.
+    /// </summary>
+    [Fact]
+    public void TheDocumentation_IsNotVersioned()
+    {
+        Assert.False( PostSharpDependencies.V2026_0.PostSharpDocumentation.IsVersioned );
+        Assert.False( PostSharpDependencies.V2027_0.PostSharpDocumentation.IsVersioned );
+        Assert.Null( PostSharpDependencies.V2026_0.PostSharpDocumentation.CiConfiguration.VersionBumpBuildType );
     }
 
     /// <summary>

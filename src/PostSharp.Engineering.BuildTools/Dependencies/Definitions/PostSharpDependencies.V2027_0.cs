@@ -33,14 +33,18 @@ public static partial class PostSharpDependencies
         /// </summary>
         private class PostSharpDependencyDefinition : DependencyDefinition
         {
-            public PostSharpDependencyDefinition( string dependencyName )
+            public PostSharpDependencyDefinition( string dependencyName, bool isVersioned = true )
                 : base(
                     Family,
                     dependencyName,
                     $"develop/{Family.Version}",
                     $"release/{Family.Version}",
                     new GitHubRepository( dependencyName, _projectName ),
-                    TeamCityHelper.CreateConfiguration( GetProjectId( dependencyName ), vcsRootId: GetProjectId( dependencyName ).Id ) ) { }
+                    TeamCityHelper.CreateConfiguration(
+                        GetProjectId( dependencyName ),
+                        isVersioned,
+                        vcsRootId: GetProjectId( dependencyName ).Id ),
+                    isVersioned ) { }
         }
 
         /// <summary>The compiler and the pattern libraries.</summary>
@@ -54,7 +58,7 @@ public static partial class PostSharpDependencies
 
         /// <summary>The documentation site, which documents this line and is built against its packages.</summary>
         public static DependencyDefinition PostSharpDocumentation { get; } =
-            new PostSharpDependencyDefinition( $"{_projectName}.Documentation" )
+            new PostSharpDependencyDefinition( $"{_projectName}.Documentation", isVersioned: false )
             {
                 Dependencies =
                 [
