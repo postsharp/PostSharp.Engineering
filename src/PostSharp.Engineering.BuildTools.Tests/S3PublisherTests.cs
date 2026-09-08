@@ -130,4 +130,23 @@ public class S3PublisherTests
     {
         Assert.True( CreateConfiguration( "PostSharp.zip", "postsharp/PostSharp.zip" ).IsAttachment );
     }
+
+    // PackageFileName is the former name of Files and is kept for backward compatibility, so both directions of
+    // the alias have to reach the same value.
+#pragma warning disable CS0618
+    [Fact]
+    public void PackageFileName_IsAnAliasOfFiles()
+    {
+        var configuration = new S3PublisherConfiguration( "release/**", RegionEndpoint.EUWest1, "download-sharpcrafters-com", "postsharp/v1.0/" );
+
+        Assert.Equal( "release/**", configuration.PackageFileName.ToString() );
+
+        var initialized = new S3PublisherConfiguration( "unused", RegionEndpoint.EUWest1, "download-sharpcrafters-com", "postsharp/v1.0/" )
+        {
+            PackageFileName = "release/**"
+        };
+
+        Assert.Equal( "release/**", initialized.Files.ToString() );
+    }
+#pragma warning restore CS0618
 }

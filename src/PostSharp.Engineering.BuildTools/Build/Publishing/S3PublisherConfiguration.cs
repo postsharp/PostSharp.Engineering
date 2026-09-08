@@ -3,6 +3,7 @@
 using Amazon;
 using JetBrains.Annotations;
 using PostSharp.Engineering.BuildTools.Build.Model;
+using System;
 
 namespace PostSharp.Engineering.BuildTools.Build.Publishing
 {
@@ -19,6 +20,18 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
         /// directory tree, in which case <see cref="KeyName"/> has to end with a slash.
         /// </summary>
         public ParametricString Files { get; init; }
+
+        /// <summary>
+        /// Gets the pattern of the files published by this configuration. This property is an alias of
+        /// <see cref="Files"/>, which replaces it because the value is a globbing pattern and no longer has to be
+        /// the name of a single package file.
+        /// </summary>
+        [Obsolete( "Renamed to Files." )]
+        public ParametricString PackageFileName
+        {
+            get => this.Files;
+            init => this.Files = value;
+        }
 
         /// <summary>
         /// Gets the AWS region of <see cref="BucketName"/>.
