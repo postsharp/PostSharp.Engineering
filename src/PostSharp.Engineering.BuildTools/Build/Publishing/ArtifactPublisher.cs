@@ -36,6 +36,22 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
             BuildConfigurationInfo configuration );
 
         /// <summary>
+        /// Executes the target for a specified artifact, given both its full path and its path relative to the
+        /// artifact directory. The default implementation ignores <paramref name="relativePath"/> and calls
+        /// <see cref="PublishFile(BuildContext,PublishSettings,string,BuildArguments,BuildConfigurationInfo)"/>.
+        /// A publisher whose destination depends on the position of the file in the artifact directory tree
+        /// overrides this overload instead.
+        /// </summary>
+        protected virtual SuccessCode PublishFile(
+            BuildContext context,
+            PublishSettings settings,
+            string file,
+            string relativePath,
+            BuildArguments buildArguments,
+            BuildConfigurationInfo configuration )
+            => this.PublishFile( context, settings, file, buildArguments, configuration );
+
+        /// <summary>
         /// Called after all artifact files have been successfully published and before the <see cref="Testers"/> are
         /// executed. When this method fails, the <see cref="Testers"/> are not executed.
         /// </summary>
@@ -98,7 +114,7 @@ namespace PostSharp.Engineering.BuildTools.Build.Publishing
 
                 var filePath = Path.Combine( directory, file.Path );
 
-                switch ( this.PublishFile( context, settings, filePath, buildArguments, configuration ) )
+                switch ( this.PublishFile( context, settings, filePath, file.Path, buildArguments, configuration ) )
                 {
                     case SuccessCode.Success:
                         break;
