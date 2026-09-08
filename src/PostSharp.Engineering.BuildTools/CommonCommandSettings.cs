@@ -89,7 +89,7 @@ namespace PostSharp.Engineering.BuildTools
         [CommandOption( "--use-local-dependencies" )]
         public bool UseLocalDependencies { get; set; }
 
-        [Description( "Properties in form Name=Value" )]
+        [Description( "Properties of the current product, in form Name=Value. Use --list-properties to list the supported properties." )]
         [CommandOption( "-p|--property" )]
         public string[] UnparsedProperties
         {

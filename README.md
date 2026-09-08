@@ -471,6 +471,21 @@ eng/tools/
 *.g.props
 ```
 
+### Optional. Enable the XML documentation cleanup
+
+`CleanXmlDoc.targets` removes the members that are not visible outside of the assembly from the XML documentation
+file of every project that sets `GenerateDocumentationFile`. Import it from `Directory.Build.targets`:
+
+```xml
+<Import Sdk="PostSharp.Engineering.Sdk" Project="CleanXmlDoc.targets" />
+```
+
+The target runs `PostSharp.Engineering` through the `PostSharpEngineeringExePath` property, which the build writes
+to `eng/Versions.g.props`. That file has to be in scope where the target runs, so it must be imported by a file that
+the product projects themselves import. The intended place is `eng/Versions.props`, which Step 5 imports from the
+root `Directory.Build.props`. Importing it only from `eng/src/Directory.Build.props` puts the property in scope of
+the build project alone, and the target then fails with a message that names the property.
+
 ## Architecture
 
 ```mermaid

@@ -1,10 +1,24 @@
 <Project>
+    <!--
+        The file to clean is the copy of the documentation file in the output directory, because that copy is the one that gets
+        packaged. Its name is taken from $(DocumentationFile) and not from $(AssemblyName), because a project can set
+        DocumentationFile explicitly, and the copy then keeps the name of that file. $(DocumentationFile) itself is not cleaned,
+        because it is written by the compiler in the intermediate output directory and is copied before this target runs.
+        The project is loaded for $(TargetFramework), because a multi-targeted project otherwise resolves against its first
+        target framework, which is generally not the one the documentation file was produced for.
+    -->
     <Target Name="CleanXmlDoc"
-            Condition="'$(GenerateDocumentationFile)'=='True' AND '$(TargetFramework)'!='' AND Exists('$(MSBuildProjectDirectory)\$(OutDir)$(AssemblyName).xml')"
+            Condition="'$(GenerateDocumentationFile)'=='True' AND '$(TargetFramework)'!='' AND '$(DocumentationFile)'!=''"
             AfterTargets="Build">
         <Error Condition="'$(PostSharpEngineeringExePath)'==''"
-               Message="The PostSharpEngineeringExePath property is not defined. It should be defined in Versions.g.props." />
-        <Exec
-            Command="dotnet &quot;$(PostSharpEngineeringExePath)&quot; tools xmldoc clean &quot;$(MSBuildProjectDirectory)\$(OutDir)$(AssemblyName).xml&quot; &quot;$(MSBuildProjectFile)&quot; --nologo" />
+               Text="The PostSharpEngineeringExePath property is not defined. It should be defined in Versions.g.props." />
+        <PropertyGroup>
+            <_CleanXmlDocFileName>$([System.IO.Path]::GetFileName('$(DocumentationFile)'))</_CleanXmlDocFileName>
+            <_CleanXmlDocFile>$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)','$(OutDir)','$(_CleanXmlDocFileName)'))</_CleanXmlDocFile>
+        </PropertyGroup>
+        <Warning Condition="!Exists('$(_CleanXmlDocFile)')"
+                 Text="The documentation file '$(_CleanXmlDocFile)' does not exist, so its internal members cannot be removed." />
+        <Exec Condition="Exists('$(_CleanXmlDocFile)')"
+              Command="dotnet &quot;$(PostSharpEngineeringExePath)&quot; tools xmldoc clean &quot;$(_CleanXmlDocFile)&quot; &quot;$(MSBuildProjectFullPath)&quot; --msbuild-property TargetFramework=$(TargetFramework) --nologo" />
     </Target>
 </Project>
