@@ -23,6 +23,15 @@ internal class RemoveInternalsCommand : BaseCommand<RemoveInternalsCommandSettin
             return false;
         }
 
+        // The project path is checked before the workspace opens it, because MSBuildWorkspace throws a FileNotFoundException,
+        // and an unhandled exception exits with a stack trace and the exit code of an internal error instead of a message.
+        if ( !File.Exists( settings.ProjectPath ) )
+        {
+            context.Console.WriteError( $"The project '{settings.ProjectPath}' does not exist." );
+
+            return false;
+        }
+
         var xmlDocument = XDocument.Load( settings.XmlPath );
 
         using var workspace = MSBuildWorkspace.Create( settings.MSBuildProperties );

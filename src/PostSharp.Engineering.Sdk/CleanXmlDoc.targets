@@ -6,9 +6,13 @@
         because it is written by the compiler in the intermediate output directory and is copied before this target runs.
         The project is loaded for $(TargetFramework), because a multi-targeted project otherwise resolves against its first
         target framework, which is generally not the one the documentation file was produced for.
+        The target does not run when $(MSBuildProjectFullPath) does not exist, because the command opens that file. A file-based
+        app, which is built by 'dotnet run Program.cs', is compiled from a virtual project that is never written to disk, and its
+        output directory is an absolute path under the temporary directory, so the documentation file exists although the project
+        file does not.
     -->
     <Target Name="CleanXmlDoc"
-            Condition="'$(GenerateDocumentationFile)'=='True' AND '$(TargetFramework)'!='' AND '$(DocumentationFile)'!=''"
+            Condition="'$(GenerateDocumentationFile)'=='True' AND '$(TargetFramework)'!='' AND '$(DocumentationFile)'!='' AND Exists('$(MSBuildProjectFullPath)')"
             AfterTargets="Build">
         <Error Condition="'$(PostSharpEngineeringExePath)'==''"
                Text="The PostSharpEngineeringExePath property is not defined. It should be defined in Versions.g.props." />
