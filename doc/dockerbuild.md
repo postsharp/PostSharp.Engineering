@@ -16,15 +16,17 @@ Hyper-V isolation) and Linux containers (Docker Desktop / WSL2 backend).
 
 On each invocation the script:
 
-1. **Resolves the image chain.** Dockerfiles declare their parent with `ARG BASE_IMAGE=<parent>.Dockerfile`.
+1. **Frees image disk space** if the Docker image store is over `DOCKER_MAX_IMAGE_SPACE` (100 GB by default),
+   by removing unused images, oldest first. See [Image-space cleanup](#image-space-cleanup).
+2. **Resolves the image chain.** Dockerfiles declare their parent with `ARG BASE_IMAGE=<parent>.Dockerfile`.
    The resolver walks the chain, computes a content-hash tag per image, and builds/pulls each level
    parent-first.
-2. **Collects environment variables and git identity** and writes them to a per-run `eng/.g/Init.g.ps1`,
+3. **Collects environment variables and git identity** and writes them to a per-run `eng/.g/Init.g.ps1`,
    which is mounted (not baked) and executed at container start.
-3. **Computes the mount set** — the source tree, the NuGet cache, source-dependencies, sibling product-family
+4. **Computes the mount set** — the source tree, the NuGet cache, source-dependencies, sibling product-family
    repos, and any `-Mount` directories.
-4. **Builds a thin local "boot" image** over the resolved leaf that creates the bind-mount directories.
-5. **Runs the container** (`docker run --rm`), executing `subst` (Windows), `Init.g.ps1`, then `Build.ps1`
+5. **Builds a thin local "boot" image** over the resolved leaf that creates the bind-mount directories.
+6. **Runs the container** (`docker run --rm`), executing `subst` (Windows), `Init.g.ps1`, then `Build.ps1`
    or `eng/RunClaude.ps1`.
 
 ### The image chain
@@ -65,6 +67,7 @@ flowchart LR
 | `-Update` | Force a full timestamp bump to invalidate the Docker cache (refreshes `@latest` Claude CLI / plugins). |
 | `-Isolation process\|hyperv` | Container isolation. Windows only. Auto-detected when omitted: `process` on Windows Server, `hyperv` on Windows Desktop. |
 | `-Memory <size>` / `-Cpus <n>\|dynamic` | Resource limits. Applied on Linux and macOS, and on Windows under Hyper-V isolation; Windows process isolation ignores them. `-Memory` is clamped to the memory the Docker engine reports. `dynamic` rebalances CPUs under any isolation. |
+| `-MaxImageSpace <GB>` | Budget for the Docker image store, in decimal GB. Unused images are removed oldest first, before the build, when the store exceeds it. Covers every image on the engine, not only this repository's. Defaults to `$env:DOCKER_MAX_IMAGE_SPACE` or 100; `0` disables it. |
 | `-Mount <dir[:w]>` | Mount extra host directories (read-only by default, `:w` = writable; `*`/`**` globs supported). |
 | `-Env NAME[=VALUE]` | Pass extra environment variables (host value or literal). |
 | `-Ports <h:c>` | Publish container ports. |
@@ -237,6 +240,80 @@ Pushes run in background jobs that start only after every host build finishes (s
 build) and overlap the container run. Because the content-hash tag is independent of the registry prefix and
 of host line endings, a tag built on one machine is a guaranteed cache hit on every other machine on the LAN
 — the farm builds each layer once and everyone else pulls it.
+
+## Image-space cleanup
+
+Every meaningful change produces a new content-hash tag, and the previous generation is never replaced in
+place. A build agent therefore gains a whole chain of images each time a Dockerfile or its context changes.
+On Windows a chain is tens of gigabytes, so the image store grows until the disk is full.
+
+Before it resolves the image chain, `DockerBuild.ps1` measures the image store. If the store is over budget,
+it removes unused images, oldest first, until the store is back within the budget. The budget is
+`-MaxImageSpace`, which defaults to `$env:DOCKER_MAX_IMAGE_SPACE` and, failing that, to 100 GB.
+
+### What is measured
+
+The size that `docker system df` reports for images. That figure counts a layer shared by several images only
+once, which is what the store actually occupies on disk. Adding up the sizes from `docker image ls` instead
+would count every shared layer once per image, and would report about three times the truth for a chain three
+levels deep.
+
+Gigabytes are decimal here (1 GB = 1e9 bytes), which is the unit `docker system df` prints.
+
+### What is removed
+
+Any unused image on the Docker engine, not only the images of the current repository. The layers are shared
+between products, so a budget that covered one repository could not control the size of a store that several
+repositories fill.
+
+The removal is never forced. `docker image rm -f` would untag an image that a stopped container still holds,
+so the refusal of the unforced command is what keeps concurrent runs safe.
+
+### What is never removed
+
+- Any image this run needs: the whole chain it is about to build or pull, and the OS image the chain root is
+  built from, including its mirror in the shared registry.
+- Any image that a container references, whether that container runs or is stopped. This covers the
+  containers of the other `DockerBuild.ps1` runs that share a build agent.
+- Any image created in the last two hours. This is what makes the cleanup safe against a concurrent run: a
+  sibling run's freshly built image, and its boot image between `docker build` and `docker run`, belong to no
+  container yet and appear in no other run's keep set.
+
+The age of an image is the creation date recorded in its manifest, which is not the date it arrived on this
+machine. An image that was built here minutes ago is new, because a build that adds a filesystem layer stamps
+the current date. An image that was pulled here minutes ago keeps whatever date it was built with upstream,
+so it is usually old. A pulled image is therefore protected by the keep set and not by the grace window,
+which is why the keep set names the OS image of the chain root explicitly: on a Windows agent that image is
+both the largest and the oldest one on the machine.
+
+### Behaviour per mode
+
+| Mode | Cleanup |
+|------|---------|
+| Default, `-BuildImage`, `-NoBuildImage` | Runs. The keep set is the whole chain and its OS image. |
+| `-RegistryImage <ref>` | Runs. The keep set is that one image, which `docker run` is about to pull. |
+| `-Interactive` reusing a running container | Skipped. Nothing is built or pulled, so there is no space to make room for. |
+| `-MaxImageSpace 0`, or `DOCKER_MAX_IMAGE_SPACE=0` | Disabled. |
+
+The cleanup never fails a build. If the store cannot be measured, or if nothing can be removed, it reports
+the reason and the build continues.
+
+### Limitations
+
+The budget is checked before the build, not enforced during it. A run that starts at 95 GB against a budget
+of 100 GB and then pulls a 30 GB chain ends at 125 GB. Set the budget low enough to leave room for one full
+chain below the real capacity of the disk.
+
+On Linux with BuildKit, the build cache is a separate pool that this budget does not measure. Use
+`docker builder prune` for that.
+
+### Relation to Daily-Maintenance.ps1
+
+`scripts/build-agents/Daily-Maintenance.ps1` is the scheduled sweep on TeamCity agents: it runs once a day
+and prunes by age, with `docker image prune -a --filter until=...`. The cleanup described here is
+demand-driven instead, runs on developer machines as well as agents, and is the more conservative of the two,
+because it removes only what a measured overage requires and protects the images that a build is about to
+use. The two are complementary.
 
 ## Generated companions
 
