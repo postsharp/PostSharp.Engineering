@@ -37,11 +37,28 @@ public sealed class CleanXmlDocTargetsTests : IDisposable
 
     /// <summary>
     /// Writes a project that imports the target and has a stub <c>Build</c> target, so that the test does not depend on
-    /// the .NET SDK, on a restore, or on the compiler.
+    /// the .NET SDK, on a restore, or on the compiler. When <paramref name="deleteProjectFile"/> is <c>true</c>, the project
+    /// deletes its own file before <c>Build</c> runs, which gives the target a <c>MSBuildProjectFullPath</c> that does not
+    /// exist. A real build cannot start from a project file that is already missing, so this is the only way to reproduce
+    /// that state.
     /// </summary>
-    private string CreateProject( string? engineeringExePath )
+    private string CreateProject( string? engineeringExePath, bool createDocumentationFile = false, bool deleteProjectFile = false )
     {
         Directory.CreateDirectory( this._directory );
+
+        if ( createDocumentationFile )
+        {
+            Directory.CreateDirectory( Path.Combine( this._directory, "bin" ) );
+            File.WriteAllText( Path.Combine( this._directory, "bin", "Test.xml" ), "<doc><members /></doc>" );
+        }
+
+        var deleteProjectFileTarget = deleteProjectFile
+            ? """
+                  <Target Name="DeleteProjectFile" BeforeTargets="Build">
+                      <Delete Files="$(MSBuildProjectFullPath)" />
+                  </Target>
+              """
+            : "";
 
         var projectPath = Path.Combine( this._directory, "Test.proj" );
 
@@ -58,6 +75,7 @@ public sealed class CleanXmlDocTargetsTests : IDisposable
                  </PropertyGroup>
                  <Import Project="{Path.Combine( SdkDirectory, "CleanXmlDoc.targets" )}" />
                  <Target Name="Build" />
+             {deleteProjectFileTarget}
              </Project>
              """ );
 
@@ -98,6 +116,33 @@ public sealed class CleanXmlDocTargetsTests : IDisposable
         Assert.Equal( 0, exitCode );
         Assert.DoesNotContain( "MSB4064", output, StringComparison.Ordinal );
         Assert.Contains( "does not exist, so its internal members cannot be removed", output, StringComparison.Ordinal );
+    }
+
+    /// <summary>
+    /// The control case of <see cref="MissingProjectFileSkipsTheTarget"/>. Without it, that test would also pass if the
+    /// target were skipped for another reason, such as a documentation file that was not written.
+    /// </summary>
+    [Fact]
+    public void ExistingProjectFileRunsTheTarget()
+    {
+        var (exitCode, output) = Build( this.CreateProject( "dummy.dll", createDocumentationFile: true ) );
+
+        Assert.NotEqual( 0, exitCode );
+        Assert.Contains( "xmldoc", output, StringComparison.Ordinal );
+    }
+
+    /// <summary>
+    /// A file-based app, which is built by <c>dotnet run Program.cs</c>, is compiled from a virtual project that is never
+    /// written to disk, while its output directory is an absolute path under the temporary directory. The documentation file
+    /// therefore exists although the project file does not, and the command cannot open a project that does not exist.
+    /// </summary>
+    [Fact]
+    public void MissingProjectFileSkipsTheTarget()
+    {
+        var (exitCode, output) = Build( this.CreateProject( "dummy.dll", createDocumentationFile: true, deleteProjectFile: true ) );
+
+        Assert.Equal( 0, exitCode );
+        Assert.DoesNotContain( "xmldoc", output, StringComparison.Ordinal );
     }
 
     /// <summary>
