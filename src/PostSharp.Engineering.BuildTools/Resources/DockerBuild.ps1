@@ -1463,14 +1463,27 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
     # waiting, because whatever the other run frees, it frees for both.
     function Enter-ImageCleanupLock
     {
-        $lockPath = Join-Path ([System.IO.Path]::GetTempPath()) 'PostSharp.DockerBuild.ImageCleanup.lock'
-
         try
         {
+            # Resolved inside the try as well: a temporary directory that the platform rejects makes this throw
+            # rather than the Open below.
+            $lockPath = Join-Path ([System.IO.Path]::GetTempPath()) 'PostSharp.DockerBuild.ImageCleanup.lock'
+
             return [System.IO.File]::Open($lockPath, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
         }
         catch [System.IO.IOException]
         {
+            # The expected case: another run holds the lock. Sharing violations, and every other input/output
+            # error, arrive here.
+            return $null
+        }
+        catch
+        {
+            # Anything else, such as a temporary directory that this account cannot write to, or a path the
+            # platform rejects. UnauthorizedAccessException does not derive from IOException, so it would
+            # otherwise escape, and $ErrorActionPreference is 'Stop' - which would fail the build over a
+            # cleanup that is only ever best effort.
+            Write-Host "Skipping the image-space cleanup: the lock file could not be opened. $( $_.Exception.Message )" -ForegroundColor Yellow
             return $null
         }
     }
@@ -1680,7 +1693,9 @@ RUN if [ -n "`$MOUNTPOINTS" ]; then \
                 }
             }
 
-            $keep = [System.Collections.Generic.HashSet[string]]::new( [string[]]$keepReferences, [StringComparer]::OrdinalIgnoreCase )
+            # The ?? guards the HashSet constructor, which rejects a null collection: a caller that resolved no
+            # keep set at all must lose the cleanup, not the build.
+            $keep = [System.Collections.Generic.HashSet[string]]::new( [string[]]($keepReferences ?? @()), [StringComparer]::OrdinalIgnoreCase )
             $candidates = Get-EvictionCandidates $keep $graceCutoff
 
             for ($pass = 1; $pass -le $ImageCleanupMaxPasses -and $total -gt $budgetBytes; $pass++)
