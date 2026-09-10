@@ -18,10 +18,16 @@
 
 .PARAMETER KeepSandbox
     Do not delete the temporary sandbox/images on exit (for debugging).
+
+.PARAMETER IncludeImageEviction
+    Also exercise the path of the image-space cleanup that actually removes images. This removes unused
+    Docker images from this machine, including images that have nothing to do with these tests. Run it on a
+    build agent, not on a workstation. Without it, only the measuring and reporting of the cleanup is tested.
 #>
 [CmdletBinding()]
 param(
-    [switch]$KeepSandbox
+    [switch]$KeepSandbox,
+    [switch]$IncludeImageEviction
 )
 
 $ErrorActionPreference = 'Stop'
@@ -149,11 +155,32 @@ function Remove-TestImages
 }
 
 # ---- run --------------------------------------------------------------------------------------------------
+# The size, in bytes, that `docker system df` reports for the image store; 0 when it cannot be read.
+# The suite measures the store the same way DockerBuild.ps1 does, so that a budget can be derived from it.
+function Get-TestImageStoreSize
+{
+    foreach ($row in @(docker system df --format '{{.Type}}|{{.Size}}' 2>$null))
+    {
+        $fields = "$row" -split '\|', 2
+        if ($fields.Count -eq 2 -and $fields[0].Trim() -eq 'Images' -and $fields[1] -match '^\s*(\d+(?:\.\d+)?)\s*([kKmMgGtTpP]?)(i?)B\s*$')
+        {
+            $exponent = switch ($Matches[2].ToUpperInvariant()) { 'K' { 1 } 'M' { 2 } 'G' { 3 } 'T' { 4 } 'P' { 5 } default { 0 } }
+            return [long]([double]$Matches[1] * [Math]::Pow($( if ($Matches[3]) { 1024 } else { 1000 } ), $exponent))
+        }
+    }
+    return [long]0
+}
+
 # Avoid the key-vault path and registry mode for the local-build cases.
 $savedPostSharpOwned = $env:IS_POSTSHARP_OWNED
 $savedRegistry = $env:DOCKER_REGISTRY
 $env:IS_POSTSHARP_OWNED = ''
 $env:DOCKER_REGISTRY = ''
+
+# A machine-wide DOCKER_MAX_IMAGE_SPACE must not decide what these tests measure: every case that cares
+# passes -MaxImageSpace explicitly, and the cases that do not must see the built-in default.
+$savedMaxImageSpace = $env:DOCKER_MAX_IMAGE_SPACE
+$env:DOCKER_MAX_IMAGE_SPACE = ''
 
 try
 {
@@ -262,9 +289,110 @@ try
         }
     }
 
+    # === Image-space cleanup: measuring and reporting (removes nothing). ===
+    # A budget nothing can exceed. This is the assertion that matters most, because it proves that
+    # `docker system df` was found, that its Images row was parsed, and that the byte arithmetic survives a
+    # budget of a million gigabytes. That parsing is what breaks when the version of Docker changes.
+    Write-Host "`n== Image-space cleanup (under budget) ==" -ForegroundColor Magenta
+    $r = Invoke-DockerBuild @('-MaxImageSpace', '1000000')
+    if ($r.ExitCode -ne 0) { Write-Host $r.Output }
+    Test-Case "cleanup: exits 0 when under budget" ($r.ExitCode -eq 0)
+    Test-Case "cleanup: reports the measured store size" ($r.Output -match 'Docker image store: [\d.]+ GB of the 1000000 GB budget')
+    Test-Case "cleanup: removes nothing when under budget" ($r.Output -notmatch 'removing up to')
+
+    Write-Host "`n== Image-space cleanup (disabled and invalid) ==" -ForegroundColor Magenta
+    $r = Invoke-DockerBuild @('-MaxImageSpace', '0')
+    Test-Case "cleanup: -MaxImageSpace 0 exits 0" ($r.ExitCode -eq 0)
+    Test-Case "cleanup: -MaxImageSpace 0 does not measure the store" ($r.Output -notmatch 'Docker image store')
+
+    $r = Invoke-DockerBuild @('-MaxImageSpace', 'lots')
+    Test-Case "cleanup: a non-numeric -MaxImageSpace fails the script" ($r.ExitCode -ne 0)
+    Test-Case "cleanup: the failure names the parameter" ($r.Output -match 'MaxImageSpace must be a whole number')
+
+    # === Image-space cleanup: the removal path and the grace window (destructive, opt-in). ===
+    # Every case that puts the store over budget is destructive, whatever it then asserts: the run removes the
+    # unused images of this machine, not only the fixtures. That includes the grace-window case, which is why
+    # it lives here and not among the cases above.
+    if (-not $IncludeImageEviction)
+    {
+        Skip-Case "image-space cleanup: removal and grace window" "destructive - going over budget removes unused images from this machine; pass -IncludeImageEviction to run it"
+    }
+    else
+    {
+        Write-Host "`n== Image-space cleanup (removal) ==" -ForegroundColor Magenta
+
+        # A candidate that is genuinely old: `docker image ls` reports the build time recorded in an image's
+        # manifest, not the time it was pulled or tagged. Tagging the base image of the fixture chain therefore
+        # produces a candidate dated well outside the grace window.
+        #
+        # The base is read from the FROM of the fixture root, expanding the build arguments that the line
+        # interpolates (the Windows root takes its tag from WINDOWS_VERSION). It is then pulled explicitly:
+        # BuildKit keeps the base of a build in its own cache rather than in the image store, so building the
+        # chain does not by itself make the base image appear in `docker image ls`.
+        $rootDockerfile = Get-Content (Join-Path $sandbox 'eng/docker/vs.Dockerfile') -Raw
+        $baseImage = ([regex]::Match($rootDockerfile, '(?m)^\s*FROM\s+(\S+)')).Groups[1].Value
+        foreach ($argMatch in [regex]::Matches($rootDockerfile, '(?m)^\s*ARG\s+(\w+)=(\S+)'))
+        {
+            $baseImage = $baseImage.Replace("`${$( $argMatch.Groups[1].Value )}", $argMatch.Groups[2].Value)
+        }
+
+        docker pull $baseImage *> $null
+        if ($LASTEXITCODE -eq 0) { docker tag $baseImage "$imagePrefix-stale:v1" *> $null }
+        else { Write-Host "  (could not pull the fixture base image '$baseImage')" -ForegroundColor Yellow }
+        $tagged = Test-ImageExists "$imagePrefix-stale"
+        Test-Case "cleanup: a stale candidate could be staged" $tagged
+
+        # A candidate that is genuinely new and is NOT in the keep set, which is what isolates the grace window
+        # from the keep set.
+        #
+        # The COPY matters. An image only gets a current creation date when the build adds a filesystem layer:
+        # a build that changes nothing but metadata, such as one holding only a FROM and a LABEL, keeps the
+        # creation date of its base image and would be staged as an old image, not a new one.
+        $freshStaged = $false
+        if ($baseImage)
+        {
+            $freshCtx = Join-Path $sandbox '.fresh'
+            New-Item -ItemType Directory -Path $freshCtx -Force | Out-Null
+            Set-Content -Path (Join-Path $freshCtx 'fresh.txt') -Value 'fresh' -Encoding ascii
+            "FROM $baseImage`nCOPY fresh.txt ./fresh.txt" | docker build -t "$imagePrefix-fresh:v1" -f - $freshCtx *> $null
+            $freshStaged = Test-ImageExists "$imagePrefix-fresh"
+        }
+        Test-Case "cleanup: a fresh candidate could be staged" $freshStaged
+
+        # A budget one gigabyte below the current store, so that the run is over budget by about a gigabyte and
+        # the loop is satisfied after removing very little, instead of emptying the machine. The budget is a
+        # whole number of gigabytes, so a store under 2 GB cannot be given a positive budget below itself.
+        $budget = [int][Math]::Floor((Get-TestImageStoreSize) / 1e9) - 1
+
+        if ($tagged -and $budget -lt 1)
+        {
+            Skip-Case "image-space cleanup: removal" "this machine holds under 2 GB of images, which is too little to set a positive budget below the store; run it on a build agent"
+        }
+        elseif ($tagged)
+        {
+            $r = Invoke-DockerBuild @('-MaxImageSpace', "$budget")
+            if ($r.ExitCode -ne 0) { Write-Host $r.Output }
+            Test-Case "cleanup: the removal pass exits 0" ($r.ExitCode -eq 0)
+            Test-Case "cleanup: reports that it is over budget" ($r.Output -match "over the $budget GB budget")
+            Test-Case "cleanup: the stale image was removed" (-not (Test-ImageExists "$imagePrefix-stale"))
+
+            # The two invariants that a regression here would break. First, the cleanup must never take out the
+            # chain that the run it precedes is about to use: that is the keep set. Second, it must never take
+            # out an image built moments ago, which is what keeps a concurrent run on the same agent safe: that
+            # is the grace window, and '$imagePrefix-fresh' tests it on its own, because it is new but is in no
+            # keep set.
+            Test-Case "cleanup: the current chain survived" ((Test-ImageExists "$imagePrefix-vs") -and (Test-ImageExists "$imagePrefix-build"))
+            if ($freshStaged)
+            {
+                Test-Case "cleanup: an image outside the keep set survived the grace window" (Test-ImageExists "$imagePrefix-fresh")
+            }
+        }
+    }
+
     # === Cases not covered by lightweight fixtures (documented). ===
     Write-Host "`n== Out-of-scope for lightweight fixtures ==" -ForegroundColor Magenta
     Skip-Case "OS build-arg fold (ltsc2025 vs ltsc2022)" "requires building on two Windows host editions; the WINDOWS_VERSION build-arg + hash fold is exercised, not asserted here"
+    Skip-Case "image-space cleanup: the OS image is in the keep set" "the fixture roots declare no 'ARG OS_IMAGE'/'ARG OS_IMAGE_REPOSITORY', so Get-OsImageSpec returns nothing for them; the branch is exercised by real product builds, whose root declares OS_IMAGE_REPOSITORY"
     Skip-Case "boot image + MOUNTPOINTS creation" "requires 'docker run' of a PowerShell-7 image; covered by real product builds"
     Skip-Case "runtime env/init delivery" "requires 'docker run' of a PowerShell-7 image; covered by real product builds"
     Skip-Case "-NoBuildImage run step rebuilds the local-only Claude leaf" "the run step resolves the chain then 'docker run's a PowerShell-7 image; the local-only Claude leaf rebuild (cross-daemon CI case) is covered by real product builds, not the lightweight fixtures"
@@ -273,6 +401,7 @@ finally
 {
     $env:IS_POSTSHARP_OWNED = $savedPostSharpOwned
     $env:DOCKER_REGISTRY = $savedRegistry
+    $env:DOCKER_MAX_IMAGE_SPACE = $savedMaxImageSpace
 
     if ($KeepSandbox)
     {
