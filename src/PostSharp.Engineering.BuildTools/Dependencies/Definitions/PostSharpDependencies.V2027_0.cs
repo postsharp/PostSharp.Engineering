@@ -24,12 +24,30 @@ public static partial class PostSharpDependencies
                 UpstreamProductFamily = V2026_0.Family
             };
 
+        /// <summary>
+        /// The TeamCity project of this line. It carries no build configuration of its own: it contains one project
+        /// per repository of the line, the arrangement the Metalama lines already use. The 2024.0 and 2026.0 lines
+        /// are flat instead -- their line project is the project of the PostSharp repository -- so the identifier of
+        /// a build configuration of this line has one segment more than the same configuration of the previous one.
+        /// </summary>
+        private static readonly string _lineProjectId =
+            TeamCityHelper.GetProjectIdWithParentProjectId( $"{_projectName} {Family.Version}", _parentProjectId ).Id;
+
         private static TeamCityProjectId GetProjectId( string dependencyName )
-            => TeamCityHelper.GetProjectIdWithParentProjectId( $"{dependencyName} {Family.Version}", _parentProjectId );
+            => TeamCityHelper.GetProjectIdWithParentProjectId( dependencyName, _lineProjectId );
+
+        /// <summary>
+        /// The identifier of the VCS root of a repository of this line. The roots are stored in the PostSharp project
+        /// and named after the repository and the version, as those of the previous lines are, rather than in the line
+        /// project as the per-repository projects would imply. That is where they exist on TeamCity, and the generated
+        /// settings address them by identifier, so the identifier has to be the one TeamCity carries.
+        /// </summary>
+        private static string GetVcsRootId( string dependencyName )
+            => TeamCityHelper.GetProjectIdWithParentProjectId( $"{dependencyName} {Family.Version}", _parentProjectId ).Id;
 
         /// <summary>
         /// A repository of this line: it builds from the development branch, publishes from the release branch, and
-        /// owns a TeamCity project and a VCS root named after itself and the version.
+        /// owns a TeamCity project named after itself beneath the project of the line.
         /// </summary>
         private class PostSharpDependencyDefinition : DependencyDefinition
         {
@@ -43,7 +61,8 @@ public static partial class PostSharpDependencies
                     TeamCityHelper.CreateConfiguration(
                         GetProjectId( dependencyName ),
                         isVersioned,
-                        vcsRootId: GetProjectId( dependencyName ).Id ),
+                        vcsRootProjectId: _parentProjectId,
+                        vcsRootId: GetVcsRootId( dependencyName ) ),
                     isVersioned ) { }
         }
 

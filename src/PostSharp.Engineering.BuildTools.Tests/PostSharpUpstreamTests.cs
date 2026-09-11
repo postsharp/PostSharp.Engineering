@@ -59,23 +59,63 @@ public class PostSharpUpstreamTests
     }
 
     /// <summary>
-    /// Every repository of a line owns a TeamCity project named after itself and the version, so the lines never share
-    /// a build configuration. The identifier of the PostSharp project is the one the existing projects already carry.
+    /// Every repository of a line owns a TeamCity project, so the lines never share a build configuration. The 2024.0
+    /// and 2026.0 lines are flat: the project of the line is the project of the PostSharp repository, and it is named
+    /// after the repository and the version. These identifiers are the ones the existing projects already carry.
     /// </summary>
     [Fact]
-    public void EveryRepository_OwnsAProjectNamedAfterItselfAndTheVersion()
+    public void EveryRepositoryOfAFlatLine_OwnsAProjectNamedAfterItselfAndTheVersion()
     {
         Assert.Equal( "PostSharpGitHub_PostSharp20240", PostSharpDependencies.V2024_0.PostSharp.CiConfiguration.ProjectId.Id );
         Assert.Equal( "PostSharpGitHub_PostSharp20260", PostSharpDependencies.V2026_0.PostSharp.CiConfiguration.ProjectId.Id );
-        Assert.Equal( "PostSharpGitHub_PostSharp20270", PostSharpDependencies.V2027_0.PostSharp.CiConfiguration.ProjectId.Id );
 
         Assert.Equal(
             "PostSharpGitHub_PostSharpDocumentation20260",
             PostSharpDependencies.V2026_0.PostSharpDocumentation.CiConfiguration.ProjectId.Id );
+    }
+
+    /// <summary>
+    /// The 2027.0 line follows the Metalama arrangement instead: the project of the line holds no build configuration
+    /// and contains one project per repository, named after the repository alone. Nothing derives these identifiers
+    /// from the projects that exist on TeamCity, so a mismatch surfaces as a build referencing a configuration that is
+    /// not there.
+    /// </summary>
+    [Fact]
+    public void EveryRepositoryOf20270_OwnsAProjectBeneathTheProjectOfTheLine()
+    {
+        Assert.Equal(
+            "PostSharpGitHub_PostSharp20270_PostSharp",
+            PostSharpDependencies.V2027_0.PostSharp.CiConfiguration.ProjectId.Id );
 
         Assert.Equal(
-            "PostSharpGitHub_PostSharpDocumentation20270",
+            "PostSharpGitHub_PostSharp20270_PostSharpDocumentation",
             PostSharpDependencies.V2027_0.PostSharpDocumentation.CiConfiguration.ProjectId.Id );
+
+        Assert.Equal( "PostSharpGitHub_PostSharp20270", PostSharpDependencies.V2027_0.PostSharp.CiConfiguration.ProjectId.ParentId );
+
+        Assert.Equal(
+            "PostSharpGitHub_PostSharp20270",
+            PostSharpDependencies.V2027_0.PostSharpDocumentation.CiConfiguration.ProjectId.ParentId );
+    }
+
+    /// <summary>
+    /// The VCS roots of every line are stored in the PostSharp project and are named after the repository and the
+    /// version. The 2027.0 line keeps that naming even though its projects are nested one level deeper, because the
+    /// roots that exist on TeamCity carry those identifiers and the generated settings address them by identifier.
+    /// </summary>
+    [Fact]
+    public void TheVcsRoots_AreNamedAfterTheRepositoryAndTheVersion()
+    {
+        AssertVcsRoot( PostSharpDependencies.V2026_0.PostSharp, "PostSharpGitHub_PostSharp20260" );
+        AssertVcsRoot( PostSharpDependencies.V2026_0.PostSharpDocumentation, "PostSharpGitHub_PostSharpDocumentation20260" );
+        AssertVcsRoot( PostSharpDependencies.V2027_0.PostSharp, "PostSharpGitHub_PostSharp20270" );
+        AssertVcsRoot( PostSharpDependencies.V2027_0.PostSharpDocumentation, "PostSharpGitHub_PostSharpDocumentation20270" );
+
+        static void AssertVcsRoot( DependencyDefinition definition, string expectedVcsRootId )
+        {
+            Assert.Equal( expectedVcsRootId, definition.CiConfiguration.VcsRootId );
+            Assert.Equal( "PostSharpGitHub", definition.CiConfiguration.VcsRootProjectId );
+        }
     }
 
     /// <summary>
