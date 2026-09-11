@@ -46,6 +46,22 @@ Add one file per family under
 of the same product. Branch names and TeamCity identifiers derive from `Family.Version`, so a copy
 with the version changed needs no further editing.
 
+That holds only while the shape of the family's TeamCity tree stays the same. It changed for
+PostSharp 2027.0. The 2024.0 and 2026.0 lines are flat: the project of the line is also the project
+of the PostSharp repository, so the build configurations hang directly under
+`PostSharpGitHub_PostSharp20260`. The 2027.0 line contains one project per repository instead, as
+the Metalama lines do, so the same configurations are under
+`PostSharpGitHub_PostSharp20270_PostSharp`. A copy of `PostSharpDependencies.V2026_0` produced
+identifiers one segment short of the projects that exist, and nothing reports that until a build
+references a configuration that is not there. Read the project tree on TeamCity and make the
+identifiers match it.
+
+The VCS roots of the PostSharp lines are a second exception. They are stored in the
+`PostSharpGitHub` project and named after the repository and the version -- the names the earlier
+lines created -- rather than in the project of the line, which is where the per-repository layout
+would otherwise put them. The 2027.0 definitions therefore pass `vcsRootProjectId` and `vcsRootId`
+explicitly instead of taking the defaults.
+
 Set `UpstreamProductFamily` to the family the new one merges from. PostSharp families never declare
 one, because PostSharp has no upstream merge chain.
 
