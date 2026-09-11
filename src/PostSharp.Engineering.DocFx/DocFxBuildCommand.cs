@@ -33,7 +33,7 @@ internal class DocFxBuildCommand : BaseCommand<DocFxSettings>
                 // Enable HTML parsing in AutolinkInlineParser to prevent escaping of HTML tags.
                 // (This has nothing to do with autolink parsing, but the AutoplinkInlineParser provides this feature.)
                 var autolinkInlineParser = markdig.InlineParsers.Find<AutolinkInlineParser>()!;
-                autolinkInlineParser.EnableHtmlParsing = true;
+                autolinkInlineParser.Options.EnableHtmlParsing = true;
 
                 markdig.Extensions.AddIfNotAlready<CommentBlockExtension>();
 
